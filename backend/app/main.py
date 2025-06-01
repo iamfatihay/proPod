@@ -9,4 +9,4 @@ app.include_router(podcasts.router)
 
 @app.get("/")
 def read_root():
-    return {"message": "proPod FastAPI backend çalışıyor!"}
+    return {"message": "proPod FastAPI backend is running!"}

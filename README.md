@@ -1,46 +1,46 @@
 # proPod Backend
 
-Bu proje, proPod mobil uygulaması için geliştirilen FastAPI tabanlı backend servisidir. Kullanıcılar podcast kaydedebilir, yayınlayabilir ve AI destekli düzenleme yapabilir.
+This project is the FastAPI-based backend service for the proPod mobile application. Users can record, publish, and AI-edit podcasts with this backend.
 
-## Kullanılan Teknolojiler
+## Technologies Used
 
 -   FastAPI
 -   SQLAlchemy
--   PostgreSQL (veya SQLite)
+-   PostgreSQL (or SQLite)
 -   JWT Authentication
 -   Docker
 
-## Kurulum
+## Setup
 
-1. Gerekli ortam değişkenlerini `.env` dosyasına ekleyin:
+1. Add the required environment variables to a `.env` file:
 
     ```env
-    DATABASE_URL=postgresql://kullanici:sifre@localhost:5432/propod
+    DATABASE_URL=postgresql://user:password@localhost:5432/propod
     SECRET_KEY=supersecretkey
     ALGORITHM=HS256
     ACCESS_TOKEN_EXPIRE_MINUTES=30
     ```
 
-2. Geliştirme ortamında başlatmak için:
+2. To start in development mode:
 
     ```bash
     pip install -r requirements.txt
     uvicorn app.main:app --reload
     ```
 
-3. Docker ile başlatmak için:
+3. To start with Docker:
     ```bash
     docker build -t propod-backend .
     docker run -p 8000:8000 --env-file .env propod-backend
     ```
 
-## Temel API Endpointleri
+## Main API Endpoints
 
--   `/users/register` : Kullanıcı kaydı
--   `/users/login` : Kullanıcı girişi (JWT)
--   `/podcasts/create` : Podcast oluşturma
+-   `/users/register` : User registration
+-   `/users/login` : User login (JWT)
+-   `/podcasts/create` : Create podcast
 
-## Geliştirici Notları
+## Developer Notes
 
--   AI entegrasyonu ve dosya yükleme özellikleri ileride eklenecektir.
--   Kodlar mikroservis mimarisine uygun şekilde yapılandırılmıştır.
+-   AI integration and file upload features will be added in the future.
+-   The codebase is structured to be compatible with microservice architecture.
