@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet } from "react-native";
+import { Colors } from "../constants/Colors";
 
 export default function HomeScreen() {
     return (
@@ -13,11 +14,11 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#fff",
+        backgroundColor: Colors.background,
     },
     title: {
         fontSize: 24,
         fontWeight: "bold",
-        color: "#2563eb", // tailwind blue-600 equivalent
+        color: Colors.textPrimary,
     },
 });
