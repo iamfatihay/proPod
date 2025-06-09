@@ -10,13 +10,23 @@
     "build": "eas build"
   },
   "dependencies": {
+    "@expo/vector-icons": "^14.1.0",
     "expo": "^53.0.10",
+    "expo-av": "~15.1.5",
+    "expo-file-system": "~18.1.10",
     "expo-router": "^5.0.7",
     "expo-status-bar": "^2.2.3",
     "react": "19.0.0",
-    "react-native": "0.79.3",
-    "react-native-safe-area-context": "5.4.0",
     "react-dom": "19.0.0",
-    "react-native-web": "^0.20.0"
+    "react-native": "0.79.3",
+    "react-native-paper": "^5.14.5",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-web": "^0.20.0",
+    "zustand": "^5.0.5"
+  },
+  "devDependencies": {
+    "@testing-library/react-native": "^13.2.0",
+    "jest-expo": "~53.0.7",
+    "react-test-renderer": "^19.0.0"
   }
 }
