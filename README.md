@@ -2,7 +2,7 @@
 
 ## 📱 Project Description
 
-proPod is a mobile application that enables users to create, broadcast, and edit podcast content with AI assistance.
+proPod is a cross-platform (Android, iOS, Web) mobile application that enables users to create, broadcast, and edit podcast content with AI assistance.
 
 ## 🎯 Key Features
 
@@ -35,10 +35,11 @@ proPod is a mobile application that enables users to create, broadcast, and edit
 
 ### Frontend (React Native + Expo)
 
--   **Navigation:** React Navigation
+-   **Navigation:** expo-router (file-based routing)
 -   **Styling:** React Native StyleSheet
 -   **State Management:** Context API / Redux Toolkit (future)
 -   **Audio/Video:** Expo AV, Expo Audio
+-   **Web Support:** Requires `react-dom` and `react-native-web` dependencies
 
 ### Backend (FastAPI)
 
@@ -51,14 +52,15 @@ proPod is a mobile application that enables users to create, broadcast, and edit
 
 ```
 proPod/
-├── frontend/          # React Native mobile app
+├── frontend/          # React Native mobile application
+│   ├── app/           # expo-router screens (file-based routing)
 │   ├── src/
 │   │   ├── components/    # Reusable UI components
-│   │   ├── screens/       # App screens
+│   │   ├── screens/       # Legacy screens (new screens are under app/)
 │   │   ├── services/      # API, streaming, audio services
 │   │   ├── utils/         # Helper functions
 │   │   ├── constants/     # Constants and configurations
-│   │   ├── navigation/    # Navigation setup
+│   │   ├── navigation/    # (Not used, routing is under app/ with expo-router)
 │   │   ├── hooks/         # Custom React hooks
 │   │   └── context/       # Global state management
 │   └── ...
@@ -72,15 +74,53 @@ proPod/
 
 ## 🏃‍♂️ Getting Started
 
-### Frontend
+### Frontend (Mobile Application)
+
+#### Installation
 
 ```bash
 cd frontend
 npm install
-npx expo start
 ```
 
-### Backend
+#### Run Commands
+
+-   **Android device/emulator:**
+    ```bash
+    npm run android
+    ```
+-   **iOS (on MacOS):**
+    ```bash
+    npm run ios
+    ```
+-   **Web:**
+    ```bash
+    npm run web
+    ```
+-   **To use Expo Go and scan the QR code:**
+    ```bash
+    npm start
+    ```
+
+#### Build (for real device testing or app store release)
+
+-   [EAS Build](https://docs.expo.dev/build/introduction/) for cross-platform builds:
+    ```bash
+    npm run build
+    ```
+    > Note: EAS Build requires an Expo account.
+
+#### Web Support Requirements
+
+-   To run the app on web, make sure you have the following dependencies in your `package.json`:
+    -   `react-dom`
+    -   `react-native-web`
+-   If you encounter navigation or touch issues on web, install them with:
+    ```bash
+    npx expo install react-dom react-native-web
+    ```
+
+### Backend (API Server)
 
 ```bash
 cd backend
@@ -90,4 +130,4 @@ uvicorn app.main:app --reload
 
 ---
 
-**Last updated:** ${new Date().toLocaleDateString('en-US')}
+**Last updated:** 2025-06-09

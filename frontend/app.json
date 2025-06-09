@@ -3,6 +3,7 @@
         "name": "Volo",
         "slug": "Volo",
         "version": "1.0.0",
+        "scheme": "Volo",
         "orientation": "portrait",
         "icon": "./assets/Volo-logo.png",
         "userInterfaceStyle": "dark",
