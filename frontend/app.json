@@ -14,14 +14,20 @@
             "backgroundColor": "#000000"
         },
         "ios": {
-            "supportsTablet": true
+            "supportsTablet": true,
+            "splash": {
+                "backgroundColor": "#000000"
+            }
         },
         "android": {
             "adaptiveIcon": {
                 "foregroundImage": "./assets/Volo-logo.png",
                 "backgroundColor": "#000000"
             },
-            "edgeToEdgeEnabled": true
+            "edgeToEdgeEnabled": true,
+            "splash": {
+                "backgroundColor": "#000000"
+            }
         },
         "web": {
             "bundler": "metro",

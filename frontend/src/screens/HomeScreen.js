@@ -4,8 +4,8 @@ import { useRouter } from "expo-router";
 export default function HomeScreen() {
     const router = useRouter();
     return (
-        <View className="flex-1 items-center justify-center bg-black">
-            <Text className="text-2xl font-bold text-white mb-4">
+        <View className="flex-1 items-center justify-center bg-background">
+            <Text className="text-2xl font-bold text-text-primary mb-4">
                 Ana Sayfa
             </Text>
             <Button
