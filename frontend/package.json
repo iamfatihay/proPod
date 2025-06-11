@@ -14,14 +14,18 @@
     "expo": "^53.0.10",
     "expo-av": "~15.1.5",
     "expo-file-system": "~18.1.10",
+    "expo-linking": "^7.1.5",
     "expo-router": "^5.0.7",
     "expo-status-bar": "^2.2.3",
+    "nativewind": "^4.1.23",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.3",
     "react-native-paper": "^5.14.5",
+    "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-web": "^0.20.0",
+    "tailwindcss": "^3.4.17",
     "zustand": "^5.0.5"
   },
   "devDependencies": {

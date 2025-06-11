@@ -3,11 +3,13 @@ import { Link } from "expo-router";
 
 export default function HomeScreen() {
     return (
-        <View>
-            <Text>Ana Sayfa</Text>
+        <View className="flex-1 bg-black justify-center items-center">
+            <Text className="text-white text-xl font-bold mb-4">Ana Sayfa</Text>
             <Link href="/details" asChild>
-                <TouchableOpacity>
-                    <Text>Detaylara Git</Text>
+                <TouchableOpacity className="bg-red-700 px-4 py-2 rounded-lg">
+                    <Text className="text-white font-semibold">
+                        Detaylara Git
+                    </Text>
                 </TouchableOpacity>
             </Link>
         </View>

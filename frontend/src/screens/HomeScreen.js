@@ -1,30 +1,18 @@
-import { View, Text, StyleSheet, Button } from "react-native";
-import { Colors } from "../constants/Colors";
+import { View, Text, Button } from "react-native";
 import { useRouter } from "expo-router";
 
 export default function HomeScreen() {
     const router = useRouter();
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Ana Sayfa</Text>
+        <View className="flex-1 items-center justify-center bg-black">
+            <Text className="text-2xl font-bold text-white mb-4">
+                Ana Sayfa
+            </Text>
             <Button
                 title="Detaylara Git"
                 onPress={() => router.push("/details")}
+                color="#D32F2F"
             />
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: Colors.background,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: "bold",
-        color: Colors.textPrimary,
-    },
-});
