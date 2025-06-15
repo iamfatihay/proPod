@@ -17,7 +17,7 @@ export default function LoginScreen() {
         <View className="flex-1 bg-background justify-center items-center px-6">
             <Image
                 source={require("../../assets/Volo-logo.png")}
-                className="w-24 h-24 mb-8"
+                className="w-60 h-60 mb-6"
                 resizeMode="contain"
             />
             <Text className="text-3xl font-bold text-primary mb-2">
@@ -28,7 +28,7 @@ export default function LoginScreen() {
             </Text>
             <View className="w-full space-y-4 mb-6">
                 <TextInput
-                    className="bg-card rounded-lg px-4 py-3 text-text-primary border border-border focus:border-primary"
+                    className="bg-card rounded-lg mb-4 px-4 py-3 text-text-primary border border-border focus:border-primary"
                     placeholder="Email"
                     placeholderTextColor="#888"
                     autoCapitalize="none"
