@@ -1,2 +1,2 @@
-import "expo-router/entry";
 import "./global.css";
+import "expo-router/entry";

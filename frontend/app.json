@@ -3,7 +3,7 @@
         "name": "Volo",
         "slug": "Volo",
         "version": "1.0.0",
-        "scheme": "Volo",
+        "scheme": "volo",
         "orientation": "portrait",
         "icon": "./assets/Volo-logo.png",
         "userInterfaceStyle": "dark",
@@ -27,11 +27,17 @@
             "edgeToEdgeEnabled": true,
             "splash": {
                 "backgroundColor": "#000000"
-            }
+            },
+            "package": "com.iamfatihay.Volo"
         },
         "web": {
             "bundler": "metro",
             "favicon": "./assets/Volo-logo.png"
+        },
+        "extra": {
+            "eas": {
+                "projectId": "6760a9ac-697b-4e25-9f44-0d0ecc8edbbb"
+            }
         }
     }
 }
