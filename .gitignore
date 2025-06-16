@@ -1,13 +1,29 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# dependencies
-node_modules/
+# Genel
+.DS_Store
+*.pem
 
-# Expo
+# Node/Frontend
+node_modules/
 .expo/
 dist/
 web-build/
 expo-env.d.ts
+frontend/.env
+frontend/.env.local
+
+# Python/Backend
+backend/.venv/
+backend/.env
+backend/__pycache__/
+backend/*.pyc
+backend/*.sqlite3
+backend/*.db
+
+# IDE/editor
+.idea/
+.vscode/
 
 # Native
 .kotlin/
@@ -25,10 +41,6 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
 
 # local env files
 .env*.local
