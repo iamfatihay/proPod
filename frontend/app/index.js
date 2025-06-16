@@ -1,8 +1,23 @@
-import { View, Text, TouchableOpacity } from "react-native";
-import { Link } from "expo-router";
+import { View, Text } from "react-native";
 import LoginScreen from "../src/screens/LoginScreen";
+import useAuthStore from "../src/context/useAuthStore";
+import { Stack } from "expo-router";
 
 export default function HomeScreen() {
-    // TODO: Auth kontrolü eklenecek, şimdilik her zaman login göster
-    return <LoginScreen />;
+    const user = useAuthStore((state) => state.user);
+    // Eğer kullanıcı login olduysa ana ekranı, yoksa login ekranını göster
+    if (!user) {
+        return <LoginScreen />;
+    }
+    return (
+        <View className="flex-1 bg-background justify-center items-center">
+            <Text className="text-text-primary text-xl font-bold">
+                Welcome, {user.email}
+            </Text>
+        </View>
+    );
 }
+
+HomeScreen.options = {
+    headerShown: false,
+};

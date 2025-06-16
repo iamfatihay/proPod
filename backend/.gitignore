@@ -1,8 +1,0 @@
-__pycache__/
-*.pyc
-.env
-*.sqlite3
-*.db
-.DS_Store
-.idea/
-.vscode/ 

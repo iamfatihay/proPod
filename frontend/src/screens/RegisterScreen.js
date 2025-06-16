@@ -1,24 +1,26 @@
 import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Image } from "react-native";
-import { Link } from "expo-router";
-import useAuthStore from "../context/useAuthStore";
+import { Link, useRouter } from "expo-router";
 import apiService from "../services/api/apiService";
 
-export default function LoginScreen() {
+export default function RegisterScreen() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const setUser = useAuthStore((state) => state.setUser);
+    const [success, setSuccess] = useState(false);
+    const router = useRouter();
 
-    const handleLogin = async () => {
+    const handleRegister = async () => {
         setLoading(true);
         setError("");
+        setSuccess(false);
         try {
-            const user = await apiService.login(email, password);
-            setUser(user);
+            await apiService.register(email, password);
+            setSuccess(true);
+            setTimeout(() => router.replace("/"), 1000);
         } catch (err) {
-            setError("Invalid email or password");
+            setError("Registration failed. Try a different email.");
         } finally {
             setLoading(false);
         }
@@ -32,12 +34,17 @@ export default function LoginScreen() {
                 resizeMode="contain"
             />
             <Text className="text-3xl font-bold text-primary mb-2">
-                Welcome Back
+                Create Account
             </Text>
             <Text className="text-text-secondary mb-8">
-                Sign in to your account
+                Sign up to get started
             </Text>
             {error ? <Text className="text-red-500 mb-2">{error}</Text> : null}
+            {success ? (
+                <Text className="text-green-500 mb-2">
+                    Registration successful! Redirecting...
+                </Text>
+            ) : null}
             <View className="w-full space-y-4 mb-6">
                 <TextInput
                     className="bg-card rounded-lg mb-4 px-4 py-3 text-text-primary border border-border focus:border-primary"
@@ -59,21 +66,21 @@ export default function LoginScreen() {
             </View>
             <TouchableOpacity
                 className="bg-primary w-full py-3 rounded-lg items-center mb-4 disabled:opacity-50"
-                onPress={handleLogin}
+                onPress={handleRegister}
                 disabled={loading}
             >
                 <Text className="text-white font-semibold text-base">
-                    {loading ? "Signing in..." : "Sign In"}
+                    {loading ? "Signing up..." : "Sign Up"}
                 </Text>
             </TouchableOpacity>
             <View className="flex-row items-center justify-center">
                 <Text className="text-text-secondary">
-                    Don't have an account?{" "}
+                    Already have an account?{" "}
                 </Text>
-                <Link href="/register" asChild>
+                <Link href="/" asChild>
                     <TouchableOpacity>
                         <Text className="text-primary font-semibold">
-                            Sign Up
+                            Sign In
                         </Text>
                     </TouchableOpacity>
                 </Link>
