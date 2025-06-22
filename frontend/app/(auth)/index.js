@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Image } from "react-native";
 import { Link } from "expo-router";
-import useAuthStore from "../context/useAuthStore";
-import apiService from "../services/api/apiService";
+import useAuthStore from "../../src/context/useAuthStore";
+import apiService from "../../src/services/api/apiService";
 
 export default function LoginScreen() {
     const [email, setEmail] = useState("");
@@ -15,8 +15,9 @@ export default function LoginScreen() {
         setLoading(true);
         setError("");
         try {
-            const user = await apiService.login(email, password);
-            setUser(user);
+            const data = await apiService.login(email, password);
+            apiService.setToken(data.access_token);
+            setUser(data.user);
         } catch (err) {
             setError("Invalid email or password");
         } finally {

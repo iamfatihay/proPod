@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 
+// This line is used to get the API base URL from app.config.js (extra.apiBaseUrl).
 const API_BASE_URL = Constants.expoConfig.extra.apiBaseUrl;
 
 class ApiService {
@@ -47,10 +48,10 @@ class ApiService {
         });
     }
 
-    async register(email, password) {
+    async register(name, email, password) {
         return this.request("/users/register", {
             method: "POST",
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ name, email, password }),
         });
     }
 

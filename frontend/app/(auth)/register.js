@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Image } from "react-native";
 import { Link, useRouter } from "expo-router";
-import apiService from "../services/api/apiService";
+import apiService from "../../src/services/api/apiService";
 
 export default function RegisterScreen() {
+    const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
@@ -16,7 +17,7 @@ export default function RegisterScreen() {
         setError("");
         setSuccess(false);
         try {
-            await apiService.register(email, password);
+            await apiService.register(name, email, password);
             setSuccess(true);
             setTimeout(() => router.replace("/"), 1000);
         } catch (err) {
@@ -46,6 +47,13 @@ export default function RegisterScreen() {
                 </Text>
             ) : null}
             <View className="w-full space-y-4 mb-6">
+                <TextInput
+                    className="bg-card rounded-lg mb-4 px-4 py-3 text-text-primary border border-border focus:border-primary"
+                    placeholder="Name"
+                    placeholderTextColor="#888"
+                    value={name}
+                    onChangeText={setName}
+                />
                 <TextInput
                     className="bg-card rounded-lg mb-4 px-4 py-3 text-text-primary border border-border focus:border-primary"
                     placeholder="Email"
