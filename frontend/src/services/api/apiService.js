@@ -55,6 +55,25 @@ class ApiService {
         });
     }
 
+    async googleLogin({ email, name, photo_url }) {
+        return this.request("/users/google-login", {
+            method: "POST",
+            body: JSON.stringify({
+                email,
+                name,
+                provider: "google",
+                photo_url,
+            }),
+        });
+    }
+
+    async refreshToken(refresh_token) {
+        return this.request("/users/refresh-token", {
+            method: "POST",
+            body: JSON.stringify({ refresh_token }),
+        });
+    }
+
     // Podcast methods
     async createPodcast(podcastData) {
         return this.request("/podcasts/create", {

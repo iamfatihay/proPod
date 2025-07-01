@@ -18,6 +18,7 @@ export default function RegisterScreen() {
     const [success, setSuccess] = useState(false);
     const router = useRouter();
     const setUser = useAuthStore((state) => state.setUser);
+    const setTokens = useAuthStore((state) => state.setTokens);
 
     // Google Auth
     const googleAndroidClientId =
@@ -40,20 +41,25 @@ export default function RegisterScreen() {
     React.useEffect(() => {
         if (response?.type === "success") {
             const { authentication } = response;
-            // Google user info fetch
             fetch("https://www.googleapis.com/userinfo/v2/me", {
                 headers: {
                     Authorization: `Bearer ${authentication.accessToken}`,
                 },
             })
                 .then((res) => res.json())
-                .then((data) => {
-                    setUser({
-                        name: data.name,
-                        email: data.email,
-                        photoURL: data.picture,
-                        google: true,
-                    });
+                .then(async (data) => {
+                    try {
+                        const result = await apiService.googleLogin({
+                            email: data.email,
+                            name: data.name,
+                            photo_url: data.picture,
+                        });
+                        apiService.setToken(result.access_token);
+                        setUser(result.user);
+                        setTokens(result.access_token, result.refresh_token);
+                    } catch (err) {
+                        setError("Google register failed");
+                    }
                 });
         }
     }, [response]);
@@ -129,7 +135,7 @@ export default function RegisterScreen() {
             </TouchableOpacity>
             {/* Register with Google */}
             <TouchableOpacity
-                className="flex-row items-center justify-center bg-white w-full border border-border rounded-lg py-3 mb-4"
+                className="flex-row items-center justify-center bg-panel w-full border border-border rounded-lg py-3 mb-4"
                 onPress={() => promptAsync()}
                 disabled={!request}
             >
@@ -139,7 +145,7 @@ export default function RegisterScreen() {
                     color="#D32F2F"
                     className="mr-2"
                 />
-                <Text className="text-base text-text-primary ml-2">
+                <Text className="text-base text-text-secondary ml-2">
                     Sign up with Google
                 </Text>
             </TouchableOpacity>

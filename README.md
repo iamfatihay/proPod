@@ -75,6 +75,7 @@ pip install -r requirements.txt
 # Create .env file (see .env.example)
 python -m app.init_db
 python -m uvicorn app.main:app --reload
+# uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### 2. **Frontend Setup**
@@ -84,8 +85,7 @@ cd frontend
 npm install
 # Create .env file (see .env.example)
 # API_BASE_URL=...
-# If using Expo Go:
-npx expo start --tunnel
+npx expo start --dev-client -c --tunnel
 ```
 
 ### 3. **Run on Device/Emulator**

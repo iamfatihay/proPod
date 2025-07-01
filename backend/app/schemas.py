@@ -25,10 +25,12 @@ class Podcast(PodcastBase):
 class UserBase(BaseModel):
     email: EmailStr
     name: str
+    provider: Optional[str] = "local"
+    photo_url: Optional[str] = None
 
 
 class UserCreate(UserBase):
-    password: str
+    password: Optional[str] = None
 
 
 class UserLogin(BaseModel):
