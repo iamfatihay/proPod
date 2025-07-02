@@ -3,23 +3,26 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Appbar, Surface } from "react-native-paper";
 
-// Aynı fake data'yı burada da tanımla veya dışarıdan import et
-const episodes = [
-    { id: "1", title: "Episode 1", duration: "28:15", date: "2 days ago" },
-    { id: "2", title: "Episode 2", duration: "34:02", date: "1 week ago" },
-    { id: "3", title: "Episode 3", duration: "21:47", date: "2 weeks ago" },
+const chats = [
+    { id: "1", name: "Daniel", message: "Hallo!", time: "2h ago" },
+    {
+        id: "2",
+        name: "Anna",
+        message: "Das war eine interessante Folge.",
+        time: "3h ago",
+    },
 ];
 
-export default function PodcastDetails() {
+export default function ChatDetails() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
-    const episode = episodes.find((ep) => ep.id === id);
+    const chat = chats.find((c) => c.id === id);
 
     return (
         <View className="flex-1 bg-background">
             <Appbar.Header style={{ backgroundColor: "#18181b" }}>
                 <Appbar.BackAction onPress={() => router.back()} />
-                <Appbar.Content title="Podcast Details" />
+                <Appbar.Content title="Chat Details" />
             </Appbar.Header>
             <View className="flex-1 px-4 pt-6">
                 <Surface
@@ -30,24 +33,24 @@ export default function PodcastDetails() {
                         backgroundColor: "#18181b",
                     }}
                 >
-                    {episode ? (
+                    {chat ? (
                         <>
                             <Text className="text-2xl font-bold text-text-primary mb-2">
-                                {episode.title}
+                                Chat with {chat.name}
                             </Text>
                             <Text className="text-base text-text-secondary mb-2">
-                                Duration: {episode.duration}
+                                Last message: {chat.message}
                             </Text>
                             <Text className="text-base text-text-secondary mb-2">
-                                Date: {episode.date}
+                                Time: {chat.time}
                             </Text>
                             <Text className="text-base text-text-primary mt-4">
-                                Podcast details coming soon...
+                                Chat details coming soon...
                             </Text>
                         </>
                     ) : (
                         <Text className="mt-8 text-lg text-red-500">
-                            Podcast not found
+                            Chat not found
                         </Text>
                     )}
                 </Surface>

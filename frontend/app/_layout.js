@@ -13,6 +13,12 @@ export default function Layout() {
     const { user } = useAuthStore();
     const router = useRouter();
     const segments = useSegments();
+    const initAuth = useAuthStore((state) => state.initAuth);
+
+    useEffect(() => {
+        // Load tokens from SecureStore when the app starts
+        initAuth();
+    }, []);
 
     useEffect(() => {
         const inAuthGroup = segments[0] === "(auth)";

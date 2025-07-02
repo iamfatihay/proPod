@@ -1,8 +1,11 @@
-import { View, Text, Image, FlatList, TouchableOpacity } from "react-native";
+import { View, Text, Image } from "react-native";
 import React from "react";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import useAuthStore from "../../src/context/useAuthStore";
+import PodcastCard from "../../src/components/PodcastCard";
+import ChatCard from "../../src/components/ChatCard";
+import ActivityCard from "../../src/components/ActivityCard";
 
 // Fake Data
 const episodes = [
@@ -98,110 +101,55 @@ export default function HomeScreen() {
             </Text>
             <View className="mb-4">
                 {episodes.map((ep) => (
-                    <View
+                    <PodcastCard
                         key={ep.id}
-                        className="flex-row items-center bg-panel rounded-xl px-4 py-3 mb-2"
-                    >
-                        <View className="w-10 h-10 bg-primary/20 rounded-full items-center justify-center mr-3">
-                            <MaterialCommunityIcons
-                                name="microphone"
-                                size={24}
-                                color="#D32F2F"
-                            />
-                        </View>
-                        <View className="flex-1">
-                            <Text className="text-base font-medium text-text-primary">
-                                {ep.title}
-                            </Text>
-                            <Text className="text-xs text-text-secondary">
-                                {ep.duration} • {ep.date}
-                            </Text>
-                        </View>
-                        <TouchableOpacity>
-                            <Ionicons
-                                name="ellipsis-horizontal"
-                                size={22}
-                                color="#888"
-                            />
-                        </TouchableOpacity>
-                    </View>
+                        episode={ep}
+                        onPress={() =>
+                            router.push({
+                                pathname: "/(main)/details",
+                                params: { id: ep.id },
+                            })
+                        }
+                    />
                 ))}
             </View>
 
             {/* Chats & Activities */}
             <View className="flex-row gap-4 mb-4">
                 {/* Chats */}
-                <View className="flex-1 bg-panel rounded-xl p-4">
+                <View className="flex-1">
                     <Text className="text-base font-semibold text-text-primary mb-2">
                         Chats
                     </Text>
                     {chats.map((chat) => (
-                        <View
+                        <ChatCard
                             key={chat.id}
-                            className="flex-row items-center mb-2"
-                        >
-                            <View className="w-8 h-8 bg-card rounded-full items-center justify-center mr-2">
-                                <Ionicons
-                                    name="person"
-                                    size={18}
-                                    color="#888"
-                                />
-                            </View>
-                            <View className="flex-1">
-                                <Text className="text-sm text-text-primary font-medium">
-                                    {chat.name}
-                                </Text>
-                                <Text className="text-xs text-text-secondary">
-                                    {chat.message}
-                                </Text>
-                            </View>
-                            <Text className="text-xs text-text-secondary ml-2">
-                                {chat.time}
-                            </Text>
-                        </View>
+                            chat={chat}
+                            onPress={() =>
+                                router.push({
+                                    pathname: "/(main)/chat-details",
+                                    params: { id: chat.id },
+                                })
+                            }
+                        />
                     ))}
                 </View>
                 {/* Activities */}
-                <View className="flex-1 bg-panel rounded-xl p-4">
+                <View className="flex-1">
                     <Text className="text-base font-semibold text-text-primary mb-2">
                         Aktivitäten
                     </Text>
                     {activities.map((act) => (
-                        <View
+                        <ActivityCard
                             key={act.id}
-                            className="flex-row items-center mb-2"
-                        >
-                            {act.type === "comment" && (
-                                <Ionicons
-                                    name="chatbubble-ellipses"
-                                    size={18}
-                                    color="#D32F2F"
-                                    className="mr-2"
-                                />
-                            )}
-                            {act.type === "livestream" && (
-                                <MaterialCommunityIcons
-                                    name="broadcast"
-                                    size={18}
-                                    color="#D32F2F"
-                                    className="mr-2"
-                                />
-                            )}
-                            {act.type === "message" && (
-                                <Ionicons
-                                    name="mail"
-                                    size={18}
-                                    color="#D32F2F"
-                                    className="mr-2"
-                                />
-                            )}
-                            <Text className="text-sm text-text-primary flex-1 ml-2">
-                                {act.text}
-                            </Text>
-                            <Text className="text-xs text-text-secondary ml-2">
-                                {act.time}
-                            </Text>
-                        </View>
+                            activity={act}
+                            onPress={() =>
+                                router.push({
+                                    pathname: "/(main)/activity-details",
+                                    params: { id: act.id },
+                                })
+                            }
+                        />
                     ))}
                 </View>
             </View>
