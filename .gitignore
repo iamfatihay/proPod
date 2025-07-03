@@ -12,6 +12,10 @@ web-build/
 expo-env.d.ts
 frontend/.env
 frontend/.env.local
+frontend/.expo-shared/
+
+# Test coverage
+coverage/
 
 # Python/Backend
 backend/.venv/

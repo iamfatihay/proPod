@@ -10,6 +10,8 @@ proPod is a cross-platform (Android, iOS, Web) mobile application for creating, 
 
 -   Modern login & register screens with NativeWind (Tailwind for React Native) and improved UI/UX
 -   Auth flow: login, register, logout, protected routes, global state with Zustand + devtools middleware
+-   **Google OAuth login/register and profile photo support**
+-   **Secure token storage and automatic refresh (expo-secure-store, auto-refresh on 401)**
 -   API base URL management via `.env` and `app.config.js` (frontend)
 -   Backend: Python venv now only in `backend/`, module path issues çözüldü, eksik bağımlılıklar yüklendi
 -   Unified `.gitignore` at project root for both backend and frontend
@@ -29,6 +31,8 @@ proPod is a cross-platform (Android, iOS, Web) mobile application for creating, 
 -   **Zustand**: Simple global state management
 -   **expo-av**: Audio recording/playback
 -   **expo-file-system**: File management
+-   **expo-secure-store**: Secure token storage (authentication)
+-   **expo-auth-session**: Google OAuth integration
 -   **@expo/vector-icons**: Icons
 -   **jest-expo, @testing-library/react-native**: Testing
 
@@ -45,21 +49,23 @@ proPod is a cross-platform (Android, iOS, Web) mobile application for creating, 
 
 ## 📦 Key Packages & Their Purpose
 
-| Package/Tool       | Purpose                                 |
-| ------------------ | --------------------------------------- |
-| expo-router        | Navigation/routing (file-based)         |
-| NativeWind         | Utility-first styling (Tailwind for RN) |
-| Zustand            | Global state management                 |
-| React Native Paper | UI components                           |
-| expo-av            | Audio recording/playback                |
-| expo-file-system   | File management                         |
-| @expo/vector-icons | Icons                                   |
-| FastAPI            | Backend API                             |
-| SQLAlchemy         | ORM/database                            |
-| python-jose        | JWT authentication                      |
-| passlib            | Password hashing                        |
-| python-dotenv      | Env variable management                 |
-| pytest/jest-expo   | Testing                                 |
+| Package/Tool       | Purpose                                   |
+| ------------------ | ----------------------------------------- |
+| expo-router        | Navigation/routing (file-based)           |
+| NativeWind         | Utility-first styling (Tailwind for RN)   |
+| Zustand            | Global state management                   |
+| React Native Paper | UI components                             |
+| expo-av            | Audio recording/playback                  |
+| expo-file-system   | File management                           |
+| expo-secure-store  | **Secure token storage (authentication)** |
+| expo-auth-session  | **Google OAuth login/register**           |
+| @expo/vector-icons | Icons                                     |
+| FastAPI            | Backend API                               |
+| SQLAlchemy         | ORM/database                              |
+| python-jose        | JWT authentication                        |
+| passlib            | Password hashing                          |
+| python-dotenv      | Env variable management                   |
+| pytest/jest-expo   | Testing                                   |
 
 ---
 
@@ -103,6 +109,7 @@ npx expo start --dev-client -c --tunnel
 -   Live podcast broadcasting (future)
 -   Simple, scalable state management
 -   Modern, responsive UI/UX
+-   **Secure authentication and Google OAuth support**
 
 ---
 
@@ -128,4 +135,4 @@ proPod/
 
 ---
 
-**Last updated:** 2025-06-09
+**Last updated:** 2025-07-02
