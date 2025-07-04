@@ -39,3 +39,19 @@ npx expo start --dev-client -c --tunnel
 -   `--tunnel`: Ensures a stable connection for both emulators and physical devices, regardless of network conditions.
 
 Once the server is running, open the **"Volo"** app on your device/emulator. It should automatically detect and connect to the development server. If not, scan the QR code displayed in your terminal.
+
+# Frontend Setup
+
+## Environment Variables
+
+This frontend uses a `.env` file in the `frontend/` directory for environment-specific configuration. Use the provided `.env.example` as a template:
+
+```bash
+cp .env.example .env
+```
+
+**Key variables:**
+
+-   `API_BASE_URL`: The base URL for the backend API (e.g. http://localhost:8000 or your local IP)
+
+All other configuration (such as Google OAuth client IDs) is managed via `app.config.js` under the `extra` field.

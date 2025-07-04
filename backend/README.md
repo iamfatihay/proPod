@@ -19,6 +19,7 @@ This project is the FastAPI-based backend service for the proPod mobile applicat
     SECRET_KEY=supersecretkey
     ALGORITHM=HS256
     ACCESS_TOKEN_EXPIRE_MINUTES=30
+    REFRESH_TOKEN_EXPIRE_DAYS=7
     ```
 
 2. To start in development mode:
@@ -44,3 +45,23 @@ This project is the FastAPI-based backend service for the proPod mobile applicat
 
 -   AI integration and file upload features will be added in the future.
 -   The codebase is structured to be compatible with microservice architecture.
+
+# Backend Setup
+
+## Environment Variables
+
+This backend requires a `.env` file in the `backend/` directory. You can use the provided `.env.example` as a template:
+
+```bash
+cp .env.example .env
+```
+
+**Required variables:**
+
+-   `SECRET_KEY`: Secret key for JWT signing (must be kept secret!)
+-   `ALGORITHM`: JWT algorithm (e.g. HS256)
+-   `ACCESS_TOKEN_EXPIRE_MINUTES`: Access token expiration time (in minutes)
+-   `REFRESH_TOKEN_EXPIRE_DAYS`: Refresh token expiration time (in days)
+-   `DATABASE_URL`: Database connection string (e.g. sqlite:///./test.db)
+
+If any of these variables are missing, the backend will not start.
