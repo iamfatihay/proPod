@@ -1,4 +1,4 @@
-import { View, Text } from "react-native";
+import { View, Text, SafeAreaView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Appbar, Surface } from "react-native-paper";
@@ -30,7 +30,7 @@ export default function ActivityDetails() {
     const activity = activities.find((a) => a.id === id);
 
     return (
-        <View className="flex-1 bg-background">
+        <SafeAreaView className="flex-1 bg-background">
             <Appbar.Header style={{ backgroundColor: "#18181b" }}>
                 <Appbar.BackAction onPress={() => router.back()} />
                 <Appbar.Content title="Activity Details" />
@@ -69,6 +69,6 @@ export default function ActivityDetails() {
                     )}
                 </Surface>
             </View>
-        </View>
+        </SafeAreaView>
     );
 }

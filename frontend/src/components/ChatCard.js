@@ -18,6 +18,7 @@ export default function ChatCard({ chat, onPress }) {
                 activeOpacity={0.8}
                 onPress={onPress}
                 className="flex-row items-center px-3 py-2"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
                 <View className="w-8 h-8 bg-card rounded-full items-center justify-center mr-2">
                     <Ionicons name="person" size={18} color="#888" />

@@ -1,4 +1,4 @@
-import { View, Text } from "react-native";
+import { View, Text, SafeAreaView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Appbar, Surface } from "react-native-paper";
@@ -19,7 +19,7 @@ export default function ChatDetails() {
     const chat = chats.find((c) => c.id === id);
 
     return (
-        <View className="flex-1 bg-background">
+        <SafeAreaView className="flex-1 bg-background">
             <Appbar.Header style={{ backgroundColor: "#18181b" }}>
                 <Appbar.BackAction onPress={() => router.back()} />
                 <Appbar.Content title="Chat Details" />
@@ -55,6 +55,6 @@ export default function ChatDetails() {
                     )}
                 </Surface>
             </View>
-        </View>
+        </SafeAreaView>
     );
 }

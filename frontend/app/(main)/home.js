@@ -1,4 +1,4 @@
-import { View, Text, Image } from "react-native";
+import { View, Text, Image, SafeAreaView, FlatList } from "react-native";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -77,82 +77,97 @@ export default function HomeScreen() {
     };
 
     return (
-        <View className="flex-1 bg-background px-4 pt-10">
-            {/* Header */}
-            <View className="flex-row items-center justify-between mb-6">
-                <Text className="text-3xl font-bold text-text-primary">
-                    Podcast
+        <SafeAreaView className="flex-1 bg-background">
+            <View className="flex-1 px-4 pt-10">
+                {/* Header */}
+                <View className="flex-row items-center justify-between mb-6">
+                    <Text className="text-3xl font-bold text-text-primary">
+                        Podcast
+                    </Text>
+                    {user && user.photoURL ? (
+                        <Image
+                            source={{ uri: user.photoURL }}
+                            className="w-10 h-10 rounded-full"
+                        />
+                    ) : (
+                        <View className="w-10 h-10 rounded-full bg-card items-center justify-center">
+                            <Ionicons name="person" size={28} color="#888" />
+                        </View>
+                    )}
+                </View>
+
+                {/* Episodes */}
+                <Text className="text-lg font-semibold text-text-primary mb-2">
+                    Letzte Episoden
                 </Text>
-                {user && user.photoURL ? (
-                    <Image
-                        source={{ uri: user.photoURL }}
-                        className="w-10 h-10 rounded-full"
+                <View className="mb-4">
+                    <FlatList
+                        data={episodes}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => (
+                            <PodcastCard
+                                episode={item}
+                                onPress={() =>
+                                    router.push({
+                                        pathname: "/(main)/details",
+                                        params: { id: item.id },
+                                    })
+                                }
+                            />
+                        )}
+                        showsVerticalScrollIndicator={false}
                     />
-                ) : (
-                    <View className="w-10 h-10 rounded-full bg-card items-center justify-center">
-                        <Ionicons name="person" size={28} color="#888" />
+                </View>
+
+                {/* Chats & Activities */}
+                <View className="flex-row gap-4 mb-4">
+                    {/* Chats */}
+                    <View className="flex-1">
+                        <Text className="text-base font-semibold text-text-primary mb-2">
+                            Chats
+                        </Text>
+                        <FlatList
+                            data={chats}
+                            keyExtractor={(item) => item.id}
+                            renderItem={({ item }) => (
+                                <ChatCard
+                                    chat={item}
+                                    onPress={() =>
+                                        router.push({
+                                            pathname: "/(main)/chat-details",
+                                            params: { id: item.id },
+                                        })
+                                    }
+                                />
+                            )}
+                            showsVerticalScrollIndicator={false}
+                        />
                     </View>
-                )}
-            </View>
-
-            {/* Episodes */}
-            <Text className="text-lg font-semibold text-text-primary mb-2">
-                Letzte Episoden
-            </Text>
-            <View className="mb-4">
-                {episodes.map((ep) => (
-                    <PodcastCard
-                        key={ep.id}
-                        episode={ep}
-                        onPress={() =>
-                            router.push({
-                                pathname: "/(main)/details",
-                                params: { id: ep.id },
-                            })
-                        }
-                    />
-                ))}
-            </View>
-
-            {/* Chats & Activities */}
-            <View className="flex-row gap-4 mb-4">
-                {/* Chats */}
-                <View className="flex-1">
-                    <Text className="text-base font-semibold text-text-primary mb-2">
-                        Chats
-                    </Text>
-                    {chats.map((chat) => (
-                        <ChatCard
-                            key={chat.id}
-                            chat={chat}
-                            onPress={() =>
-                                router.push({
-                                    pathname: "/(main)/chat-details",
-                                    params: { id: chat.id },
-                                })
-                            }
+                    {/* Activities */}
+                    <View className="flex-1">
+                        <Text className="text-base font-semibold text-text-primary mb-2">
+                            Aktivitäten
+                        </Text>
+                        <FlatList
+                            data={activities}
+                            keyExtractor={(item) => item.id}
+                            renderItem={({ item }) => (
+                                <ActivityCard
+                                    activity={item}
+                                    onPress={() =>
+                                        router.push({
+                                            pathname:
+                                                "/(main)/activity-details",
+                                            params: { id: item.id },
+                                        })
+                                    }
+                                />
+                            )}
+                            showsVerticalScrollIndicator={false}
                         />
-                    ))}
-                </View>
-                {/* Activities */}
-                <View className="flex-1">
-                    <Text className="text-base font-semibold text-text-primary mb-2">
-                        Aktivitäten
-                    </Text>
-                    {activities.map((act) => (
-                        <ActivityCard
-                            key={act.id}
-                            activity={act}
-                            onPress={() =>
-                                router.push({
-                                    pathname: "/(main)/activity-details",
-                                    params: { id: act.id },
-                                })
-                            }
-                        />
-                    ))}
+                    </View>
                 </View>
             </View>
-        </View>
+        </SafeAreaView>
     );
 }

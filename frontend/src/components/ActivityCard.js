@@ -42,6 +42,7 @@ export default function ActivityCard({ activity, onPress }) {
                 activeOpacity={0.8}
                 onPress={onPress}
                 className="flex-row items-center px-3 py-2"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
                 {icon}
                 <Text className="text-sm text-text-primary flex-1 ml-2">

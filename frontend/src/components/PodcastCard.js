@@ -18,6 +18,7 @@ export default function PodcastCard({ episode, onPress }) {
                 activeOpacity={0.8}
                 onPress={onPress}
                 className="flex-row items-center px-4 py-3"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
                 <View className="w-10 h-10 bg-primary/20 rounded-full items-center justify-center mr-3">
                     <MaterialCommunityIcons
