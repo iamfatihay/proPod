@@ -24,6 +24,10 @@ backend/__pycache__/
 backend/*.pyc
 backend/*.sqlite3
 backend/*.db
+backend/app/__pycache__/
+backend/app/*.pyc
+**/__pycache__/
+*.pyc
 
 # IDE/editor
 .idea/
