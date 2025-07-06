@@ -2,6 +2,7 @@ import { View, Text, SafeAreaView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Appbar, Surface } from "react-native-paper";
+import { useTheme } from "@react-navigation/native";
 
 const chats = [
     { id: "1", name: "Daniel", message: "Hallo!", time: "2h ago" },
@@ -17,12 +18,19 @@ export default function ChatDetails() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
     const chat = chats.find((c) => c.id === id);
+    const themeColor = "#FFFFFF"; // tailwind.config.js'den text.primary
 
     return (
         <SafeAreaView className="flex-1 bg-background">
             <Appbar.Header style={{ backgroundColor: "#18181b" }}>
-                <Appbar.BackAction onPress={() => router.back()} />
-                <Appbar.Content title="Chat Details" />
+                <Appbar.BackAction
+                    onPress={() => router.back()}
+                    color={themeColor}
+                />
+                <Appbar.Content
+                    title="Chat Details"
+                    titleStyle={{ color: themeColor }}
+                />
             </Appbar.Header>
             <View className="flex-1 px-4 pt-6">
                 <Surface

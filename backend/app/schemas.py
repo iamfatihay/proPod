@@ -30,7 +30,7 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: Optional[str] = None
+    password: str
 
 
 class UserLogin(BaseModel):
@@ -44,5 +44,4 @@ class User(UserBase):
     created_at: datetime.datetime
     podcasts: List[Podcast] = []
 
-    class Config:
-        orm_mode = True
+    model_config = {'from_attributes': True}

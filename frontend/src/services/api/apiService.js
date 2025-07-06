@@ -64,13 +64,18 @@ class ApiService {
 
     // Auth methods
     async login(email, password) {
-        const data = await this.request("/users/login", {
-            method: "POST",
-            body: JSON.stringify({ email, password }),
-        });
-        await saveToken("accessToken", data.access_token);
-        await saveToken("refreshToken", data.refresh_token);
-        return data;
+        try {
+            const data = await this.request("/users/login", {
+                method: "POST",
+                body: JSON.stringify({ email, password }),
+            });
+            await saveToken("accessToken", data.access_token);
+            await saveToken("refreshToken", data.refresh_token);
+            return data;
+        } catch (error) {
+            console.error("LOGIN API ERROR:", error);
+            throw error;
+        }
     }
 
     async register(name, email, password) {

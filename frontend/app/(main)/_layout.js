@@ -106,6 +106,18 @@ export default function TabLayout() {
                     href: null,
                 }}
             />
+            <Tabs.Screen
+                name="activity-details"
+                options={{
+                    href: null,
+                }}
+            />
+            <Tabs.Screen
+                name="chat-details"
+                options={{
+                    href: null,
+                }}
+            />
         </Tabs>
     );
 }

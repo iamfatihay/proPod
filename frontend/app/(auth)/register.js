@@ -76,7 +76,13 @@ export default function RegisterScreen() {
         setLoading(true);
         setError("");
         setSuccess(false);
+        if (!name || !email || !password) {
+            setError("All fields are required.");
+            setLoading(false);
+            return;
+        }
         try {
+            console.log({ name, email, password });
             await apiService.register(name, email, password);
             setSuccess(true);
             setTimeout(() => router.replace("/"), 1000);

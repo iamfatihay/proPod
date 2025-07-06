@@ -2,6 +2,7 @@ import { View, Text, SafeAreaView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Appbar, Surface } from "react-native-paper";
+import { useTheme } from "@react-navigation/native";
 
 // Aynı fake data'yı burada da tanımla veya dışarıdan import et
 const episodes = [
@@ -14,12 +15,19 @@ export default function PodcastDetails() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
     const episode = episodes.find((ep) => ep.id === id);
+    const themeColor = "#FFFFFF"; // tailwind.config.js'den text.primary
 
     return (
         <SafeAreaView className="flex-1 bg-background">
             <Appbar.Header style={{ backgroundColor: "#18181b" }}>
-                <Appbar.BackAction onPress={() => router.back()} />
-                <Appbar.Content title="Podcast Details" />
+                <Appbar.BackAction
+                    onPress={() => router.back()}
+                    color={themeColor}
+                />
+                <Appbar.Content
+                    title="Podcast Details"
+                    titleStyle={{ color: themeColor }}
+                />
             </Appbar.Header>
             <View className="flex-1 px-4 pt-6">
                 <Surface

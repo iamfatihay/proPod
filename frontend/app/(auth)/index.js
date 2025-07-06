@@ -8,7 +8,7 @@ import {
     KeyboardAvoidingView,
     Platform,
 } from "react-native";
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import Constants from "expo-constants";
 import useAuthStore from "../../src/context/useAuthStore";
 import apiService from "../../src/services/api/apiService";
@@ -28,6 +28,7 @@ export default function LoginScreen() {
         Constants.expoConfig?.extra?.googleAndroidClientId;
     const googleIosClientId = Constants.expoConfig?.extra?.googleIosClientId;
     const googleExpoClientId = Constants.expoConfig?.extra?.googleExpoClientId;
+    const router = useRouter();
 
     // Google Auth
     const redirectUri = AuthSession.makeRedirectUri({
@@ -70,13 +71,26 @@ export default function LoginScreen() {
     const handleLogin = async () => {
         setLoading(true);
         setError("");
+        if (!email || !password) {
+            setError("Email and password are required.");
+            setLoading(false);
+            return;
+        }
         try {
             const data = await apiService.login(email, password);
-            apiService.setToken(data.access_token);
+            console.log("LOGIN RESPONSE:", data);
             setUser(data.user);
             setTokens(data.access_token, data.refresh_token);
+            setError("");
+            router.replace("/home");
         } catch (err) {
-            setError("Invalid email or password");
+            if (err.message && err.message.includes("400")) {
+                setError("Invalid email or password");
+            } else if (err.message && err.message.includes("422")) {
+                setError("Please enter a valid email address.");
+            } else {
+                setError("Login failed. Please try again.");
+            }
         } finally {
             setLoading(false);
         }
