@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import users, podcasts
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
