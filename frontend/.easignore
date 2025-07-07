@@ -1,10 +1,109 @@
+# Node modules
 node_modules
+# Git
 .git
+.gitignore
+# IDE/editor
+.vscode
+.idea
+# Logs
 *.log
-*.md
-test
-__tests__
-coverage
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+# Tests
+__tests__/
+coverage/
+# Android/iOS build outputs
 android/.gradle
 android/.idea
+android/.cxx
 android/local.properties
+android/app/build
+android/build
+ios/build
+ios/Pods
+ios/Podfile.lock
+# Others
+*.DS_Store
+*.env
+*.keystore
+*.jks
+# Expo cache
+.expo
+.expo-shared
+.cache
+# Unused assets
+*.mp4
+*.mov
+*.zip
+*.tar
+*.rar
+*.7z
+# Documentation and examples
+docs/
+examples/
+
+# Ignore backend code and virtual environments
+../backend/
+../backend/.venv/
+../backend/__pycache__/
+../backend/*.pyc
+../backend/*.db
+../backend/*.sqlite3
+../backend/.env
+../backend/.env.*
+
+# Ignore root-level files not needed for build
+../README.md
+../*.md
+../*.log
+
+# Ignore Android and iOS build outputs (if not already present)
+android/app/build/
+android/build/
+ios/build/
+ios/Pods/
+ios/Podfile.lock
+
+# Ignore Expo and Metro cache (if not already present)
+.expo/
+.expo-shared/
+.cache/
+
+# Ignore test and coverage folders (if not already present)
+__tests__/
+coverage/
+
+# Ignore documentation and example folders (if not already present)
+docs/
+examples/
+
+# Ignore large or unused assets (if not already present)
+*.mp4
+*.mov
+*.zip
+*.tar
+*.rar
+*.7z
+
+# Ignore local environment and secret files
+*.env
+*.keystore
+*.jks
+
+# Ignore IDE/editor folders (if not already present)
+.vscode/
+.idea/
+
+# Ignore system files
+.DS_Store
+
+# Ignore Expo build artifacts
+web-build/
+dist/
+
+# Ignore npm and yarn logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
