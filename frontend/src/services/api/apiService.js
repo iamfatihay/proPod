@@ -112,6 +112,15 @@ class ApiService {
         return data;
     }
 
+    // Update profile
+    async updateProfile({ name }) {
+        const data = await this.request("/users/me", {
+            method: "PUT",
+            body: JSON.stringify({ name }),
+        });
+        return data;
+    }
+
     // Podcast methods
     async createPodcast(podcastData) {
         return this.request("/podcasts/create", {
