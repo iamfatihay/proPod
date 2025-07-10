@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from .. import schemas, crud, models, auth
 from ..database import SessionLocal
-from ..schemas import User as UserSchema, BaseModel
+from ..schemas import User as UserSchema, BaseModel, ChangePasswordRequest
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -87,3 +87,26 @@ def refresh_token_endpoint(refresh_token: str):
         raise HTTPException(status_code=401, detail="Invalid refresh token")
     access_token = auth.create_access_token(data={"sub": payload["sub"]})
     return {"access_token": access_token, "token_type": "bearer"}
+
+# Get current user's profile
+@router.get("/me", response_model=UserSchema)
+def get_me(current_user: models.User = Depends(auth.get_current_user)):
+    return UserSchema.model_validate(current_user)
+
+# Update current user's profile
+@router.put("/me", response_model=UserSchema)
+def update_me(update: schemas.UserBase, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    updated_user = crud.update_user(db, current_user, update)
+    return UserSchema.model_validate(updated_user)
+
+# Change password endpoint
+@router.post("/change-password", status_code=status.HTTP_200_OK)
+def change_password(request: ChangePasswordRequest, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    crud.change_user_password(db, current_user, request.old_password, request.new_password)
+    return {"message": "Password changed successfully"}
+
+# Delete account endpoint (soft delete)
+@router.post("/delete", status_code=status.HTTP_200_OK)
+def delete_account(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    crud.soft_delete_user(db, current_user)
+    return {"message": "Account deleted successfully"}

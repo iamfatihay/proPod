@@ -45,3 +45,8 @@ class User(UserBase):
     podcasts: List[Podcast] = []
 
     model_config = {'from_attributes': True}
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
