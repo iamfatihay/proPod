@@ -4,6 +4,7 @@ import useAuthStore from "../src/context/useAuthStore";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PaperProvider } from "react-native-paper";
+import { ToastProvider } from "../src/components/Toast";
 
 cssInterop(Stack, {
     className: "style",
@@ -41,10 +42,12 @@ export default function Layout() {
     }, [user, segments]);
 
     return (
-        <GestureHandlerRootView style={{ flex: 1 }}>
-            <PaperProvider>
-                <Stack screenOptions={{ headerShown: false }} />
-            </PaperProvider>
-        </GestureHandlerRootView>
+        <ToastProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+                <PaperProvider>
+                    <Stack screenOptions={{ headerShown: false }} />
+                </PaperProvider>
+            </GestureHandlerRootView>
+        </ToastProvider>
     );
 }
