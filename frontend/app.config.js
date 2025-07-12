@@ -5,11 +5,11 @@ export default ({ config }) => ({
     version: "1.0.0",
     scheme: "volo",
     orientation: "portrait",
-    icon: "./assets/Volo-logo.png",
+    icon: "./assets/Volo-logo.svg",
     userInterfaceStyle: "dark",
     newArchEnabled: true,
     splash: {
-        image: "./assets/Volo-logo.png",
+        image: "./assets/Volo-logo.svg",
         resizeMode: "contain",
         backgroundColor: "#000000",
     },
@@ -21,7 +21,7 @@ export default ({ config }) => ({
     },
     android: {
         adaptiveIcon: {
-            foregroundImage: "./assets/Volo-logo.png",
+            foregroundImage: "./assets/Volo-logo.svg",
             backgroundColor: "#000000",
         },
         edgeToEdgeEnabled: true,
@@ -32,7 +32,7 @@ export default ({ config }) => ({
     },
     web: {
         bundler: "metro",
-        favicon: "./assets/Volo-logo.png",
+        favicon: "./assets/Volo-logo.svg",
     },
     extra: {
         apiBaseUrl: "http://192.168.178.27:8000",
