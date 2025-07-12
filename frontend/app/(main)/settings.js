@@ -14,6 +14,8 @@ import { useRouter } from "expo-router";
 import SettingRow from "../../src/components/SettingRow";
 import { getToken } from "../../src/services/auth/tokenStorage";
 import useAuthStore from "../../src/context/useAuthStore";
+import apiService from "../../src/services/api/apiService";
+import { ToastProvider, useToast } from "../../src/components/Toast";
 
 const APP_VERSION = "1.0.0";
 
@@ -29,6 +31,7 @@ const Settings = () => {
     const [pwError, setPwError] = useState("");
 
     const logout = useAuthStore((state) => state.logout);
+    const { showToast } = useToast();
 
     // Dummy handler for account settings
     const handleAccount = () => {
@@ -51,26 +54,12 @@ const Settings = () => {
         setPwLoading(true);
         setPwError("");
         try {
-            const token = await getToken("accessToken");
-            const res = await fetch("/users/change-password", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    old_password: oldPassword,
-                    new_password: newPassword,
-                }),
-            });
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.detail || "Password change failed");
-            }
+            await apiService.changePassword(oldPassword, newPassword);
             setChangePwModal(false);
-            Alert.alert("Success", "Password changed successfully.");
+            showToast("Password changed successfully.", "success");
         } catch (e) {
-            setPwError(e.message);
+            setPwError(e.message || "Password change failed");
+            showToast(e.message || "Password change failed", "error");
         } finally {
             setPwLoading(false);
         }
@@ -84,23 +73,14 @@ const Settings = () => {
     const confirmDelete = async () => {
         setDeleteModal(false);
         try {
-            const token = await getToken("accessToken");
-            const res = await fetch("/users/delete", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.detail || "Account deletion failed");
-            }
-            Alert.alert("Account Deleted", "Your account has been deleted.");
-            await logout();
-            router.replace("/");
+            await apiService.deleteAccount();
+            showToast("Account deleted successfully.", "success");
+            setTimeout(async () => {
+                await logout();
+                router.replace("/");
+            }, 1200);
         } catch (e) {
-            Alert.alert("Error", e.message);
+            showToast(e.message || "Account deletion failed", "error");
         }
     };
 
@@ -286,4 +266,8 @@ const Settings = () => {
     );
 };
 
-export default Settings;
+export default () => (
+    <ToastProvider>
+        <Settings />
+    </ToastProvider>
+);

@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from app.routers import users, podcasts
 from dotenv import load_dotenv
 import os
@@ -19,6 +21,14 @@ app.add_middleware(
 
 app.include_router(users.router)
 app.include_router(podcasts.router)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": exc.errors()},
+    )
 
 
 @app.get("/")

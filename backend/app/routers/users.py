@@ -40,12 +40,9 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(request: Request, db: Session = Depends(get_db)):
-    body = await request.json()
-    print("LOGIN BODY:", body)
-    user = schemas.UserLogin(**body)
+async def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_email(db, email=user.email)
-    if not db_user or not auth.verify_password(user.password, db_user.hashed_password):
+    if not db_user or not db_user.hashed_password or db_user.hashed_password.strip() == "" or not auth.verify_password(user.password, db_user.hashed_password):
         raise HTTPException(
             status_code=400, detail="Invalid email or password")
     access_token = auth.create_access_token(data={"sub": db_user.email})

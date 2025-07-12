@@ -16,6 +16,7 @@ import React from "react";
 import useAuthStore from "../../src/context/useAuthStore";
 import Constants from "expo-constants";
 import * as AuthSession from "expo-auth-session";
+import { useToast } from "../../src/components/Toast";
 
 export default function RegisterScreen() {
     const [name, setName] = useState("");
@@ -27,6 +28,7 @@ export default function RegisterScreen() {
     const router = useRouter();
     const setUser = useAuthStore((state) => state.setUser);
     const setTokens = useAuthStore((state) => state.setTokens);
+    const { showToast } = useToast();
 
     // Google Auth
     const googleAndroidClientId =
@@ -82,12 +84,33 @@ export default function RegisterScreen() {
             return;
         }
         try {
-            console.log({ name, email, password });
             await apiService.register(name, email, password);
+            showToast("Registration successful! Redirecting...", "success");
             setSuccess(true);
             setTimeout(() => router.replace("/"), 1000);
         } catch (err) {
-            setError("Registration failed. Try a different email.");
+            let msg = "Registration failed. Try a different email.";
+            let status = err.status || (err.response && err.response.status);
+            if (err.response && err.response.data && err.response.data.detail) {
+                const detail = err.response.data.detail;
+                if (
+                    Array.isArray(detail) &&
+                    detail.length > 0 &&
+                    detail[0].msg
+                ) {
+                    msg = detail[0].msg;
+                } else if (typeof detail === "string") {
+                    msg = detail;
+                }
+            } else if (err.detail) {
+                msg = err.detail;
+            } else if (err.message) {
+                msg = err.message;
+            }
+            if (status === 500 || (msg && msg.length > 120)) {
+                msg = "Something went wrong. Please try again later.";
+            }
+            setError(msg);
         } finally {
             setLoading(false);
         }
@@ -110,14 +133,18 @@ export default function RegisterScreen() {
                 <Text className="text-text-secondary mb-8">
                     Sign up to get started
                 </Text>
-                {error ? (
-                    <Text className="text-red-500 mb-2">{error}</Text>
-                ) : null}
-                {success ? (
-                    <Text className="text-green-500 mb-2">
-                        Registration successful! Redirecting...
-                    </Text>
-                ) : null}
+                {/* Error/Success message area: always reserve space */}
+                <View style={{ minHeight: 24, justifyContent: "center" }}>
+                    {error ? (
+                        <Text className="text-red-500 mb-2 text-center">
+                            {error}
+                        </Text>
+                    ) : success ? (
+                        <Text className="text-green-500 mb-2 text-center">
+                            Registration successful! Redirecting...
+                        </Text>
+                    ) : null}
+                </View>
                 <View className="w-full space-y-4 mb-6">
                     <TextInput
                         className="bg-card rounded-lg mb-4 px-4 py-3 text-text-primary border border-border focus:border-primary"

@@ -17,6 +17,7 @@ import * as Google from "expo-auth-session/providers/google";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import * as AuthSession from "expo-auth-session";
+import { useToast } from "../../src/components/Toast";
 
 export default function LoginScreen() {
     const [email, setEmail] = useState("");
@@ -30,6 +31,7 @@ export default function LoginScreen() {
     const googleIosClientId = Constants.expoConfig?.extra?.googleIosClientId;
     const googleExpoClientId = Constants.expoConfig?.extra?.googleExpoClientId;
     const router = useRouter();
+    const { showToast } = useToast();
 
     // Google Auth
     const redirectUri = AuthSession.makeRedirectUri({
@@ -79,19 +81,38 @@ export default function LoginScreen() {
         }
         try {
             const data = await apiService.login(email, password);
-            console.log("LOGIN RESPONSE:", data);
             setUser(data.user);
             setTokens(data.access_token, data.refresh_token);
+            showToast("Login successful!", "success");
             setError("");
             router.replace("/home");
         } catch (err) {
-            if (err.message && err.message.includes("400")) {
-                setError("Invalid email or password");
+            let msg = "Login failed. Please try again.";
+            let status = err.status || (err.response && err.response.status);
+            if (err.response && err.response.data && err.response.data.detail) {
+                const detail = err.response.data.detail;
+                if (
+                    Array.isArray(detail) &&
+                    detail.length > 0 &&
+                    detail[0].msg
+                ) {
+                    msg = detail[0].msg;
+                } else if (typeof detail === "string") {
+                    msg = detail;
+                }
+            } else if (err.detail) {
+                msg = err.detail;
+            } else if (err.message && err.message.includes("400")) {
+                msg = "Invalid email or password";
             } else if (err.message && err.message.includes("422")) {
-                setError("Please enter a valid email address.");
-            } else {
-                setError("Login failed. Please try again.");
+                msg = "Please enter a valid email address.";
+            } else if (err.message) {
+                msg = err.message;
             }
+            if (status === 500 || (msg && msg.length > 120)) {
+                msg = "Something went wrong. Please try again later.";
+            }
+            setError(msg);
         } finally {
             setLoading(false);
         }
@@ -116,9 +137,14 @@ export default function LoginScreen() {
                     <Text className="text-text-secondary mb-8">
                         Sign in to your account
                     </Text>
-                    {error ? (
-                        <Text className="text-red-500 mb-2">{error}</Text>
-                    ) : null}
+                    {/* Error message area: always reserve space */}
+                    <View style={{ minHeight: 24, justifyContent: "center" }}>
+                        {error ? (
+                            <Text className="text-red-500 mb-2 text-center">
+                                {error}
+                            </Text>
+                        ) : null}
+                    </View>
                     <View className="w-full space-y-4 mb-6">
                         <TextInput
                             className="bg-card rounded-lg mb-4 px-4 py-3 text-text-primary border border-border focus:border-primary"

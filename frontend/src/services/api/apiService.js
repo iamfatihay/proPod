@@ -52,7 +52,18 @@ class ApiService {
             }
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                let error = new Error(`HTTP error! status: ${response.status}`);
+                error.status = response.status;
+                try {
+                    const data = await response.json();
+                    if (data && data.detail) {
+                        error.detail = data.detail;
+                    }
+                    error.response = { data };
+                } catch (e) {
+                    // JSON parse edilemezse, error.detail eklenmez
+                }
+                throw error;
             }
 
             return await response.json();
@@ -119,6 +130,21 @@ class ApiService {
             body: JSON.stringify({ name }),
         });
         return data;
+    }
+
+    // Change password
+    async changePassword(old_password, new_password) {
+        return this.request("/users/change-password", {
+            method: "POST",
+            body: JSON.stringify({ old_password, new_password }),
+        });
+    }
+
+    // Delete account (soft delete)
+    async deleteAccount() {
+        return this.request("/users/delete", {
+            method: "POST",
+        });
     }
 
     // Podcast methods
