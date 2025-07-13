@@ -32,6 +32,7 @@ backend/app/*.pyc
 # IDE/editor
 .idea/
 .vscode/
+.cursor/
 
 # Native
 .kotlin/
