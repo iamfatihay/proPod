@@ -173,6 +173,15 @@ export default function LoginScreen() {
                             {loading ? "Signing in..." : "Sign In"}
                         </Text>
                     </TouchableOpacity>
+                    <View className="flex-row items-center justify-center mb-4">
+                        <TouchableOpacity
+                            onPress={() => router.replace("/forgot-password")}
+                        >
+                            <Text className="text-primary font-semibold">
+                                Forgot Password?
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                     {/* Sign in with Google */}
                     <TouchableOpacity
                         className="flex-row items-center justify-center bg-panel w-full border border-border rounded-lg py-3 mb-4"

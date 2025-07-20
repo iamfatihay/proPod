@@ -179,6 +179,31 @@ class ApiService {
         await deleteToken("accessToken");
         await deleteToken("refreshToken");
     }
+
+    /**
+     * Forgot Password
+     * @param {string} email
+     * @returns {Promise}
+     */
+    async forgotPassword(email) {
+        return this.request("/users/forgot-password", {
+            method: "POST",
+            body: JSON.stringify({ email }),
+        });
+    }
+
+    /**
+     * Reset Password
+     * @param {string} token
+     * @param {string} new_password
+     * @returns {Promise}
+     */
+    async resetPassword(token, new_password) {
+        return this.request("/users/reset-password", {
+            method: "POST",
+            body: JSON.stringify({ token, new_password }),
+        });
+    }
 }
 
 export default new ApiService();
