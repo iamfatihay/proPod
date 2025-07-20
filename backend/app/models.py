@@ -13,7 +13,9 @@ class User(Base):
     provider = Column(String, default="local")
     photo_url = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    reset_token = Column(String, nullable=True)  # For password reset
+    reset_token_expires = Column(DateTime, nullable=True)  # Token expiry
     podcasts = relationship("Podcast", back_populates="owner")
 
 
@@ -23,6 +25,6 @@ class Podcast(Base):
     title = Column(String, index=True)
     description = Column(String, nullable=True)
     audio_url = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     owner_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="podcasts")
