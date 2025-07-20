@@ -1,6 +1,6 @@
-# proPod Backend
+# Volo Backend
 
-This project is the FastAPI-based backend service for the proPod mobile application. Users can record, publish, and AI-edit podcasts with this backend.
+This project is the FastAPI-based backend service for the Volo mobile application. Users can record, publish, and AI-edit podcasts with this backend.
 
 ## Technologies Used
 
@@ -15,7 +15,7 @@ This project is the FastAPI-based backend service for the proPod mobile applicat
 1. Add the required environment variables to a `.env` file:
 
     ```env
-    DATABASE_URL=postgresql://user:password@localhost:5432/propod
+    DATABASE_URL=postgresql://user:password@localhost:5432/volo
     SECRET_KEY=supersecretkey
     ALGORITHM=HS256
     ACCESS_TOKEN_EXPIRE_MINUTES=30
@@ -30,10 +30,10 @@ This project is the FastAPI-based backend service for the proPod mobile applicat
     ```
 
 3. To start with Docker:
-    ```bash
-    docker build -t propod-backend .
-    docker run -p 8000:8000 --env-file .env propod-backend
-    ```
+   `bash
+    docker build -t volo-backend .
+docker run -p 8000:8000 --env-file .env volo-backend
+    `
 
 ## Main API Endpoints
 

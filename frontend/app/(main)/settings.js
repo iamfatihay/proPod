@@ -87,13 +87,13 @@ const Settings = () => {
     // Dummy handler for support
     const handleSupport = () => {
         // TODO: Implement support screen/modal or open mailto link
-        Alert.alert("Support", "Contact us at support@propod.com");
+        Alert.alert("Support", "Contact us at support@volo.com");
     };
 
     // Dummy handler for privacy policy
     const handlePrivacy = () => {
         // TODO: Open privacy policy link
-        Alert.alert("Privacy Policy", "https://propod.com/privacy");
+        Alert.alert("Privacy Policy", "https://volo.com/privacy");
     };
 
     // Dummy handler for notifications

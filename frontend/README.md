@@ -1,6 +1,6 @@
-# ProPod Frontend Development
+# Volo Frontend Development
 
-This document provides instructions for setting up and running the frontend development environment for the ProPod application.
+This document provides instructions for setting up and running the frontend development environment for the Volo application.
 
 ## 🚀 Getting Started
 

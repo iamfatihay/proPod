@@ -1,8 +1,8 @@
-# proPod - Mobile Podcast Application
+# Volo - Mobile Podcast Application
 
 ## 📱 Project Description
 
-proPod is a cross-platform (Android, iOS, Web) mobile application for creating, broadcasting, and editing podcasts with AI assistance. Designed for rapid MVP development, scalability, and maintainability.
+Volo is a cross-platform (Android, iOS, Web) mobile application for creating, broadcasting, and editing podcasts with AI assistance. Designed for rapid MVP development, scalability, and maintainability.
 
 ---
 
@@ -116,7 +116,7 @@ npx expo start --dev-client -c --tunnel
 ## 📁 Project Structure
 
 ```
-proPod/
+Volo/
 ├── frontend/   # React Native app
 │   ├── app/    # Screens (expo-router)
 │   ├── src/    # Components, services, state, etc.

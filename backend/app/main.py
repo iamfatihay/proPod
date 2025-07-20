@@ -33,4 +33,4 @@ async def validation_exception_handler(request, exc):
 
 @app.get("/")
 def read_root():
-    return {"message": "proPod FastAPI backend is running!"}
+    return {"message": "Volo FastAPI backend is running!"}
