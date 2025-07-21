@@ -13,11 +13,10 @@ class ApiService {
         this.baseURL = API_BASE_URL;
     }
 
-    // Generic request method with SecureStore token management
     async request(endpoint, options = {}, retry = true) {
         const url = `${this.baseURL}${endpoint}`;
-        let accessToken = await getToken("accessToken");
-        let refreshToken = await getToken("refreshToken");
+        const accessToken = await getToken("accessToken");
+        const refreshToken = await getToken("refreshToken");
 
         const config = {
             headers: {
@@ -175,7 +174,11 @@ class ApiService {
         return data;
     }
 
-    // Update profile
+    // User Profile methods
+    async getUserProfile() {
+        return this.request("/users/me");
+    }
+
     async updateProfile({ name }) {
         const data = await this.request("/users/me", {
             method: "PUT",
@@ -184,7 +187,6 @@ class ApiService {
         return data;
     }
 
-    // Change password
     async changePassword(old_password, new_password) {
         return this.request("/users/change-password", {
             method: "POST",
@@ -192,14 +194,27 @@ class ApiService {
         });
     }
 
-    // Delete account (soft delete)
     async deleteAccount() {
         return this.request("/users/delete", {
             method: "POST",
         });
     }
 
-    // Podcast methods
+    async forgotPassword(email) {
+        return this.request("/users/forgot-password", {
+            method: "POST",
+            body: JSON.stringify({ email }),
+        });
+    }
+
+    async resetPassword(token, new_password) {
+        return this.request("/users/reset-password", {
+            method: "POST",
+            body: JSON.stringify({ token, new_password }),
+        });
+    }
+
+    // Podcast CRUD methods
     async createPodcast(podcastData) {
         return this.request("/podcasts/create", {
             method: "POST",
@@ -207,8 +222,37 @@ class ApiService {
         });
     }
 
-    async getPodcasts() {
-        return this.request("/podcasts");
+    async getPodcast(podcastId) {
+        return this.request(`/podcasts/${podcastId}`);
+    }
+
+    async getPodcasts(params = {}) {
+        const queryParams = new URLSearchParams();
+
+        if (params.skip !== undefined) queryParams.append("skip", params.skip);
+        if (params.limit !== undefined)
+            queryParams.append("limit", params.limit);
+        if (params.category) queryParams.append("category", params.category);
+        if (params.search) queryParams.append("search", params.search);
+        if (params.owner_id) queryParams.append("owner_id", params.owner_id);
+
+        const queryString = queryParams.toString();
+        const endpoint = queryString ? `/podcasts?${queryString}` : "/podcasts";
+
+        return this.request(endpoint);
+    }
+
+    async updatePodcast(podcastId, updateData) {
+        return this.request(`/podcasts/${podcastId}`, {
+            method: "PUT",
+            body: JSON.stringify(updateData),
+        });
+    }
+
+    async deletePodcast(podcastId) {
+        return this.request(`/podcasts/${podcastId}`, {
+            method: "DELETE",
+        });
     }
 
     async uploadAudio(audioFile) {
@@ -242,35 +286,178 @@ class ApiService {
         });
     }
 
+    // Podcast Interaction methods
+    async likePodcast(podcastId) {
+        return this.request(`/podcasts/${podcastId}/like`, {
+            method: "POST",
+        });
+    }
+
+    async unlikePodcast(podcastId) {
+        return this.request(`/podcasts/${podcastId}/like`, {
+            method: "DELETE",
+        });
+    }
+
+    async addBookmark(podcastId) {
+        return this.request(`/podcasts/${podcastId}/bookmark`, {
+            method: "POST",
+        });
+    }
+
+    async removeBookmark(podcastId) {
+        return this.request(`/podcasts/${podcastId}/bookmark`, {
+            method: "DELETE",
+        });
+    }
+
+    async getPodcastInteractions(podcastId) {
+        return this.request(`/podcasts/${podcastId}/interactions`);
+    }
+
+    // Listening History methods
+    async updateListeningHistory(podcastId, historyData) {
+        return this.request(`/podcasts/${podcastId}/history`, {
+            method: "POST",
+            body: JSON.stringify(historyData),
+        });
+    }
+
+    async getListeningHistory(params = {}) {
+        const queryParams = new URLSearchParams();
+
+        if (params.skip !== undefined) queryParams.append("skip", params.skip);
+        if (params.limit !== undefined)
+            queryParams.append("limit", params.limit);
+
+        const queryString = queryParams.toString();
+        const endpoint = queryString
+            ? `/podcasts/my/history?${queryString}`
+            : "/podcasts/my/history";
+
+        return this.request(endpoint);
+    }
+
+    // Comment methods
+    async createComment(podcastId, commentData) {
+        return this.request(`/podcasts/${podcastId}/comments`, {
+            method: "POST",
+            body: JSON.stringify({
+                podcast_id: podcastId,
+                ...commentData,
+            }),
+        });
+    }
+
+    async getPodcastComments(podcastId, params = {}) {
+        const queryParams = new URLSearchParams();
+
+        if (params.skip !== undefined) queryParams.append("skip", params.skip);
+        if (params.limit !== undefined)
+            queryParams.append("limit", params.limit);
+
+        const queryString = queryParams.toString();
+        const endpoint = queryString
+            ? `/podcasts/${podcastId}/comments?${queryString}`
+            : `/podcasts/${podcastId}/comments`;
+
+        return this.request(endpoint);
+    }
+
+    async updateComment(commentId, updateData) {
+        return this.request(`/podcasts/comments/${commentId}`, {
+            method: "PUT",
+            body: JSON.stringify(updateData),
+        });
+    }
+
+    async deleteComment(commentId) {
+        return this.request(`/podcasts/comments/${commentId}`, {
+            method: "DELETE",
+        });
+    }
+
+    // Discovery methods
+    async getTrendingPodcasts(params = {}) {
+        const queryParams = new URLSearchParams();
+
+        if (params.limit !== undefined)
+            queryParams.append("limit", params.limit);
+        if (params.days !== undefined) queryParams.append("days", params.days);
+
+        const queryString = queryParams.toString();
+        const endpoint = queryString
+            ? `/podcasts/discover/trending?${queryString}`
+            : "/podcasts/discover/trending";
+
+        return this.request(endpoint);
+    }
+
+    async getRecommendedPodcasts(limit = 10) {
+        return this.request(`/podcasts/discover/recommended?limit=${limit}`);
+    }
+
+    async getRelatedPodcasts(podcastId, limit = 10) {
+        return this.request(
+            `/podcasts/discover/related/${podcastId}?limit=${limit}`
+        );
+    }
+
+    // User's Personal Collections
+    async getLikedPodcasts(params = {}) {
+        const queryParams = new URLSearchParams();
+
+        if (params.skip !== undefined) queryParams.append("skip", params.skip);
+        if (params.limit !== undefined)
+            queryParams.append("limit", params.limit);
+
+        const queryString = queryParams.toString();
+        const endpoint = queryString
+            ? `/podcasts/my/likes?${queryString}`
+            : "/podcasts/my/likes";
+
+        return this.request(endpoint);
+    }
+
+    async getBookmarkedPodcasts(params = {}) {
+        const queryParams = new URLSearchParams();
+
+        if (params.skip !== undefined) queryParams.append("skip", params.skip);
+        if (params.limit !== undefined)
+            queryParams.append("limit", params.limit);
+
+        const queryString = queryParams.toString();
+        const endpoint = queryString
+            ? `/podcasts/my/bookmarks?${queryString}`
+            : "/podcasts/my/bookmarks";
+
+        return this.request(endpoint);
+    }
+
+    async getMyPodcasts(params = {}) {
+        const queryParams = new URLSearchParams();
+
+        if (params.skip !== undefined) queryParams.append("skip", params.skip);
+        if (params.limit !== undefined)
+            queryParams.append("limit", params.limit);
+
+        const queryString = queryParams.toString();
+        const endpoint = queryString
+            ? `/podcasts/my/created?${queryString}`
+            : "/podcasts/my/created";
+
+        return this.request(endpoint);
+    }
+
+    // Analytics methods (for podcast owners)
+    async getPodcastAnalytics(podcastId) {
+        return this.request(`/podcasts/${podcastId}/analytics`);
+    }
+
     // Logout function
     async logout() {
         await deleteToken("accessToken");
         await deleteToken("refreshToken");
-    }
-
-    /**
-     * Forgot Password
-     * @param {string} email
-     * @returns {Promise}
-     */
-    async forgotPassword(email) {
-        return this.request("/users/forgot-password", {
-            method: "POST",
-            body: JSON.stringify({ email }),
-        });
-    }
-
-    /**
-     * Reset Password
-     * @param {string} token
-     * @param {string} new_password
-     * @returns {Promise}
-     */
-    async resetPassword(token, new_password) {
-        return this.request("/users/reset-password", {
-            method: "POST",
-            body: JSON.stringify({ token, new_password }),
-        });
     }
 }
 
