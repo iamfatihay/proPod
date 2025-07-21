@@ -1,0 +1,10 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Run lint-staged to check only staged files
+npx lint-staged
+
+# Run unit tests on staged files
+npm run test:unit -- --findRelatedTests --passWithNoTests
+
+echo "✅ Pre-commit checks passed!" 

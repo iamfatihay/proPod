@@ -7,6 +7,8 @@ import {
     Dimensions,
     Alert,
 } from "react-native";
+import { MiniPlayer } from "../../src/components/audio";
+import useAudioStore from "../../src/context/useAudioStore";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -115,108 +117,159 @@ const CreateTab = () => {
 };
 
 export default function TabLayout() {
+    const router = useRouter();
+
+    // Audio store for mini player
+    const {
+        currentTrack,
+        isPlaying,
+        showMiniPlayer,
+        miniPlayerPosition,
+        play,
+        pause,
+        stop,
+        toggleMiniPlayer,
+        setMiniPlayerPosition,
+    } = useAudioStore();
+
     // Responsive tab bar height
     const tabBarHeight =
         Platform.OS === "ios" ? (screenWidth > 375 ? 90 : 84) : 84;
 
+    const handleMiniPlayerExpand = () => {
+        if (currentTrack) {
+            router.push({
+                pathname: "/(main)/details",
+                params: { id: currentTrack.id },
+            });
+        }
+    };
+
+    const handleMiniPlayerClose = async () => {
+        await stop();
+        toggleMiniPlayer(false);
+    };
+
+    const handleMiniPlayerPlayPause = async () => {
+        if (isPlaying) {
+            await pause();
+        } else {
+            await play();
+        }
+    };
+
     return (
-        <Tabs
-            screenOptions={{
-                headerShown: false,
-                tabBarShowLabel: false,
-                tabBarActiveTintColor: "#D32F2F", // theme.colors.primary
-                tabBarInactiveTintColor: "#888888", // theme.colors.text.muted
-                tabBarStyle: {
-                    backgroundColor: "#000000", // theme.colors.background
-                    borderTopWidth: 1,
-                    borderTopColor: "#333333", // theme.colors.border
-                    height: tabBarHeight,
-                    paddingBottom: Platform.OS === "ios" ? 6 : 0,
-                },
-            }}
-        >
-            <Tabs.Screen
-                name="home"
-                options={{
-                    tabBarIcon: ({ color, focused }) => (
-                        <TabIcon
-                            icon={focused ? "home" : "home-outline"}
-                            color={color}
-                            focused={focused}
-                        />
-                    ),
+        <View style={{ flex: 1 }}>
+            <Tabs
+                screenOptions={{
+                    headerShown: false,
+                    tabBarShowLabel: false,
+                    tabBarActiveTintColor: "#D32F2F", // theme.colors.primary
+                    tabBarInactiveTintColor: "#888888", // theme.colors.text.muted
+                    tabBarStyle: {
+                        backgroundColor: "#000000", // theme.colors.background
+                        borderTopWidth: 1,
+                        borderTopColor: "#333333", // theme.colors.border
+                        height: tabBarHeight,
+                        paddingBottom: Platform.OS === "ios" ? 6 : 0,
+                    },
                 }}
+            >
+                <Tabs.Screen
+                    name="home"
+                    options={{
+                        tabBarIcon: ({ color, focused }) => (
+                            <TabIcon
+                                icon={focused ? "home" : "home-outline"}
+                                color={color}
+                                focused={focused}
+                            />
+                        ),
+                    }}
+                />
+                <Tabs.Screen
+                    name="library"
+                    options={{
+                        tabBarIcon: ({ color, focused }) => (
+                            <TabIcon
+                                icon={focused ? "library" : "library-outline"}
+                                color={color}
+                                focused={focused}
+                            />
+                        ),
+                    }}
+                />
+                <Tabs.Screen
+                    name="create"
+                    options={{
+                        tabBarButton: () => <CreateTab />,
+                    }}
+                />
+                <Tabs.Screen
+                    name="search"
+                    options={{
+                        tabBarIcon: ({ color, focused }) => (
+                            <TabIcon
+                                icon={focused ? "search" : "search-outline"}
+                                color={color}
+                                focused={focused}
+                            />
+                        ),
+                    }}
+                />
+                <Tabs.Screen
+                    name="profile"
+                    options={{
+                        tabBarIcon: ({ color, focused }) => (
+                            <TabIcon
+                                icon={
+                                    focused
+                                        ? "person-circle"
+                                        : "person-circle-outline"
+                                }
+                                color={color}
+                                focused={focused}
+                            />
+                        ),
+                    }}
+                />
+                <Tabs.Screen
+                    name="details"
+                    options={{
+                        href: null,
+                    }}
+                />
+                <Tabs.Screen
+                    name="activity-details"
+                    options={{
+                        href: null,
+                    }}
+                />
+                <Tabs.Screen
+                    name="chat-details"
+                    options={{
+                        href: null,
+                    }}
+                />
+                <Tabs.Screen
+                    name="settings"
+                    options={{
+                        href: null,
+                    }}
+                />
+            </Tabs>
+
+            {/* Global Mini Player */}
+            <MiniPlayer
+                isVisible={showMiniPlayer}
+                track={currentTrack}
+                isPlaying={isPlaying}
+                position={miniPlayerPosition}
+                onPlayPause={handleMiniPlayerPlayPause}
+                onClose={handleMiniPlayerClose}
+                onExpand={handleMiniPlayerExpand}
+                onPositionChange={setMiniPlayerPosition}
             />
-            <Tabs.Screen
-                name="library"
-                options={{
-                    tabBarIcon: ({ color, focused }) => (
-                        <TabIcon
-                            icon={focused ? "library" : "library-outline"}
-                            color={color}
-                            focused={focused}
-                        />
-                    ),
-                }}
-            />
-            <Tabs.Screen
-                name="create"
-                options={{
-                    tabBarButton: () => <CreateTab />,
-                }}
-            />
-            <Tabs.Screen
-                name="search"
-                options={{
-                    tabBarIcon: ({ color, focused }) => (
-                        <TabIcon
-                            icon={focused ? "search" : "search-outline"}
-                            color={color}
-                            focused={focused}
-                        />
-                    ),
-                }}
-            />
-            <Tabs.Screen
-                name="profile"
-                options={{
-                    tabBarIcon: ({ color, focused }) => (
-                        <TabIcon
-                            icon={
-                                focused
-                                    ? "person-circle"
-                                    : "person-circle-outline"
-                            }
-                            color={color}
-                            focused={focused}
-                        />
-                    ),
-                }}
-            />
-            <Tabs.Screen
-                name="details"
-                options={{
-                    href: null,
-                }}
-            />
-            <Tabs.Screen
-                name="activity-details"
-                options={{
-                    href: null,
-                }}
-            />
-            <Tabs.Screen
-                name="chat-details"
-                options={{
-                    href: null,
-                }}
-            />
-            <Tabs.Screen
-                name="settings"
-                options={{
-                    href: null,
-                }}
-            />
-        </Tabs>
+        </View>
     );
 }

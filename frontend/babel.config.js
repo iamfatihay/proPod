@@ -1,5 +1,17 @@
 module.exports = function (api) {
-    api.cache(true);
+    const isTest = api.env("test");
+    api.cache.using(() => isTest);
+
+    if (isTest) {
+        return {
+            presets: [
+                ["@babel/preset-env", { targets: { node: "current" } }],
+                "@babel/preset-react",
+            ],
+            plugins: [],
+        };
+    }
+
     return {
         presets: [
             ["babel-preset-expo", { jsxImportSource: "nativewind" }],
