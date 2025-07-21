@@ -18,6 +18,13 @@ export default ({ config }) => ({
         splash: {
             backgroundColor: "#000000",
         },
+        infoPlist: {
+            NSMicrophoneUsageDescription:
+                "This app needs access to microphone to record podcasts.",
+            NSCameraUsageDescription:
+                "This app needs access to camera for profile pictures.",
+            UIBackgroundModes: ["audio"],
+        },
     },
     android: {
         adaptiveIcon: {
@@ -29,6 +36,12 @@ export default ({ config }) => ({
             backgroundColor: "#000000",
         },
         package: "com.iamfatihay.Volo",
+        permissions: [
+            "android.permission.RECORD_AUDIO",
+            "android.permission.MODIFY_AUDIO_SETTINGS",
+            "android.permission.WRITE_EXTERNAL_STORAGE",
+            "android.permission.READ_EXTERNAL_STORAGE",
+        ],
     },
     web: {
         bundler: "metro",
@@ -46,5 +59,15 @@ export default ({ config }) => ({
         googleExpoClientId:
             "255785247154-af6kqt9s2g6ovnl5du0frdtd987dsves.apps.googleusercontent.com",
     },
-    plugins: ["expo-secure-store", "expo-router"],
+    plugins: [
+        "expo-secure-store",
+        "expo-router",
+        [
+            "expo-av",
+            {
+                microphonePermission:
+                    "Allow Volo to access your microphone to record podcasts.",
+            },
+        ],
+    ],
 });

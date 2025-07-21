@@ -1,6 +1,12 @@
 import { Tabs, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { View, TouchableOpacity, Platform, Dimensions } from "react-native";
+import {
+    View,
+    TouchableOpacity,
+    Platform,
+    Dimensions,
+    Alert,
+} from "react-native";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -19,9 +25,54 @@ const CreateTab = () => {
     const tabSize = Platform.OS === "ios" ? 64 : 60;
     const topOffset = Platform.OS === "ios" ? -22 : -20;
 
+    const handleCreatePress = () => {
+        // Show action sheet for quick actions
+        const options =
+            Platform.OS === "ios"
+                ? ["Cancel", "Quick Record", "Create Podcast"]
+                : ["Quick Record", "Create Podcast", "Cancel"];
+
+        const cancelButtonIndex = Platform.OS === "ios" ? 0 : 2;
+
+        Alert.alert(
+            "Create Content",
+            "What would you like to create?",
+            [
+                {
+                    text: "Quick Record",
+                    onPress: () => {
+                        // Navigate to create page with immediate recording mode
+                        router.push({
+                            pathname: "/(main)/create",
+                            params: { mode: "quick-record" },
+                        });
+                    },
+                },
+                {
+                    text: "Create Podcast",
+                    onPress: () => {
+                        // Navigate to full create experience
+                        router.push({
+                            pathname: "/(main)/create",
+                            params: { mode: "full-create" },
+                        });
+                    },
+                },
+                {
+                    text: "Cancel",
+                    style: "cancel",
+                },
+            ],
+            {
+                cancelable: true,
+                userInterfaceStyle: "dark", // iOS dark mode support
+            }
+        );
+    };
+
     return (
         <TouchableOpacity
-            onPress={() => router.push("/(main)/create")}
+            onPress={handleCreatePress}
             activeOpacity={0.8}
             style={{
                 position: "absolute",
@@ -38,8 +89,8 @@ const CreateTab = () => {
             }}
             accessible={true}
             accessibilityRole="button"
-            accessibilityLabel="Create new podcast"
-            accessibilityHint="Tap to start creating a new podcast"
+            accessibilityLabel="Create new content"
+            accessibilityHint="Tap to choose between quick recording or full podcast creation"
         >
             <View
                 style={{
