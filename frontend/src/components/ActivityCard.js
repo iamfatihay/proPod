@@ -1,10 +1,12 @@
-import { TouchableOpacity, View, Text } from "react-native";
+import { TouchableOpacity, View, Text, Platform } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Surface } from "react-native-paper";
 import React from "react";
 
 export default function ActivityCard({ activity, onPress }) {
     let icon = null;
+    let accessibilityLabel = "";
+
     if (activity.type === "comment") {
         icon = (
             <Ionicons
@@ -14,6 +16,7 @@ export default function ActivityCard({ activity, onPress }) {
                 className="mr-2"
             />
         );
+        accessibilityLabel = `Comment activity: ${activity.text}`;
     } else if (activity.type === "livestream") {
         icon = (
             <MaterialCommunityIcons
@@ -23,15 +26,28 @@ export default function ActivityCard({ activity, onPress }) {
                 className="mr-2"
             />
         );
+        accessibilityLabel = `Livestream activity: ${activity.text}`;
     } else if (activity.type === "message") {
         icon = (
             <Ionicons name="mail" size={18} color="#D32F2F" className="mr-2" />
         );
+        accessibilityLabel = `Message activity: ${activity.text}`;
     }
+
     return (
         <Surface
             style={{
-                elevation: 2,
+                // Cross-platform shadow for both iOS and Android
+                ...(Platform.OS === "ios"
+                    ? {
+                          shadowColor: "#000",
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.25,
+                          shadowRadius: 3.84,
+                      }
+                    : {
+                          elevation: 5,
+                      }),
                 borderRadius: 16,
                 marginBottom: 10,
                 backgroundColor: "#18181b",
@@ -43,9 +59,16 @@ export default function ActivityCard({ activity, onPress }) {
                 onPress={onPress}
                 className="flex-row items-center px-3 py-2"
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel={accessibilityLabel}
+                accessibilityHint="Tap to view activity details"
             >
                 {icon}
-                <Text className="text-sm text-text-primary flex-1 ml-2">
+                <Text
+                    className="text-sm text-text-primary flex-1 ml-2"
+                    numberOfLines={2}
+                >
                     {activity.text}
                 </Text>
                 <Text className="text-xs text-text-secondary ml-2">

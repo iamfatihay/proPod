@@ -1,6 +1,8 @@
 import { Tabs, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { View, TouchableOpacity } from "react-native";
+import { View, TouchableOpacity, Platform, Dimensions } from "react-native";
+
+const { width: screenWidth } = Dimensions.get("window");
 
 const TabIcon = ({ icon, color, focused }) => {
     return (
@@ -13,13 +15,48 @@ const TabIcon = ({ icon, color, focused }) => {
 const CreateTab = () => {
     const router = useRouter();
 
+    // Responsive tab button size
+    const tabSize = Platform.OS === "ios" ? 64 : 60;
+    const topOffset = Platform.OS === "ios" ? -22 : -20;
+
     return (
         <TouchableOpacity
             onPress={() => router.push("/(main)/create")}
             activeOpacity={0.8}
-            className="top-[-22px] items-center justify-center shadow-lg"
+            style={{
+                position: "absolute",
+                top: topOffset,
+                alignItems: "center",
+                justifyContent: "center",
+                // iOS specific shadow
+                ...(Platform.OS === "ios" && {
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 6,
+                }),
+            }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Create new podcast"
+            accessibilityHint="Tap to start creating a new podcast"
         >
-            <View className="w-16 h-16 rounded-full bg-[#D32F2F] items-center justify-center border-4 border-black">
+            <View
+                style={{
+                    width: tabSize,
+                    height: tabSize,
+                    borderRadius: tabSize / 2,
+                    backgroundColor: "#D32F2F",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 4,
+                    borderColor: "#000000",
+                    // Android elevation
+                    ...(Platform.OS === "android" && {
+                        elevation: 8,
+                    }),
+                }}
+            >
                 <MaterialCommunityIcons name="plus" size={36} color="white" />
             </View>
         </TouchableOpacity>
@@ -27,6 +64,10 @@ const CreateTab = () => {
 };
 
 export default function TabLayout() {
+    // Responsive tab bar height
+    const tabBarHeight =
+        Platform.OS === "ios" ? (screenWidth > 375 ? 90 : 84) : 84;
+
     return (
         <Tabs
             screenOptions={{
@@ -38,7 +79,8 @@ export default function TabLayout() {
                     backgroundColor: "#000000", // theme.colors.background
                     borderTopWidth: 1,
                     borderTopColor: "#333333", // theme.colors.border
-                    height: 84,
+                    height: tabBarHeight,
+                    paddingBottom: Platform.OS === "ios" ? 6 : 0,
                 },
             }}
         >

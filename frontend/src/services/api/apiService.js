@@ -1,8 +1,12 @@
 import Constants from "expo-constants";
 import { getToken, saveToken, deleteToken } from "../auth/tokenStorage";
+import { Platform } from "react-native";
 
 // This line is used to get the API base URL from app.config.js (extra.apiBaseUrl).
 const API_BASE_URL = Constants.expoConfig.extra.apiBaseUrl;
+
+// Network timeout configuration
+const NETWORK_TIMEOUT = Platform.OS === "ios" ? 30000 : 25000; // iOS can handle longer timeouts
 
 class ApiService {
     constructor() {
@@ -18,26 +22,53 @@ class ApiService {
         const config = {
             headers: {
                 "Content-Type": "application/json",
+                // Add user agent for better compatibility
+                "User-Agent":
+                    Platform.OS === "ios" ? "VoloApp/iOS" : "VoloApp/Android",
                 ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
                 ...options.headers,
             },
+            // Add timeout for network requests
+            timeout: NETWORK_TIMEOUT,
             ...options,
         };
 
+        // Create AbortController for timeout handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), NETWORK_TIMEOUT);
+        config.signal = controller.signal;
+
         try {
             const response = await fetch(url, config);
+            clearTimeout(timeoutId);
 
             // If access token is expired and 401 is returned, try to refresh
             if (response.status === 401 && retry && refreshToken) {
                 // Get a new access token using the refresh token
+                const refreshController = new AbortController();
+                const refreshTimeoutId = setTimeout(
+                    () => refreshController.abort(),
+                    NETWORK_TIMEOUT
+                );
+
                 const refreshRes = await fetch(
                     `${this.baseURL}/users/refresh-token`,
                     {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers: {
+                            "Content-Type": "application/json",
+                            "User-Agent":
+                                Platform.OS === "ios"
+                                    ? "VoloApp/iOS"
+                                    : "VoloApp/Android",
+                        },
                         body: JSON.stringify({ refresh_token: refreshToken }),
+                        timeout: NETWORK_TIMEOUT,
+                        signal: refreshController.signal,
                     }
                 );
+                clearTimeout(refreshTimeoutId);
+
                 if (refreshRes.ok) {
                     const refreshData = await refreshRes.json();
                     await saveToken("accessToken", refreshData.access_token);
@@ -61,13 +92,34 @@ class ApiService {
                     }
                     error.response = { data };
                 } catch (e) {
-                    // JSON parse edilemezse, error.detail eklenmez
+                    // Just log the error, don't throw it
+                    console.warn("Could not parse error response as JSON");
                 }
                 throw error;
             }
 
             return await response.json();
         } catch (error) {
+            clearTimeout(timeoutId);
+
+            // Handle different error types with better messages
+            if (error.name === "AbortError") {
+                throw new Error(
+                    "Request timeout. Please check your internet connection and try again."
+                );
+            } else if (error.message === "Network request failed") {
+                throw new Error(
+                    "Network error. Please check your internet connection."
+                );
+            } else if (
+                error.message.includes("ENOTFOUND") ||
+                error.message.includes("ECONNREFUSED")
+            ) {
+                throw new Error(
+                    "Cannot connect to server. Please try again later."
+                );
+            }
+
             console.error("API request failed:", error);
             throw error;
         }
@@ -161,13 +213,29 @@ class ApiService {
 
     async uploadAudio(audioFile) {
         const formData = new FormData();
-        formData.append("audio", audioFile);
+
+        // Cross-platform file handling
+        if (Platform.OS === "ios") {
+            formData.append("audio", {
+                uri: audioFile.uri,
+                type: audioFile.type || "audio/mp4",
+                name: audioFile.name || "audio.m4a",
+            });
+        } else {
+            // Android
+            formData.append("audio", {
+                uri: audioFile.uri,
+                type: audioFile.type || "audio/mpeg",
+                name: audioFile.name || "audio.mp3",
+            });
+        }
 
         // Get the token from SecureStore
         const accessToken = await getToken("accessToken");
         return this.request("/podcasts/upload", {
             method: "POST",
             headers: {
+                "Content-Type": "multipart/form-data",
                 ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
             },
             body: formData,

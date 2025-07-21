@@ -1,4 +1,4 @@
-import { TouchableOpacity, View, Text } from "react-native";
+import { TouchableOpacity, View, Text, Platform } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Surface } from "react-native-paper";
 import React from "react";
@@ -7,7 +7,17 @@ export default function PodcastCard({ episode, onPress }) {
     return (
         <Surface
             style={{
-                elevation: 2,
+                // Cross-platform shadow for both iOS and Android
+                ...(Platform.OS === "ios"
+                    ? {
+                          shadowColor: "#000",
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.25,
+                          shadowRadius: 3.84,
+                      }
+                    : {
+                          elevation: 5,
+                      }),
                 borderRadius: 16,
                 marginBottom: 12,
                 backgroundColor: "#18181b", // bg-panel
@@ -19,6 +29,10 @@ export default function PodcastCard({ episode, onPress }) {
                 onPress={onPress}
                 className="flex-row items-center px-4 py-3"
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel={`Podcast episode: ${episode.title}`}
+                accessibilityHint="Tap to view episode details"
             >
                 <View className="w-10 h-10 bg-primary/20 rounded-full items-center justify-center mr-3">
                     <MaterialCommunityIcons

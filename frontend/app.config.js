@@ -46,5 +46,5 @@ export default ({ config }) => ({
         googleExpoClientId:
             "255785247154-af6kqt9s2g6ovnl5du0frdtd987dsves.apps.googleusercontent.com",
     },
-    plugins: ["expo-secure-store"],
+    plugins: ["expo-secure-store", "expo-router"],
 });

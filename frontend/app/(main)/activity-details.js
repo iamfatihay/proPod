@@ -1,4 +1,4 @@
-import { View, Text, SafeAreaView } from "react-native";
+import { View, Text, SafeAreaView, Platform } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Appbar, Surface } from "react-native-paper";
@@ -29,7 +29,7 @@ export default function ActivityDetails() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
     const activity = activities.find((a) => a.id === id);
-    const themeColor = "#FFFFFF"; // tailwind.config.js'den text.primary
+    const themeColor = "#FFFFFF";
 
     return (
         <SafeAreaView className="flex-1 bg-background">
@@ -46,7 +46,17 @@ export default function ActivityDetails() {
             <View className="flex-1 px-4 pt-6">
                 <Surface
                     style={{
-                        elevation: 2,
+                        // Cross-platform shadow for both iOS and Android
+                        ...(Platform.OS === "ios"
+                            ? {
+                                  shadowColor: "#000",
+                                  shadowOffset: { width: 0, height: 2 },
+                                  shadowOpacity: 0.25,
+                                  shadowRadius: 3.84,
+                              }
+                            : {
+                                  elevation: 5,
+                              }),
                         borderRadius: 16,
                         padding: 20,
                         backgroundColor: "#18181b",

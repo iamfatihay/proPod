@@ -18,8 +18,7 @@ class Podcast(PodcastBase):
     created_at: datetime.datetime
     owner_id: int
 
-    class Config:
-        orm_mode = True
+    model_config = {'from_attributes': True}
 
 
 class UserBase(BaseModel):
