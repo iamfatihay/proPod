@@ -1,0 +1,250 @@
+name: Test Suite
+
+on:
+    push:
+        branches: [main, develop]
+    pull_request:
+        branches: [main, develop]
+
+env:
+    NODE_VERSION: "18"
+    JAVA_VERSION: "17"
+
+jobs:
+    unit-tests:
+        name: Unit Tests
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: "npm"
+                  cache-dependency-path: frontend/package-lock.json
+
+            - name: Install dependencies
+              working-directory: frontend
+              run: npm ci
+
+            - name: Run unit tests
+              working-directory: frontend
+              run: npm run test:ci
+
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
+              with:
+                  directory: frontend/coverage
+                  fail_ci_if_error: true
+
+    integration-tests:
+        name: Integration Tests
+        runs-on: ubuntu-latest
+        needs: unit-tests
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: "npm"
+                  cache-dependency-path: frontend/package-lock.json
+
+            - name: Install dependencies
+              working-directory: frontend
+              run: npm ci
+
+            - name: Run integration tests
+              working-directory: frontend
+              run: npm run test:integration
+
+    e2e-ios:
+        name: E2E Tests (iOS)
+        runs-on: macos-latest
+        needs: [unit-tests, integration-tests]
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: "npm"
+                  cache-dependency-path: frontend/package-lock.json
+
+            - name: Setup Xcode
+              uses: maxim-lobanov/setup-xcode@v1
+              with:
+                  xcode-version: "15.0"
+
+            - name: Install dependencies
+              working-directory: frontend
+              run: npm ci
+
+            - name: Install iOS dependencies
+              working-directory: frontend
+              run: |
+                  cd ios
+                  pod install
+
+            - name: Build app for Detox
+              working-directory: frontend
+              run: npm run test:e2e:build -- --configuration ios.sim.debug
+
+            - name: Run iOS E2E tests
+              working-directory: frontend
+              run: npm run test:e2e:ios
+
+            - name: Upload iOS test artifacts
+              uses: actions/upload-artifact@v3
+              if: failure()
+              with:
+                  name: ios-e2e-artifacts
+                  path: |
+                      frontend/artifacts/
+                      frontend/e2e/screenshots/
+
+    e2e-android:
+        name: E2E Tests (Android)
+        runs-on: ubuntu-latest
+        needs: [unit-tests, integration-tests]
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: "npm"
+                  cache-dependency-path: frontend/package-lock.json
+
+            - name: Setup Java
+              uses: actions/setup-java@v3
+              with:
+                  distribution: "temurin"
+                  java-version: ${{ env.JAVA_VERSION }}
+
+            - name: Setup Android SDK
+              uses: android-actions/setup-android@v2
+
+            - name: Install dependencies
+              working-directory: frontend
+              run: npm ci
+
+            - name: Create Android emulator
+              run: |
+                  echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install 'system-images;android-34;google_apis;x86_64'
+                  echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd --force --name Pixel_7_API_34 --abi google_apis/x86_64 --package 'system-images;android-34;google_apis;x86_64'
+
+            - name: Start Android emulator
+              run: |
+                  $ANDROID_HOME/emulator/emulator -avd Pixel_7_API_34 -no-audio -no-window -gpu swiftshader_indirect -no-snapshot -wipe-data &
+                  adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed | tr -d '\r') ]]; do sleep 1; done'
+
+            - name: Build app for Detox
+              working-directory: frontend
+              run: npm run test:e2e:build -- --configuration android.emu.debug
+
+            - name: Run Android E2E tests
+              working-directory: frontend
+              run: npm run test:e2e:android
+
+            - name: Upload Android test artifacts
+              uses: actions/upload-artifact@v3
+              if: failure()
+              with:
+                  name: android-e2e-artifacts
+                  path: |
+                      frontend/artifacts/
+                      frontend/e2e/screenshots/
+
+    lint-and-format:
+        name: Lint and Format
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: "npm"
+                  cache-dependency-path: frontend/package-lock.json
+
+            - name: Install dependencies
+              working-directory: frontend
+              run: npm ci
+
+            - name: Run ESLint
+              working-directory: frontend
+              run: npm run lint
+
+            - name: Check code formatting
+              working-directory: frontend
+              run: npx prettier --check "src/**/*.{js,jsx,json}"
+
+    security-audit:
+        name: Security Audit
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: "npm"
+                  cache-dependency-path: frontend/package-lock.json
+
+            - name: Run security audit
+              working-directory: frontend
+              run: npm audit --audit-level=high
+
+            - name: Check for known vulnerabilities
+              working-directory: frontend
+              run: npx audit-ci --high
+
+    test-summary:
+        name: Test Summary
+        runs-on: ubuntu-latest
+        needs:
+            [
+                unit-tests,
+                integration-tests,
+                e2e-ios,
+                e2e-android,
+                lint-and-format,
+                security-audit,
+            ]
+        if: always()
+
+        steps:
+            - name: Test Results Summary
+              run: |
+                  echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
+                  echo "| Test Type | Status |" >> $GITHUB_STEP_SUMMARY
+                  echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+                  echo "| Unit Tests | ${{ needs.unit-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+                  echo "| Integration Tests | ${{ needs.integration-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+                  echo "| E2E iOS | ${{ needs.e2e-ios.result }} |" >> $GITHUB_STEP_SUMMARY
+                  echo "| E2E Android | ${{ needs.e2e-android.result }} |" >> $GITHUB_STEP_SUMMARY
+                  echo "| Lint & Format | ${{ needs.lint-and-format.result }} |" >> $GITHUB_STEP_SUMMARY
+                  echo "| Security Audit | ${{ needs.security-audit.result }} |" >> $GITHUB_STEP_SUMMARY
+
+            - name: Fail if any tests failed
+              if: needs.unit-tests.result == 'failure' || needs.integration-tests.result == 'failure' || needs.e2e-ios.result == 'failure' || needs.e2e-android.result == 'failure' || needs.lint-and-format.result == 'failure' || needs.security-audit.result == 'failure'
+              run: exit 1
