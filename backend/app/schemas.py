@@ -46,6 +46,48 @@ class PodcastUpdate(BaseModel):
     is_public: Optional[bool] = None
 
 
+# AI Processing Schemas
+class AIProcessingRequest(BaseModel):
+    enhance_audio: bool = True
+    transcribe: bool = True
+    analyze_content: bool = True
+    language: Optional[str] = "auto"
+
+class TranscriptionResult(BaseModel):
+    success: bool
+    text: str
+    language: str
+    language_probability: float
+    segments: List[dict] = []
+    words: List[dict] = []
+    duration: float
+    processing_time: float
+    model_used: str
+
+class ContentAnalysisResult(BaseModel):
+    success: bool
+    text_stats: dict
+    keywords: List[dict] = []
+    categories: List[dict] = []
+    summary: str
+    sentiment: dict
+    topics: List[dict] = []
+    readability: dict
+
+class AudioEnhancementResult(BaseModel):
+    success: bool
+    stats: dict
+    processing_steps: List[str] = []
+
+class AIProcessingResult(BaseModel):
+    success: bool
+    processing_time: float
+    transcription: Optional[TranscriptionResult] = None
+    analysis: Optional[ContentAnalysisResult] = None
+    audio_enhancement: Optional[AudioEnhancementResult] = None
+    errors: List[str] = []
+
+
 class Podcast(PodcastBase):
     id: int
     audio_url: Optional[str] = None
@@ -55,6 +97,19 @@ class Podcast(PodcastBase):
     play_count: int
     like_count: int
     bookmark_count: int
+    
+    # AI-related fields
+    transcription_text: Optional[str] = None
+    transcription_language: Optional[str] = None
+    transcription_confidence: Optional[str] = None
+    ai_keywords: Optional[str] = None
+    ai_summary: Optional[str] = None
+    ai_sentiment: Optional[str] = None
+    ai_categories: Optional[str] = None
+    ai_processing_status: str = "pending"
+    ai_processing_date: Optional[datetime.datetime] = None
+    ai_quality_score: Optional[str] = None
+    
     created_at: datetime.datetime
     updated_at: datetime.datetime
     owner_id: int

@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Index, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -43,6 +43,19 @@ class Podcast(Base):
     play_count = Column(Integer, default=0)
     like_count = Column(Integer, default=0)
     bookmark_count = Column(Integer, default=0)
+    
+    # AI-related fields
+    transcription_text = Column(Text, nullable=True)
+    transcription_language = Column(String, nullable=True)
+    transcription_confidence = Column(String, nullable=True)  # Store as JSON string
+    ai_keywords = Column(Text, nullable=True)  # Store as JSON string
+    ai_summary = Column(Text, nullable=True)
+    ai_sentiment = Column(String, nullable=True)  # positive/negative/neutral
+    ai_categories = Column(Text, nullable=True)  # Store as JSON string
+    ai_processing_status = Column(String, default="pending")  # pending/processing/completed/failed
+    ai_processing_date = Column(DateTime, nullable=True)
+    ai_quality_score = Column(String, nullable=True)
+    
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
     owner_id = Column(Integer, ForeignKey("users.id"))

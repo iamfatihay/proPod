@@ -63,6 +63,47 @@ def run_migration():
                 ALTER TABLE podcasts 
                 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
                 """,
+                # AI-related columns
+                """
+                ALTER TABLE podcasts 
+                ADD COLUMN IF NOT EXISTS transcription_text TEXT;
+                """,
+                """
+                ALTER TABLE podcasts 
+                ADD COLUMN IF NOT EXISTS transcription_language VARCHAR;
+                """,
+                """
+                ALTER TABLE podcasts 
+                ADD COLUMN IF NOT EXISTS transcription_confidence VARCHAR;
+                """,
+                """
+                ALTER TABLE podcasts 
+                ADD COLUMN IF NOT EXISTS ai_keywords TEXT;
+                """,
+                """
+                ALTER TABLE podcasts 
+                ADD COLUMN IF NOT EXISTS ai_summary TEXT;
+                """,
+                """
+                ALTER TABLE podcasts 
+                ADD COLUMN IF NOT EXISTS ai_sentiment VARCHAR;
+                """,
+                """
+                ALTER TABLE podcasts 
+                ADD COLUMN IF NOT EXISTS ai_categories TEXT;
+                """,
+                """
+                ALTER TABLE podcasts 
+                ADD COLUMN IF NOT EXISTS ai_processing_status VARCHAR DEFAULT 'pending';
+                """,
+                """
+                ALTER TABLE podcasts 
+                ADD COLUMN IF NOT EXISTS ai_processing_date TIMESTAMP;
+                """,
+                """
+                ALTER TABLE podcasts 
+                ADD COLUMN IF NOT EXISTS ai_quality_score VARCHAR;
+                """,
             ]
             
             for query in migration_queries:
