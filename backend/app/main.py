@@ -2,7 +2,7 @@ from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from app.routers import users, podcasts
+from app.routers import users, podcasts, ai
 from dotenv import load_dotenv
 import os
 
@@ -21,6 +21,7 @@ app.add_middleware(
 
 app.include_router(users.router)
 app.include_router(podcasts.router)
+app.include_router(ai.router)
 
 
 @app.exception_handler(RequestValidationError)
