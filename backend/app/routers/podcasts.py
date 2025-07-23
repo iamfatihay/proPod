@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
 from typing import List, Optional
+import json
+import asyncio
 from .. import schemas, crud, models, auth
 from ..database import SessionLocal
+from ..services.ai_service import ai_service
 
 router = APIRouter(prefix="/podcasts", tags=["podcasts"])
 
@@ -23,6 +26,132 @@ def create_podcast(
 ):
     """Create a new podcast"""
     return crud.create_podcast(db=db, podcast=podcast, owner_id=current_user.id)
+
+@router.post("/{podcast_id}/process-ai")
+async def process_podcast_with_ai(
+    podcast_id: int = Path(..., description="The ID of the podcast to process"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+    audio_file_path: str = ...,
+    enhance_audio: bool = True,
+    transcribe: bool = True,
+    analyze_content: bool = True,
+    language: Optional[str] = "auto"
+):
+    """
+    Process podcast with AI enhancement
+    """
+    try:
+        # Get podcast
+        podcast = crud.get_podcast(db=db, podcast_id=podcast_id)
+        if not podcast:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Podcast not found"
+            )
+        
+        # Check ownership
+        if podcast.owner_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to process this podcast"
+            )
+        
+        # Update processing status
+        podcast.ai_processing_status = "processing"
+        db.commit()
+        
+        try:
+            # Prepare AI processing options
+            options = {
+                "enhance_audio": enhance_audio,
+                "transcribe": transcribe,
+                "analyze_content": analyze_content,
+                "audio_options": {
+                    "noise_reduction": True,
+                    "normalize": True,
+                    "compress": True,
+                    "quality": "high"
+                },
+                "transcription_options": {
+                    "language": language if language != "auto" else None,
+                    "include_timestamps": True,
+                    "include_word_timestamps": False
+                },
+                "analysis_options": {
+                    "extract_keywords": True,
+                    "suggest_categories": True,
+                    "generate_summary": True,
+                    "analyze_sentiment": True
+                }
+            }
+            
+            # Process with AI
+            ai_results = await ai_service.process_podcast_audio(audio_file_path, options)
+            
+            # Update podcast with AI results
+            if ai_results["success"]:
+                # Update transcription
+                if ai_results.get("transcription"):
+                    transcription = ai_results["transcription"]
+                    podcast.transcription_text = transcription.get("text", "")
+                    podcast.transcription_language = transcription.get("language", "")
+                    podcast.transcription_confidence = json.dumps({
+                        "probability": transcription.get("language_probability", 0.0),
+                        "segments_count": len(transcription.get("segments", []))
+                    })
+                
+                # Update content analysis
+                if ai_results.get("analysis"):
+                    analysis = ai_results["analysis"]
+                    podcast.ai_keywords = json.dumps(analysis.get("keywords", []))
+                    podcast.ai_summary = analysis.get("summary", "")
+                    
+                    sentiment = analysis.get("sentiment", {})
+                    podcast.ai_sentiment = sentiment.get("label", "neutral")
+                    podcast.ai_categories = json.dumps(analysis.get("categories", []))
+                
+                # Update audio stats
+                if ai_results.get("audio_stats"):
+                    podcast.ai_quality_score = json.dumps(ai_results["audio_stats"])
+                
+                podcast.ai_enhanced = True
+                podcast.ai_processing_status = "completed"
+                podcast.ai_processing_date = models.datetime.datetime.now(models.datetime.timezone.utc)
+                
+                # Auto-suggest category if empty
+                if not podcast.category or podcast.category == "General":
+                    if ai_results.get("analysis", {}).get("categories"):
+                        top_category = ai_results["analysis"]["categories"][0]
+                        if top_category.get("confidence", 0) > 0.7:
+                            podcast.category = top_category["category"]
+            else:
+                podcast.ai_processing_status = "failed"
+            
+            db.commit()
+            
+            return {
+                "success": ai_results["success"],
+                "processing_time": ai_results["processing_time"],
+                "message": "AI processing completed successfully" if ai_results["success"] else "AI processing failed",
+                "podcast_id": podcast_id,
+                "ai_enhanced": podcast.ai_enhanced,
+                "errors": ai_results.get("errors", [])
+            }
+            
+        except Exception as e:
+            # Update failed status
+            podcast.ai_processing_status = "failed"
+            db.commit()
+            raise e
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"AI processing failed: {str(e)}"
+        )
 
 
 @router.get("/{podcast_id}", response_model=schemas.Podcast)
