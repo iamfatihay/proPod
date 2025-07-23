@@ -454,6 +454,97 @@ class ApiService {
         return this.request(`/podcasts/${podcastId}/analytics`);
     }
 
+    // AI Processing methods
+    async getAIStatus() {
+        return this.request("/ai/status");
+    }
+
+    async initializeAI() {
+        return this.request("/ai/initialize", { method: "POST" });
+    }
+
+    async processAudioWithAI(formData) {
+        return this.request("/ai/process-audio", {
+            method: "POST",
+            body: formData,
+            headers: {}, // Remove Content-Type to let browser set multipart boundary
+        });
+    }
+
+    async enhanceAudioOnly(formData) {
+        return this.request("/ai/enhance-audio", {
+            method: "POST",
+            body: formData,
+            headers: {},
+        });
+    }
+
+    async transcribeAudio(formData) {
+        return this.request("/ai/transcribe", {
+            method: "POST",
+            body: formData,
+            headers: {},
+        });
+    }
+
+    async analyzeTextContent(text, options = {}) {
+        const formData = new FormData();
+        formData.append("text", text);
+        formData.append("extract_keywords", options.extractKeywords ?? true);
+        formData.append(
+            "suggest_categories",
+            options.suggestCategories ?? true
+        );
+        formData.append("generate_summary", options.generateSummary ?? true);
+        formData.append("analyze_sentiment", options.analyzeSentiment ?? true);
+        formData.append("keyword_count", options.keywordCount ?? 10);
+        formData.append("summary_sentences", options.summarySentences ?? 3);
+
+        return this.request("/ai/analyze-text", {
+            method: "POST",
+            body: formData,
+            headers: {},
+        });
+    }
+
+    async getSupportedLanguages() {
+        return this.request("/ai/supported-languages");
+    }
+
+    async detectAudioLanguage(formData) {
+        return this.request("/ai/detect-language", {
+            method: "POST",
+            body: formData,
+            headers: {},
+        });
+    }
+
+    async generateSubtitles(transcriptionData, format = "srt") {
+        return this.request("/ai/generate-subtitles", {
+            method: "POST",
+            body: JSON.stringify({
+                transcription_data: transcriptionData,
+                format_type: format,
+            }),
+        });
+    }
+
+    // Podcast AI Processing
+    async processPodcastWithAI(podcastId, audioFilePath, options = {}) {
+        const requestData = {
+            audio_file_path: audioFilePath,
+            enhance_audio: options.enhanceAudio ?? true,
+            transcribe: options.transcribe ?? true,
+            analyze_content: options.analyzeContent ?? true,
+            language: options.language ?? "auto",
+        };
+
+        return this.request(`/podcasts/${podcastId}/process-ai`, {
+            method: "POST",
+            body: JSON.stringify(requestData),
+        });
+    }
+
     // Logout function
     async logout() {
         await deleteToken("accessToken");
