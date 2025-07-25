@@ -127,7 +127,7 @@ export default function LoginScreen() {
             >
                 <View className="flex-1 justify-center items-center px-6">
                     <Image
-                        source={require("../../assets/Volo-logo.svg")}
+                        source={require("../../assets/Volo-logo.png")}
                         className="w-60 h-60 mb-6"
                         resizeMode="contain"
                     />
