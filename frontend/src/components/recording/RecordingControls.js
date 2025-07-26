@@ -83,30 +83,59 @@ const RecordingControls = ({
     };
 
     const handleRecordPress = async () => {
-        if (disabled) return;
+        console.log("🎵 RecordingControls: handleRecordPress called", {
+            disabled,
+            isRecording,
+            isPaused,
+            duration,
+        });
+
+        if (disabled) {
+            console.log("❌ Recording disabled, skipping");
+            return;
+        }
 
         try {
             if (!isRecording) {
+                console.log("▶️ Starting recording via AudioService...");
                 // Start recording
                 const success = await AudioService.startRecording();
+                console.log("🎵 AudioService.startRecording result:", success);
+
                 if (success) {
+                    console.log("✅ Recording started, updating UI state...");
                     setIsRecording(true);
                     setIsPaused(false);
                     setDuration(0);
                     onRecordingStart && onRecordingStart();
+                } else {
+                    console.warn("❌ Failed to start recording");
                 }
             } else {
+                console.log("⏹️ Stopping recording via AudioService...");
                 // Stop recording
                 const uri = await AudioService.stopRecording();
+                console.log("🎵 AudioService.stopRecording result URI:", uri);
+
                 if (uri) {
+                    console.log("✅ Recording stopped, updating UI state...");
                     setIsRecording(false);
                     setIsPaused(false);
                     setDuration(0);
                     onRecordingStop && onRecordingStop(uri);
+                } else {
+                    console.warn("❌ Failed to stop recording or get URI");
                 }
             }
         } catch (error) {
-            console.error("Recording error:", error);
+            console.error("💥 Recording error in handleRecordPress:", error);
+            console.error("💥 Error details:", {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+                isRecording,
+                isPaused,
+            });
             Alert.alert(
                 "Recording Error",
                 "Failed to start/stop recording. Please check permissions and try again.",
@@ -116,24 +145,50 @@ const RecordingControls = ({
     };
 
     const handlePausePress = async () => {
-        if (disabled || !isRecording) return;
+        console.log("⏸️ RecordingControls: handlePausePress called", {
+            disabled,
+            isRecording,
+            isPaused,
+            platform: Platform.OS,
+        });
+
+        if (disabled || !isRecording) {
+            console.log("❌ Cannot pause: disabled or not recording", {
+                disabled,
+                isRecording,
+            });
+            return;
+        }
 
         try {
             if (Platform.OS === "ios") {
                 if (!isPaused) {
+                    console.log("⏸️ Pausing recording on iOS...");
                     const success = await AudioService.pauseRecording();
+                    console.log("⏸️ Pause result:", success);
+
                     if (success) {
+                        console.log("✅ Recording paused, updating UI...");
                         setIsPaused(true);
                         onRecordingPause && onRecordingPause();
+                    } else {
+                        console.warn("❌ Failed to pause recording");
                     }
                 } else {
+                    console.log("▶️ Resuming recording on iOS...");
                     const success = await AudioService.resumeRecording();
+                    console.log("▶️ Resume result:", success);
+
                     if (success) {
+                        console.log("✅ Recording resumed, updating UI...");
                         setIsPaused(false);
                         onRecordingResume && onRecordingResume();
+                    } else {
+                        console.warn("❌ Failed to resume recording");
                     }
                 }
             } else {
+                console.log("⚠️ Android pause not supported, showing alert");
                 // Android doesn't support pause, show info
                 Alert.alert(
                     "Pause Not Available",

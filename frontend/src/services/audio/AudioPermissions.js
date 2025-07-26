@@ -15,24 +15,50 @@ class AudioPermissions {
      */
     async requestPermissions() {
         try {
+            console.log("🎤 Starting permission requests...");
+
             // Request recording permission
+            console.log("🎤 Requesting AUDIO recording permission...");
             const recordingResponse = await Audio.requestPermissionsAsync();
             this.recordingPermission = recordingResponse.status === "granted";
+            console.log("🎤 Audio permission result:", {
+                status: recordingResponse.status,
+                granted: this.recordingPermission,
+                response: recordingResponse,
+            });
 
             // Request media library permission for saving files
+            console.log("📁 Requesting MEDIA LIBRARY permission...");
             const mediaResponse = await MediaLibrary.requestPermissionsAsync();
             this.mediaLibraryPermission = mediaResponse.status === "granted";
+            console.log("📁 Media library permission result:", {
+                status: mediaResponse.status,
+                granted: this.mediaLibraryPermission,
+                response: mediaResponse,
+            });
 
             this.permissionsGranted =
                 this.recordingPermission && this.mediaLibraryPermission;
 
+            console.log("✅ Final permission status:", {
+                recording: this.recordingPermission,
+                mediaLibrary: this.mediaLibraryPermission,
+                allGranted: this.permissionsGranted,
+            });
+
             if (!this.permissionsGranted) {
+                console.warn("❌ Permissions denied, showing alert");
                 this._showPermissionDeniedAlert();
             }
 
             return this.permissionsGranted;
         } catch (error) {
-            console.error("Permission request failed:", error);
+            console.error("💥 Permission request failed:", error);
+            console.error("💥 Error details:", {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+            });
             this._showPermissionErrorAlert();
             return false;
         }
@@ -44,17 +70,45 @@ class AudioPermissions {
      */
     async checkPermissions() {
         try {
+            console.log("🔍 Checking existing permissions...");
+
             const recordingStatus = await Audio.getPermissionsAsync();
             const mediaStatus = await MediaLibrary.getPermissionsAsync();
+
+            console.log("🔍 Permission check results:", {
+                audio: {
+                    status: recordingStatus.status,
+                    granted: recordingStatus.granted,
+                    canAskAgain: recordingStatus.canAskAgain,
+                    full: recordingStatus,
+                },
+                media: {
+                    status: mediaStatus.status,
+                    granted: mediaStatus.granted,
+                    canAskAgain: mediaStatus.canAskAgain,
+                    full: mediaStatus,
+                },
+            });
 
             this.recordingPermission = recordingStatus.status === "granted";
             this.mediaLibraryPermission = mediaStatus.status === "granted";
             this.permissionsGranted =
                 this.recordingPermission && this.mediaLibraryPermission;
 
+            console.log("🔍 Final permission states:", {
+                recording: this.recordingPermission,
+                mediaLibrary: this.mediaLibraryPermission,
+                allGranted: this.permissionsGranted,
+            });
+
             return this.permissionsGranted;
         } catch (error) {
-            console.error("Permission check failed:", error);
+            console.error("💥 Permission check failed:", error);
+            console.error("💥 Check error details:", {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+            });
             return false;
         }
     }

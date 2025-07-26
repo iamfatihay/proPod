@@ -56,27 +56,39 @@ class AudioRecorder {
      */
     async startRecording(options = {}) {
         try {
+            console.log("🎵 Starting recording...");
+
             if (this.isRecording) {
-                console.warn("Already recording");
+                console.warn("❌ Already recording");
                 return false;
             }
 
             // Initialize if not done already
+            console.log("🔧 Initializing recording...");
             await this.initializeRecording();
 
             // Prepare recording options based on platform
             const recordingOptions = this._getRecordingOptions(options);
+            console.log("⚙️ Recording options:", recordingOptions);
 
             // Create new recording
+            console.log("📝 Creating new recording...");
             this.recording = new Audio.Recording();
             await this.recording.prepareToRecordAsync(recordingOptions);
 
             // Start recording
+            console.log("▶️ Starting recording async...");
             await this.recording.startAsync();
 
             this.isRecording = true;
             this.isPaused = false;
             this.recordingStartTime = Date.now();
+
+            console.log("✅ Recording started successfully:", {
+                isRecording: this.isRecording,
+                isPaused: this.isPaused,
+                startTime: this.recordingStartTime,
+            });
 
             // Start duration timer
             this._startTimer();
