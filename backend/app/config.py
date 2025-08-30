@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 import os
 
 class Settings(BaseSettings):
@@ -16,8 +17,12 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     FROM_EMAIL: str = ""
 
-    class Config:
+    model_config = ConfigDict(
         env_file = os.path.join(os.path.dirname(__file__), '..', '.env')
+    )
 
 settings = Settings()
-print("DEBUG SETTINGS:", settings.model_dump())
+
+# Only show debug info in development
+if settings.ENV == "dev":
+    print("DEBUG SETTINGS:", settings.model_dump())

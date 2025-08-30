@@ -73,24 +73,18 @@ export const ToastProvider = ({ children }) => {
                             paddingHorizontal: 24,
                             paddingVertical: 12,
                             borderRadius: 12,
-                            backgroundColor:
-                                toast.type === "success"
-                                    ? "#D32F2F"
-                                    : "#EF4444",
                             maxWidth: "90%",
                             // Android elevation
                             ...(Platform.OS === "android" && {
                                 elevation: 8,
                             }),
                         }}
+                        className={`${
+                            toast.type === "success" ? "bg-primary" : "bg-error"
+                        }`}
                     >
                         <Text
-                            style={{
-                                color: "#FFFFFF",
-                                fontWeight: "600",
-                                fontSize: 16,
-                                textAlign: "center",
-                            }}
+                            className="text-white font-semibold text-base text-center"
                             numberOfLines={3}
                         >
                             {toast.message}

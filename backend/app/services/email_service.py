@@ -23,7 +23,7 @@ class EmailService:
         """Send password reset email"""
         subject = "Password Reset - Volo"
         
-        # Create reset link (in production, this should be your frontend URL)
+        # Create reset link (in prod, this should be your frontend URL)
         reset_link = f"http://localhost:3000/reset-password?token={reset_token}"
         
         # Email body
@@ -54,38 +54,36 @@ class EmailService:
             return self._send_dev_email(to_email, subject, body)
     
     def _send_smtp_email(self, to_email: str, subject: str, body: str) -> bool:
-        """Send email via SMTP (production)"""
+        """Send email via SMTP (prod)"""
         try:
-            if not all([self.smtp_host, self.smtp_username, self.smtp_password, self.from_email]):
-                logger.error("SMTP configuration is incomplete")
-                return False
-            
-            # Create message
             msg = MIMEMultipart()
             msg['From'] = self.from_email
             msg['To'] = to_email
             msg['Subject'] = subject
+            
             msg.attach(MIMEText(body, 'plain'))
             
-            # Send email
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.smtp_username, self.smtp_password)
-                server.send_message(msg)
+            server = smtplib.SMTP(self.smtp_host, self.smtp_port)
+            server.starttls()
+            server.login(self.smtp_username, self.smtp_password)
             
-            logger.info(f"Email sent successfully to {to_email}")
+            text = msg.as_string()
+            server.sendmail(self.from_email, to_email, text)
+            server.quit()
+            
+            logger.info(f"SMTP email sent successfully to {to_email}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to send email to {to_email}: {str(e)}")
+            logger.error(f"Failed to send SMTP email: {str(e)}")
             return False
     
     def _send_dev_email(self, to_email: str, subject: str, body: str) -> bool:
-        """Send email in development mode (console + file)"""
+        """Send email in dev mode (console + file)"""
         try:
             # Log to console
             print("=" * 50)
-            print("📧 EMAIL SENT (DEVELOPMENT MODE)")
+            print("📧 EMAIL SENT (DEV MODE)")
             print("=" * 50)
             print(f"To: {to_email}")
             print(f"Subject: {subject}")
@@ -102,11 +100,11 @@ class EmailService:
                 f.write(f"Body:\n{body}\n")
                 f.write(f"{'='*50}\n")
             
-            logger.info(f"Development email logged for {to_email}")
+            logger.info(f"Dev email logged for {to_email}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to log development email: {str(e)}")
+            logger.error(f"Failed to log dev email: {str(e)}")
             return False
 
 

@@ -98,7 +98,7 @@ export default function HomeScreen() {
 
                 {/* Episodes */}
                 <Text className="text-lg font-semibold text-text-primary mb-2">
-                    Letzte Episoden
+                    Recent Episodes
                 </Text>
                 <View className="mb-4">
                     <FlatList
@@ -146,7 +146,7 @@ export default function HomeScreen() {
                     {/* Activities */}
                     <View className="flex-1">
                         <Text className="text-base font-semibold text-text-primary mb-2">
-                            Aktivitäten
+                            Activities
                         </Text>
                         <FlatList
                             data={activities}

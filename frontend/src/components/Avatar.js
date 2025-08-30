@@ -12,12 +12,10 @@ const Avatar = ({ uri, name, size = 64 }) => {
                 width: size,
                 height: size,
                 borderRadius: size / 2,
-                backgroundColor: "#333333",
-                alignItems: "center",
-                justifyContent: "center",
             }}
+            className="bg-border items-center justify-center"
         >
-            <Ionicons name="person" size={size * 0.6} color="#888" />
+            <Ionicons name="person" size={size * 0.6} color="#888888" />
         </View>
     );
 
@@ -35,8 +33,8 @@ const Avatar = ({ uri, name, size = 64 }) => {
                         width: size,
                         height: size,
                         borderRadius: size / 2,
-                        backgroundColor: "#333333",
                     }}
+                    className="bg-border"
                     onError={() => setImageError(true)}
                     accessible={true}
                     accessibilityLabel={

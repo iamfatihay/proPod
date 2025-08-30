@@ -125,7 +125,7 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
         return {"msg": "If this email exists, a reset link has been sent."}
     
     if settings.ENV == "prod":
-        # Production: Store token in database
+        # Prod: Store token in database
         token = crud.set_reset_token(db, user)
         # Send email with reset link
         email_sent = email_service.send_password_reset_email(user.email, token)
@@ -134,30 +134,30 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
             pass
         return {"msg": "If this email exists, a reset link has been sent."}
     else:
-        # Development: Store token in memory and return in response for testing
+        # Dev: Store token in memory and return in response for testing
         token = secrets.token_urlsafe(32)
         reset_tokens[token] = {
             "user_id": user.id, 
             "expires": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
         }
-        # Send development email (console + file)
+        # Send dev email (console + file)
         email_service.send_password_reset_email(user.email, token)
         return {
             "msg": "If this email exists, a reset link has been sent.", 
-            "token": token  # Only for development testing
+            "token": token  # Only for dev testing
         }
 
 
 @router.post("/reset-password")
 def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
     if settings.ENV == "prod":
-        # Production: Get user by token from database
+        # Prod: Get user by token from database
         user = crud.get_user_by_reset_token(db, request.token)
         if not user:
             raise HTTPException(status_code=400, detail="Invalid or expired token")
         crud.reset_user_password(db, user, request.new_password)
     else:
-        # Development: Get user by token from memory
+        # Dev: Get user by token from memory
         token_data = reset_tokens.get(request.token)
         if not token_data or token_data["expires"] < datetime.datetime.now(datetime.timezone.utc):
             raise HTTPException(status_code=400, detail="Invalid or expired token")

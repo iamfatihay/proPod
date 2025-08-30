@@ -21,6 +21,21 @@ global.mockApiError = (error, status = 500) => {
     });
 };
 
+// Audio recording mock
+global.mockAudioRecording = () => ({
+    startAsync: jest.fn().mockResolvedValue(undefined),
+    stopAndUnloadAsync: jest.fn().mockResolvedValue({
+        uri: "file://test-recording.m4a",
+        durationMillis: 5000,
+    }),
+    pauseAsync: jest.fn().mockResolvedValue(undefined),
+    resumeAsync: jest.fn().mockResolvedValue(undefined),
+    getStatusAsync: jest.fn().mockResolvedValue({
+        isRecording: true,
+        durationMillis: 5000,
+    }),
+});
+
 // Cleanup after each test
 afterEach(() => {
     jest.clearAllMocks();

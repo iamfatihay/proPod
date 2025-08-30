@@ -50,9 +50,8 @@ export default function ActivityCard({ activity, onPress }) {
                       }),
                 borderRadius: 16,
                 marginBottom: 10,
-                backgroundColor: "#18181b",
             }}
-            className="overflow-hidden"
+            className="overflow-hidden bg-panel"
         >
             <TouchableOpacity
                 activeOpacity={0.8}
@@ -64,7 +63,9 @@ export default function ActivityCard({ activity, onPress }) {
                 accessibilityLabel={accessibilityLabel}
                 accessibilityHint="Tap to view activity details"
             >
-                {icon}
+                <View className="mr-2">
+                    {React.cloneElement(icon, { color: "#D32F2F" })}
+                </View>
                 <Text
                     className="text-sm text-text-primary flex-1 ml-2"
                     numberOfLines={2}

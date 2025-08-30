@@ -359,7 +359,7 @@ const RecordingControls = ({
                         <Ionicons
                             name={isPaused ? "play" : "pause"}
                             size={24}
-                            color={isRecording ? "#FFFFFF" : "#666666"}
+                            color={isRecording ? "#FFFFFF" : "#888888"}
                         />
                     </TouchableOpacity>
                 )}

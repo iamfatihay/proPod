@@ -52,37 +52,37 @@ const AIProcessingProgress = ({
                 title: "Initializing AI Services",
                 description: "Setting up audio processing...",
                 icon: "robot",
-                color: "#6B7280",
+                color: "#888888", // text-muted
             },
             uploading: {
                 title: "Uploading Audio",
                 description: "Preparing audio file for processing...",
                 icon: "cloud-upload",
-                color: "#3B82F6",
+                color: "#3B82F6", // info
             },
             enhancing: {
                 title: "Enhancing Audio Quality",
                 description: "Reducing noise and improving clarity...",
                 icon: "waveform",
-                color: "#F59E0B",
+                color: "#F59E0B", // warning
             },
             transcribing: {
                 title: "Transcribing Speech",
                 description: "Converting speech to text...",
                 icon: "text-to-speech",
-                color: "#10B981",
+                color: "#10B981", // success
             },
             analyzing: {
                 title: "Analyzing Content",
                 description: "Extracting keywords and generating insights...",
                 icon: "brain",
-                color: "#8B5CF6",
+                color: "#8B5CF6", // purple variant
             },
             finalizing: {
                 title: "Finalizing Results",
                 description: "Preparing analysis results...",
                 icon: "check-circle",
-                color: "#059669",
+                color: "#059669", // success variant
             },
         };
 
@@ -193,8 +193,8 @@ const AIProcessingProgress = ({
                                         isCompleted
                                             ? "bg-success"
                                             : isActive
-                                              ? "bg-primary"
-                                              : "bg-background"
+                                            ? "bg-primary"
+                                            : "bg-background"
                                     }`}
                                 >
                                     {isCompleted && (
@@ -224,8 +224,8 @@ const AIProcessingProgress = ({
                                         isCompleted
                                             ? "text-success"
                                             : isActive
-                                              ? "text-primary"
-                                              : "text-text-secondary"
+                                            ? "text-primary"
+                                            : "text-text-secondary"
                                     }`}
                                 >
                                     {item.label}

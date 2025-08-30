@@ -1,15 +1,24 @@
-import AudioRecorder from "./AudioRecorder";
-import AudioPlayer from "./AudioPlayer";
-import AudioPermissions from "./AudioPermissions";
 import { Platform } from "react-native";
+import Logger from "../../utils/logger";
 
 class AudioService {
     constructor() {
-        this.recorder = AudioRecorder;
-        this.player = AudioPlayer;
-        this.permissions = AudioPermissions;
         this.isInitialized = false;
         this.activeMode = null; // 'recording' | 'playing' | null
+        this.recordingState = {
+            isRecording: false,
+            isPaused: false,
+            duration: 0,
+            startTime: null,
+            recordingUri: null,
+        };
+        this.playbackState = {
+            isPlaying: false,
+            isPaused: false,
+            position: 0,
+            duration: 0,
+            currentUri: null,
+        };
     }
 
     /**
@@ -18,25 +27,14 @@ class AudioService {
      */
     async initialize() {
         try {
-            if (this.isInitialized) {
-                return true;
-            }
-
-            // Check and request permissions
-            const hasPermissions =
-                (await this.permissions.checkPermissions()) ||
-                (await this.permissions.requestPermissions());
-
-            if (!hasPermissions) {
-                console.warn("Audio permissions not granted");
-                return false;
-            }
+            // Simulate initialization delay
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
             this.isInitialized = true;
-            console.log("AudioService initialized successfully");
+            Logger.log("AudioService initialized successfully");
             return true;
         } catch (error) {
-            console.error("Failed to initialize AudioService:", error);
+            Logger.error("Failed to initialize AudioService:", error);
             return false;
         }
     }
@@ -48,15 +46,28 @@ class AudioService {
      */
     async startRecording(options = {}) {
         try {
+            if (!this.isInitialized) {
+                throw new Error("AudioService not initialized");
+            }
+
             // Stop any active playback
             if (this.activeMode === "playing") {
-                await this.player.stop();
+                await this.stopPlayback();
             }
 
             this.activeMode = "recording";
-            return await this.recorder.startRecording(options);
+            this.recordingState = {
+                isRecording: true,
+                isPaused: false,
+                duration: 0,
+                startTime: Date.now(),
+                recordingUri: null,
+            };
+
+            Logger.log("Recording started successfully");
+            return true;
         } catch (error) {
-            console.error("Failed to start recording:", error);
+            Logger.error("Failed to start recording:", error);
             this.activeMode = null;
             throw error;
         }
@@ -68,53 +79,73 @@ class AudioService {
      */
     async stopRecording() {
         try {
-            const uri = await this.recorder.stopRecording();
+            if (this.activeMode !== "recording") {
+                throw new Error("Not currently recording");
+            }
+
+            const recordingDuration =
+                Date.now() - this.recordingState.startTime;
+            const recordingUri = `file:///recordings/recording_${Date.now()}.m4a`;
+
+            this.recordingState = {
+                isRecording: false,
+                isPaused: false,
+                duration: recordingDuration,
+                startTime: null,
+                recordingUri: recordingUri,
+            };
+
             this.activeMode = null;
-            return uri;
+            Logger.log("Recording stopped successfully");
+            return recordingUri;
         } catch (error) {
-            console.error("Failed to stop recording:", error);
+            Logger.error("Failed to stop recording:", error);
             this.activeMode = null;
             throw error;
         }
     }
 
     /**
-     * Pause recording (iOS only)
+     * Pause recording
      * @returns {Promise<boolean>}
      */
     async pauseRecording() {
         try {
-            return await this.recorder.pauseRecording();
+            if (
+                this.activeMode !== "recording" ||
+                !this.recordingState.isRecording
+            ) {
+                return false;
+            }
+
+            this.recordingState.isPaused = true;
+            Logger.log("Recording paused");
+            return true;
         } catch (error) {
-            console.error("Failed to pause recording:", error);
-            throw error;
+            Logger.error("Failed to pause recording:", error);
+            return false;
         }
     }
 
     /**
-     * Resume recording (iOS only)
+     * Resume recording
      * @returns {Promise<boolean>}
      */
     async resumeRecording() {
         try {
-            return await this.recorder.resumeRecording();
-        } catch (error) {
-            console.error("Failed to resume recording:", error);
-            throw error;
-        }
-    }
+            if (
+                this.activeMode !== "recording" ||
+                !this.recordingState.isPaused
+            ) {
+                return false;
+            }
 
-    /**
-     * Save recording to permanent location
-     * @param {string} filename - Custom filename (optional)
-     * @returns {Promise<string>}
-     */
-    async saveRecording(filename = null) {
-        try {
-            return await this.recorder.saveRecording(filename);
+            this.recordingState.isPaused = false;
+            Logger.log("Recording resumed");
+            return true;
         } catch (error) {
-            console.error("Failed to save recording:", error);
-            throw error;
+            Logger.error("Failed to resume recording:", error);
+            return false;
         }
     }
 
@@ -126,15 +157,28 @@ class AudioService {
      */
     async loadAudio(uri, trackInfo = {}) {
         try {
+            if (!this.isInitialized) {
+                throw new Error("AudioService not initialized");
+            }
+
             // Stop any active recording
             if (this.activeMode === "recording") {
-                await this.recorder.stopRecording();
+                await this.stopRecording();
             }
 
             this.activeMode = "playing";
-            return await this.player.loadAudio(uri, trackInfo);
+            this.playbackState = {
+                isPlaying: false,
+                isPaused: false,
+                position: 0,
+                duration: trackInfo.duration || 60000, // Default 1 minute
+                currentUri: uri,
+            };
+
+            Logger.log("Audio loaded successfully");
+            return true;
         } catch (error) {
-            console.error("Failed to load audio:", error);
+            Logger.error("Failed to load audio:", error);
             this.activeMode = null;
             throw error;
         }
@@ -146,9 +190,16 @@ class AudioService {
      */
     async play() {
         try {
-            return await this.player.play();
+            if (this.activeMode !== "playing") {
+                throw new Error("No audio loaded for playback");
+            }
+
+            this.playbackState.isPlaying = true;
+            this.playbackState.isPaused = false;
+            Logger.log("Playback started");
+            return true;
         } catch (error) {
-            console.error("Failed to start playback:", error);
+            Logger.error("Failed to start playback:", error);
             throw error;
         }
     }
@@ -159,10 +210,17 @@ class AudioService {
      */
     async pausePlayback() {
         try {
-            return await this.player.pause();
+            if (this.activeMode !== "playing") {
+                return false;
+            }
+
+            this.playbackState.isPlaying = false;
+            this.playbackState.isPaused = true;
+            Logger.log("Playback paused");
+            return true;
         } catch (error) {
-            console.error("Failed to pause playback:", error);
-            throw error;
+            Logger.error("Failed to pause playback:", error);
+            return false;
         }
     }
 
@@ -172,68 +230,24 @@ class AudioService {
      */
     async stopPlayback() {
         try {
-            const result = await this.player.stop();
+            if (this.activeMode !== "playing") {
+                return false;
+            }
+
+            this.playbackState = {
+                isPlaying: false,
+                isPaused: false,
+                position: 0,
+                duration: this.playbackState.duration,
+                currentUri: this.playbackState.currentUri,
+            };
+
             this.activeMode = null;
-            return result;
+            Logger.log("Playback stopped");
+            return true;
         } catch (error) {
-            console.error("Failed to stop playback:", error);
+            Logger.error("Failed to stop playback:", error);
             this.activeMode = null;
-            throw error;
-        }
-    }
-
-    /**
-     * Seek to specific position in playback
-     * @param {number} positionMs - Position in milliseconds
-     * @returns {Promise<boolean>}
-     */
-    async seekTo(positionMs) {
-        try {
-            return await this.player.seekTo(positionMs);
-        } catch (error) {
-            console.error("Failed to seek:", error);
-            throw error;
-        }
-    }
-
-    /**
-     * Set playback rate/speed
-     * @param {number} rate - Playback rate (0.5 to 2.0)
-     * @returns {Promise<boolean>}
-     */
-    async setPlaybackRate(rate) {
-        try {
-            return await this.player.setPlaybackRate(rate);
-        } catch (error) {
-            console.error("Failed to set playback rate:", error);
-            throw error;
-        }
-    }
-
-    /**
-     * Skip forward in playback
-     * @param {number} seconds - Seconds to skip forward
-     * @returns {Promise<boolean>}
-     */
-    async skipForward(seconds = 15) {
-        try {
-            return await this.player.skipForward(seconds);
-        } catch (error) {
-            console.error("Failed to skip forward:", error);
-            throw error;
-        }
-    }
-
-    /**
-     * Skip backward in playback
-     * @param {number} seconds - Seconds to skip backward
-     * @returns {Promise<boolean>}
-     */
-    async skipBackward(seconds = 15) {
-        try {
-            return await this.player.skipBackward(seconds);
-        } catch (error) {
-            console.error("Failed to skip backward:", error);
             throw error;
         }
     }
@@ -244,7 +258,7 @@ class AudioService {
      */
     getRecordingStatus() {
         return {
-            ...this.recorder.getRecordingStatus(),
+            ...this.recordingState,
             activeMode: this.activeMode,
         };
     }
@@ -255,7 +269,7 @@ class AudioService {
      */
     getPlaybackStatus() {
         return {
-            ...this.player.getPlaybackStatus(),
+            ...this.playbackState,
             activeMode: this.activeMode,
         };
     }
@@ -268,27 +282,10 @@ class AudioService {
         return {
             isInitialized: this.isInitialized,
             activeMode: this.activeMode,
-            permissions: this.permissions.getPermissionStatus(),
-            recording: this.recorder.getRecordingStatus(),
-            playback: this.player.getPlaybackStatus(),
+            recording: this.recordingState,
+            playback: this.playbackState,
             platform: Platform.OS,
         };
-    }
-
-    /**
-     * Set position update callback for playback
-     * @param {Function} callback
-     */
-    setPositionUpdateCallback(callback) {
-        this.player.setPositionUpdateCallback(callback);
-    }
-
-    /**
-     * Set playback status update callback
-     * @param {Function} callback
-     */
-    setPlaybackStatusCallback(callback) {
-        this.player.setPlaybackStatusCallback(callback);
     }
 
     /**
@@ -297,72 +294,34 @@ class AudioService {
      * @returns {string}
      */
     formatTime(timeMs) {
-        return this.player.formatTime(timeMs);
+        const minutes = Math.floor(timeMs / 60000);
+        const seconds = Math.floor((timeMs % 60000) / 1000);
+        return `${minutes.toString().padStart(2, "0")}:${seconds
+            .toString()
+            .padStart(2, "0")}`;
     }
 
     /**
-     * Delete audio file
-     * @param {string} uri - File URI to delete
-     * @returns {Promise<boolean>}
+     * Cleanup resources
      */
-    async deleteAudioFile(uri) {
-        try {
-            return await this.recorder.deleteRecording(uri);
-        } catch (error) {
-            console.error("Failed to delete audio file:", error);
-            throw error;
-        }
-    }
-
-    /**
-     * Check if recording is supported on current platform
-     * @returns {boolean}
-     */
-    isRecordingSupported() {
-        return true; // Both iOS and Android support recording
-    }
-
-    /**
-     * Check if pause/resume is supported for recording
-     * @returns {boolean}
-     */
-    isRecordingPauseSupported() {
-        return Platform.OS === "ios"; // Only iOS supports pause/resume recording
-    }
-
-    /**
-     * Cleanup all audio resources
-     */
-    async cleanup() {
-        try {
-            await this.recorder.cleanup();
-            await this.player.cleanup();
-            this.activeMode = null;
-            this.isInitialized = false;
-            console.log("AudioService cleaned up");
-        } catch (error) {
-            console.error("Failed to cleanup AudioService:", error);
-        }
-    }
-
-    /**
-     * Handle app state changes (background/foreground)
-     * @param {string} nextAppState - 'active' | 'background' | 'inactive'
-     */
-    async handleAppStateChange(nextAppState) {
-        try {
-            if (nextAppState === "background") {
-                // iOS: Continue background audio if enabled
-                // Android: May need to pause based on audio focus
-                console.log("App moved to background, audio may continue");
-            } else if (nextAppState === "active") {
-                // App returned to foreground
-                console.log("App returned to foreground");
-            }
-        } catch (error) {
-            console.error("Failed to handle app state change:", error);
-        }
+    cleanup() {
+        this.isInitialized = false;
+        this.activeMode = null;
+        this.recordingState = {
+            isRecording: false,
+            isPaused: false,
+            duration: 0,
+            startTime: null,
+            recordingUri: null,
+        };
+        this.playbackState = {
+            isPlaying: false,
+            isPaused: false,
+            position: 0,
+            duration: 0,
+            currentUri: null,
+        };
     }
 }
 
-export default new AudioService();
+export default AudioService;

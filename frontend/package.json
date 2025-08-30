@@ -38,6 +38,10 @@
     "expo-media-library": "^17.1.7",
     "expo-router": "~5.1.4",
     "expo-secure-store": "~14.2.3",
+    "expo-system-ui": "~5.0.10",
+    "metro": "^0.82.0",
+    "metro-config": "^0.82.0",
+    "metro-resolver": "^0.82.0",
     "nativewind": "^4.1.23",
     "react": "19.0.0",
     "react-native": "0.79.5",
@@ -46,11 +50,7 @@
     "react-native-paper": "^5.14.5",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
-    "zustand": "^5.0.2",
-    "metro": "^0.82.0",
-    "metro-resolver": "^0.82.0",
-    "metro-config": "^0.82.0",
-    "expo-system-ui": "~5.0.10"
+    "zustand": "^5.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

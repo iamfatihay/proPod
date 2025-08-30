@@ -20,9 +20,8 @@ export default function ChatCard({ chat, onPress }) {
                       }),
                 borderRadius: 16,
                 marginBottom: 10,
-                backgroundColor: "#18181b",
             }}
-            className="overflow-hidden"
+            className="overflow-hidden bg-panel"
         >
             <TouchableOpacity
                 activeOpacity={0.8}
@@ -35,7 +34,7 @@ export default function ChatCard({ chat, onPress }) {
                 accessibilityHint="Tap to open chat conversation"
             >
                 <View className="w-8 h-8 bg-card rounded-full items-center justify-center mr-2">
-                    <Ionicons name="person" size={18} color="#888" />
+                    <Ionicons name="person" size={18} color="#888888" />
                 </View>
                 <View className="flex-1">
                     <Text className="text-sm text-text-primary font-medium">

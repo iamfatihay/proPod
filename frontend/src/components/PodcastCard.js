@@ -3,7 +3,27 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Surface } from "react-native-paper";
 import React from "react";
 
-export default function PodcastCard({ episode, onPress }) {
+// Helper functions
+const formatDuration = (milliseconds) => {
+    const minutes = Math.floor(milliseconds / 60000);
+    const seconds = Math.floor((milliseconds % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+};
+
+const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+
+    if (diffInDays === 0) return "Today";
+    if (diffInDays === 1) return "Yesterday";
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
+    if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`;
+    return `${Math.floor(diffInDays / 365)} years ago`;
+};
+
+export default function PodcastCard({ podcast, onPress }) {
     return (
         <Surface
             style={{
@@ -20,9 +40,8 @@ export default function PodcastCard({ episode, onPress }) {
                       }),
                 borderRadius: 16,
                 marginBottom: 12,
-                backgroundColor: "#18181b", // bg-panel
             }}
-            className="overflow-hidden"
+            className="overflow-hidden bg-panel"
         >
             <TouchableOpacity
                 activeOpacity={0.8}
@@ -31,8 +50,9 @@ export default function PodcastCard({ episode, onPress }) {
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessible={true}
                 accessibilityRole="button"
-                accessibilityLabel={`Podcast episode: ${episode.title}`}
+                accessibilityLabel={`Podcast episode: ${podcast.title}`}
                 accessibilityHint="Tap to view episode details"
+                testID={`podcast-card-${podcast.id}`}
             >
                 <View className="w-10 h-10 bg-primary/20 rounded-full items-center justify-center mr-3">
                     <MaterialCommunityIcons
@@ -43,10 +63,11 @@ export default function PodcastCard({ episode, onPress }) {
                 </View>
                 <View className="flex-1">
                     <Text className="text-base font-medium text-text-primary">
-                        {episode.title}
+                        {podcast.title}
                     </Text>
                     <Text className="text-xs text-text-secondary">
-                        {episode.duration} • {episode.date}
+                        {formatDuration(podcast.duration)} •{" "}
+                        {formatDate(podcast.created_at)}
                     </Text>
                 </View>
             </TouchableOpacity>

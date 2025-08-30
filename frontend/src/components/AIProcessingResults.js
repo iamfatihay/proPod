@@ -29,7 +29,7 @@ const AIProcessingResults = ({
                     <MaterialCommunityIcons
                         name="text-to-speech"
                         size={20}
-                        color="#10B981"
+                        color="#10B981" // success color
                     />
                     <Text className="text-text-primary font-semibold ml-2">
                         Transcription
@@ -73,7 +73,7 @@ const AIProcessingResults = ({
                     <MaterialCommunityIcons
                         name="brain"
                         size={20}
-                        color="#8B5CF6"
+                        color="#8B5CF6" // purple variant
                     />
                     <Text className="text-text-primary font-semibold ml-2">
                         Content Analysis
@@ -147,7 +147,10 @@ const AIProcessingResults = ({
                                                 <View
                                                     className="h-2 bg-primary rounded-full"
                                                     style={{
-                                                        width: `${category.confidence * 100}%`,
+                                                        width: `${
+                                                            category.confidence *
+                                                            100
+                                                        }%`,
                                                     }}
                                                 />
                                             </View>
@@ -199,18 +202,18 @@ const AIProcessingResults = ({
                                         analysis.sentiment.label === "positive"
                                             ? "emoticon-happy"
                                             : analysis.sentiment.label ===
-                                                "negative"
-                                              ? "emoticon-sad"
-                                              : "emoticon-neutral"
+                                              "negative"
+                                            ? "emoticon-sad"
+                                            : "emoticon-neutral"
                                     }
                                     size={20}
                                     color={
                                         analysis.sentiment.label === "positive"
                                             ? "#10B981"
                                             : analysis.sentiment.label ===
-                                                "negative"
-                                              ? "#EF4444"
-                                              : "#6B7280"
+                                              "negative"
+                                            ? "#EF4444"
+                                            : "#6B7280"
                                     }
                                 />
                                 <Text className="text-text-primary ml-2 capitalize">
