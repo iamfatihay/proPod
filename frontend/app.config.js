@@ -62,6 +62,7 @@ export default ({ config }) => ({
     plugins: [
         "expo-secure-store",
         "expo-router",
+        "expo-font",
         [
             "expo-av",
             {
