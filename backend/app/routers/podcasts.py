@@ -30,19 +30,29 @@ def create_podcast(
     return crud.create_podcast(db=db, podcast=podcast, owner_id=current_user.id)
 
 
-@router.post("/upload")
+@router.post("/upload", response_model=schemas.AudioUploadResponse)
 async def upload_podcast_audio(
     file: UploadFile = File(...),
     current_user: models.User = Depends(auth.get_current_user),
 ):
     """Upload a podcast audio file and return its public URL path"""
     try:
-        # Validate file type (basic)
+        # Validate file type and size
         allowed_types = {"audio/mpeg", "audio/mp4", "audio/m4a", "audio/aac", "audio/wav", "audio/ogg"}
+        max_size = 100 * 1024 * 1024  # 100MB
+        
         if file.content_type not in allowed_types:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Unsupported file type: {file.content_type}",
+                detail=f"Unsupported file type: {file.content_type}. Allowed types: {', '.join(allowed_types)}",
+            )
+        
+        # Read file content to check size
+        contents = await file.read()
+        if len(contents) > max_size:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large. Maximum size: {max_size // (1024*1024)}MB",
             )
 
         # Ensure media directory exists
@@ -55,13 +65,18 @@ async def upload_podcast_audio(
         dest_path = media_dir / safe_name
 
         # Save file to disk
-        contents = await file.read()
         with open(dest_path, "wb") as f:
             f.write(contents)
 
         # Public URL path (served via /media)
         public_path = f"/media/audio/{safe_name}"
-        return {"audio_url": public_path}
+        
+        return schemas.AudioUploadResponse(
+            audio_url=public_path,
+            file_size=len(contents),
+            content_type=file.content_type,
+            filename=safe_name
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -70,16 +85,12 @@ async def upload_podcast_audio(
             detail=f"Audio upload failed: {str(e)}",
         )
 
-@router.post("/{podcast_id}/process-ai")
+@router.post("/{podcast_id}/process-ai", response_model=schemas.AIProcessingResult)
 async def process_podcast_with_ai(
     podcast_id: int = Path(..., description="The ID of the podcast to process"),
+    request: schemas.AIProcessingRequest = ...,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_user),
-    audio_file_path: str = ...,
-    enhance_audio: bool = True,
-    transcribe: bool = True,
-    analyze_content: bool = True,
-    language: Optional[str] = "auto"
+    current_user: models.User = Depends(auth.get_current_user)
 ):
     """
     Process podcast with AI enhancement
@@ -107,9 +118,9 @@ async def process_podcast_with_ai(
         try:
             # Prepare AI processing options
             options = {
-                "enhance_audio": enhance_audio,
-                "transcribe": transcribe,
-                "analyze_content": analyze_content,
+                "enhance_audio": request.enhance_audio,
+                "transcribe": request.transcribe,
+                "analyze_content": request.analyze_content,
                 "audio_options": {
                     "noise_reduction": True,
                     "normalize": True,
@@ -117,7 +128,7 @@ async def process_podcast_with_ai(
                     "quality": "high"
                 },
                 "transcription_options": {
-                    "language": language if language != "auto" else None,
+                    "language": request.language if request.language != "auto" else None,
                     "include_timestamps": True,
                     "include_word_timestamps": False
                 },
@@ -130,7 +141,7 @@ async def process_podcast_with_ai(
             }
             
             # Process with AI
-            ai_results = await ai_service.process_podcast_audio(audio_file_path, options)
+            ai_results = await ai_service.process_podcast_audio(podcast.audio_url, options)
             
             # Update podcast with AI results
             if ai_results["success"]:
@@ -224,6 +235,33 @@ def get_podcast(
     return podcast
 
 
+@router.get("/search", response_model=schemas.PodcastListResponse)
+def search_podcasts(
+    query: str = Query(..., min_length=1, description="Search query"),
+    category: Optional[str] = Query(None, description="Filter by category"),
+    skip: int = Query(0, ge=0, description="Number of podcasts to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Number of podcasts to return"),
+    db: Session = Depends(get_db)
+):
+    """Search podcasts by title and description"""
+    result = crud.search_podcasts(
+        db=db,
+        query=query,
+        category=category,
+        skip=skip,
+        limit=limit,
+        is_public=True
+    )
+    
+    return schemas.PodcastListResponse(
+        podcasts=result["podcasts"],
+        total=result["total"],
+        limit=limit,
+        offset=skip,
+        has_more=result["has_more"]
+    )
+
+
 @router.get("/", response_model=schemas.PodcastListResponse)
 def get_podcasts(
     skip: int = Query(0, ge=0, description="Number of podcasts to skip"),
@@ -277,7 +315,7 @@ def update_podcast(
     return crud.update_podcast(db=db, podcast=podcast, podcast_update=podcast_update)
 
 
-@router.delete("/{podcast_id}")
+@router.delete("/{podcast_id}", response_model=schemas.SuccessMessage)
 def delete_podcast(
     podcast_id: int = Path(..., description="The ID of the podcast to delete"),
     db: Session = Depends(get_db),
@@ -298,7 +336,7 @@ def delete_podcast(
         )
     
     crud.delete_podcast(db=db, podcast=podcast)
-    return {"message": "Podcast deleted successfully"}
+    return schemas.SuccessMessage(message="Podcast deleted successfully")
 
 
 # Podcast Interactions
@@ -320,7 +358,7 @@ def like_podcast(
     return crud.like_podcast(db=db, user_id=current_user.id, podcast_id=podcast_id)
 
 
-@router.delete("/{podcast_id}/like")
+@router.delete("/{podcast_id}/like", response_model=schemas.SuccessMessage)
 def unlike_podcast(
     podcast_id: int = Path(..., description="The ID of the podcast to unlike"),
     db: Session = Depends(get_db),
@@ -328,7 +366,7 @@ def unlike_podcast(
 ):
     """Unlike a podcast"""
     crud.unlike_podcast(db=db, user_id=current_user.id, podcast_id=podcast_id)
-    return {"message": "Podcast unliked successfully"}
+    return schemas.SuccessMessage(message="Podcast unliked successfully")
 
 
 @router.post("/{podcast_id}/bookmark", response_model=schemas.PodcastBookmark)
@@ -349,7 +387,7 @@ def bookmark_podcast(
     return crud.bookmark_podcast(db=db, user_id=current_user.id, podcast_id=podcast_id)
 
 
-@router.delete("/{podcast_id}/bookmark")
+@router.delete("/{podcast_id}/bookmark", response_model=schemas.SuccessMessage)
 def remove_bookmark(
     podcast_id: int = Path(..., description="The ID of the podcast to remove bookmark"),
     db: Session = Depends(get_db),
@@ -357,7 +395,7 @@ def remove_bookmark(
 ):
     """Remove bookmark from a podcast"""
     crud.remove_bookmark(db=db, user_id=current_user.id, podcast_id=podcast_id)
-    return {"message": "Bookmark removed successfully"}
+    return schemas.SuccessMessage(message="Bookmark removed successfully")
 
 
 @router.get("/{podcast_id}/interactions", response_model=schemas.UserInteractions)
@@ -467,7 +505,7 @@ def update_comment(
     return crud.update_comment(db=db, comment=comment, comment_update=comment_update)
 
 
-@router.delete("/comments/{comment_id}")
+@router.delete("/comments/{comment_id}", response_model=schemas.SuccessMessage)
 def delete_comment(
     comment_id: int = Path(..., description="The ID of the comment to delete"),
     db: Session = Depends(get_db),
@@ -492,7 +530,7 @@ def delete_comment(
         )
     
     crud.delete_comment(db=db, comment=comment)
-    return {"message": "Comment deleted successfully"}
+    return schemas.SuccessMessage(message="Comment deleted successfully")
 
 
 # Analytics and Discovery

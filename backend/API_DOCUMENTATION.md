@@ -65,7 +65,10 @@ file: [audio file] (required) - Audio file (mp3, m4a, wav, aac, ogg)
 
 ```json
 {
-    "audio_url": "/media/audio/podcast_123_1642248000000.mp3"
+    "audio_url": "/media/audio/podcast_123_1642248000000.mp3",
+    "file_size": 5242880,
+    "content_type": "audio/mpeg",
+    "filename": "podcast_123_1642248000000.mp3"
 }
 ```
 
@@ -151,6 +154,49 @@ Retrieve a specific podcast by ID. Increments play count.
         "name": "John Doe",
         "email": "john@example.com"
     }
+}
+```
+
+### Search Podcasts
+
+**GET** `/podcasts/search`
+
+Search podcasts by title and description.
+
+**Query Parameters:**
+
+-   `query` (string, required) - Search query (minimum 1 character)
+-   `category` (string, optional) - Filter by category
+-   `skip` (int, default: 0) - Number of podcasts to skip
+-   `limit` (int, default: 20, max: 100) - Number of podcasts to return
+
+**Example Request:**
+
+```
+GET /podcasts/search?query=technology&category=Tech&limit=10
+```
+
+**Response:** `200 OK`
+
+```json
+{
+    "podcasts": [
+        {
+            "id": 1,
+            "title": "AI Technology Trends",
+            "description": "Latest trends in artificial intelligence",
+            "category": "Tech",
+            "duration": 1800,
+            "owner": {
+                "id": 123,
+                "name": "John Doe"
+            }
+        }
+    ],
+    "total": 1,
+    "limit": 10,
+    "offset": 0,
+    "has_more": false
 }
 ```
 
@@ -289,8 +335,8 @@ Content-Type: application/json
             "character_count": 1200
         },
         "keywords": [
-            {"word": "technology", "score": 0.8},
-            {"word": "innovation", "score": 0.7}
+            { "word": "technology", "score": 0.8 },
+            { "word": "innovation", "score": 0.7 }
         ],
         "summary": "This podcast discusses technology trends...",
         "sentiment": {

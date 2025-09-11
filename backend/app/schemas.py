@@ -272,3 +272,22 @@ class PodcastListResponse(BaseModel):
     limit: int
     offset: int
     has_more: bool
+
+
+# Upload Response Schema
+class AudioUploadResponse(BaseModel):
+    audio_url: str
+    file_size: int
+    content_type: str
+    filename: str
+
+# Success Message Schema
+class SuccessMessage(BaseModel):
+    message: str
+    status: str = "success"
+
+# Error Response Schema
+class ErrorResponse(BaseModel):
+    detail: str
+    status_code: int
+    timestamp: datetime.datetime
