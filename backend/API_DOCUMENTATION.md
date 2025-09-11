@@ -42,6 +42,33 @@ Common HTTP status codes:
 
 ## Podcast Management
 
+### Upload Audio File
+
+**POST** `/podcasts/upload`
+
+Upload a podcast audio file and get its public URL.
+
+**Headers:**
+
+```
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+**Request Body:**
+
+```
+file: [audio file] (required) - Audio file (mp3, m4a, wav, aac, ogg)
+```
+
+**Response:** `200 OK`
+
+```json
+{
+    "audio_url": "/media/audio/podcast_123_1642248000000.mp3"
+}
+```
+
 ### Create Podcast
 
 **POST** `/podcasts/create`
@@ -62,7 +89,8 @@ Content-Type: application/json
     "title": "My Awesome Podcast",
     "description": "This is a great podcast about technology",
     "category": "Tech",
-    "is_public": true
+    "is_public": true,
+    "duration": 1800
 }
 ```
 
@@ -212,6 +240,72 @@ Authorization: Bearer <token>
 ```json
 {
     "message": "Podcast deleted successfully"
+}
+```
+
+### Process Podcast with AI
+
+**POST** `/podcasts/{podcast_id}/process-ai`
+
+Process a podcast with AI services (transcription, content analysis, audio enhancement).
+
+**Headers:**
+
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body:**
+
+```json
+{
+    "enhance_audio": true,
+    "transcribe": true,
+    "analyze_content": true,
+    "language": "auto"
+}
+```
+
+**Response:** `200 OK`
+
+```json
+{
+    "success": true,
+    "processing_time": 45.2,
+    "transcription": {
+        "success": true,
+        "text": "This is the transcribed text...",
+        "language": "en",
+        "language_probability": 0.95,
+        "duration": 1800.5,
+        "processing_time": 30.1,
+        "model_used": "whisper-1"
+    },
+    "analysis": {
+        "success": true,
+        "text_stats": {
+            "word_count": 250,
+            "character_count": 1200
+        },
+        "keywords": [
+            {"word": "technology", "score": 0.8},
+            {"word": "innovation", "score": 0.7}
+        ],
+        "summary": "This podcast discusses technology trends...",
+        "sentiment": {
+            "positive": 0.6,
+            "neutral": 0.3,
+            "negative": 0.1
+        }
+    },
+    "audio_enhancement": {
+        "success": true,
+        "stats": {
+            "noise_reduction": 0.3,
+            "volume_normalization": true
+        }
+    }
 }
 ```
 

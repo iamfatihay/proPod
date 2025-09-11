@@ -2,6 +2,14 @@
 
 This project is the FastAPI-based backend service for the Volo mobile application. Users can record, publish, and AI-edit podcasts with this backend.
 
+## Recent Updates (2025-01-15)
+
+- **Fixed podcast duration storage** - Duration field added to PodcastCreate schema, AI transcription duration persistence implemented
+- **Enhanced media handling** - Audio upload endpoint with proper file validation and static file serving
+- **Schema improvements** - Added User schema and resolved forward reference issues
+- **API documentation** - Comprehensive API documentation with all endpoints and examples
+- **Database optimization** - Proper migration handling and media file management
+
 ## Technologies Used
 
 -   FastAPI
@@ -9,6 +17,7 @@ This project is the FastAPI-based backend service for the Volo mobile applicatio
 -   PostgreSQL (or SQLite)
 -   JWT Authentication
 -   Docker
+-   AI Services (Whisper, Content Analysis)
 
 ## Setup
 
@@ -40,11 +49,18 @@ docker run -p 8000:8000 --env-file .env volo-backend
 -   `/users/register` : User registration
 -   `/users/login` : User login (JWT)
 -   `/podcasts/create` : Create podcast
+-   `/podcasts/upload` : Upload audio files
+-   `/podcasts/{id}/process-ai` : AI processing (transcription, analysis)
+-   `/podcasts/{id}/like` : Like/unlike podcast
+-   `/podcasts/{id}/bookmark` : Bookmark/unbookmark podcast
+-   `/podcasts/{id}/interactions` : Get user interactions
 
 ## Developer Notes
 
--   AI integration and file upload features will be added in the future.
+-   AI integration and file upload features are now fully implemented.
 -   The codebase is structured to be compatible with microservice architecture.
+-   Media files are served statically via `/media` endpoint.
+-   Duration is automatically calculated from AI transcription results.
 
 # Backend Setup
 

@@ -6,18 +6,16 @@ Volo is a cross-platform (Android, iOS, Web) mobile application for creating, br
 
 ---
 
-## 🆕 Recent Updates (2025-06-09)
+## 🆕 Recent Updates (2025-01-15)
 
--   Modern login & register screens with NativeWind (Tailwind for React Native) and improved UI/UX
--   Auth flow: login, register, logout, protected routes, global state with Zustand + devtools middleware
--   **Google OAuth login/register and profile photo support**
--   **Secure token storage and automatic refresh (expo-secure-store, auto-refresh on 401)**
--   API base URL management via `.env` and `app.config.js` (frontend)
--   Backend: Python venv now only in `backend/`, module path issues çözüldü, eksik bağımlılıklar yüklendi
--   Unified `.gitignore` at project root for both backend and frontend
--   All environment variables are managed via `.env` files (never commit them!)
--   Header hidden on login/register screens for a clean look
--   Error handling and loading states improved (frontend)
+-   **Fixed podcast duration storage and display** - Duration field added to PodcastCreate schema, AI transcription duration persistence implemented
+-   **Enhanced podcast interactions** - Like/bookmark toggle functionality with visual feedback in details page
+-   **Improved UI consistency** - Unified header design across all detail pages using Appbar.Header
+-   **Media file management** - Audio upload endpoint with proper file handling and static file serving
+-   **Schema improvements** - Added User schema and resolved forward reference issues with proper TYPE_CHECKING imports
+-   **Frontend optimizations** - Duration normalization in home page, better error handling and loading states
+-   **Development workflow** - Custom modal for create actions, improved tab navigation with proper spacing
+-   **Backend stability** - Fixed import errors, proper media directory structure, comprehensive API documentation
 
 ---
 
@@ -135,4 +133,4 @@ Volo/
 
 ---
 
-**Last updated:** 2025-07-02
+**Last updated:** 2025-01-15
