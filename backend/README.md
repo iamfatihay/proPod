@@ -4,11 +4,11 @@ This project is the FastAPI-based backend service for the Volo mobile applicatio
 
 ## Recent Updates (2025-01-15)
 
-- **Fixed podcast duration storage** - Duration field added to PodcastCreate schema, AI transcription duration persistence implemented
-- **Enhanced media handling** - Audio upload endpoint with proper file validation and static file serving
-- **Schema improvements** - Added User schema and resolved forward reference issues
-- **API documentation** - Comprehensive API documentation with all endpoints and examples
-- **Database optimization** - Proper migration handling and media file management
+-   **Fixed podcast duration storage** - Duration field added to PodcastCreate schema, AI transcription duration persistence implemented
+-   **Enhanced media handling** - Audio upload endpoint with proper file validation and static file serving
+-   **Schema improvements** - Added User schema and resolved forward reference issues
+-   **API documentation** - Comprehensive API documentation with all endpoints and examples
+-   **Database optimization** - Proper migration handling and media file management
 
 ## Technologies Used
 

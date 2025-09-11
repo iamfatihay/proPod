@@ -4,12 +4,12 @@ This document provides instructions for setting up and running the frontend deve
 
 ## Recent Updates (2025-01-15)
 
-- **Fixed podcast duration display** - Duration normalization in home page, proper time formatting
-- **Enhanced podcast interactions** - Like/bookmark toggle functionality with visual feedback
-- **Improved UI consistency** - Unified header design across all detail pages using Appbar.Header
-- **Better create experience** - Custom modal for create actions, improved tab navigation
-- **Audio system improvements** - Better error handling, loading states, and cross-platform compatibility
-- **Development workflow** - Improved tab spacing, mini player integration, proper route management
+-   **Fixed podcast duration display** - Duration normalization in home page, proper time formatting
+-   **Enhanced podcast interactions** - Like/bookmark toggle functionality with visual feedback
+-   **Improved UI consistency** - Unified header design across all detail pages using Appbar.Header
+-   **Better create experience** - Custom modal for create actions, improved tab navigation
+-   **Audio system improvements** - Better error handling, loading states, and cross-platform compatibility
+-   **Development workflow** - Improved tab spacing, mini player integration, proper route management
 
 ## 🚀 Getting Started
 
