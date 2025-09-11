@@ -9,6 +9,7 @@ import {
     Dimensions,
     Share,
     Alert,
+    Animated,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -16,6 +17,7 @@ import { AudioPlayer } from "../../src/components/audio";
 import useAudioStore from "../../src/context/useAudioStore";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
+import { Appbar } from "react-native-paper";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -43,6 +45,7 @@ const Details = () => {
     const [isBookmarked, setIsBookmarked] = useState(false);
     const [relatedPodcasts, setRelatedPodcasts] = useState([]);
     const [isOwner, setIsOwner] = useState(false);
+    const [pulse] = useState(new Animated.Value(1));
 
     useEffect(() => {
         loadPodcastDetails();
@@ -77,6 +80,23 @@ const Details = () => {
             setIsLoading(false);
         }
     };
+
+    useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulse, {
+                    toValue: 1.06,
+                    duration: 1200,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(pulse, {
+                    toValue: 1,
+                    duration: 1200,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
+    }, []);
 
     const handlePlay = async () => {
         if (!podcast?.audio_url) {
@@ -141,7 +161,12 @@ const Details = () => {
             }
         } catch (error) {
             console.error("Like action failed:", error);
-            showToast("Action failed", "error");
+            const msg =
+                error?.detail ||
+                error?.response?.data?.detail ||
+                error?.message ||
+                "Action failed";
+            showToast(msg, "error");
         }
     };
 
@@ -158,7 +183,12 @@ const Details = () => {
             }
         } catch (error) {
             console.error("Bookmark action failed:", error);
-            showToast("Action failed", "error");
+            const msg =
+                error?.detail ||
+                error?.response?.data?.detail ||
+                error?.message ||
+                "Action failed";
+            showToast(msg, "error");
         }
     };
 
@@ -293,57 +323,60 @@ const Details = () => {
         );
     }
 
+    const themeColor = "#FFFFFF";
+
     return (
         <SafeAreaView className="flex-1 bg-background">
-            {/* Header */}
-            <View className="flex-row items-center justify-between px-6 py-4 border-b border-border">
-                <TouchableOpacity onPress={() => router.back()}>
-                    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-
-                <Text className="text-text-primary font-semibold">
-                    Podcast Details
-                </Text>
-
-                <View className="flex-row items-center space-x-4">
-                    <TouchableOpacity onPress={handleShare}>
-                        <Ionicons
-                            name="share-outline"
-                            size={24}
-                            color="#FFFFFF"
-                        />
-                    </TouchableOpacity>
-
-                    {isOwner && (
-                        <TouchableOpacity onPress={handleEdit}>
-                            <MaterialCommunityIcons
-                                name="pencil"
-                                size={24}
-                                color="#FFFFFF"
-                            />
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </View>
+            {/* Unified Header */}
+            <Appbar.Header style={{ backgroundColor: "#18181b" }}>
+                <Appbar.BackAction
+                    onPress={() => router.back()}
+                    color={themeColor}
+                />
+                <Appbar.Content
+                    title="Podcast Details"
+                    titleStyle={{ color: themeColor }}
+                />
+                <Appbar.Action
+                    icon="share-variant"
+                    onPress={handleShare}
+                    color={themeColor}
+                />
+                {isOwner && (
+                    <Appbar.Action
+                        icon="pencil"
+                        onPress={handleEdit}
+                        color={themeColor}
+                    />
+                )}
+            </Appbar.Header>
 
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                 {/* Podcast Header */}
                 <View className="px-6 py-6">
-                    {/* Thumbnail Placeholder */}
-                    <View
-                        className="bg-panel rounded-lg mb-6 items-center justify-center"
-                        style={{
-                            width: screenWidth - 48,
-                            height: screenWidth - 48,
-                            maxHeight: 300,
-                        }}
-                    >
-                        <MaterialCommunityIcons
-                            name="music-note"
-                            size={80}
-                            color="#888888"
-                        />
-                    </View>
+                    {/* AI Artwork */}
+                    <Animated.View style={{ transform: [{ scale: pulse }] }}>
+                        <View
+                            className="rounded-2xl mb-6 items-center justify-center"
+                            style={{
+                                width: screenWidth - 48,
+                                height: screenWidth - 48,
+                                maxHeight: 300,
+                                backgroundColor: "#0f0f10",
+                                borderWidth: 1,
+                                borderColor: "#1f1f22",
+                            }}
+                        >
+                            <MaterialCommunityIcons
+                                name="waveform"
+                                size={74}
+                                color="#D32F2F"
+                            />
+                            <Text className="text-text-secondary mt-2">
+                                AI Optimized Playback
+                            </Text>
+                        </View>
+                    </Animated.View>
 
                     {/* Title and Info */}
                     <Text className="text-text-primary text-2xl font-bold mb-2">
@@ -363,14 +396,16 @@ const Details = () => {
                             <Text className="text-text-secondary text-sm">
                                 {formatDate(podcast.created_at)}
                             </Text>
-                            <Text className="text-text-secondary text-sm bg-panel px-2 py-1 rounded">
-                                {podcast.category}
-                            </Text>
+                            <View className="px-2 py-1 rounded-full bg-primary/20 border border-primary/30">
+                                <Text className="text-primary text-xs">
+                                    {podcast.category}
+                                </Text>
+                            </View>
                         </View>
 
                         {podcast.aiEnhanced && (
-                            <View className="bg-primary/20 px-2 py-1 rounded">
-                                <Text className="text-primary text-sm">
+                            <View className="bg-success/20 px-2 py-1 rounded-full border border-success/30">
+                                <Text className="text-success text-xs">
                                     🤖 AI Enhanced
                                 </Text>
                             </View>
@@ -378,10 +413,10 @@ const Details = () => {
                     </View>
 
                     {/* Action Buttons */}
-                    <View className="flex-row items-center space-x-4 mb-6">
+                    <View className="flex-row items-center mb-6">
                         <TouchableOpacity
                             onPress={handleLike}
-                            className={`flex-row items-center px-4 py-2 rounded-lg ${
+                            className={`flex-row items-center px-4 py-2 rounded-lg mr-3 ${
                                 isLiked ? "bg-primary" : "bg-panel"
                             }`}
                         >
@@ -403,7 +438,7 @@ const Details = () => {
 
                         <TouchableOpacity
                             onPress={handleBookmark}
-                            className={`flex-row items-center px-4 py-2 rounded-lg ${
+                            className={`flex-row items-center px-4 py-2 rounded-lg mr-3 ${
                                 isBookmarked ? "bg-warning" : "bg-panel"
                             }`}
                         >
@@ -429,7 +464,7 @@ const Details = () => {
 
                         <TouchableOpacity
                             onPress={handleAddToQueue}
-                            className="flex-row items-center px-4 py-2 rounded-lg bg-panel"
+                            className="flex-row items-center px-4 py-2 rounded-lg bg-panel mr-3"
                         >
                             <MaterialCommunityIcons
                                 name="playlist-plus"
@@ -479,9 +514,11 @@ const Details = () => {
                         <Text className="text-text-primary text-lg font-semibold mb-3">
                             Description
                         </Text>
-                        <Text className="text-text-secondary leading-6">
-                            {podcast.description}
-                        </Text>
+                        <View className="bg-card rounded-xl p-4 border border-border">
+                            <Text className="text-text-secondary leading-6">
+                                {podcast.description}
+                            </Text>
+                        </View>
                     </View>
                 )}
 

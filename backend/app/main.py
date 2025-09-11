@@ -2,6 +2,7 @@ from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from app.routers import users, podcasts, ai
 from dotenv import load_dotenv
 import os
@@ -35,3 +36,8 @@ async def validation_exception_handler(request, exc):
 @app.get("/")
 def read_root():
     return {"message": "Volo FastAPI backend is running!"}
+
+# Serve uploaded media files (ensure directory exists first)
+media_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "media"))
+os.makedirs(media_root, exist_ok=True)
+app.mount("/media", StaticFiles(directory=media_root), name="media")

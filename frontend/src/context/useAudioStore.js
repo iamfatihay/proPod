@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { Audio } from "expo-av";
-import AudioService from "../services/audio/AudioService";
+import AudioService from "../services/audio";
 
 const useAudioStore = create(
     subscribeWithSelector((set, get) => ({

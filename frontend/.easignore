@@ -1,109 +1,111 @@
-# Node modules
-node_modules
-# Git
-.git
-.gitignore
-# IDE/editor
-.vscode
-.idea
-# Logs
-*.log
+# Dependencies
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-# Tests
-__tests__/
+
+# Testing
 coverage/
-# Android/iOS build outputs
-android/.gradle
-android/.idea
-android/.cxx
-android/local.properties
-android/app/build
-android/build
-ios/build
-ios/Pods
-ios/Podfile.lock
-# Others
-*.DS_Store
-*.env
-*.keystore
-*.jks
-# Expo cache
-.expo
-.expo-shared
-.cache
-# Unused assets
-*.mp4
-*.mov
-*.zip
-*.tar
-*.rar
-*.7z
-# Documentation and examples
-docs/
-examples/
+.nyc_output/
+*.lcov
 
-# Ignore backend code and virtual environments
-../backend/
-../backend/.venv/
-../backend/__pycache__/
-../backend/*.pyc
-../backend/*.db
-../backend/*.sqlite3
-../backend/.env
-../backend/.env.*
+# Build outputs
+dist/
+build/
+*.tgz
+*.tar.gz
 
-# Ignore root-level files not needed for build
-../README.md
-../*.md
-../*.log
-
-# Ignore Android and iOS build outputs (if not already present)
-android/app/build/
-android/build/
-ios/build/
-ios/Pods/
-ios/Podfile.lock
-
-# Ignore Expo and Metro cache (if not already present)
-.expo/
-.expo-shared/
-.cache/
-
-# Ignore test and coverage folders (if not already present)
-__tests__/
-coverage/
-
-# Ignore documentation and example folders (if not already present)
-docs/
-examples/
-
-# Ignore large or unused assets (if not already present)
-*.mp4
-*.mov
-*.zip
-*.tar
-*.rar
-*.7z
-
-# Ignore local environment and secret files
-*.env
-*.keystore
-*.jks
-
-# Ignore IDE/editor folders (if not already present)
+# IDE and editor files
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# Ignore system files
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# Ignore Expo build artifacts
-web-build/
-dist/
+# Logs
+logs/
+*.log
 
-# Ignore npm and yarn logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temporary folders
+tmp/
+temp/
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Test files
+__tests__/
+*.test.js
+*.test.jsx
+*.spec.js
+*.spec.jsx
+e2e/
+
+# Development tools
+.eslintrc*
+.prettierrc*
+jest.config.js
+metro.config.js
+babel.config.js
+
+# Backend files (if accidentally included)
+../backend/
+
+# Large media files (if any)
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+*.webm
+
+# Archive files
+*.zip
+*.rar
+*.7z
+
+# Backup files
+*.bak
+*.backup

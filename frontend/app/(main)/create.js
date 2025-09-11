@@ -11,14 +11,16 @@ import {
     ActivityIndicator,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import RecordingControls from "../../src/components/recording/RecordingControls";
-import AudioService from "../../src/services/audio/AudioService";
+import AudioService from "../../src/services/audio";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
 
 const Create = () => {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
     const { showToast } = useToast();
 
@@ -150,7 +152,7 @@ const Create = () => {
                 platform: Platform.OS,
             };
 
-            // Upload to server
+            // Upload audio then create podcast with returned URL
             const uploadData = {
                 uri: savedUri,
                 type: Platform.OS === "ios" ? "audio/mp4" : "audio/mpeg",
@@ -160,11 +162,12 @@ const Create = () => {
                         Platform.OS === "ios" ? "m4a" : "mp3"
                     }`,
             };
+            const uploadRes = await apiService.uploadAudio(uploadData);
 
-            await apiService.uploadAudio(uploadData);
-
-            // Create podcast record
-            await apiService.createPodcast(podcastData);
+            await apiService.createPodcast({
+                ...podcastData,
+                audio_url: uploadRes.audio_url,
+            });
 
             showToast("Podcast saved successfully!", "success");
 
@@ -400,7 +403,7 @@ const Create = () => {
             <View className="space-y-4 mb-6">
                 <TouchableOpacity
                     onPress={handleSaveRecording}
-                    className="bg-primary py-4 rounded-lg"
+                    className="bg-primary py-4 mb-4 rounded-lg"
                     disabled={isUploading}
                 >
                     {isUploading ? (
@@ -431,7 +434,10 @@ const Create = () => {
     );
 
     return (
-        <SafeAreaView className="flex-1 bg-background">
+        <SafeAreaView
+            className="flex-1 bg-background"
+            style={{ paddingTop: insets.top }}
+        >
             {/* Header */}
             <View className="flex-row items-center justify-between px-6 py-4 border-b border-border">
                 <TouchableOpacity onPress={() => router.back()}>

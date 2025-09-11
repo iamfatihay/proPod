@@ -30,17 +30,21 @@ class AudioRecorder {
                 throw new Error("Audio permissions not granted");
             }
 
-            // Set audio mode for recording
-            await Audio.setAudioModeAsync({
-                allowsRecordingIOS: true,
-                playsInSilentModeIOS: true,
-                staysActiveInBackground: true,
-                shouldDuckAndroid: true,
-                playThroughEarpieceAndroid: false,
-                interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
-                interruptionModeAndroid:
-                    Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
-            });
+            // Set audio mode for recording (platform-specific)
+            if (Platform.OS === "ios") {
+                await Audio.setAudioModeAsync({
+                    allowsRecordingIOS: true,
+                    playsInSilentModeIOS: true,
+                    staysActiveInBackground: true,
+                    interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
+                });
+            } else {
+                await Audio.setAudioModeAsync({
+                    staysActiveInBackground: true,
+                    shouldDuckAndroid: true,
+                    playThroughEarpieceAndroid: false,
+                });
+            }
 
             return true;
         } catch (error) {

@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
-import AudioService from "../../services/audio/AudioService";
+import AudioService from "../../services/audio";
 
 const { width: screenWidth } = Dimensions.get("window");
 

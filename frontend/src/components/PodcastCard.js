@@ -66,7 +66,7 @@ export default function PodcastCard({ podcast, onPress }) {
                         {podcast.title}
                     </Text>
                     <Text className="text-xs text-text-secondary">
-                        {formatDuration(podcast.duration)} •{" "}
+                        {formatDuration(podcast.duration)} • {""}
                         {formatDate(podcast.created_at)}
                     </Text>
                 </View>

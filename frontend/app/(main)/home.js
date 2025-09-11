@@ -1,33 +1,21 @@
-import { View, Text, Image, SafeAreaView, FlatList } from "react-native";
-import React from "react";
+import {
+    View,
+    Text,
+    Image,
+    SafeAreaView,
+    FlatList,
+    ActivityIndicator,
+} from "react-native";
+import React, { useEffect, useState, useCallback } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import useAuthStore from "../../src/context/useAuthStore";
 import PodcastCard from "../../src/components/PodcastCard";
 import ChatCard from "../../src/components/ChatCard";
 import ActivityCard from "../../src/components/ActivityCard";
+import apiService from "../../src/services/api/apiService";
 
-// Fake Data
-const episodes = [
-    {
-        id: "1",
-        title: "Episode 1",
-        duration: "28:15",
-        date: "2 days ago",
-    },
-    {
-        id: "2",
-        title: "Episode 2",
-        duration: "34:02",
-        date: "1 week ago",
-    },
-    {
-        id: "3",
-        title: "Episode 3",
-        duration: "21:47",
-        date: "2 weeks ago",
-    },
-];
+// Removed mock episodes; will fetch from API
 
 const chats = [
     {
@@ -68,6 +56,49 @@ const activities = [
 export default function HomeScreen() {
     const router = useRouter();
     const { user, logout } = useAuthStore();
+    const [podcasts, setPodcasts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const load = useCallback(async () => {
+        try {
+            const res = await apiService.getPodcasts({ limit: 20 });
+            const normalized = (res.podcasts || []).map((p) => {
+                // Robust duration normalization → milliseconds
+                const durationMs =
+                    (typeof p.duration_ms === "number" && p.duration_ms) ||
+                    (typeof p.durationMilliseconds === "number" &&
+                        p.durationMilliseconds) ||
+                    (typeof p.duration_seconds === "number" &&
+                        p.duration_seconds * 1000) ||
+                    (typeof p.duration === "number" && p.duration * 1000) ||
+                    0;
+                return {
+                    ...p,
+                    duration: durationMs,
+                };
+            });
+            setPodcasts(normalized);
+            setError(null);
+        } catch (e) {
+            setError(e?.detail || e?.message || "Failed to load podcasts");
+        }
+    }, []);
+
+    useEffect(() => {
+        (async () => {
+            setLoading(true);
+            await load();
+            setLoading(false);
+        })();
+    }, [load]);
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await load();
+        setRefreshing(false);
+    }, [load]);
 
     const handleLogout = () => {
         logout();
@@ -101,22 +132,32 @@ export default function HomeScreen() {
                     Recent Episodes
                 </Text>
                 <View className="mb-4">
-                    <FlatList
-                        data={episodes}
-                        keyExtractor={(item) => item.id}
-                        renderItem={({ item }) => (
-                            <PodcastCard
-                                episode={item}
-                                onPress={() =>
-                                    router.push({
-                                        pathname: "/(main)/details",
-                                        params: { id: item.id },
-                                    })
-                                }
-                            />
-                        )}
-                        showsVerticalScrollIndicator={false}
-                    />
+                    {loading ? (
+                        <View className="py-6 items-center">
+                            <ActivityIndicator color="#D32F2F" />
+                        </View>
+                    ) : error ? (
+                        <Text className="text-text-secondary">{error}</Text>
+                    ) : (
+                        <FlatList
+                            data={podcasts}
+                            keyExtractor={(item) => String(item.id)}
+                            renderItem={({ item }) => (
+                                <PodcastCard
+                                    podcast={item}
+                                    onPress={() =>
+                                        router.push({
+                                            pathname: "/(main)/details",
+                                            params: { id: item.id },
+                                        })
+                                    }
+                                />
+                            )}
+                            showsVerticalScrollIndicator={false}
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                        />
+                    )}
                 </View>
 
                 {/* Chats & Activities */}

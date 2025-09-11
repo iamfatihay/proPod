@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Path, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import json
@@ -6,6 +6,8 @@ import asyncio
 from .. import schemas, crud, models, auth
 from ..database import SessionLocal
 from ..services.ai_service import ai_service
+import os
+from pathlib import Path as SysPath
 
 router = APIRouter(prefix="/podcasts", tags=["podcasts"])
 
@@ -26,6 +28,47 @@ def create_podcast(
 ):
     """Create a new podcast"""
     return crud.create_podcast(db=db, podcast=podcast, owner_id=current_user.id)
+
+
+@router.post("/upload")
+async def upload_podcast_audio(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """Upload a podcast audio file and return its public URL path"""
+    try:
+        # Validate file type (basic)
+        allowed_types = {"audio/mpeg", "audio/mp4", "audio/m4a", "audio/aac", "audio/wav", "audio/ogg"}
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Unsupported file type: {file.content_type}",
+            )
+
+        # Ensure media directory exists
+        media_dir = SysPath(os.path.dirname(__file__)).parent.parent / "media" / "audio"
+        os.makedirs(media_dir, exist_ok=True)
+
+        # Build a safe filename
+        original_suffix = SysPath(file.filename).suffix or ".mp3"
+        safe_name = f"podcast_{current_user.id}_{int(asyncio.get_event_loop().time()*1e9)}{original_suffix}"
+        dest_path = media_dir / safe_name
+
+        # Save file to disk
+        contents = await file.read()
+        with open(dest_path, "wb") as f:
+            f.write(contents)
+
+        # Public URL path (served via /media)
+        public_path = f"/media/audio/{safe_name}"
+        return {"audio_url": public_path}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Audio upload failed: {str(e)}",
+        )
 
 @router.post("/{podcast_id}/process-ai")
 async def process_podcast_with_ai(
@@ -100,6 +143,13 @@ async def process_podcast_with_ai(
                         "probability": transcription.get("language_probability", 0.0),
                         "segments_count": len(transcription.get("segments", []))
                     })
+                    # Persist duration from transcription if provided (seconds)
+                    try:
+                        trans_duration = transcription.get("duration")
+                        if isinstance(trans_duration, (int, float)) and trans_duration > 0:
+                            podcast.duration = int(trans_duration)
+                    except Exception:
+                        pass
                 
                 # Update content analysis
                 if ai_results.get("analysis"):

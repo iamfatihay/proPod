@@ -1,8 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import AudioService from "../services/audio/AudioService";
-
-// Create a single instance
-const audioService = new AudioService();
+import AudioService from "../services/audio";
 
 const useAudioRecording = () => {
     const [isRecording, setIsRecording] = useState(false);
@@ -16,7 +13,7 @@ const useAudioRecording = () => {
     useEffect(() => {
         const initializeAudio = async () => {
             try {
-                const success = await audioService.initialize();
+                const success = await AudioService.initialize();
                 setIsInitialized(success);
                 if (!success) {
                     setError("Failed to initialize audio service");
@@ -47,7 +44,7 @@ const useAudioRecording = () => {
     const startRecording = useCallback(async (options = {}) => {
         try {
             setError(null);
-            const success = await audioService.startRecording(options);
+            const success = await AudioService.startRecording(options);
             if (success) {
                 setIsRecording(true);
                 setIsPaused(false);
@@ -64,7 +61,7 @@ const useAudioRecording = () => {
     const stopRecording = useCallback(async () => {
         try {
             setError(null);
-            const uri = await audioService.stopRecording();
+            const uri = await AudioService.stopRecording();
             setIsRecording(false);
             setIsPaused(false);
             setRecordingUri(uri);
@@ -80,7 +77,7 @@ const useAudioRecording = () => {
     const pauseRecording = useCallback(async () => {
         try {
             setError(null);
-            const success = await audioService.pauseRecording();
+            const success = await AudioService.pauseRecording();
             if (success) {
                 setIsPaused(true);
             }
@@ -94,7 +91,7 @@ const useAudioRecording = () => {
     const resumeRecording = useCallback(async () => {
         try {
             setError(null);
-            const success = await audioService.resumeRecording();
+            const success = await AudioService.resumeRecording();
             if (success) {
                 setIsPaused(false);
             }
@@ -114,7 +111,7 @@ const useAudioRecording = () => {
     }, []);
 
     const getRecordingStatus = useCallback(() => {
-        return audioService.getRecordingStatus();
+        return AudioService.getRecordingStatus();
     }, []);
 
     return {

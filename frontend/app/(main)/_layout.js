@@ -1,11 +1,13 @@
 import { Tabs, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import React, { useState } from "react";
 import {
     View,
     TouchableOpacity,
     Platform,
     Dimensions,
-    Alert,
+    Modal,
+    Text,
 } from "react-native";
 import { MiniPlayer } from "../../src/components/audio";
 import useAudioStore from "../../src/context/useAudioStore";
@@ -22,63 +24,20 @@ const TabIcon = ({ icon, color, focused }) => {
 
 const CreateTab = () => {
     const router = useRouter();
+    const [open, setOpen] = useState(false);
 
     // Responsive tab button size
     const tabSize = Platform.OS === "ios" ? 64 : 60;
-    const topOffset = Platform.OS === "ios" ? -22 : -20;
+    const topOffset = Platform.OS === "ios" ? -28 : -26;
 
-    const handleCreatePress = () => {
-        // Show action sheet for quick actions
-        const options =
-            Platform.OS === "ios"
-                ? ["Cancel", "Quick Record", "Create Podcast"]
-                : ["Quick Record", "Create Podcast", "Cancel"];
-
-        const cancelButtonIndex = Platform.OS === "ios" ? 0 : 2;
-
-        Alert.alert(
-            "Create Content",
-            "What would you like to create?",
-            [
-                {
-                    text: "Quick Record",
-                    onPress: () => {
-                        // Navigate to create page with immediate recording mode
-                        router.push({
-                            pathname: "/(main)/create",
-                            params: { mode: "quick-record" },
-                        });
-                    },
-                },
-                {
-                    text: "Create Podcast",
-                    onPress: () => {
-                        // Navigate to full create experience
-                        router.push({
-                            pathname: "/(main)/create",
-                            params: { mode: "full-create" },
-                        });
-                    },
-                },
-                {
-                    text: "Cancel",
-                    style: "cancel",
-                },
-            ],
-            {
-                cancelable: true,
-                userInterfaceStyle: "dark", // iOS dark mode support
-            }
-        );
-    };
+    const handleCreatePress = () => setOpen(true);
 
     return (
         <TouchableOpacity
             onPress={handleCreatePress}
             activeOpacity={0.8}
             style={{
-                position: "absolute",
-                top: topOffset,
+                marginTop: topOffset,
                 alignItems: "center",
                 justifyContent: "center",
                 // iOS specific shadow
@@ -112,6 +71,60 @@ const CreateTab = () => {
             >
                 <MaterialCommunityIcons name="plus" size={36} color="white" />
             </View>
+            {/* Custom Themed Modal */}
+            <Modal
+                transparent
+                visible={open}
+                animationType="fade"
+                onRequestClose={() => setOpen(false)}
+            >
+                <View className="flex-1 bg-black/60 items-center justify-center px-6">
+                    <View className="w-full bg-panel rounded-2xl p-5 border border-border">
+                        <Text className="text-text-primary text-lg font-semibold mb-2">
+                            Create Content
+                        </Text>
+                        <Text className="text-text-secondary mb-4">
+                            What would you like to create?
+                        </Text>
+                        <View className="flex-row items-center justify-between">
+                            <TouchableOpacity
+                                className="flex-1 bg-primary rounded-lg px-4 py-3 mr-2 items-center"
+                                onPress={() => {
+                                    setOpen(false);
+                                    router.push({
+                                        pathname: "/(main)/create",
+                                        params: { mode: "quick-record" },
+                                    });
+                                }}
+                            >
+                                <Text className="text-white font-semibold">
+                                    QUICK RECORD
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                className="flex-1 bg-panel rounded-lg px-4 py-3 ml-2 border border-border items-center"
+                                onPress={() => {
+                                    setOpen(false);
+                                    router.push({
+                                        pathname: "/(main)/create",
+                                        params: { mode: "full-create" },
+                                    });
+                                }}
+                            >
+                                <Text className="text-text-primary font-semibold">
+                                    CREATE PODCAST
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity
+                            className="mt-3 items-center"
+                            onPress={() => setOpen(false)}
+                        >
+                            <Text className="text-text-secondary">CANCEL</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </TouchableOpacity>
     );
 };
@@ -172,6 +185,10 @@ export default function TabLayout() {
                         borderTopColor: "#333333", // theme.colors.border
                         height: tabBarHeight,
                         paddingBottom: Platform.OS === "ios" ? 6 : 0,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        paddingHorizontal: 8,
+                        paddingTop: 6,
                     },
                 }}
             >
@@ -240,6 +257,12 @@ export default function TabLayout() {
                     }}
                 />
                 <Tabs.Screen
+                    name="edit-podcast"
+                    options={{
+                        href: null,
+                    }}
+                />
+                <Tabs.Screen
                     name="activity-details"
                     options={{
                         href: null,
@@ -270,6 +293,8 @@ export default function TabLayout() {
                 onExpand={handleMiniPlayerExpand}
                 onPositionChange={setMiniPlayerPosition}
             />
+            {/* Spacer to prevent tab icons from being pushed by MiniPlayer */}
+            {showMiniPlayer ? <View style={{ height: 16 }} /> : null}
         </View>
     );
 }

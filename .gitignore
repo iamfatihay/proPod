@@ -60,3 +60,12 @@ yarn-error.*
 # Development logs
 dev_emails.log
 backend/dev_emails.log
+
+# Media files
+backend/media/
+backend/media/audio/
+*.mp3
+*.m4a
+*.wav
+*.aac
+*.ogg

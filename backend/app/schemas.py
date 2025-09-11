@@ -1,6 +1,10 @@
+from __future__ import annotations
 from pydantic import BaseModel, EmailStr
 import datetime
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .models import User
 
 
 # User Schemas
@@ -24,10 +28,9 @@ class UserUpdate(BaseModel):
 
 class User(UserBase):
     id: int
-    provider: str
-    photo_url: Optional[str] = None
-    is_active: bool
     created_at: datetime.datetime
+    updated_at: datetime.datetime
+    is_active: bool = True
 
     model_config = {'from_attributes': True}
 
@@ -41,7 +44,7 @@ class PodcastBase(BaseModel):
 
 
 class PodcastCreate(PodcastBase):
-    pass
+    duration: int = 0  # seconds
 
 
 class PodcastUpdate(BaseModel):

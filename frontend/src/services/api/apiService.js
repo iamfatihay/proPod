@@ -84,6 +84,7 @@ class ApiService {
             if (!response.ok) {
                 let error = new Error(`HTTP error! status: ${response.status}`);
                 error.status = response.status;
+                // Prefer JSON details if available
                 try {
                     const data = await response.json();
                     if (data && data.detail) {
@@ -91,8 +92,16 @@ class ApiService {
                     }
                     error.response = { data };
                 } catch (e) {
-                    // Just log the error, don't throw it
-                    console.warn("Could not parse error response as JSON");
+                    // Fallback: capture raw text body to surface backend errors without JSON
+                    try {
+                        const rawText = await response.text();
+                        if (rawText && rawText.length > 0) {
+                            error.detail = rawText;
+                            error.response = { data: { detail: rawText } };
+                        }
+                    } catch (_) {
+                        console.warn("Could not parse error response body");
+                    }
                 }
                 throw error;
             }
@@ -257,24 +266,12 @@ class ApiService {
 
     async uploadAudio(audioFile) {
         const formData = new FormData();
+        formData.append("file", {
+            uri: audioFile.uri,
+            type: audioFile.type,
+            name: audioFile.name,
+        });
 
-        // Cross-platform file handling
-        if (Platform.OS === "ios") {
-            formData.append("audio", {
-                uri: audioFile.uri,
-                type: audioFile.type || "audio/mp4",
-                name: audioFile.name || "audio.m4a",
-            });
-        } else {
-            // Android
-            formData.append("audio", {
-                uri: audioFile.uri,
-                type: audioFile.type || "audio/mpeg",
-                name: audioFile.name || "audio.mp3",
-            });
-        }
-
-        // Get the token from SecureStore
         const accessToken = await getToken("accessToken");
         return this.request("/podcasts/upload", {
             method: "POST",
