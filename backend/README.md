@@ -2,18 +2,19 @@
 
 This project is the FastAPI-based backend service for the Volo mobile application. Users can record, publish, and AI-edit podcasts with this backend.
 
-## Recent Updates (2025-01-15)
+## Recent Updates (2025-01-19)
 
--   **Fixed podcast duration storage** - Duration field added to PodcastCreate schema, AI transcription duration persistence implemented
--   **Enhanced media handling** - Audio upload endpoint with proper file validation and static file serving
--   **Schema improvements** - Added User schema and resolved forward reference issues
--   **API documentation** - Comprehensive API documentation with all endpoints and examples
--   **Database optimization** - Proper migration handling and media file management
+-   **Fixed Schema vs Model uyumsuzlukları** - User, PodcastLike, PodcastBookmark modellerinde eksik field'lar eklendi
+-   **Alembic Migration sistemi** - Database migration yönetimi için Alembic kuruldu ve yapılandırıldı
+-   **Pydantic validation hataları çözüldü** - Login endpoint'indeki validation hataları tamamen giderildi
+-   **Database tutarlılığı** - Tüm Schema ve Model'ler artık tamamen uyumlu
+-   **Development dokümantasyonu** - Schema/Model kontrol komutları ve migration rehberi eklendi
 
 ## Technologies Used
 
 -   FastAPI
 -   SQLAlchemy
+-   Alembic (Database Migrations)
 -   PostgreSQL (or SQLite)
 -   JWT Authentication
 -   Docker
@@ -38,7 +39,20 @@ This project is the FastAPI-based backend service for the Volo mobile applicatio
     uvicorn app.main:app --reload
     ```
 
-3. To start with Docker:
+3. Database migrations (Alembic):
+
+    ```bash
+    # Virtual environment'ı aktif et
+    .\venv\Scripts\Activate.ps1
+    
+    # Migration oluştur
+    alembic revision --autogenerate -m "Migration açıklaması"
+    
+    # Migration uygula
+    alembic upgrade head
+    ```
+
+4. To start with Docker:
    `bash
     docker build -t volo-backend .
 docker run -p 8000:8000 --env-file .env volo-backend
@@ -61,6 +75,9 @@ docker run -p 8000:8000 --env-file .env volo-backend
 -   The codebase is structured to be compatible with microservice architecture.
 -   Media files are served statically via `/media` endpoint.
 -   Duration is automatically calculated from AI transcription results.
+-   **Schema vs Model uyumsuzlukları kontrol edilmeli** - DEVELOPMENT_NOTES.md dosyasındaki komutları kullanın
+-   **Alembic migration'ları düzenli kullanın** - Model değişikliklerinde migration oluşturun
+-   **Pydantic validation hataları** - Schema ve Model'lerin uyumlu olduğundan emin olun
 
 # Backend Setup
 

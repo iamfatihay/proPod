@@ -81,6 +81,7 @@ class PodcastLike(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     podcast_id = Column(Integer, ForeignKey("podcasts.id"), nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     # Relationships
     user = relationship("User", back_populates="likes")
@@ -101,6 +102,7 @@ class PodcastBookmark(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     podcast_id = Column(Integer, ForeignKey("podcasts.id"), nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     # Relationships
     user = relationship("User", back_populates="bookmarks")

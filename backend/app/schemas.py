@@ -28,9 +28,11 @@ class UserUpdate(BaseModel):
 
 class User(UserBase):
     id: int
+    provider: str = "local"
+    photo_url: Optional[str] = None
+    is_active: bool = True
     created_at: datetime.datetime
     updated_at: datetime.datetime
-    is_active: bool = True
 
     model_config = {'from_attributes': True}
 
@@ -169,6 +171,7 @@ class PodcastLike(BaseModel):
     user_id: int
     podcast_id: int
     created_at: datetime.datetime
+    updated_at: datetime.datetime
     user: Optional[User] = None
     podcast: Optional[Podcast] = None
 
@@ -184,6 +187,7 @@ class PodcastBookmark(BaseModel):
     user_id: int
     podcast_id: int
     created_at: datetime.datetime
+    updated_at: datetime.datetime
     user: Optional[User] = None
     podcast: Optional[Podcast] = None
 

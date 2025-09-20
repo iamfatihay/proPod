@@ -48,8 +48,8 @@ export default ({ config }) => ({
         favicon: "./assets/Volo-logo.png",
     },
     extra: {
-        // apiBaseUrl: "http://192.168.178.27:8000",
-        apiBaseUrl: "http://10.79.165.39:8000",
+        apiBaseUrl: "http://192.168.178.27:8000",
+        // apiBaseUrl: "http://10.79.165.39:8000",
         eas: {
             projectId: "6760a9ac-697b-4e25-9f44-0d0ecc8edbbb",
         },
