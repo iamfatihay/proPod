@@ -15,6 +15,7 @@ class User(Base):
     photo_url = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
     reset_token = Column(String, nullable=True)  # For password reset
     reset_token_expires = Column(DateTime, nullable=True)  # Token expiry
     
