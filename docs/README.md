@@ -1,28 +1,28 @@
-# ProPod Dokümantasyon
+# ProPod Documentation
 
-Bu klasör projenin detaylı dokümantasyonunu içerir.
+This folder contains detailed documentation for the project.
 
-## 📚 Dokümantasyon Dosyaları
+## 📚 Documentation Files
 
-### Geliştirici Rehberleri
-- **[DEVELOPMENT_NOTES.md](./DEVELOPMENT_NOTES.md)** - Schema vs Model uyumsuzlukları, Alembic migration'ları, veritabanı kontrol komutları
+### Developer Guides
+- **[DEVELOPMENT_NOTES.md](./DEVELOPMENT_NOTES.md)** - Schema vs Model inconsistencies, Alembic migrations, database control commands
 
-### API Dokümantasyonu
-- **[API_DOCUMENTATION.md](./API_DOCUMENTATION.md)** - Backend API endpoints, request/response örnekleri
+### API Documentation
+- **[API_DOCUMENTATION.md](./API_DOCUMENTATION.md)** - Backend API endpoints, request/response examples
 
-### AI Entegrasyonu
-- **[AI_INTEGRATION_GUIDE.md](./AI_INTEGRATION_GUIDE.md)** - AI servisleri, transkripsiyon, içerik analizi
+### AI Integration
+- **[AI_INTEGRATION_GUIDE.md](./AI_INTEGRATION_GUIDE.md)** - AI services, transcription, content analysis
 
-### Test Dokümantasyonu
-- **[TEST_DOCUMENTATION.md](./TEST_DOCUMENTATION.md)** - Frontend test stratejileri, Jest, Detox E2E testleri
+### Test Documentation
+- **[TEST_DOCUMENTATION.md](./TEST_DOCUMENTATION.md)** - Frontend test strategies, Jest, Detox E2E tests
 
-## 🚀 Hızlı Başlangıç
+## 🚀 Quick Start
 
-Ana proje kurulumu için kök dizindeki [README.md](../README.md) dosyasına bakın.
+For main project setup, see the [README.md](../README.md) file in the root directory.
 
-## 📋 Dokümantasyon Güncelleme
+## 📋 Documentation Updates
 
-Yeni dokümantasyon eklerken:
-1. Bu index dosyasını güncelleyin
-2. Ana README.md'deki ilgili bölümleri güncelleyin
-3. Commit mesajında dokümantasyon değişikliklerini belirtin
+When adding new documentation:
+1. Update this index file
+2. Update relevant sections in main README.md
+3. Mention documentation changes in commit messages

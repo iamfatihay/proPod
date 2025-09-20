@@ -1,8 +1,8 @@
 # ProPod Frontend
 
-React Native + Expo tabanlı frontend uygulaması. Ana dokümantasyon için proje kökündeki README.md dosyasına bakın.
+React Native + Expo frontend application. See the main README.md in the project root for complete documentation.
 
-## Hızlı Başlangıç
+## Quick Start
 
 ```bash
 cd frontend
@@ -12,7 +12,7 @@ npx expo start --dev-client -c --tunnel
 
 ## Environment Variables
 
-`.env` dosyası oluşturun:
+Create `.env` file:
 
 ```env
 API_BASE_URL=http://localhost:8000
@@ -35,4 +35,4 @@ npm run test
 npm run lint
 ```
 
-Detaylı bilgi için ana README.md dosyasına bakın.
+For detailed information, see the main README.md file.

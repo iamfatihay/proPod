@@ -1,25 +1,25 @@
-# ProPod - Podcast Uygulaması
+# ProPod - Podcast Application
 
-## 📱 Proje Açıklaması
+## 📱 Project Description
 
-ProPod, AI destekli podcast kaydetme, yayınlama ve düzenleme için cross-platform (Android, iOS, Web) mobil uygulamasıdır. Hızlı MVP geliştirme, ölçeklenebilirlik ve sürdürülebilirlik için tasarlanmıştır.
+ProPod is a cross-platform (Android, iOS, Web) mobile application for creating, broadcasting, and editing podcasts with AI assistance. Designed for rapid MVP development, scalability, and maintainability.
 
 ---
 
-## 🆕 Son Güncellemeler (2025-01-19)
+## 🆕 Recent Updates (2025-01-19)
 
--   **Schema vs Model uyumsuzlukları çözüldü** - User, PodcastLike, PodcastBookmark modellerinde eksik field'lar eklendi
--   **Alembic Migration sistemi** - Database migration yönetimi için Alembic kuruldu ve yapılandırıldı
--   **Pydantic validation hataları çözüldü** - Login endpoint'indeki validation hataları tamamen giderildi
--   **Database tutarlılığı** - Tüm Schema ve Model'ler artık tamamen uyumlu
--   **Development dokümantasyonu** - Schema/Model kontrol komutları ve migration rehberi eklendi
+-   **Fixed Schema vs Model inconsistencies** - Added missing fields to User, PodcastLike, PodcastBookmark models
+-   **Alembic Migration system** - Installed and configured Alembic for database migration management
+-   **Resolved Pydantic validation errors** - Completely fixed validation errors in login endpoint
+-   **Database consistency** - All Schema and Model are now fully compatible
+-   **Development documentation** - Added Schema/Model control commands and migration guide
 -   **Fixed podcast duration storage and display** - Duration field added to PodcastCreate schema, AI transcription duration persistence implemented
 -   **Enhanced podcast interactions** - Like/bookmark toggle functionality with visual feedback in details page
 -   **Improved UI consistency** - Unified header design across all detail pages using Appbar.Header
 
 ---
 
-## 🛠 Teknoloji Stack'i
+## 🛠 Technology Stack
 
 ### Frontend (React Native + Expo)
 -   **expo-router**: File-based navigation
@@ -45,31 +45,31 @@ ProPod, AI destekli podcast kaydetme, yayınlama ve düzenleme için cross-platf
 
 ---
 
-## 🚀 Hızlı Başlangıç
+## 🚀 Quick Start
 
-### 1. Backend Kurulumu
+### 1. Backend Setup
 
 ```bash
 cd backend
 python -m venv venv
 .\venv\Scripts\Activate.ps1  # Windows
 pip install -r requirements.txt
-# .env dosyası oluştur (backend/.env.example'a bak)
+# Create .env file (see backend/.env.example)
 python -m app.init_db
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 2. Frontend Kurulumu
+### 2. Frontend Setup
 
 ```bash
 cd frontend
 npm install
-# .env dosyası oluştur (frontend/.env.example'a bak)
+# Create .env file (see frontend/.env.example)
 # API_BASE_URL=http://localhost:8000
 npx expo start --dev-client -c --tunnel
 ```
 
-### 3. Cihaz/Emülatörde Çalıştırma
+### 3. Run on Device/Emulator
 
 -   Android: `npm run android`
 -   iOS: `npm run ios`
@@ -77,19 +77,19 @@ npx expo start --dev-client -c --tunnel
 
 ---
 
-## 📁 Proje Yapısı
+## 📁 Project Structure
 
 ```
 proPod/
-├── frontend/          # React Native uygulaması
+├── frontend/          # React Native application
 │   ├── app/          # Screens (expo-router)
 │   ├── src/          # Components, services, state, etc.
 │   └── android/      # Android build files
-├── backend/           # FastAPI backend servisi
+├── backend/           # FastAPI backend service
 │   ├── app/          # API, models, routers
-│   ├── alembic/      # Database migration'ları
-│   └── tests/        # Test dosyaları
-└── docs/             # Detaylı dokümantasyon
+│   ├── alembic/      # Database migrations
+│   └── tests/        # Test files
+└── docs/             # Detailed documentation
     ├── DEVELOPMENT_NOTES.md
     ├── API_DOCUMENTATION.md
     ├── AI_INTEGRATION_GUIDE.md
@@ -98,40 +98,40 @@ proPod/
 
 ---
 
-## 🔧 Geliştirici Notları
+## 🔧 Developer Notes
 
-### Schema vs Model Uyumsuzlukları
+### Schema vs Model Inconsistencies
 
-Bu projede Schema (Pydantic) ve Model (SQLAlchemy) arasındaki uyumsuzluklar kritik hatalara neden olabilir.
+Schema (Pydantic) and Model (SQLAlchemy) inconsistencies in this project can cause critical errors.
 
-**Kontrol Komutları:**
+**Control Commands:**
 ```bash
-# Backend dizinine git
+# Go to backend directory
 cd backend
 .\venv\Scripts\Activate.ps1
 
-# Kullanıcıları kontrol et
+# Check users
 python -c "from app.database import SessionLocal; from app.models import User; db = SessionLocal(); users = db.query(User).all(); print(f'Total users: {len(users)}'); [print(f'User {u.id}: {u.email}, updated_at: {u.updated_at}') for u in users]; db.close()"
 ```
 
-### Database Migration'ları
+### Database Migrations
 
-Model değişikliklerinde Alembic migration'ları kullanın:
+Use Alembic migrations for model changes:
 
 ```bash
-# Migration oluştur
-alembic revision --autogenerate -m "Migration açıklaması"
+# Create migration
+alembic revision --autogenerate -m "Migration description"
 
-# Migration uygula
+# Apply migration
 alembic upgrade head
 ```
 
-### Build İşlemleri
+### Build Processes
 
 ```bash
 # Frontend build
 cd frontend
-npx expo-doctor  # Önce kontrol et
+npx expo-doctor  # Check first
 npx eas build --platform android --profile development
 
 # Backend Docker build
@@ -142,56 +142,56 @@ docker run -p 8000:8000 --env-file .env propod-backend
 
 ---
 
-## 📋 Ana API Endpoints
+## 📋 Main API Endpoints
 
--   `/users/register` : Kullanıcı kaydı
--   `/users/login` : Kullanıcı girişi (JWT)
--   `/podcasts/create` : Podcast oluşturma
--   `/podcasts/upload` : Ses dosyası yükleme
--   `/podcasts/{id}/process-ai` : AI işleme (transkripsiyon, analiz)
--   `/podcasts/{id}/like` : Podcast beğenme/beğenmeme
--   `/podcasts/{id}/bookmark` : Podcast yer imi ekleme/çıkarma
--   `/podcasts/{id}/interactions` : Kullanıcı etkileşimlerini getirme
+-   `/users/register` : User registration
+-   `/users/login` : User login (JWT)
+-   `/podcasts/create` : Create podcast
+-   `/podcasts/upload` : Upload audio files
+-   `/podcasts/{id}/process-ai` : AI processing (transcription, analysis)
+-   `/podcasts/{id}/like` : Like/unlike podcast
+-   `/podcasts/{id}/bookmark` : Bookmark/unbookmark podcast
+-   `/podcasts/{id}/interactions` : Get user interactions
 
 ---
 
-## 🌟 Proje Hedefleri
+## 🌟 Project Goals
 
--   Yüksek kaliteli ses kaydı ve düzenleme
--   AI destekli özellikler (transkripsiyon, gürültü azaltma)
--   Canlı podcast yayını (gelecek)
--   Basit, ölçeklenebilir state management
+-   High-quality audio recording and editing
+-   AI-powered features (transcription, noise reduction)
+-   Live podcast broadcasting (future)
+-   Simple, scalable state management
 -   Modern, responsive UI/UX
--   Güvenli authentication ve Google OAuth desteği
+-   Secure authentication and Google OAuth support
 
 ---
 
-## 📝 Önemli Notlar
+## 📝 Important Notes
 
--   Tüm environment değişkenleri `.env` dosyaları ile yönetilir (asla commit etmeyin!)
--   Sadece proje kökünde bir `.gitignore` kullanılır
--   Local development için SQLite; production için PostgreSQL kullanın
--   Android emülatör için API base URL olarak `10.0.2.2` kullanın; gerçek cihaz için bilgisayarınızın local IP'sini kullanın
--   **Schema vs Model uyumsuzlukları kontrol edilmeli** - Model değişikliklerinde Schema'ları da kontrol edin
--   **Alembic migration'ları düzenli kullanın** - Model değişikliklerinde migration oluşturun
--   **Pydantic validation hataları** - Schema ve Model'lerin uyumlu olduğundan emin olun
-
----
-
-## 🚨 Sorun Giderme
-
-### Pydantic Validation Hataları
-- Schema ve Model'lerin uyumlu olduğundan emin olun
-- Mevcut kayıtları güncelleyin: `DEVELOPMENT_NOTES.md` dosyasındaki komutları kullanın
-
-### Database Migration Sorunları
-- Alembic migration'larını düzenli uygulayın
-- Migration geçmişini kontrol edin: `alembic history`
-
-### Login Endpoint Hataları
-- User model'indeki `updated_at` field'ının dolu olduğundan emin olun
-- Mevcut kullanıcıları güncelleyin
+-   All environment variables are managed via `.env` files (never commit them!)
+-   Only one `.gitignore` at the project root is used
+-   Use SQLite for local development; PostgreSQL for production
+-   For Android emulator, use `10.0.2.2` as API base URL; for real device, use your computer's local IP
+-   **Schema vs Model inconsistencies should be checked** - Check Schema when making Model changes
+-   **Use Alembic migrations regularly** - Create migrations for model changes
+-   **Pydantic validation errors** - Ensure Schema and Model are compatible
 
 ---
 
-**Son güncelleme:** 2025-01-19
+## 🚨 Troubleshooting
+
+### Pydantic Validation Errors
+- Ensure Schema and Model are compatible
+- Update existing records: use commands in `DEVELOPMENT_NOTES.md`
+
+### Database Migration Issues
+- Apply Alembic migrations regularly
+- Check migration history: `alembic history`
+
+### Login Endpoint Errors
+- Ensure `updated_at` field in User model is populated
+- Update existing users
+
+---
+
+**Last updated:** 2025-01-19
