@@ -63,9 +63,9 @@ export default function EditPodcast() {
             setSaving(true);
             setApiError(null);
             const updateData = {
-                title: title.trim() || undefined,
-                description: description.trim() || undefined,
-                category: category || undefined,
+                title: title.trim(),
+                description: description.trim(),
+                category: category,
                 is_public: isPublic,
             };
             await apiService.updatePodcast(params.id, updateData);

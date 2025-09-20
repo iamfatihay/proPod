@@ -65,15 +65,8 @@ export default function HomeScreen() {
         try {
             const res = await apiService.getPodcasts({ limit: 20 });
             const normalized = (res.podcasts || []).map((p) => {
-                // Robust duration normalization → milliseconds
-                const durationMs =
-                    (typeof p.duration_ms === "number" && p.duration_ms) ||
-                    (typeof p.durationMilliseconds === "number" &&
-                        p.durationMilliseconds) ||
-                    (typeof p.duration_seconds === "number" &&
-                        p.duration_seconds * 1000) ||
-                    (typeof p.duration === "number" && p.duration * 1000) ||
-                    0;
+                // Convert duration from seconds to milliseconds for display
+                const durationMs = (typeof p.duration === "number" && p.duration * 1000) || 0;
                 return {
                     ...p,
                     duration: durationMs,
