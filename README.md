@@ -22,6 +22,7 @@ ProPod is a cross-platform (Android, iOS, Web) mobile application for creating, 
 ## 🛠 Technology Stack
 
 ### Frontend (React Native + Expo)
+
 -   **expo-router**: File-based navigation
 -   **NativeWind**: Tailwind CSS for React Native styling
 -   **React Native Paper**: UI components
@@ -34,6 +35,7 @@ ProPod is a cross-platform (Android, iOS, Web) mobile application for creating, 
 -   **jest-expo, @testing-library/react-native**: Testing
 
 ### Backend (FastAPI)
+
 -   **FastAPI**: Python web API framework
 -   **SQLAlchemy**: ORM for database
 -   **Alembic**: Database Migrations
@@ -105,6 +107,7 @@ proPod/
 Schema (Pydantic) and Model (SQLAlchemy) inconsistencies in this project can cause critical errors.
 
 **Control Commands:**
+
 ```bash
 # Go to backend directory
 cd backend
@@ -181,16 +184,19 @@ docker run -p 8000:8000 --env-file .env propod-backend
 ## 🚨 Troubleshooting
 
 ### Pydantic Validation Errors
-- Ensure Schema and Model are compatible
-- Update existing records: use commands in `DEVELOPMENT_NOTES.md`
+
+-   Ensure Schema and Model are compatible
+-   Update existing records: use commands in `DEVELOPMENT_NOTES.md`
 
 ### Database Migration Issues
-- Apply Alembic migrations regularly
-- Check migration history: `alembic history`
+
+-   Apply Alembic migrations regularly
+-   Check migration history: `alembic history`
 
 ### Login Endpoint Errors
-- Ensure `updated_at` field in User model is populated
-- Update existing users
+
+-   Ensure `updated_at` field in User model is populated
+-   Update existing users
 
 ---
 
