@@ -282,6 +282,30 @@ export default function TabLayout() {
                 />
             </Tabs>
 
+            {/* Debug MiniPlayer State */}
+            {__DEV__ && (
+                <View
+                    style={{
+                        position: "absolute",
+                        top: 50,
+                        left: 10,
+                        backgroundColor: "rgba(0,0,0,0.8)",
+                        padding: 10,
+                        borderRadius: 5,
+                    }}
+                >
+                    <Text style={{ color: "white", fontSize: 12 }}>
+                        MiniPlayer: {showMiniPlayer ? "VISIBLE" : "HIDDEN"}
+                    </Text>
+                    <Text style={{ color: "white", fontSize: 12 }}>
+                        Track: {currentTrack ? currentTrack.title : "NONE"}
+                    </Text>
+                    <Text style={{ color: "white", fontSize: 12 }}>
+                        Playing: {isPlaying ? "YES" : "NO"}
+                    </Text>
+                </View>
+            )}
+
             {/* Global Mini Player */}
             <MiniPlayer
                 isVisible={showMiniPlayer}

@@ -23,7 +23,13 @@ const formatDate = (dateString) => {
     return `${Math.floor(diffInDays / 365)} years ago`;
 };
 
-export default function PodcastCard({ podcast, onPress }) {
+export default function PodcastCard({
+    podcast,
+    onPress,
+    onPlayPress,
+    isPlaying = false,
+    showPlayButton = true,
+}) {
     return (
         <Surface
             style={{
@@ -70,6 +76,41 @@ export default function PodcastCard({ podcast, onPress }) {
                         {formatDate(podcast.created_at)}
                     </Text>
                 </View>
+
+                {/* Modern Play Button */}
+                {showPlayButton && onPlayPress && (
+                    <TouchableOpacity
+                        onPress={(e) => {
+                            e.stopPropagation(); // Prevent card press
+                            onPlayPress();
+                        }}
+                        className="ml-3 w-10 h-10 bg-primary rounded-full items-center justify-center"
+                        style={{
+                            // Modern shadow for play button
+                            ...(Platform.OS === "ios"
+                                ? {
+                                      shadowColor: "#D32F2F",
+                                      shadowOffset: { width: 0, height: 2 },
+                                      shadowOpacity: 0.3,
+                                      shadowRadius: 4,
+                                  }
+                                : {
+                                      elevation: 4,
+                                  }),
+                        }}
+                        accessible={true}
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                            isPlaying ? "Pause podcast" : "Play podcast"
+                        }
+                    >
+                        <MaterialCommunityIcons
+                            name={isPlaying ? "pause" : "play"}
+                            size={18}
+                            color="white"
+                        />
+                    </TouchableOpacity>
+                )}
             </TouchableOpacity>
         </Surface>
     );

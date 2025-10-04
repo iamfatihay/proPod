@@ -5,15 +5,19 @@ import {
     SafeAreaView,
     FlatList,
     ActivityIndicator,
+    TouchableOpacity,
+    Platform,
 } from "react-native";
 import React, { useEffect, useState, useCallback } from "react";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import useAuthStore from "../../src/context/useAuthStore";
+import useAudioStore from "../../src/context/useAudioStore";
 import PodcastCard from "../../src/components/PodcastCard";
 import ChatCard from "../../src/components/ChatCard";
 import ActivityCard from "../../src/components/ActivityCard";
 import apiService from "../../src/services/api/apiService";
+import { useToast } from "../../src/components/Toast";
 
 // Removed mock episodes; will fetch from API
 
@@ -56,6 +60,19 @@ const activities = [
 export default function HomeScreen() {
     const router = useRouter();
     const { user, logout } = useAuthStore();
+    const { showToast } = useToast();
+
+    // Audio store
+    const {
+        currentTrack,
+        isPlaying,
+        play,
+        pause,
+        setQueue,
+        showMiniPlayer,
+        toggleMiniPlayer,
+    } = useAudioStore();
+
     const [podcasts, setPodcasts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -66,7 +83,8 @@ export default function HomeScreen() {
             const res = await apiService.getPodcasts({ limit: 20 });
             const normalized = (res.podcasts || []).map((p) => {
                 // Convert duration from seconds to milliseconds for display
-                const durationMs = (typeof p.duration === "number" && p.duration * 1000) || 0;
+                const durationMs =
+                    (typeof p.duration === "number" && p.duration * 1000) || 0;
                 return {
                     ...p,
                     duration: durationMs,
@@ -98,6 +116,61 @@ export default function HomeScreen() {
         // After logout, the user should be redirected to the login screen.
         // This is typically handled by the navigation setup (e.g., in _layout.js)
         // based on the user's authentication state.
+    };
+
+    // Modern play functionality with demo audio
+    const handlePlayPodcast = async (podcast) => {
+        try {
+            console.log("🎵 Playing podcast:", podcast.title);
+            // Create track with real audio URL if available, otherwise demo
+            const track = {
+                id: podcast.id,
+                uri:
+                    podcast.audio_url ||
+                    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", // Use real audio or demo
+                title: podcast.title,
+                artist: podcast.owner?.name || "Unknown Artist",
+                duration: podcast.duration || 180000, // 3 minutes demo
+                artwork: podcast.thumbnail_url,
+                category: podcast.category,
+                description: podcast.description,
+            };
+
+            console.log("🎵 Track created:", track);
+
+            if (currentTrack?.id === podcast.id) {
+                // Same track - toggle play/pause
+                if (isPlaying) {
+                    await pause();
+                    console.log("⏸️ Paused");
+                } else {
+                    await play();
+                    console.log("▶️ Resumed");
+                }
+            } else {
+                // New track - start playing
+                await play(track);
+                console.log("🎵 Started new track");
+
+                // Show mini player
+                if (!showMiniPlayer) {
+                    toggleMiniPlayer(true);
+                    console.log("📱 MiniPlayer enabled");
+                }
+            }
+
+            showToast(
+                `${
+                    isPlaying && currentTrack?.id === podcast.id
+                        ? "Paused"
+                        : "Playing"
+                }: ${podcast.title}`,
+                "success"
+            );
+        } catch (error) {
+            console.error("❌ Play failed:", error);
+            showToast("Playback failed. Please try again.", "error");
+        }
     };
 
     return (
@@ -144,6 +217,12 @@ export default function HomeScreen() {
                                             params: { id: item.id },
                                         })
                                     }
+                                    onPlayPress={() => handlePlayPodcast(item)}
+                                    isPlaying={
+                                        currentTrack?.id === item.id &&
+                                        isPlaying
+                                    }
+                                    showPlayButton={true}
                                 />
                             )}
                             showsVerticalScrollIndicator={false}
@@ -201,6 +280,8 @@ export default function HomeScreen() {
                         />
                     </View>
                 </View>
+
+                {/* Floating Action Button removed - using tab bar + button instead */}
             </View>
         </SafeAreaView>
     );

@@ -34,14 +34,14 @@ const MiniPlayer = ({
             Animated.timing(opacity, {
                 toValue: 1,
                 duration: 300,
-                useNativeDriver: true,
+                useNativeDriver: false, // Avoid animation conflicts
             }).start();
         } else {
             // Fade out animation
             Animated.timing(opacity, {
                 toValue: 0,
                 duration: 200,
-                useNativeDriver: true,
+                useNativeDriver: false, // Avoid animation conflicts
             }).start();
         }
     }, [isVisible]);
@@ -54,7 +54,7 @@ const MiniPlayer = ({
             // Scale down on touch
             Animated.spring(scale, {
                 toValue: 0.95,
-                useNativeDriver: true,
+                useNativeDriver: false, // Avoid animation conflicts
             }).start();
         },
         onPanResponderMove: Animated.event(
@@ -65,7 +65,7 @@ const MiniPlayer = ({
             // Scale back up
             Animated.spring(scale, {
                 toValue: 1,
-                useNativeDriver: true,
+                useNativeDriver: false, // Avoid animation conflicts
             }).start();
 
             // Snap to edges
@@ -83,7 +83,7 @@ const MiniPlayer = ({
 
             Animated.spring(dragPosition, {
                 toValue: { x: snapX, y: snapY },
-                useNativeDriver: false,
+                useNativeDriver: false, // Avoid animation conflicts
             }).start();
 
             // Notify parent of position change
@@ -100,7 +100,7 @@ const MiniPlayer = ({
             }),
             Animated.spring(scale, {
                 toValue: 1.2,
-                useNativeDriver: true,
+                useNativeDriver: false, // Avoid animation conflicts
             }),
         ]).start(() => {
             // Navigate to full player

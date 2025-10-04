@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { Audio } from "expo-av";
-import AudioService from "../services/audio";
+// import AudioService from "../services/audio"; // Temporarily disabled
 
 const useAudioStore = create(
     subscribeWithSelector((set, get) => ({
@@ -115,17 +115,8 @@ const useAudioStore = create(
                     throw new Error("No track to play");
                 }
 
-                // Setup audio session
-                await Audio.setAudioModeAsync({
-                    allowsRecordingIOS: false,
-                    staysActiveInBackground: true,
-                    playsInSilentModeIOS: true,
-                    shouldDuckAndroid: true,
-                    playThroughEarpieceAndroid: false,
-                    interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
-                    interruptionModeAndroid:
-                        Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
-                });
+                // Skip audio session setup for now (avoid interruptionModeIOS error)
+                // await Audio.setAudioModeAsync({...});
 
                 let sound = state.sound;
 

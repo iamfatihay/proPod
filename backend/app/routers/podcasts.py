@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import json
 import asyncio
-from .. import schemas, crud, models, auth
+from .. import schemas, crud, models, auth, config
 from ..database import SessionLocal
 from ..services.ai_service import ai_service
 import os
@@ -71,8 +71,12 @@ async def upload_podcast_audio(
         # Public URL path (served via /media)
         public_path = f"/media/audio/{safe_name}"
         
+        # Get base URL from config
+        settings = config.Settings()
+        full_audio_url = f"{settings.BASE_URL}{public_path}"
+        
         return schemas.AudioUploadResponse(
-            audio_url=public_path,
+            audio_url=full_audio_url,
             file_size=len(contents),
             content_type=file.content_type,
             filename=safe_name

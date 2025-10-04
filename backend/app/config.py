@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     SMTP_USERNAME: str = ""
     SMTP_PASSWORD: str = ""
     FROM_EMAIL: str = ""
+    
+    # Base URL for media files
+    BASE_URL: str = "http://10.52.164.39:8000"
 
     model_config = ConfigDict(
         env_file = os.path.join(os.path.dirname(__file__), '..', '.env')

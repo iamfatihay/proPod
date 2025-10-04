@@ -31,5 +31,5 @@ const UnifiedAudio = {
 
 export default UnifiedAudio;
 export * from "./AudioRecorder";
-export * from "./AudioPlayer";
+// export * from "./AudioPlayer"; // Temporarily disabled - using ModernAudioPlayer instead
 export * from "./AudioPermissions";

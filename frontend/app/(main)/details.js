@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { AudioPlayer } from "../../src/components/audio";
+import ModernAudioPlayer from "../../src/components/audio/ModernAudioPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
@@ -49,7 +49,27 @@ const Details = () => {
 
     useEffect(() => {
         loadPodcastDetails();
-    }, [params.id]);
+    }, [params.id, params.refresh]);
+
+    // Handle optimistic update from edit page
+    useEffect(() => {
+        if (podcast && params.updatedTitle) {
+            setPodcast((prevPodcast) => ({
+                ...prevPodcast,
+                title: params.updatedTitle,
+                description:
+                    params.updatedDescription || prevPodcast.description,
+                category: params.updatedCategory || prevPodcast.category,
+                is_public: params.updatedIsPublic === "true",
+            }));
+        }
+    }, [
+        params.updatedTitle,
+        params.updatedDescription,
+        params.updatedCategory,
+        params.updatedIsPublic,
+        podcast,
+    ]);
 
     const loadPodcastDetails = async () => {
         try {
@@ -491,22 +511,23 @@ const Details = () => {
                     </View>
                 </View>
 
-                {/* Audio Player */}
-                {podcast.audio_url && (
-                    <View className="px-6 mb-6">
-                        <AudioPlayer
-                            uri={podcast.audio_url}
-                            title={podcast.title}
-                            artist={podcast.owner?.name || "Unknown Artist"}
-                            duration={podcast.duration * 1000} // Convert to milliseconds
-                            onPlayStateChange={(playing) => {
-                                if (playing && !showMiniPlayer) {
-                                    toggleMiniPlayer(true);
-                                }
-                            }}
-                        />
-                    </View>
-                )}
+                {/* Modern Audio Player - Use real audio URL if available */}
+                <View className="px-6 mb-6">
+                    <ModernAudioPlayer
+                        uri={
+                            podcast.audio_url ||
+                            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+                        }
+                        title={podcast.title}
+                        artist={podcast.owner?.name || "Unknown Artist"}
+                        duration={podcast.duration * 1000 || 180000} // Convert to milliseconds or 3 min demo
+                        onPlayStateChange={(playing) => {
+                            if (playing && !showMiniPlayer) {
+                                toggleMiniPlayer(true);
+                            }
+                        }}
+                    />
+                </View>
 
                 {/* Description */}
                 {podcast.description && (

@@ -68,11 +68,22 @@ export default function EditPodcast() {
                 category: category,
                 is_public: isPublic,
             };
-            await apiService.updatePodcast(params.id, updateData);
+            const updatedPodcast = await apiService.updatePodcast(
+                params.id,
+                updateData
+            );
             showToast("Podcast updated", "success");
             router.replace({
                 pathname: "/(main)/details",
-                params: { id: params.id },
+                params: {
+                    id: params.id,
+                    // Pass updated data to avoid refresh
+                    updatedTitle: updateData.title,
+                    updatedDescription: updateData.description,
+                    updatedCategory: updateData.category,
+                    updatedIsPublic: updateData.is_public.toString(),
+                    refresh: Date.now().toString(), // Force refresh
+                },
             });
         } catch (e) {
             // backend-validation: rely on Pydantic 422 details

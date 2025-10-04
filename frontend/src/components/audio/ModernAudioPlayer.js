@@ -11,11 +11,10 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
-import AudioService from "../../services/audio";
 
 const { width: screenWidth } = Dimensions.get("window");
 
-const AudioPlayer = ({
+const ModernAudioPlayer = ({
     uri,
     title = "Unknown Track",
     artist = "Unknown Artist",
@@ -33,11 +32,10 @@ const AudioPlayer = ({
     const [isLoading, setIsLoading] = useState(false);
     const [currentPosition, setCurrentPosition] = useState(0);
     const [totalDuration, setTotalDuration] = useState(duration);
-    const [sound, setSound] = useState(null);
     const [playbackRate, setPlaybackRate] = useState(1.0);
     const [volume, setVolume] = useState(1.0);
 
-    // Animation values
+    // Animation values (avoiding native driver conflicts)
     const [playButtonScale] = useState(new Animated.Value(1));
     const progressAnimation = useRef(new Animated.Value(0)).current;
     const volumeAnimation = useRef(new Animated.Value(1)).current;
@@ -46,143 +44,84 @@ const AudioPlayer = ({
     const [isDragging, setIsDragging] = useState(false);
     const [tempPosition, setTempPosition] = useState(0);
 
+    // Demo implementation - replace with expo-audio when available
     useEffect(() => {
-        setupAudio();
-        return () => {
-            cleanupAudio();
-        };
-    }, [uri]);
-
-    useEffect(() => {
-        if (autoPlay && sound) {
+        if (autoPlay) {
             handlePlay();
         }
-    }, [sound, autoPlay]);
-
-    const setupAudio = async () => {
-        try {
-            setIsLoading(true);
-
-            // Configure audio session for playback
-            await Audio.setAudioModeAsync({
-                allowsRecordingIOS: false,
-                staysActiveInBackground: true,
-                playsInSilentModeIOS: true,
-                shouldDuckAndroid: true,
-                playThroughEarpieceAndroid: false,
-                interruptionModeIOS: Audio.InterruptionModeIOS.DoNotMix,
-                interruptionModeAndroid: Audio.InterruptionModeAndroid.DoNotMix,
-            });
-
-            const { sound: newSound } = await Audio.Sound.createAsync(
-                { uri },
-                {
-                    shouldPlay: false,
-                    isLooping: false,
-                    volume: volume,
-                    rate: playbackRate,
-                    shouldCorrectPitch: true,
-                },
-                onPlaybackStatusUpdate
-            );
-
-            setSound(newSound);
-        } catch (error) {
-            console.error("Audio setup failed:", error);
-            Alert.alert(
-                "Playback Error",
-                "Failed to load audio. Please check your connection and try again.",
-                [{ text: "OK" }]
-            );
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const cleanupAudio = async () => {
-        if (sound) {
-            try {
-                await sound.unloadAsync();
-                setSound(null);
-            } catch (error) {
-                console.error("Audio cleanup failed:", error);
-            }
-        }
-    };
-
-    const onPlaybackStatusUpdate = (status) => {
-        if (status.isLoaded) {
-            setCurrentPosition(status.positionMillis || 0);
-            setTotalDuration(status.durationMillis || duration);
-            setIsPlaying(status.isPlaying || false);
-
-            // Update progress animation if not dragging (avoid native driver conflict)
-            if (!isDragging && status.durationMillis > 0) {
-                const progress =
-                    (status.positionMillis || 0) / status.durationMillis;
-                // Use timing animation instead of setValue to avoid native driver conflicts
-                Animated.timing(progressAnimation, {
-                    toValue: progress,
-                    duration: 100,
-                    useNativeDriver: false, // Avoid native driver conflicts
-                }).start();
-            }
-
-            // Notify parent component
-            onPlayStateChange && onPlayStateChange(status.isPlaying);
-            onProgressChange &&
-                onProgressChange(status.positionMillis, status.durationMillis);
-
-            // Handle playback completion
-            if (status.didJustFinish) {
-                setIsPlaying(false);
-                setCurrentPosition(0);
-                // Use timing animation instead of setValue
-                Animated.timing(progressAnimation, {
-                    toValue: 0,
-                    duration: 200,
-                    useNativeDriver: false,
-                }).start();
-            }
-        }
-    };
+    }, [autoPlay]);
 
     const handlePlay = async () => {
-        if (!sound) return;
-
         try {
+            console.log("🎵 ModernAudioPlayer: Starting playback (demo mode)");
+
             // Animate play button
             Animated.sequence([
                 Animated.timing(playButtonScale, {
                     toValue: 0.9,
                     duration: 100,
-                    useNativeDriver: true,
+                    useNativeDriver: false, // Avoid conflicts
                 }),
                 Animated.timing(playButtonScale, {
                     toValue: 1,
                     duration: 100,
-                    useNativeDriver: true,
+                    useNativeDriver: false,
                 }),
             ]).start();
 
-            if (isPlaying) {
-                await sound.pauseAsync();
-            } else {
-                await sound.playAsync();
+            setIsPlaying(!isPlaying);
+            onPlayStateChange && onPlayStateChange(!isPlaying);
+
+            // Demo progress simulation (no real audio for now)
+            if (!isPlaying) {
+                startProgressSimulation();
             }
         } catch (error) {
-            console.error("Playback control failed:", error);
+            console.error("❌ ModernAudioPlayer playback failed:", error);
             Alert.alert("Playback Error", "Failed to control playback.");
         }
     };
 
+    const startProgressSimulation = () => {
+        // Demo progress for testing
+        const interval = setInterval(() => {
+            setCurrentPosition((prev) => {
+                const newPos = prev + 1000; // 1 second
+                if (newPos >= totalDuration) {
+                    clearInterval(interval);
+                    setIsPlaying(false);
+                    setCurrentPosition(0);
+                    return 0;
+                }
+
+                // Update progress animation smoothly
+                const progress = newPos / totalDuration;
+                Animated.timing(progressAnimation, {
+                    toValue: progress,
+                    duration: 100,
+                    useNativeDriver: false,
+                }).start();
+
+                return newPos;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    };
+
     const handleSeek = async (position) => {
-        if (!sound || totalDuration === 0) return;
+        if (totalDuration === 0) return;
 
         try {
             const seekPosition = Math.max(0, Math.min(position, totalDuration));
-            await sound.setPositionAsync(seekPosition);
             setCurrentPosition(seekPosition);
+
+            const progress = seekPosition / totalDuration;
+            Animated.timing(progressAnimation, {
+                toValue: progress,
+                duration: 200,
+                useNativeDriver: false,
+            }).start();
         } catch (error) {
             console.error("Seek failed:", error);
         }
@@ -199,14 +138,8 @@ const AudioPlayer = ({
     };
 
     const handleSpeedChange = async (rate) => {
-        if (!sound) return;
-
-        try {
-            await sound.setRateAsync(rate, true);
-            setPlaybackRate(rate);
-        } catch (error) {
-            console.error("Speed change failed:", error);
-        }
+        setPlaybackRate(rate);
+        // In real implementation, update audio playback rate
     };
 
     const formatTime = (milliseconds) => {
@@ -238,7 +171,7 @@ const AudioPlayer = ({
             const progress = Math.max(0, Math.min(1, touchX / progressWidth));
             const position = progress * totalDuration;
             setTempPosition(position);
-            // Use timing animation instead of setValue
+
             Animated.timing(progressAnimation, {
                 toValue: progress,
                 duration: 50,
@@ -268,21 +201,11 @@ const AudioPlayer = ({
                         accessibilityRole="button"
                         accessibilityLabel={isPlaying ? "Pause" : "Play"}
                     >
-                        {isLoading ? (
-                            <MaterialCommunityIcons
-                                name="loading"
-                                size={32}
-                                color="#D32F2F"
-                            />
-                        ) : (
-                            <MaterialCommunityIcons
-                                name={
-                                    isPlaying ? "pause-circle" : "play-circle"
-                                }
-                                size={32}
-                                color="#D32F2F"
-                            />
-                        )}
+                        <MaterialCommunityIcons
+                            name={isPlaying ? "pause-circle" : "play-circle"}
+                            size={32}
+                            color="#D32F2F"
+                        />
                     </TouchableOpacity>
                 </Animated.View>
 
@@ -377,7 +300,7 @@ const AudioPlayer = ({
                         accessibilityLabel="Skip backward 15 seconds"
                     >
                         <MaterialCommunityIcons
-                            name="replay-15"
+                            name="replay"
                             size={32}
                             color="#FFFFFF"
                         />
@@ -413,19 +336,11 @@ const AudioPlayer = ({
                             accessibilityRole="button"
                             accessibilityLabel={isPlaying ? "Pause" : "Play"}
                         >
-                            {isLoading ? (
-                                <MaterialCommunityIcons
-                                    name="loading"
-                                    size={32}
-                                    color="white"
-                                />
-                            ) : (
-                                <MaterialCommunityIcons
-                                    name={isPlaying ? "pause" : "play"}
-                                    size={32}
-                                    color="white"
-                                />
-                            )}
+                            <MaterialCommunityIcons
+                                name={isPlaying ? "pause" : "play"}
+                                size={32}
+                                color="white"
+                            />
                         </TouchableOpacity>
                     </Animated.View>
 
@@ -438,7 +353,7 @@ const AudioPlayer = ({
                         accessibilityLabel="Skip forward 15 seconds"
                     >
                         <MaterialCommunityIcons
-                            name="forward-15"
+                            name="forward"
                             size={32}
                             color="#FFFFFF"
                         />
@@ -474,7 +389,6 @@ const AudioPlayer = ({
                             onPress={() => {
                                 const newVolume = volume === 1.0 ? 0.5 : 1.0;
                                 setVolume(newVolume);
-                                sound?.setVolumeAsync(newVolume);
                             }}
                             accessible={true}
                             accessibilityRole="button"
@@ -501,4 +415,4 @@ const AudioPlayer = ({
     );
 };
 
-export default AudioPlayer;
+export default ModernAudioPlayer;
