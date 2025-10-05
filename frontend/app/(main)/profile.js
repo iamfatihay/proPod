@@ -183,30 +183,26 @@ export default function Profile() {
             setLoading(true);
             setError("");
 
-            // Server upload ready - implement when backend endpoint is available
-            // Example implementation:
-            // const formData = new FormData();
-            // formData.append('photo', {
-            //     uri: imageAsset.uri,
-            //     type: 'image/jpeg',
-            //     name: 'profile.jpg',
-            // });
-            // const response = await apiService.uploadProfilePhoto(formData);
-            // setUser({ ...user, photoURL: response.photoURL });
+            // Upload to server
+            const updatedUser = await apiService.uploadProfilePhoto(imageAsset);
 
-            // For now, show success message
+            // Update local user state with new photo URL
+            setUser(updatedUser);
+
+            // Show success message
             setInfoConfig({
-                title: "Photo Selected",
-                message:
-                    "Profile photo functionality is ready! Server upload will be implemented soon.",
+                title: "Photo Updated",
+                message: "Your profile photo has been successfully updated!",
                 type: "success",
             });
             setInfoModalVisible(true);
         } catch (error) {
             Logger.error("Image handling error:", error);
             setInfoConfig({
-                title: "Processing Error",
-                message: "Failed to process image. Please try again.",
+                title: "Upload Failed",
+                message:
+                    error.message ||
+                    "Failed to upload photo. Please try again.",
                 type: "error",
             });
             setInfoModalVisible(true);

@@ -548,6 +548,61 @@ class ApiService {
         await deleteToken("accessToken");
         await deleteToken("refreshToken");
     }
+
+    // Upload profile photo
+    async uploadProfilePhoto(imageAsset) {
+        try {
+            // Create FormData for multipart/form-data upload
+            const formData = new FormData();
+
+            // Prepare file object for upload
+            const fileExtension = imageAsset.uri.split(".").pop() || "jpg";
+            const fileName = `profile_photo.${fileExtension}`;
+
+            // Create file blob for upload
+            const fileBlob = {
+                uri:
+                    Platform.OS === "ios"
+                        ? imageAsset.uri.replace("file://", "")
+                        : imageAsset.uri,
+                type: imageAsset.type || "image/jpeg",
+                name: fileName,
+            };
+
+            formData.append("file", fileBlob);
+
+            // Upload with multipart/form-data
+            const accessToken = await getToken("accessToken");
+            const url = `${this.baseURL}/users/me/photo`;
+
+            const config = {
+                method: "POST",
+                body: formData,
+                headers: {
+                    Accept: "application/json",
+                    ...(accessToken && {
+                        Authorization: `Bearer ${accessToken}`,
+                    }),
+                    // Don't set Content-Type, let the browser set it with boundary
+                },
+            };
+
+            const response = await fetch(url, config);
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(
+                    errorData.detail || `HTTP error! status: ${response.status}`
+                );
+            }
+
+            const data = await response.json();
+            return data; // Returns updated user object with new photo_url
+        } catch (error) {
+            Logger.error("Profile photo upload failed:", error);
+            throw error;
+        }
+    }
 }
 
 export default new ApiService();

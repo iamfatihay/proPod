@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File
 from sqlalchemy.orm import Session
 from .. import schemas, crud, models, auth
 from ..database import SessionLocal
@@ -8,6 +8,9 @@ from ..services.email_service import email_service
 import secrets
 import datetime
 from fastapi import BackgroundTasks
+import os
+import asyncio
+from pathlib import Path as SysPath
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -94,23 +97,108 @@ def refresh_token_endpoint(refresh_token: str):
     return {"access_token": access_token, "token_type": "bearer"}
 
 # Get current user's profile
+
+
 @router.get("/me", response_model=UserSchema)
 def get_me(current_user: models.User = Depends(auth.get_current_user)):
     return UserSchema.model_validate(current_user)
 
 # Update current user's profile
+
+
 @router.put("/me", response_model=UserSchema)
 def update_me(update: schemas.UserBase, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     updated_user = crud.update_user(db, current_user, update)
     return UserSchema.model_validate(updated_user)
 
+# Upload profile photo
+
+
+@router.post("/me/photo", response_model=UserSchema)
+async def upload_profile_photo(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """
+    Upload profile photo for current user.
+    Validates image type, size, and saves to media/profile-photos directory.
+    Returns updated user with new photo_url.
+    """
+    try:
+        # Validate file type
+        allowed_types = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+        max_size = 5 * 1024 * 1024  # 5MB
+
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Unsupported file type: {file.content_type}. Allowed types: {', '.join(allowed_types)}",
+            )
+
+        # Read file content to check size
+        contents = await file.read()
+        if len(contents) > max_size:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large. Maximum size: {max_size // (1024*1024)}MB",
+            )
+
+        # Ensure media/profile-photos directory exists
+        media_dir = SysPath(os.path.dirname(__file__)
+                            ).parent.parent / "media" / "profile-photos"
+        os.makedirs(media_dir, exist_ok=True)
+
+        # Build a safe filename
+        original_suffix = SysPath(file.filename).suffix or ".jpg"
+        safe_name = f"user_{current_user.id}_{int(asyncio.get_event_loop().time()*1e9)}{original_suffix}"
+        dest_path = media_dir / safe_name
+
+        # Delete old profile photo if exists
+        if current_user.photo_url and current_user.photo_url.startswith(settings.BASE_URL):
+            old_filename = current_user.photo_url.split("/")[-1]
+            old_path = media_dir / old_filename
+            if old_path.exists():
+                try:
+                    old_path.unlink()
+                except Exception:
+                    pass  # Don't fail if old file can't be deleted
+
+        # Save file to disk
+        with open(dest_path, "wb") as f:
+            f.write(contents)
+
+        # Public URL path (served via /media)
+        public_path = f"/media/profile-photos/{safe_name}"
+        full_photo_url = f"{settings.BASE_URL}{public_path}"
+
+        # Update user's photo_url in database
+        current_user.photo_url = full_photo_url
+        db.commit()
+        db.refresh(current_user)
+
+        return UserSchema.model_validate(current_user)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Photo upload failed: {str(e)}",
+        )
+
 # Change password endpoint
+
+
 @router.post("/change-password", status_code=status.HTTP_200_OK)
 def change_password(request: ChangePasswordRequest, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    crud.change_user_password(db, current_user, request.old_password, request.new_password)
+    crud.change_user_password(
+        db, current_user, request.old_password, request.new_password)
     return {"message": "Password changed successfully"}
 
 # Delete account endpoint (soft delete)
+
+
 @router.post("/delete", status_code=status.HTTP_200_OK)
 def delete_account(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     crud.soft_delete_user(db, current_user)
@@ -123,7 +211,7 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
     if not user:
         # Always return same message to avoid email enumeration
         return {"msg": "If this email exists, a reset link has been sent."}
-    
+
     if settings.ENV == "prod":
         # Prod: Store token in database
         token = crud.set_reset_token(db, user)
@@ -137,13 +225,13 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
         # Dev: Store token in memory and return in response for testing
         token = secrets.token_urlsafe(32)
         reset_tokens[token] = {
-            "user_id": user.id, 
+            "user_id": user.id,
             "expires": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)
         }
         # Send dev email (console + file)
         email_service.send_password_reset_email(user.email, token)
         return {
-            "msg": "If this email exists, a reset link has been sent.", 
+            "msg": "If this email exists, a reset link has been sent.",
             "token": token  # Only for dev testing
         }
 
@@ -154,19 +242,22 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
         # Prod: Get user by token from database
         user = crud.get_user_by_reset_token(db, request.token)
         if not user:
-            raise HTTPException(status_code=400, detail="Invalid or expired token")
+            raise HTTPException(
+                status_code=400, detail="Invalid or expired token")
         crud.reset_user_password(db, user, request.new_password)
     else:
         # Dev: Get user by token from memory
         token_data = reset_tokens.get(request.token)
         if not token_data or token_data["expires"] < datetime.datetime.now(datetime.timezone.utc):
-            raise HTTPException(status_code=400, detail="Invalid or expired token")
-        user = db.query(models.User).filter(models.User.id == token_data["user_id"]).first()
+            raise HTTPException(
+                status_code=400, detail="Invalid or expired token")
+        user = db.query(models.User).filter(
+            models.User.id == token_data["user_id"]).first()
         if not user:
             raise HTTPException(status_code=400, detail="User not found")
         # Update password and remove token from memory
         user.hashed_password = crud.pwd_context.hash(request.new_password)
         db.commit()
         del reset_tokens[request.token]
-    
+
     return {"msg": "Password reset successful."}
