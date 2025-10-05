@@ -23,6 +23,8 @@ export default ({ config }) => ({
                 "This app needs access to microphone to record podcasts.",
             NSCameraUsageDescription:
                 "This app needs access to camera for profile pictures.",
+            NSPhotoLibraryUsageDescription:
+                "This app needs access to photo library for profile pictures.",
             UIBackgroundModes: ["audio"],
         },
     },
@@ -41,6 +43,8 @@ export default ({ config }) => ({
             "android.permission.MODIFY_AUDIO_SETTINGS",
             "android.permission.WRITE_EXTERNAL_STORAGE",
             "android.permission.READ_EXTERNAL_STORAGE",
+            "android.permission.CAMERA",
+            "android.permission.READ_MEDIA_IMAGES",
         ],
     },
     web: {
@@ -48,7 +52,8 @@ export default ({ config }) => ({
         favicon: "./assets/Volo-logo.png",
     },
     extra: {
-        apiBaseUrl: "http://10.52.164.39:8000",
+        // Read from .env file - change IP there when network changes
+        apiBaseUrl: process.env.API_BASE_URL || "http://192.168.178.27:8000",
         // apiBaseUrl: "http://10.79.165.39:8000",
         eas: {
             projectId: "6760a9ac-697b-4e25-9f44-0d0ecc8edbbb",
@@ -64,6 +69,7 @@ export default ({ config }) => ({
         "expo-secure-store",
         "expo-router",
         "expo-font",
+        "expo-image-picker",
         [
             "expo-av",
             {
