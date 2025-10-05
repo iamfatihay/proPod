@@ -126,6 +126,9 @@ async def upload_profile_photo(
     Returns updated user with new photo_url.
     """
     try:
+        # Merge user into current session to avoid detached instance error
+        user = db.merge(current_user)
+
         # Validate file type
         allowed_types = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
         max_size = 5 * 1024 * 1024  # 5MB
@@ -151,12 +154,12 @@ async def upload_profile_photo(
 
         # Build a safe filename
         original_suffix = SysPath(file.filename).suffix or ".jpg"
-        safe_name = f"user_{current_user.id}_{int(asyncio.get_event_loop().time()*1e9)}{original_suffix}"
+        safe_name = f"user_{user.id}_{int(asyncio.get_event_loop().time()*1e9)}{original_suffix}"
         dest_path = media_dir / safe_name
 
         # Delete old profile photo if exists
-        if current_user.photo_url and current_user.photo_url.startswith(settings.BASE_URL):
-            old_filename = current_user.photo_url.split("/")[-1]
+        if user.photo_url and user.photo_url.startswith(settings.BASE_URL):
+            old_filename = user.photo_url.split("/")[-1]
             old_path = media_dir / old_filename
             if old_path.exists():
                 try:
@@ -173,11 +176,11 @@ async def upload_profile_photo(
         full_photo_url = f"{settings.BASE_URL}{public_path}"
 
         # Update user's photo_url in database
-        current_user.photo_url = full_photo_url
+        user.photo_url = full_photo_url
         db.commit()
-        db.refresh(current_user)
+        db.refresh(user)
 
-        return UserSchema.model_validate(current_user)
+        return UserSchema.model_validate(user)
 
     except HTTPException:
         raise
