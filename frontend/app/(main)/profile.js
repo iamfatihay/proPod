@@ -7,6 +7,10 @@ import {
     Modal,
     TextInput,
     ActivityIndicator,
+    Alert,
+    Image,
+    Dimensions,
+    Linking,
 } from "react-native";
 import React from "react";
 import useAuthStore from "../../src/context/useAuthStore";
@@ -15,6 +19,7 @@ import Avatar from "../../src/components/Avatar";
 import ProfileStats from "../../src/components/ProfileStats";
 import { Ionicons } from "@expo/vector-icons";
 import apiService from "../../src/services/api/apiService";
+import * as ImagePicker from "expo-image-picker";
 
 const dummyPodcasts = [
     { id: 1, title: "My First Podcast" },
@@ -22,11 +27,13 @@ const dummyPodcasts = [
     { id: 3, title: "Advanced Techniques" },
 ];
 
-const Profile = () => {
+export default function Profile() {
     const user = useAuthStore((state) => state.user);
     const logout = useAuthStore((state) => state.logout);
     const router = useRouter();
     const [modalVisible, setModalVisible] = React.useState(false);
+    const [avatarPreviewVisible, setAvatarPreviewVisible] =
+        React.useState(false);
     const [editName, setEditName] = React.useState(user?.name || "");
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState("");
@@ -35,6 +42,158 @@ const Profile = () => {
     const handleLogout = async () => {
         await logout();
         router.replace("/"); // Redirect to login screen
+    };
+
+    // Modern avatar press - Preview first (Instagram/WhatsApp style)
+    const handleAvatarPress = () => {
+        setAvatarPreviewVisible(true);
+    };
+
+    // Photo change options after preview
+    const handleChangePhoto = async () => {
+        setAvatarPreviewVisible(false);
+
+        Alert.alert(
+            "Change Profile Photo",
+            "How would you like to update your photo?",
+            [
+                {
+                    text: "Take Photo",
+                    onPress: openCamera,
+                },
+                {
+                    text: "Choose from Gallery",
+                    onPress: openGallery,
+                },
+                {
+                    text: "Cancel",
+                    style: "cancel",
+                },
+            ]
+        );
+    };
+
+    // Production-ready camera function
+    const openCamera = async () => {
+        try {
+            // Request camera permissions
+            const { status } =
+                await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== "granted") {
+                Alert.alert(
+                    "Camera Permission Required",
+                    "Please allow camera access to take photos for your profile.",
+                    [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                            text: "Open Settings",
+                            onPress: () => Linking.openSettings(),
+                        },
+                    ]
+                );
+                return;
+            }
+
+            // Launch camera with optimized settings
+            const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1], // Square aspect ratio for profile photos
+                quality: 0.8, // Good quality but not too large
+                exif: false, // Don't include EXIF data for privacy
+            });
+
+            if (!result.canceled && result.assets[0]) {
+                await handleImageSelected(result.assets[0]);
+            }
+        } catch (error) {
+            console.error("Camera error:", error);
+            Alert.alert("Error", "Failed to open camera. Please try again.");
+        }
+    };
+
+    // Production-ready gallery function
+    const openGallery = async () => {
+        try {
+            // Request media library permissions
+            const { status } =
+                await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== "granted") {
+                Alert.alert(
+                    "Photo Library Permission Required",
+                    "Please allow photo library access to select images for your profile.",
+                    [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                            text: "Open Settings",
+                            onPress: () => Linking.openSettings(),
+                        },
+                    ]
+                );
+                return;
+            }
+
+            // Launch image library with optimized settings
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1], // Square aspect ratio for profile photos
+                quality: 0.8, // Good quality but not too large
+                exif: false, // Don't include EXIF data for privacy
+            });
+
+            if (!result.canceled && result.assets[0]) {
+                await handleImageSelected(result.assets[0]);
+            }
+        } catch (error) {
+            console.error("Gallery error:", error);
+            Alert.alert(
+                "Error",
+                "Failed to open photo library. Please try again."
+            );
+        }
+    };
+
+    // Handle selected image with proper validation and upload
+    const handleImageSelected = async (imageAsset) => {
+        try {
+            // Validate image
+            if (!imageAsset.uri) {
+                Alert.alert("Error", "Invalid image selected.");
+                return;
+            }
+
+            // Check file size (limit to 5MB)
+            const fileSize = imageAsset.fileSize || 0;
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (fileSize > maxSize) {
+                Alert.alert(
+                    "File Too Large",
+                    "Please select an image smaller than 5MB."
+                );
+                return;
+            }
+
+            // Show loading state
+            setLoading(true);
+            setError("");
+
+            // TODO: Implement server upload
+            // const uploadedImageUrl = await uploadProfileImage(imageAsset);
+            // await updateUserProfile({ photoURL: uploadedImageUrl });
+
+            // For now, show success message
+            Alert.alert(
+                "Photo Selected",
+                "Profile photo functionality is ready! Server upload will be implemented soon.",
+                [{ text: "OK" }]
+            );
+        } catch (error) {
+            console.error("Image handling error:", error);
+            Alert.alert("Error", "Failed to process image. Please try again.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSettings = () => {
@@ -69,10 +228,21 @@ const Profile = () => {
     // Avatar logic: Google photo varsa onu göster, yoksa user icon
     const renderAvatar = () => {
         if (user && user.photoURL) {
-            return <Avatar uri={user.photoURL} name={user.name} size={96} />;
+            return (
+                <TouchableOpacity
+                    onPress={handleAvatarPress}
+                    activeOpacity={0.8}
+                >
+                    <Avatar uri={user.photoURL} name={user.name} size={96} />
+                </TouchableOpacity>
+            );
         }
         return (
-            <View className="items-center justify-center">
+            <TouchableOpacity
+                onPress={handleAvatarPress}
+                activeOpacity={0.8}
+                className="items-center justify-center"
+            >
                 <View className="w-24 h-24 rounded-full bg-panel items-center justify-center">
                     <Ionicons name="person" size={64} color="#888" />
                 </View>
@@ -81,12 +251,91 @@ const Profile = () => {
                         {user.name}
                     </Text>
                 )}
-            </View>
+            </TouchableOpacity>
         );
     };
 
     return (
         <SafeAreaView className="flex-1 bg-background">
+            {/* Avatar Preview Modal - Instagram/WhatsApp Style */}
+            <Modal
+                visible={avatarPreviewVisible}
+                animationType="fade"
+                transparent
+                onRequestClose={() => setAvatarPreviewVisible(false)}
+            >
+                <View className="flex-1 bg-black/90 justify-center items-center">
+                    {/* Close button */}
+                    <TouchableOpacity
+                        onPress={() => setAvatarPreviewVisible(false)}
+                        className="absolute top-12 right-6 z-10"
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <Ionicons name="close" size={32} color="#FFFFFF" />
+                    </TouchableOpacity>
+
+                    {/* Large avatar preview */}
+                    <View className="items-center">
+                        {user && user.photoURL ? (
+                            <Image
+                                source={{ uri: user.photoURL }}
+                                style={{
+                                    width: Dimensions.get("window").width * 0.8,
+                                    height:
+                                        Dimensions.get("window").width * 0.8,
+                                    borderRadius:
+                                        (Dimensions.get("window").width * 0.8) /
+                                        2,
+                                }}
+                            />
+                        ) : (
+                            <View
+                                style={{
+                                    width: Dimensions.get("window").width * 0.6,
+                                    height:
+                                        Dimensions.get("window").width * 0.6,
+                                    borderRadius:
+                                        (Dimensions.get("window").width * 0.6) /
+                                        2,
+                                    backgroundColor: "#333",
+                                    justifyContent: "center",
+                                    alignItems: "center",
+                                }}
+                            >
+                                <Ionicons
+                                    name="person"
+                                    size={120}
+                                    color="#888"
+                                />
+                            </View>
+                        )}
+
+                        <Text className="text-white text-xl font-semibold mt-6">
+                            {user?.name || "Profile Photo"}
+                        </Text>
+
+                        {/* Change photo button */}
+                        <TouchableOpacity
+                            onPress={handleChangePhoto}
+                            className="mt-8 bg-primary px-8 py-3 rounded-full"
+                            activeOpacity={0.8}
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <ActivityIndicator
+                                    color="#FFFFFF"
+                                    size="small"
+                                />
+                            ) : (
+                                <Text className="text-white font-semibold text-base">
+                                    Change Photo
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
             {/* Edit Profile Modal */}
             <Modal
                 visible={modalVisible}
@@ -181,28 +430,28 @@ const Profile = () => {
                     ))}
                 </View>
                 {/* Go to Settings Button */}
-                <TouchableOpacity
-                    className="mt-xl w-full py-3 bg-panel rounded-lg border border-borderLight items-center shadow-sm"
-                    onPress={handleSettings}
-                    activeOpacity={0.85}
-                >
-                    <Text className="text-text-primary font-semibold text-base">
-                        Settings
-                    </Text>
-                </TouchableOpacity>
-                {/* Logout Button */}
-                <TouchableOpacity
-                    className="mt-md w-full py-3 bg-error rounded-lg items-center shadow-sm"
-                    onPress={handleLogout}
-                    activeOpacity={0.85}
-                >
-                    <Text className="text-white font-semibold text-base">
-                        Logout
-                    </Text>
-                </TouchableOpacity>
+                <View className="px-md">
+                    <TouchableOpacity
+                        className="mt-xl w-full py-3 bg-panel rounded-lg border border-borderLight items-center shadow-sm"
+                        onPress={handleSettings}
+                        activeOpacity={0.85}
+                    >
+                        <Text className="text-text-primary font-semibold text-base">
+                            Settings
+                        </Text>
+                    </TouchableOpacity>
+                    {/* Logout Button */}
+                    <TouchableOpacity
+                        className="mt-md w-full py-3 bg-error rounded-lg items-center shadow-sm"
+                        onPress={handleLogout}
+                        activeOpacity={0.85}
+                    >
+                        <Text className="text-white font-semibold text-base">
+                            Logout
+                        </Text>
+                    </TouchableOpacity>
+                </View>
             </ScrollView>
         </SafeAreaView>
     );
-};
-
-export default Profile;
+}
