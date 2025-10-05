@@ -181,18 +181,27 @@ export default function HomeScreen() {
                     <Text className="text-3xl font-bold text-text-primary">
                         Podcast
                     </Text>
-                    {user && user.photoURL ? (
-                        <Image
-                            source={{ uri: user.photoURL }}
-                            className="w-10 h-10 rounded-full"
-                        />
-                    ) : (
-                        <View className="w-10 h-10 rounded-full bg-card items-center justify-center">
-                            <Ionicons name="person" size={28} color="#888" />
-                        </View>
-                    )}
+                    <TouchableOpacity
+                        onPress={() => router.push("/(main)/profile")}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        {user && user.photoURL ? (
+                            <Image
+                                source={{ uri: user.photoURL }}
+                                className="w-10 h-10 rounded-full"
+                            />
+                        ) : (
+                            <View className="w-10 h-10 rounded-full bg-card items-center justify-center">
+                                <Ionicons
+                                    name="person"
+                                    size={28}
+                                    color="#888"
+                                />
+                            </View>
+                        )}
+                    </TouchableOpacity>
                 </View>
-
                 {/* Episodes */}
                 <Text className="text-lg font-semibold text-text-primary mb-2">
                     Recent Episodes
