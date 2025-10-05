@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import apiService from "../../src/services/api/apiService";
+import Logger from "../../src/utils/logger";
 
 export default function ResetPasswordScreen() {
     const [token, setToken] = useState("");
@@ -80,7 +81,7 @@ export default function ResetPasswordScreen() {
                 router.replace("/");
             }, 2500);
         } catch (err) {
-            console.error("Reset password error:", err);
+            Logger.error("Reset password error:", err);
 
             let msg = "Password reset failed. Please try again.";
 

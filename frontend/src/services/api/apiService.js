@@ -1,6 +1,7 @@
 import Constants from "expo-constants";
 import { getToken, saveToken, deleteToken } from "../auth/tokenStorage";
 import { Platform } from "react-native";
+import Logger from "../../utils/logger";
 
 // This line is used to get the API base URL from app.config.js (extra.apiBaseUrl).
 const API_BASE_URL = Constants.expoConfig.extra.apiBaseUrl;
@@ -100,7 +101,7 @@ class ApiService {
                             error.response = { data: { detail: rawText } };
                         }
                     } catch (_) {
-                        console.warn("Could not parse error response body");
+                        Logger.warn("Could not parse error response body");
                     }
                 }
                 throw error;
@@ -128,7 +129,7 @@ class ApiService {
                 );
             }
 
-            console.error("API request failed:", error);
+            Logger.error("API request failed:", error);
             throw error;
         }
     }
@@ -144,7 +145,7 @@ class ApiService {
             await saveToken("refreshToken", data.refresh_token);
             return data;
         } catch (error) {
-            console.error("LOGIN API ERROR:", error);
+            Logger.error("LOGIN API ERROR:", error);
             throw error;
         }
     }
