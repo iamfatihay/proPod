@@ -17,7 +17,7 @@ import ModernAudioPlayer from "../../src/components/audio/ModernAudioPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
-import { Appbar } from "react-native-paper";
+import { Stack } from "expo-router";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -347,29 +347,75 @@ const Details = () => {
 
     return (
         <SafeAreaView className="flex-1 bg-background">
-            {/* Unified Header */}
-            <Appbar.Header style={{ backgroundColor: "#18181b" }}>
-                <Appbar.BackAction
-                    onPress={() => router.back()}
-                    color={themeColor}
-                />
-                <Appbar.Content
-                    title="Podcast Details"
-                    titleStyle={{ color: themeColor }}
-                />
-                <Appbar.Action
-                    icon="share-variant"
-                    onPress={handleShare}
-                    color={themeColor}
-                />
-                {isOwner && (
-                    <Appbar.Action
-                        icon="pencil"
-                        onPress={handleEdit}
-                        color={themeColor}
-                    />
-                )}
-            </Appbar.Header>
+            <Stack.Screen
+                options={{
+                    title: "Podcast Details",
+                    headerShown: true,
+                    headerStyle: {
+                        backgroundColor: "#18181b",
+                    },
+                    headerTintColor: "#FFFFFF",
+                    headerTitleStyle: {
+                        fontWeight: "500",
+                    },
+                    headerLeft: () => (
+                        <TouchableOpacity
+                            onPress={() => router.back()}
+                            style={{ marginLeft: 16 }}
+                            hitSlop={{
+                                top: 10,
+                                bottom: 10,
+                                left: 10,
+                                right: 10,
+                            }}
+                        >
+                            <Ionicons
+                                name="arrow-back"
+                                size={24}
+                                color="#FFFFFF"
+                            />
+                        </TouchableOpacity>
+                    ),
+                    headerRight: () => (
+                        <View style={{ flexDirection: "row", marginRight: 16 }}>
+                            <TouchableOpacity
+                                onPress={handleShare}
+                                style={{ padding: 12 }}
+                                hitSlop={{
+                                    top: 10,
+                                    bottom: 10,
+                                    left: 10,
+                                    right: 10,
+                                }}
+                            >
+                                <Ionicons
+                                    name="share-outline"
+                                    size={24}
+                                    color="#FFFFFF"
+                                />
+                            </TouchableOpacity>
+                            {isOwner && (
+                                <TouchableOpacity
+                                    onPress={handleEdit}
+                                    style={{ padding: 12 }}
+                                    hitSlop={{
+                                        top: 10,
+                                        bottom: 10,
+                                        left: 10,
+                                        right: 10,
+                                    }}
+                                >
+                                    <Ionicons
+                                        name="pencil-outline"
+                                        size={24}
+                                        color="#FFFFFF"
+                                    />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    ),
+                }}
+            />
 
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                 {/* Podcast Header */}

@@ -1,8 +1,14 @@
-import { View, Text, SafeAreaView, Platform } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+    View,
+    Text,
+    Platform,
+    SafeAreaView,
+    TouchableOpacity,
+} from "react-native";
+import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import React from "react";
-import { Appbar, Surface } from "react-native-paper";
-import { useTheme } from "@react-navigation/native";
+import { Surface } from "react-native-paper";
+import { Ionicons } from "@expo/vector-icons";
 
 const activities = [
     {
@@ -29,20 +35,40 @@ export default function ActivityDetails() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
     const activity = activities.find((a) => a.id === id);
-    const themeColor = "#FFFFFF";
 
     return (
         <SafeAreaView className="flex-1 bg-background">
-            <Appbar.Header style={{ backgroundColor: "#18181b" }}>
-                <Appbar.BackAction
-                    onPress={() => router.back()}
-                    color={themeColor}
-                />
-                <Appbar.Content
-                    title="Activity Details"
-                    titleStyle={{ color: themeColor }}
-                />
-            </Appbar.Header>
+            <Stack.Screen
+                options={{
+                    title: "Activity Details",
+                    headerShown: true,
+                    headerStyle: {
+                        backgroundColor: "#18181b",
+                    },
+                    headerTintColor: "#FFFFFF",
+                    headerTitleStyle: {
+                        fontWeight: "500",
+                    },
+                    headerLeft: () => (
+                        <TouchableOpacity
+                            onPress={() => router.back()}
+                            style={{ marginLeft: 16 }}
+                            hitSlop={{
+                                top: 10,
+                                bottom: 10,
+                                left: 10,
+                                right: 10,
+                            }}
+                        >
+                            <Ionicons
+                                name="arrow-back"
+                                size={24}
+                                color="#FFFFFF"
+                            />
+                        </TouchableOpacity>
+                    ),
+                }}
+            />
             <View className="flex-1 px-4 pt-6">
                 <Surface
                     style={{

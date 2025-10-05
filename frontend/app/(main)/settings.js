@@ -8,14 +8,18 @@ import {
     Alert,
     TextInput,
     ActivityIndicator,
+    Platform,
+    StatusBar,
 } from "react-native";
 import React, { useState } from "react";
 import { useRouter } from "expo-router";
+import { Stack } from "expo-router";
 import SettingRow from "../../src/components/SettingRow";
 import { getToken } from "../../src/services/auth/tokenStorage";
 import useAuthStore from "../../src/context/useAuthStore";
 import apiService from "../../src/services/api/apiService";
 import { ToastProvider, useToast } from "../../src/components/Toast";
+import { Ionicons } from "@expo/vector-icons";
 
 const APP_VERSION = "1.0.0";
 
@@ -106,18 +110,37 @@ const Settings = () => {
 
     return (
         <SafeAreaView className="flex-1 bg-background">
-            <View className="flex-row items-center px-md py-lg border-b border-borderLight bg-panel">
-                {/* Back button */}
-                <TouchableOpacity
-                    onPress={() => router.back()}
-                    className="mr-md"
-                >
-                    <Text className="text-title text-text-primary">←</Text>
-                </TouchableOpacity>
-                <Text className="text-headline text-text-primary">
-                    Settings
-                </Text>
-            </View>
+            <Stack.Screen
+                options={{
+                    title: "Settings",
+                    headerShown: true,
+                    headerStyle: {
+                        backgroundColor: "#18181b",
+                    },
+                    headerTintColor: "#FFFFFF",
+                    headerTitleStyle: {
+                        fontWeight: "500",
+                    },
+                    headerLeft: () => (
+                        <TouchableOpacity
+                            onPress={() => router.back()}
+                            style={{ marginLeft: 16 }}
+                            hitSlop={{
+                                top: 10,
+                                bottom: 10,
+                                left: 10,
+                                right: 10,
+                            }}
+                        >
+                            <Ionicons
+                                name="arrow-back"
+                                size={24}
+                                color="#FFFFFF"
+                            />
+                        </TouchableOpacity>
+                    ),
+                }}
+            />
             <View className="mt-lg">
                 {/* Account settings */}
                 <SettingRow label="Account Settings" onPress={handleAccount} />
