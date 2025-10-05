@@ -8,7 +8,6 @@ import {
     Platform,
     Dimensions,
     Share,
-    Alert,
     Animated,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -19,6 +18,7 @@ import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
 import { Stack } from "expo-router";
 import Logger from "../../src/utils/logger";
+import ConfirmationModal from "../../src/components/ConfirmationModal";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -46,6 +46,7 @@ const Details = () => {
     const [isBookmarked, setIsBookmarked] = useState(false);
     const [relatedPodcasts, setRelatedPodcasts] = useState([]);
     const [isOwner, setIsOwner] = useState(false);
+    const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
     const [pulse] = useState(new Animated.Value(1));
 
     useEffect(() => {
@@ -256,30 +257,19 @@ const Details = () => {
     };
 
     const handleDelete = () => {
-        Alert.alert(
-            "Delete Podcast",
-            "Are you sure you want to delete this podcast? This action cannot be undone.",
-            [
-                {
-                    text: "Cancel",
-                    style: "cancel",
-                },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await apiService.deletePodcast(podcast.id);
-                            showToast("Podcast deleted", "success");
-                            router.back();
-                        } catch (error) {
-                            Logger.error("Delete failed:", error);
-                            showToast("Failed to delete podcast", "error");
-                        }
-                    },
-                },
-            ]
-        );
+        setDeleteConfirmVisible(true);
+    };
+
+    const confirmDelete = async () => {
+        setDeleteConfirmVisible(false);
+        try {
+            await apiService.deletePodcast(podcast.id);
+            showToast("Podcast deleted", "success");
+            router.back();
+        } catch (error) {
+            Logger.error("Delete failed:", error);
+            showToast("Failed to delete podcast", "error");
+        }
     };
 
     const formatDuration = (seconds) => {
@@ -348,6 +338,19 @@ const Details = () => {
 
     return (
         <SafeAreaView className="flex-1 bg-background">
+            {/* Delete Confirmation Modal */}
+            <ConfirmationModal
+                visible={deleteConfirmVisible}
+                onClose={() => setDeleteConfirmVisible(false)}
+                onConfirm={confirmDelete}
+                title="Delete Podcast"
+                message="Are you sure you want to delete this podcast? This action cannot be undone."
+                confirmText="Delete"
+                cancelText="Cancel"
+                destructive={true}
+                icon="trash"
+            />
+
             <Stack.Screen
                 options={{
                     title: "Podcast Details",
