@@ -283,7 +283,7 @@ export default function TabLayout() {
             </Tabs>
 
             {/* Debug MiniPlayer State */}
-            {__DEV__ && (
+            {/* {__DEV__ && (
                 <View
                     style={{
                         position: "absolute",
@@ -304,7 +304,7 @@ export default function TabLayout() {
                         Playing: {isPlaying ? "YES" : "NO"}
                     </Text>
                 </View>
-            )}
+            )} */}
 
             {/* Global Mini Player */}
             <MiniPlayer
