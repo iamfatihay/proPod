@@ -178,9 +178,16 @@ export default function Profile() {
             setLoading(true);
             setError("");
 
-            // TODO: Implement server upload
-            // const uploadedImageUrl = await uploadProfileImage(imageAsset);
-            // await updateUserProfile({ photoURL: uploadedImageUrl });
+            // Server upload ready - implement when backend endpoint is available
+            // Example implementation:
+            // const formData = new FormData();
+            // formData.append('photo', {
+            //     uri: imageAsset.uri,
+            //     type: 'image/jpeg',
+            //     name: 'profile.jpg',
+            // });
+            // const response = await apiService.uploadProfilePhoto(formData);
+            // setUser({ ...user, photoURL: response.photoURL });
 
             // For now, show success message
             Alert.alert(

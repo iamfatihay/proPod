@@ -10,6 +10,7 @@ import {
     ActivityIndicator,
     Platform,
     StatusBar,
+    Linking,
 } from "react-native";
 import React, { useState } from "react";
 import { useRouter } from "expo-router";
@@ -88,16 +89,43 @@ const Settings = () => {
         }
     };
 
-    // Dummy handler for support
+    // Production-ready support handler
     const handleSupport = () => {
-        // TODO: Implement support screen/modal or open mailto link
-        Alert.alert("Support", "Contact us at support@volo.com");
+        Alert.alert("Contact Support", "How would you like to reach us?", [
+            {
+                text: "Email",
+                onPress: () => {
+                    Linking.openURL(
+                        "mailto:support@volo.com?subject=Volo Support Request"
+                    );
+                },
+            },
+            {
+                text: "Cancel",
+                style: "cancel",
+            },
+        ]);
     };
 
-    // Dummy handler for privacy policy
+    // Production-ready privacy policy handler
     const handlePrivacy = () => {
-        // TODO: Open privacy policy link
-        Alert.alert("Privacy Policy", "https://volo.com/privacy");
+        Alert.alert("Privacy Policy", "View our privacy policy?", [
+            {
+                text: "Open in Browser",
+                onPress: () => {
+                    Linking.openURL("https://volo.com/privacy").catch(() => {
+                        Alert.alert(
+                            "Error",
+                            "Could not open privacy policy. Please try again."
+                        );
+                    });
+                },
+            },
+            {
+                text: "Cancel",
+                style: "cancel",
+            },
+        ]);
     };
 
     // Dummy handler for notifications
