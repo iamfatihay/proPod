@@ -7,7 +7,6 @@ import {
     Modal,
     TextInput,
     ActivityIndicator,
-    Alert,
     Image,
     Dimensions,
     Linking,
@@ -21,6 +20,9 @@ import { Ionicons } from "@expo/vector-icons";
 import apiService from "../../src/services/api/apiService";
 import * as ImagePicker from "expo-image-picker";
 import Logger from "../../src/utils/logger";
+import PhotoOptionsModal from "../../src/components/PhotoOptionsModal";
+import PermissionModal from "../../src/components/PermissionModal";
+import InfoModal from "../../src/components/InfoModal";
 
 const dummyPodcasts = [
     { id: 1, title: "My First Podcast" },
@@ -35,6 +37,20 @@ export default function Profile() {
     const [modalVisible, setModalVisible] = React.useState(false);
     const [avatarPreviewVisible, setAvatarPreviewVisible] =
         React.useState(false);
+    const [photoOptionsVisible, setPhotoOptionsVisible] = React.useState(false);
+    const [permissionModalVisible, setPermissionModalVisible] =
+        React.useState(false);
+    const [permissionConfig, setPermissionConfig] = React.useState({
+        title: "",
+        message: "",
+        icon: "",
+    });
+    const [infoModalVisible, setInfoModalVisible] = React.useState(false);
+    const [infoConfig, setInfoConfig] = React.useState({
+        title: "",
+        message: "",
+        type: "info",
+    });
     const [editName, setEditName] = React.useState(user?.name || "");
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState("");
@@ -53,25 +69,7 @@ export default function Profile() {
     // Photo change options after preview
     const handleChangePhoto = async () => {
         setAvatarPreviewVisible(false);
-
-        Alert.alert(
-            "Change Profile Photo",
-            "How would you like to update your photo?",
-            [
-                {
-                    text: "Take Photo",
-                    onPress: openCamera,
-                },
-                {
-                    text: "Choose from Gallery",
-                    onPress: openGallery,
-                },
-                {
-                    text: "Cancel",
-                    style: "cancel",
-                },
-            ]
-        );
+        setPhotoOptionsVisible(true);
     };
 
     // Production-ready camera function
@@ -81,17 +79,13 @@ export default function Profile() {
             const { status } =
                 await ImagePicker.requestCameraPermissionsAsync();
             if (status !== "granted") {
-                Alert.alert(
-                    "Camera Permission Required",
-                    "Please allow camera access to take photos for your profile.",
-                    [
-                        { text: "Cancel", style: "cancel" },
-                        {
-                            text: "Open Settings",
-                            onPress: () => Linking.openSettings(),
-                        },
-                    ]
-                );
+                setPermissionConfig({
+                    title: "Camera Permission Required",
+                    message:
+                        "Please allow camera access to take photos for your profile.",
+                    icon: "camera",
+                });
+                setPermissionModalVisible(true);
                 return;
             }
 
@@ -109,7 +103,12 @@ export default function Profile() {
             }
         } catch (error) {
             Logger.error("Camera error:", error);
-            Alert.alert("Error", "Failed to open camera. Please try again.");
+            setInfoConfig({
+                title: "Camera Error",
+                message: "Failed to open camera. Please try again.",
+                type: "error",
+            });
+            setInfoModalVisible(true);
         }
     };
 
@@ -120,17 +119,13 @@ export default function Profile() {
             const { status } =
                 await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== "granted") {
-                Alert.alert(
-                    "Photo Library Permission Required",
-                    "Please allow photo library access to select images for your profile.",
-                    [
-                        { text: "Cancel", style: "cancel" },
-                        {
-                            text: "Open Settings",
-                            onPress: () => Linking.openSettings(),
-                        },
-                    ]
-                );
+                setPermissionConfig({
+                    title: "Photo Library Permission Required",
+                    message:
+                        "Please allow photo library access to select images for your profile.",
+                    icon: "images",
+                });
+                setPermissionModalVisible(true);
                 return;
             }
 
@@ -148,10 +143,12 @@ export default function Profile() {
             }
         } catch (error) {
             Logger.error("Gallery error:", error);
-            Alert.alert(
-                "Error",
-                "Failed to open photo library. Please try again."
-            );
+            setInfoConfig({
+                title: "Gallery Error",
+                message: "Failed to open photo library. Please try again.",
+                type: "error",
+            });
+            setInfoModalVisible(true);
         }
     };
 
@@ -160,7 +157,12 @@ export default function Profile() {
         try {
             // Validate image
             if (!imageAsset.uri) {
-                Alert.alert("Error", "Invalid image selected.");
+                setInfoConfig({
+                    title: "Invalid Image",
+                    message: "The selected image is invalid. Please try again.",
+                    type: "error",
+                });
+                setInfoModalVisible(true);
                 return;
             }
 
@@ -168,10 +170,12 @@ export default function Profile() {
             const fileSize = imageAsset.fileSize || 0;
             const maxSize = 5 * 1024 * 1024; // 5MB
             if (fileSize > maxSize) {
-                Alert.alert(
-                    "File Too Large",
-                    "Please select an image smaller than 5MB."
-                );
+                setInfoConfig({
+                    title: "File Too Large",
+                    message: "Please select an image smaller than 5MB.",
+                    type: "error",
+                });
+                setInfoModalVisible(true);
                 return;
             }
 
@@ -191,14 +195,21 @@ export default function Profile() {
             // setUser({ ...user, photoURL: response.photoURL });
 
             // For now, show success message
-            Alert.alert(
-                "Photo Selected",
-                "Profile photo functionality is ready! Server upload will be implemented soon.",
-                [{ text: "OK" }]
-            );
+            setInfoConfig({
+                title: "Photo Selected",
+                message:
+                    "Profile photo functionality is ready! Server upload will be implemented soon.",
+                type: "success",
+            });
+            setInfoModalVisible(true);
         } catch (error) {
             Logger.error("Image handling error:", error);
-            Alert.alert("Error", "Failed to process image. Please try again.");
+            setInfoConfig({
+                title: "Processing Error",
+                message: "Failed to process image. Please try again.",
+                type: "error",
+            });
+            setInfoModalVisible(true);
         } finally {
             setLoading(false);
         }
@@ -397,6 +408,37 @@ export default function Profile() {
                     </View>
                 </View>
             </Modal>
+
+            {/* Photo Options Modal */}
+            <PhotoOptionsModal
+                visible={photoOptionsVisible}
+                onClose={() => setPhotoOptionsVisible(false)}
+                onCamera={openCamera}
+                onGallery={openGallery}
+            />
+
+            {/* Permission Modal */}
+            <PermissionModal
+                visible={permissionModalVisible}
+                onClose={() => setPermissionModalVisible(false)}
+                onOpenSettings={() => {
+                    setPermissionModalVisible(false);
+                    Linking.openSettings();
+                }}
+                title={permissionConfig.title}
+                message={permissionConfig.message}
+                icon={permissionConfig.icon}
+            />
+
+            {/* Info/Error Modal */}
+            <InfoModal
+                visible={infoModalVisible}
+                onClose={() => setInfoModalVisible(false)}
+                title={infoConfig.title}
+                message={infoConfig.message}
+                type={infoConfig.type}
+            />
+
             <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
                 <View className="items-center mt-xl mb-lg">
                     {/* User Avatar and Name */}

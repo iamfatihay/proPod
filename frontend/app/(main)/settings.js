@@ -5,7 +5,6 @@ import {
     Switch,
     TouchableOpacity,
     Modal,
-    Alert,
     TextInput,
     ActivityIndicator,
     Platform,
@@ -21,6 +20,8 @@ import useAuthStore from "../../src/context/useAuthStore";
 import apiService from "../../src/services/api/apiService";
 import { ToastProvider, useToast } from "../../src/components/Toast";
 import { Ionicons } from "@expo/vector-icons";
+import SupportModal from "../../src/components/SupportModal";
+import PrivacyModal from "../../src/components/PrivacyModal";
 
 const APP_VERSION = "1.0.0";
 
@@ -30,6 +31,8 @@ const Settings = () => {
     const [notifications, setNotifications] = useState(true);
     const [deleteModal, setDeleteModal] = useState(false);
     const [changePwModal, setChangePwModal] = useState(false);
+    const [supportModalVisible, setSupportModalVisible] = useState(false);
+    const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
     const [oldPassword, setOldPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [pwLoading, setPwLoading] = useState(false);
@@ -91,41 +94,12 @@ const Settings = () => {
 
     // Production-ready support handler
     const handleSupport = () => {
-        Alert.alert("Contact Support", "How would you like to reach us?", [
-            {
-                text: "Email",
-                onPress: () => {
-                    Linking.openURL(
-                        "mailto:support@volo.com?subject=Volo Support Request"
-                    );
-                },
-            },
-            {
-                text: "Cancel",
-                style: "cancel",
-            },
-        ]);
+        setSupportModalVisible(true);
     };
 
     // Production-ready privacy policy handler
     const handlePrivacy = () => {
-        Alert.alert("Privacy Policy", "View our privacy policy?", [
-            {
-                text: "Open in Browser",
-                onPress: () => {
-                    Linking.openURL("https://volo.com/privacy").catch(() => {
-                        Alert.alert(
-                            "Error",
-                            "Could not open privacy policy. Please try again."
-                        );
-                    });
-                },
-            },
-            {
-                text: "Cancel",
-                style: "cancel",
-            },
-        ]);
+        setPrivacyModalVisible(true);
     };
 
     // Dummy handler for notifications
@@ -313,6 +287,18 @@ const Settings = () => {
                     </View>
                 </View>
             </Modal>
+
+            {/* Support Modal */}
+            <SupportModal
+                visible={supportModalVisible}
+                onClose={() => setSupportModalVisible(false)}
+            />
+
+            {/* Privacy Modal */}
+            <PrivacyModal
+                visible={privacyModalVisible}
+                onClose={() => setPrivacyModalVisible(false)}
+            />
         </SafeAreaView>
     );
 };
