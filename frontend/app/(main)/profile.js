@@ -20,6 +20,7 @@ import ProfileStats from "../../src/components/ProfileStats";
 import { Ionicons } from "@expo/vector-icons";
 import apiService from "../../src/services/api/apiService";
 import * as ImagePicker from "expo-image-picker";
+import Logger from "../../src/utils/logger";
 
 const dummyPodcasts = [
     { id: 1, title: "My First Podcast" },
@@ -107,7 +108,7 @@ export default function Profile() {
                 await handleImageSelected(result.assets[0]);
             }
         } catch (error) {
-            console.error("Camera error:", error);
+            Logger.error("Camera error:", error);
             Alert.alert("Error", "Failed to open camera. Please try again.");
         }
     };
@@ -146,7 +147,7 @@ export default function Profile() {
                 await handleImageSelected(result.assets[0]);
             }
         } catch (error) {
-            console.error("Gallery error:", error);
+            Logger.error("Gallery error:", error);
             Alert.alert(
                 "Error",
                 "Failed to open photo library. Please try again."
@@ -196,7 +197,7 @@ export default function Profile() {
                 [{ text: "OK" }]
             );
         } catch (error) {
-            console.error("Image handling error:", error);
+            Logger.error("Image handling error:", error);
             Alert.alert("Error", "Failed to process image. Please try again.");
         } finally {
             setLoading(false);

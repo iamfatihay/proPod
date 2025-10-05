@@ -17,6 +17,7 @@ import RecordingControls from "../../src/components/recording/RecordingControls"
 import AudioService from "../../src/services/audio";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
+import Logger from "../../src/utils/logger";
 
 const Create = () => {
     const router = useRouter();
@@ -82,7 +83,7 @@ const Create = () => {
                 );
             }
         } catch (error) {
-            console.error("Audio initialization failed:", error);
+            Logger.error("Audio initialization failed:", error);
             showToast("Failed to initialize audio. Please try again.", "error");
         }
     };
@@ -178,7 +179,7 @@ const Create = () => {
                 router.push("/(main)/library");
             }
         } catch (error) {
-            console.error("Save failed:", error);
+            Logger.error("Save failed:", error);
             showToast("Failed to save podcast. Please try again.", "error");
         } finally {
             setIsUploading(false);

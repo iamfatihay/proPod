@@ -18,6 +18,7 @@ import useAudioStore from "../../src/context/useAudioStore";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
 import { Stack } from "expo-router";
+import Logger from "../../src/utils/logger";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -94,7 +95,7 @@ const Details = () => {
             const related = await apiService.getRelatedPodcasts(params.id);
             setRelatedPodcasts(related);
         } catch (error) {
-            console.error("Failed to load podcast details:", error);
+            Logger.error("Failed to load podcast details:", error);
             showToast("Failed to load podcast details", "error");
         } finally {
             setIsLoading(false);
@@ -163,7 +164,7 @@ const Details = () => {
                 setQueue(queue, 0);
             }
         } catch (error) {
-            console.error("Playback failed:", error);
+            Logger.error("Playback failed:", error);
             showToast("Failed to start playback", "error");
         }
     };
@@ -180,7 +181,7 @@ const Details = () => {
                 showToast("Added to likes", "success");
             }
         } catch (error) {
-            console.error("Like action failed:", error);
+            Logger.error("Like action failed:", error);
             const msg =
                 error?.detail ||
                 error?.response?.data?.detail ||
@@ -202,7 +203,7 @@ const Details = () => {
                 showToast("Bookmarked", "success");
             }
         } catch (error) {
-            console.error("Bookmark action failed:", error);
+            Logger.error("Bookmark action failed:", error);
             const msg =
                 error?.detail ||
                 error?.response?.data?.detail ||
@@ -227,7 +228,7 @@ const Details = () => {
                 });
             }
         } catch (error) {
-            console.error("Share failed:", error);
+            Logger.error("Share failed:", error);
         }
     };
 
@@ -272,7 +273,7 @@ const Details = () => {
                             showToast("Podcast deleted", "success");
                             router.back();
                         } catch (error) {
-                            console.error("Delete failed:", error);
+                            Logger.error("Delete failed:", error);
                             showToast("Failed to delete podcast", "error");
                         }
                     },

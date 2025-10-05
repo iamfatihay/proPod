@@ -18,6 +18,7 @@ import ChatCard from "../../src/components/ChatCard";
 import ActivityCard from "../../src/components/ActivityCard";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
+import Logger from "../../src/utils/logger";
 
 // Removed mock episodes; will fetch from API
 
@@ -121,7 +122,7 @@ export default function HomeScreen() {
     // Modern play functionality with demo audio
     const handlePlayPodcast = async (podcast) => {
         try {
-            console.log("🎵 Playing podcast:", podcast.title);
+            Logger.log("🎵 Playing podcast:", podcast.title);
             // Create track with real audio URL if available, otherwise demo
             const track = {
                 id: podcast.id,
@@ -136,26 +137,26 @@ export default function HomeScreen() {
                 description: podcast.description,
             };
 
-            console.log("🎵 Track created:", track);
+            Logger.log("🎵 Track created:", track);
 
             if (currentTrack?.id === podcast.id) {
                 // Same track - toggle play/pause
                 if (isPlaying) {
                     await pause();
-                    console.log("⏸️ Paused");
+                    Logger.log("⏸️ Paused");
                 } else {
                     await play();
-                    console.log("▶️ Resumed");
+                    Logger.log("▶️ Resumed");
                 }
             } else {
                 // New track - start playing
                 await play(track);
-                console.log("🎵 Started new track");
+                Logger.log("🎵 Started new track");
 
                 // Show mini player
                 if (!showMiniPlayer) {
                     toggleMiniPlayer(true);
-                    console.log("📱 MiniPlayer enabled");
+                    Logger.log("📱 MiniPlayer enabled");
                 }
             }
 
@@ -168,7 +169,7 @@ export default function HomeScreen() {
                 "success"
             );
         } catch (error) {
-            console.error("❌ Play failed:", error);
+            Logger.error("❌ Play failed:", error);
             showToast("Playback failed. Please try again.", "error");
         }
     };
