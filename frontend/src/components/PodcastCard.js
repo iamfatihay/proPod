@@ -1,7 +1,7 @@
 import { TouchableOpacity, View, Text, Platform } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Surface } from "react-native-paper";
-import React from "react";
+import React, { useMemo } from "react";
 
 // Helper functions
 const formatDuration = (milliseconds) => {
@@ -23,13 +23,17 @@ const formatDate = (dateString) => {
     return `${Math.floor(diffInDays / 365)} years ago`;
 };
 
-export default function PodcastCard({
+const PodcastCard = React.memo(function PodcastCard({
     podcast,
     onPress,
     onPlayPress,
     isPlaying = false,
     showPlayButton = true,
 }) {
+    // Memoize formatted values to prevent recalculation on every render
+    const formattedDuration = useMemo(() => formatDuration(podcast.duration), [podcast.duration]);
+    const formattedDate = useMemo(() => formatDate(podcast.created_at), [podcast.created_at]);
+
     return (
         <Surface
             style={{
@@ -72,8 +76,7 @@ export default function PodcastCard({
                         {podcast.title}
                     </Text>
                     <Text className="text-xs text-text-secondary">
-                        {formatDuration(podcast.duration)} • {""}
-                        {formatDate(podcast.created_at)}
+                        {formattedDuration} • {formattedDate}
                     </Text>
                 </View>
 
@@ -114,4 +117,6 @@ export default function PodcastCard({
             </TouchableOpacity>
         </Surface>
     );
-}
+});
+
+export default PodcastCard;
