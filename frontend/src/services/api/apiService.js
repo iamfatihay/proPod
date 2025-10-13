@@ -559,20 +559,27 @@ class ApiService {
             const fileExtension = imageAsset.uri.split(".").pop() || "jpg";
             const fileName = `profile_photo.${fileExtension}`;
 
+            // Determine correct MIME type based on file extension
+            let mimeType = "image/jpeg"; // Default
+            const ext = fileExtension.toLowerCase();
+            if (ext === "png") mimeType = "image/png";
+            else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
+            else if (ext === "webp") mimeType = "image/webp";
+
             // Create file blob for upload
             const fileBlob = {
                 uri:
                     Platform.OS === "ios"
                         ? imageAsset.uri.replace("file://", "")
                         : imageAsset.uri,
-                type: imageAsset.type || "image/jpeg",
+                type: mimeType,
                 name: fileName,
             };
 
             Logger.log("📸 Uploading photo:", {
                 uri: fileBlob.uri,
                 type: fileBlob.type,
-                name: fileBlob.name
+                name: fileBlob.name,
             });
 
             formData.append("file", fileBlob);

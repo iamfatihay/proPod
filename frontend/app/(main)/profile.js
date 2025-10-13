@@ -91,7 +91,7 @@ export default function Profile() {
 
             // Launch camera with optimized settings
             const result = await ImagePicker.launchCameraAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ['images'], // Modern API, replaces MediaTypeOptions.Images
                 allowsEditing: true,
                 aspect: [1, 1], // Square aspect ratio for profile photos
                 quality: 0.8, // Good quality but not too large
@@ -131,7 +131,7 @@ export default function Profile() {
 
             // Launch image library with optimized settings
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ['images'], // Modern API, replaces MediaTypeOptions.Images
                 allowsEditing: true,
                 aspect: [1, 1], // Square aspect ratio for profile photos
                 quality: 0.8, // Good quality but not too large
