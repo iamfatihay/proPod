@@ -7,11 +7,11 @@ import {
     KeyboardAvoidingView,
     Platform,
     SafeAreaView,
-    Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import apiService from "../../src/services/api/apiService";
 import Logger from "../../src/utils/logger";
+import InfoModal from "../../src/components/InfoModal";
 
 export default function ResetPasswordScreen() {
     const [token, setToken] = useState("");
@@ -20,6 +20,7 @@ export default function ResetPasswordScreen() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
+    const [infoModalVisible, setInfoModalVisible] = useState(false);
     const router = useRouter();
     const params = useLocalSearchParams();
 
@@ -114,11 +115,7 @@ export default function ResetPasswordScreen() {
 
     const handleBackToLogin = () => {
         if (loading) {
-            Alert.alert(
-                "Reset in Progress",
-                "Please wait for the password reset to complete before going back.",
-                [{ text: "OK" }]
-            );
+            setInfoModalVisible(true);
             return;
         }
         router.replace("/");
@@ -246,6 +243,15 @@ export default function ResetPasswordScreen() {
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
+            
+            {/* Info Modal for loading warning */}
+            <InfoModal
+                visible={infoModalVisible}
+                onClose={() => setInfoModalVisible(false)}
+                title="Reset in Progress"
+                message="Please wait for the password reset to complete before going back."
+                type="warning"
+            />
         </SafeAreaView>
     );
 }

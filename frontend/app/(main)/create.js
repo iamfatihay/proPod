@@ -7,7 +7,7 @@ import {
     TextInput,
     TouchableOpacity,
     Platform,
-    Alert,
+    Linking,
     ActivityIndicator,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -18,6 +18,8 @@ import AudioService from "../../src/services/audio";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
 import Logger from "../../src/utils/logger";
+import PermissionModal from "../../src/components/PermissionModal";
+import ConfirmationModal from "../../src/components/ConfirmationModal";
 
 const Create = () => {
     const router = useRouter();
@@ -45,6 +47,10 @@ const Create = () => {
     const [currentStep, setCurrentStep] = useState(
         mode === "quick-record" ? "recording" : "setup"
     );
+    
+    // Modal state
+    const [permissionModalVisible, setPermissionModalVisible] = useState(false);
+    const [discardConfirmVisible, setDiscardConfirmVisible] = useState(false);
 
     useEffect(() => {
         initializeAudio();
@@ -63,24 +69,7 @@ const Create = () => {
             setAudioInitialized(initialized);
 
             if (!initialized) {
-                Alert.alert(
-                    "Audio Setup Required",
-                    "Please grant microphone permissions to record podcasts.",
-                    [
-                        {
-                            text: "Settings",
-                            onPress: () => {
-                                // Open app settings
-                                // Linking.openSettings();
-                            },
-                        },
-                        {
-                            text: "Cancel",
-                            onPress: () => router.back(),
-                            style: "cancel",
-                        },
-                    ]
-                );
+                setPermissionModalVisible(true);
             }
         } catch (error) {
             Logger.error("Audio initialization failed:", error);
@@ -187,26 +176,15 @@ const Create = () => {
     };
 
     const handleDiscard = () => {
-        Alert.alert(
-            "Discard Recording",
-            "Are you sure you want to discard this recording? This action cannot be undone.",
-            [
-                {
-                    text: "Cancel",
-                    style: "cancel",
-                },
-                {
-                    text: "Discard",
-                    style: "destructive",
-                    onPress: async () => {
-                        if (recordedUri) {
-                            await AudioService.deleteAudioFile(recordedUri);
-                        }
-                        router.back();
-                    },
-                },
-            ]
-        );
+        setDiscardConfirmVisible(true);
+    };
+
+    const confirmDiscard = async () => {
+        setDiscardConfirmVisible(false);
+        if (recordedUri) {
+            await AudioService.deleteAudioFile(recordedUri);
+        }
+        router.back();
     };
 
     const renderSetupStep = () => (
@@ -458,6 +436,35 @@ const Create = () => {
             {currentStep === "setup" && renderSetupStep()}
             {currentStep === "recording" && renderRecordingStep()}
             {currentStep === "review" && renderReviewStep()}
+            
+            {/* Permission Modal */}
+            <PermissionModal
+                visible={permissionModalVisible}
+                onClose={() => {
+                    setPermissionModalVisible(false);
+                    router.back();
+                }}
+                onOpenSettings={() => {
+                    setPermissionModalVisible(false);
+                    Linking.openSettings();
+                }}
+                title="Microphone Permission Required"
+                message="Please grant microphone permissions to record podcasts."
+                icon="mic"
+            />
+            
+            {/* Discard Confirmation Modal */}
+            <ConfirmationModal
+                visible={discardConfirmVisible}
+                onClose={() => setDiscardConfirmVisible(false)}
+                onConfirm={confirmDiscard}
+                title="Discard Recording"
+                message="Are you sure you want to discard this recording? This action cannot be undone."
+                confirmText="Discard"
+                cancelText="Cancel"
+                destructive={true}
+                icon="trash"
+            />
         </SafeAreaView>
     );
 };
