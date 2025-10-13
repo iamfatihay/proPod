@@ -89,8 +89,8 @@ const Details = () => {
             const interactions = await apiService.getPodcastInteractions(
                 params.id
             );
-            setIsLiked(interactions.isLiked);
-            setIsBookmarked(interactions.isBookmarked);
+            setIsLiked(interactions.is_liked);
+            setIsBookmarked(interactions.is_bookmarked);
 
             // Load related podcasts
             const related = await apiService.getRelatedPodcasts(params.id);
@@ -473,7 +473,7 @@ const Details = () => {
                             </View>
                         </View>
 
-                        {podcast.aiEnhanced && (
+                        {podcast.ai_enhanced && (
                             <View className="bg-success/20 px-2 py-1 rounded-full border border-success/30">
                                 <Text className="text-success text-xs">
                                     🤖 AI Enhanced
