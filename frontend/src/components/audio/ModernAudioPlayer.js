@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
+import Logger from "../../utils/logger";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -53,7 +54,7 @@ const ModernAudioPlayer = ({
 
     const handlePlay = async () => {
         try {
-            console.log("🎵 ModernAudioPlayer: Starting playback (demo mode)");
+            Logger.log("🎵 ModernAudioPlayer: Starting playback (demo mode)");
 
             // Animate play button
             Animated.sequence([
@@ -77,7 +78,7 @@ const ModernAudioPlayer = ({
                 startProgressSimulation();
             }
         } catch (error) {
-            console.error("❌ ModernAudioPlayer playback failed:", error);
+            Logger.error("❌ ModernAudioPlayer playback failed:", error);
             Alert.alert("Playback Error", "Failed to control playback.");
         }
     };
@@ -123,7 +124,7 @@ const ModernAudioPlayer = ({
                 useNativeDriver: false,
             }).start();
         } catch (error) {
-            console.error("Seek failed:", error);
+            Logger.error("Seek failed:", error);
         }
     };
 

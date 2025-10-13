@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system";
 import { AudioConfig } from "../../constants/audio/AudioConfig";
 import AudioPermissions from "./AudioPermissions";
+import Logger from "../../utils/logger";
 
 class AudioRecorder {
     constructor() {
@@ -48,7 +49,7 @@ class AudioRecorder {
 
             return true;
         } catch (error) {
-            console.error("Failed to initialize recording:", error);
+            Logger.error("Failed to initialize recording:", error);
             throw error;
         }
     }
@@ -60,35 +61,35 @@ class AudioRecorder {
      */
     async startRecording(options = {}) {
         try {
-            console.log("🎵 Starting recording...");
+            Logger.log("🎵 Starting recording...");
 
             if (this.isRecording) {
-                console.warn("❌ Already recording");
+                Logger.warn("❌ Already recording");
                 return false;
             }
 
             // Initialize if not done already
-            console.log("🔧 Initializing recording...");
+            Logger.log("🔧 Initializing recording...");
             await this.initializeRecording();
 
             // Prepare recording options based on platform
             const recordingOptions = this._getRecordingOptions(options);
-            console.log("⚙️ Recording options:", recordingOptions);
+            Logger.log("⚙️ Recording options:", recordingOptions);
 
             // Create new recording
-            console.log("📝 Creating new recording...");
+            Logger.log("📝 Creating new recording...");
             this.recording = new Audio.Recording();
             await this.recording.prepareToRecordAsync(recordingOptions);
 
             // Start recording
-            console.log("▶️ Starting recording async...");
+            Logger.log("▶️ Starting recording async...");
             await this.recording.startAsync();
 
             this.isRecording = true;
             this.isPaused = false;
             this.recordingStartTime = Date.now();
 
-            console.log("✅ Recording started successfully:", {
+            Logger.log("✅ Recording started successfully:", {
                 isRecording: this.isRecording,
                 isPaused: this.isPaused,
                 startTime: this.recordingStartTime,
@@ -97,10 +98,10 @@ class AudioRecorder {
             // Start duration timer
             this._startTimer();
 
-            console.log("Recording started");
+            Logger.log("Recording started");
             return true;
         } catch (error) {
-            console.error("Failed to start recording:", error);
+            Logger.error("Failed to start recording:", error);
             throw error;
         }
     }
@@ -112,7 +113,7 @@ class AudioRecorder {
     async stopRecording() {
         try {
             if (!this.isRecording || !this.recording) {
-                console.warn("No active recording to stop");
+                Logger.warn("No active recording to stop");
                 return null;
             }
 
@@ -129,10 +130,10 @@ class AudioRecorder {
             // Clean up recording object
             this.recording = null;
 
-            console.log("Recording stopped, saved to:", this.recordingUri);
+            Logger.log("Recording stopped, saved to:", this.recordingUri);
             return this.recordingUri;
         } catch (error) {
-            console.error("Failed to stop recording:", error);
+            Logger.error("Failed to stop recording:", error);
             throw error;
         }
     }
@@ -144,7 +145,7 @@ class AudioRecorder {
     async pauseRecording() {
         try {
             if (!this.isRecording || !this.recording) {
-                console.warn("No active recording to pause");
+                Logger.warn("No active recording to pause");
                 return false;
             }
 
@@ -152,17 +153,17 @@ class AudioRecorder {
                 await this.recording.pauseAsync();
                 this.isPaused = true;
                 this._stopTimer();
-                console.log("Recording paused");
+                Logger.log("Recording paused");
                 return true;
             } else {
-                console.warn(
+                Logger.warn(
                     "Pause not supported on Android, stopping recording"
                 );
                 await this.stopRecording();
                 return false;
             }
         } catch (error) {
-            console.error("Failed to pause recording:", error);
+            Logger.error("Failed to pause recording:", error);
             throw error;
         }
     }
@@ -174,7 +175,7 @@ class AudioRecorder {
     async resumeRecording() {
         try {
             if (!this.isPaused || !this.recording) {
-                console.warn("No paused recording to resume");
+                Logger.warn("No paused recording to resume");
                 return false;
             }
 
@@ -182,14 +183,14 @@ class AudioRecorder {
                 await this.recording.startAsync();
                 this.isPaused = false;
                 this._startTimer();
-                console.log("Recording resumed");
+                Logger.log("Recording resumed");
                 return true;
             } else {
-                console.warn("Resume not supported on Android");
+                Logger.warn("Resume not supported on Android");
                 return false;
             }
         } catch (error) {
-            console.error("Failed to resume recording:", error);
+            Logger.error("Failed to resume recording:", error);
             throw error;
         }
     }
@@ -233,10 +234,10 @@ class AudioRecorder {
             });
 
             this.recordingUri = newUri;
-            console.log("Recording saved to:", newUri);
+            Logger.log("Recording saved to:", newUri);
             return newUri;
         } catch (error) {
-            console.error("Failed to save recording:", error);
+            Logger.error("Failed to save recording:", error);
             throw error;
         }
     }
@@ -250,7 +251,7 @@ class AudioRecorder {
         try {
             const fileUri = uri || this.recordingUri;
             if (!fileUri) {
-                console.warn("No recording to delete");
+                Logger.warn("No recording to delete");
                 return false;
             }
 
@@ -260,12 +261,12 @@ class AudioRecorder {
                 if (fileUri === this.recordingUri) {
                     this.recordingUri = null;
                 }
-                console.log("Recording deleted:", fileUri);
+                Logger.log("Recording deleted:", fileUri);
                 return true;
             }
             return false;
         } catch (error) {
-            console.error("Failed to delete recording:", error);
+            Logger.error("Failed to delete recording:", error);
             return false;
         }
     }
@@ -342,7 +343,7 @@ class AudioRecorder {
             this.recordingUri = null;
             this.recordingDuration = 0;
         } catch (error) {
-            console.error("Failed to cleanup recorder:", error);
+            Logger.error("Failed to cleanup recorder:", error);
         }
     }
 }

@@ -1,5 +1,6 @@
 import { Audio } from "expo-av";
 import { Platform } from "react-native";
+import Logger from "../../utils/logger";
 
 class AudioPlayer {
     constructor() {
@@ -34,7 +35,7 @@ class AudioPlayer {
             });
             return true;
         } catch (error) {
-            console.error("Failed to initialize playback:", error);
+            Logger.error("Failed to initialize playback:", error);
             throw error;
         }
     }
@@ -72,11 +73,11 @@ class AudioPlayer {
             this.currentPosition = 0;
             this.isLoading = false;
 
-            console.log("Audio loaded:", trackInfo.title || uri);
+            Logger.log("Audio loaded:", trackInfo.title || uri);
             return true;
         } catch (error) {
             this.isLoading = false;
-            console.error("Failed to load audio:", error);
+            Logger.error("Failed to load audio:", error);
             throw error;
         }
     }
@@ -88,12 +89,12 @@ class AudioPlayer {
     async play() {
         try {
             if (!this.sound) {
-                console.warn("No audio loaded");
+                Logger.warn("No audio loaded");
                 return false;
             }
 
             if (this.isPlaying) {
-                console.warn("Already playing");
+                Logger.warn("Already playing");
                 return true;
             }
 
@@ -102,10 +103,10 @@ class AudioPlayer {
             this.isPaused = false;
 
             this._startPositionTimer();
-            console.log("Playback started");
+            Logger.log("Playback started");
             return true;
         } catch (error) {
-            console.error("Failed to start playback:", error);
+            Logger.error("Failed to start playback:", error);
             throw error;
         }
     }
@@ -117,7 +118,7 @@ class AudioPlayer {
     async pause() {
         try {
             if (!this.sound || !this.isPlaying) {
-                console.warn("No active playback to pause");
+                Logger.warn("No active playback to pause");
                 return false;
             }
 
@@ -126,10 +127,10 @@ class AudioPlayer {
             this.isPaused = true;
 
             this._stopPositionTimer();
-            console.log("Playback paused");
+            Logger.log("Playback paused");
             return true;
         } catch (error) {
-            console.error("Failed to pause playback:", error);
+            Logger.error("Failed to pause playback:", error);
             throw error;
         }
     }
@@ -153,10 +154,10 @@ class AudioPlayer {
             this.currentPosition = 0;
             this.currentTrack = null;
 
-            console.log("Playback stopped");
+            Logger.log("Playback stopped");
             return true;
         } catch (error) {
-            console.error("Failed to stop playback:", error);
+            Logger.error("Failed to stop playback:", error);
             throw error;
         }
     }
@@ -169,17 +170,17 @@ class AudioPlayer {
     async seekTo(positionMs) {
         try {
             if (!this.sound) {
-                console.warn("No audio loaded");
+                Logger.warn("No audio loaded");
                 return false;
             }
 
             await this.sound.setPositionAsync(positionMs);
             this.currentPosition = positionMs;
 
-            console.log("Seeked to:", positionMs);
+            Logger.log("Seeked to:", positionMs);
             return true;
         } catch (error) {
-            console.error("Failed to seek:", error);
+            Logger.error("Failed to seek:", error);
             throw error;
         }
     }
@@ -192,7 +193,7 @@ class AudioPlayer {
     async setPlaybackRate(rate) {
         try {
             if (!this.sound) {
-                console.warn("No audio loaded");
+                Logger.warn("No audio loaded");
                 return false;
             }
 
@@ -200,10 +201,10 @@ class AudioPlayer {
             await this.sound.setRateAsync(clampedRate, true);
             this.playbackRate = clampedRate;
 
-            console.log("Playback rate set to:", clampedRate);
+            Logger.log("Playback rate set to:", clampedRate);
             return true;
         } catch (error) {
-            console.error("Failed to set playback rate:", error);
+            Logger.error("Failed to set playback rate:", error);
             throw error;
         }
     }
@@ -221,7 +222,7 @@ class AudioPlayer {
             );
             return await this.seekTo(newPosition);
         } catch (error) {
-            console.error("Failed to skip forward:", error);
+            Logger.error("Failed to skip forward:", error);
             throw error;
         }
     }
@@ -239,7 +240,7 @@ class AudioPlayer {
             );
             return await this.seekTo(newPosition);
         } catch (error) {
-            console.error("Failed to skip backward:", error);
+            Logger.error("Failed to skip backward:", error);
             throw error;
         }
     }
@@ -306,7 +307,7 @@ class AudioPlayer {
                 this.isPaused = false;
                 this.currentPosition = 0;
                 this._stopPositionTimer();
-                console.log("Playback finished");
+                Logger.log("Playback finished");
             }
         }
 
@@ -351,7 +352,7 @@ class AudioPlayer {
             this.onPositionUpdate = null;
             this.onPlaybackStatusUpdate = null;
         } catch (error) {
-            console.error("Failed to cleanup player:", error);
+            Logger.error("Failed to cleanup player:", error);
         }
     }
 }

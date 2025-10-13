@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import Logger from "../utils/logger";
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -18,10 +19,8 @@ class ErrorBoundary extends React.Component {
             errorInfo: errorInfo,
         });
 
-        // Log error to console in development
-        if (__DEV__) {
-            console.error("ErrorBoundary caught an error:", error, errorInfo);
-        }
+        // Log error (Logger.error always logs errors, even in production)
+        Logger.error("ErrorBoundary caught an error:", error, errorInfo);
     }
 
     handleRetry = () => {

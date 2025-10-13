@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import AudioService from "../../services/audio";
+import Logger from "../../utils/logger";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -83,7 +84,7 @@ const RecordingControls = ({
     };
 
     const handleRecordPress = async () => {
-        console.log("🎵 RecordingControls: handleRecordPress called", {
+        Logger.log("🎵 RecordingControls: handleRecordPress called", {
             disabled,
             isRecording,
             isPaused,
@@ -91,45 +92,45 @@ const RecordingControls = ({
         });
 
         if (disabled) {
-            console.log("❌ Recording disabled, skipping");
+            Logger.log("❌ Recording disabled, skipping");
             return;
         }
 
         try {
             if (!isRecording) {
-                console.log("▶️ Starting recording via AudioService...");
+                Logger.log("▶️ Starting recording via AudioService...");
                 // Start recording
                 const success = await AudioService.startRecording();
-                console.log("🎵 AudioService.startRecording result:", success);
+                Logger.log("🎵 AudioService.startRecording result:", success);
 
                 if (success) {
-                    console.log("✅ Recording started, updating UI state...");
+                    Logger.log("✅ Recording started, updating UI state...");
                     setIsRecording(true);
                     setIsPaused(false);
                     setDuration(0);
                     onRecordingStart && onRecordingStart();
                 } else {
-                    console.warn("❌ Failed to start recording");
+                    Logger.warn("❌ Failed to start recording");
                 }
             } else {
-                console.log("⏹️ Stopping recording via AudioService...");
+                Logger.log("⏹️ Stopping recording via AudioService...");
                 // Stop recording
                 const uri = await AudioService.stopRecording();
-                console.log("🎵 AudioService.stopRecording result URI:", uri);
+                Logger.log("🎵 AudioService.stopRecording result URI:", uri);
 
                 if (uri) {
-                    console.log("✅ Recording stopped, updating UI state...");
+                    Logger.log("✅ Recording stopped, updating UI state...");
                     setIsRecording(false);
                     setIsPaused(false);
                     setDuration(0);
                     onRecordingStop && onRecordingStop(uri);
                 } else {
-                    console.warn("❌ Failed to stop recording or get URI");
+                    Logger.warn("❌ Failed to stop recording or get URI");
                 }
             }
         } catch (error) {
-            console.error("💥 Recording error in handleRecordPress:", error);
-            console.error("💥 Error details:", {
+            Logger.error("💥 Recording error in handleRecordPress:", error);
+            Logger.error("💥 Error details:", {
                 message: error.message,
                 stack: error.stack,
                 name: error.name,
@@ -145,7 +146,7 @@ const RecordingControls = ({
     };
 
     const handlePausePress = async () => {
-        console.log("⏸️ RecordingControls: handlePausePress called", {
+        Logger.log("⏸️ RecordingControls: handlePausePress called", {
             disabled,
             isRecording,
             isPaused,
@@ -153,7 +154,7 @@ const RecordingControls = ({
         });
 
         if (disabled || !isRecording) {
-            console.log("❌ Cannot pause: disabled or not recording", {
+            Logger.log("❌ Cannot pause: disabled or not recording", {
                 disabled,
                 isRecording,
             });
@@ -163,32 +164,32 @@ const RecordingControls = ({
         try {
             if (Platform.OS === "ios") {
                 if (!isPaused) {
-                    console.log("⏸️ Pausing recording on iOS...");
+                    Logger.log("⏸️ Pausing recording on iOS...");
                     const success = await AudioService.pauseRecording();
-                    console.log("⏸️ Pause result:", success);
+                    Logger.log("⏸️ Pause result:", success);
 
                     if (success) {
-                        console.log("✅ Recording paused, updating UI...");
+                        Logger.log("✅ Recording paused, updating UI...");
                         setIsPaused(true);
                         onRecordingPause && onRecordingPause();
                     } else {
-                        console.warn("❌ Failed to pause recording");
+                        Logger.warn("❌ Failed to pause recording");
                     }
                 } else {
-                    console.log("▶️ Resuming recording on iOS...");
+                    Logger.log("▶️ Resuming recording on iOS...");
                     const success = await AudioService.resumeRecording();
-                    console.log("▶️ Resume result:", success);
+                    Logger.log("▶️ Resume result:", success);
 
                     if (success) {
-                        console.log("✅ Recording resumed, updating UI...");
+                        Logger.log("✅ Recording resumed, updating UI...");
                         setIsPaused(false);
                         onRecordingResume && onRecordingResume();
                     } else {
-                        console.warn("❌ Failed to resume recording");
+                        Logger.warn("❌ Failed to resume recording");
                     }
                 }
             } else {
-                console.log("⚠️ Android pause not supported, showing alert");
+                Logger.log("⚠️ Android pause not supported, showing alert");
                 // Android doesn't support pause, show info
                 Alert.alert(
                     "Pause Not Available",
@@ -197,7 +198,7 @@ const RecordingControls = ({
                 );
             }
         } catch (error) {
-            console.error("Pause error:", error);
+            Logger.error("Pause error:", error);
         }
     };
 

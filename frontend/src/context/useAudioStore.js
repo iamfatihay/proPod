@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { Audio } from "expo-av";
+import Logger from "../utils/logger";
 // import AudioService from "../services/audio"; // Temporarily disabled
 
 const useAudioStore = create(
@@ -147,7 +148,7 @@ const useAudioStore = create(
                     lastPlayedAt: new Date().toISOString(),
                 });
             } catch (error) {
-                console.error("Playback failed:", error);
+                Logger.error("Playback failed:", error);
                 set({
                     error: error.message,
                     isLoading: false,
@@ -163,7 +164,7 @@ const useAudioStore = create(
                     await sound.pauseAsync();
                     set({ isPlaying: false });
                 } catch (error) {
-                    console.error("Pause failed:", error);
+                    Logger.error("Pause failed:", error);
                     set({ error: error.message });
                 }
             }
@@ -182,7 +183,7 @@ const useAudioStore = create(
                         showMiniPlayer: false,
                     });
                 } catch (error) {
-                    console.error("Stop failed:", error);
+                    Logger.error("Stop failed:", error);
                 }
             }
         },
@@ -194,7 +195,7 @@ const useAudioStore = create(
                     await sound.setPositionAsync(positionMillis);
                     set({ position: positionMillis });
                 } catch (error) {
-                    console.error("Seek failed:", error);
+                    Logger.error("Seek failed:", error);
                     set({ error: error.message });
                 }
             }
@@ -208,7 +209,7 @@ const useAudioStore = create(
                 try {
                     await sound.setVolumeAsync(clampedVolume);
                 } catch (error) {
-                    console.error("Volume change failed:", error);
+                    Logger.error("Volume change failed:", error);
                 }
             }
 
@@ -223,7 +224,7 @@ const useAudioStore = create(
                 try {
                     await sound.setRateAsync(clampedRate, true);
                 } catch (error) {
-                    console.error("Rate change failed:", error);
+                    Logger.error("Rate change failed:", error);
                 }
             }
 
@@ -318,7 +319,7 @@ const useAudioStore = create(
 
                 set(updates);
             } else if (status.error) {
-                console.error("Playback error:", status.error);
+                Logger.error("Playback error:", status.error);
                 set({
                     error: status.error,
                     isLoading: false,
@@ -334,7 +335,7 @@ const useAudioStore = create(
                 try {
                     await sound.unloadAsync();
                 } catch (error) {
-                    console.error("Cleanup failed:", error);
+                    Logger.error("Cleanup failed:", error);
                 }
             }
             set({
@@ -354,12 +355,12 @@ useAudioStore.subscribe(
     (state) => state.isPlaying,
     (isPlaying, previousIsPlaying) => {
         if (isPlaying && !previousIsPlaying) {
-            console.log(
+            Logger.log(
                 "Playback started:",
                 useAudioStore.getState().currentTrack?.title
             );
         } else if (!isPlaying && previousIsPlaying) {
-            console.log(
+            Logger.log(
                 "Playback paused:",
                 useAudioStore.getState().currentTrack?.title
             );
@@ -372,7 +373,7 @@ useAudioStore.subscribe(
     (state) => state.miniPlayerPosition,
     (position) => {
         // Could save to AsyncStorage for persistence
-        console.log("Mini player position updated:", position);
+        Logger.log("Mini player position updated:", position);
     }
 );
 
