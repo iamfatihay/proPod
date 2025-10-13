@@ -22,6 +22,7 @@ import { ToastProvider, useToast } from "../../src/components/Toast";
 import { Ionicons } from "@expo/vector-icons";
 import SupportModal from "../../src/components/SupportModal";
 import PrivacyModal from "../../src/components/PrivacyModal";
+import InfoModal from "../../src/components/InfoModal";
 
 const APP_VERSION = "1.0.0";
 
@@ -33,6 +34,8 @@ const Settings = () => {
     const [changePwModal, setChangePwModal] = useState(false);
     const [supportModalVisible, setSupportModalVisible] = useState(false);
     const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
+    const [infoModalVisible, setInfoModalVisible] = useState(false);
+    const [infoConfig, setInfoConfig] = useState({ title: "", message: "", type: "info" });
     const [oldPassword, setOldPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [pwLoading, setPwLoading] = useState(false);
@@ -104,10 +107,12 @@ const Settings = () => {
 
     // Dummy handler for notifications
     const handleNotifications = () => {
-        Alert.alert(
-            "Notifications",
-            "Notifications feature will be available soon."
-        );
+        setInfoConfig({
+            title: "Notifications",
+            message: "Notifications feature will be available soon.",
+            type: "info"
+        });
+        setInfoModalVisible(true);
     };
 
     return (
@@ -177,12 +182,7 @@ const Settings = () => {
                     <SettingRow label="Support" onPress={handleSupport} />
                     <SettingRow
                         label="Privacy Policy"
-                        onPress={() =>
-                            Alert.alert(
-                                "Privacy Policy",
-                                "Privacy policy will be available soon."
-                            )
-                        }
+                        onPress={handlePrivacy}
                     />
                 </View>
             </View>
@@ -298,6 +298,15 @@ const Settings = () => {
             <PrivacyModal
                 visible={privacyModalVisible}
                 onClose={() => setPrivacyModalVisible(false)}
+            />
+
+            {/* Info Modal */}
+            <InfoModal
+                visible={infoModalVisible}
+                onClose={() => setInfoModalVisible(false)}
+                title={infoConfig.title}
+                message={infoConfig.message}
+                type={infoConfig.type}
             />
         </SafeAreaView>
     );
