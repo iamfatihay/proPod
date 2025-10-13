@@ -569,11 +569,20 @@ class ApiService {
                 name: fileName,
             };
 
+            Logger.log("📸 Uploading photo:", {
+                uri: fileBlob.uri,
+                type: fileBlob.type,
+                name: fileBlob.name
+            });
+
             formData.append("file", fileBlob);
 
             // Upload with multipart/form-data
             const accessToken = await getToken("accessToken");
             const url = `${this.baseURL}/users/me/photo`;
+
+            Logger.log("🌐 Upload URL:", url);
+            Logger.log("🔑 Has token:", !!accessToken);
 
             const config = {
                 method: "POST",
@@ -587,7 +596,9 @@ class ApiService {
                 },
             };
 
+            Logger.log("🚀 Sending request...");
             const response = await fetch(url, config);
+            Logger.log("📥 Response status:", response.status);
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
