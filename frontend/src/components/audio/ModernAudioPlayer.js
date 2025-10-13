@@ -12,6 +12,7 @@ import {
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import Logger from "../../utils/logger";
+import WaveformVisualizer from "./WaveformVisualizer";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -288,6 +289,17 @@ const ModernAudioPlayer = ({
                     </View>
                 </View>
             )}
+
+            {/* Waveform Visualizer */}
+            <View className="mb-4">
+                <WaveformVisualizer
+                    isActive={isPlaying}
+                    barCount={25}
+                    barColor="#D32F2F"
+                    minHeight={4}
+                    maxHeight={30}
+                />
+            </View>
 
             {/* Main Controls */}
             {showControls && (
