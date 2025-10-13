@@ -187,9 +187,9 @@ export default function HomeScreen() {
                         activeOpacity={0.7}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        {user && user.photoURL ? (
+                        {user && user.photo_url ? (
                             <Image
-                                source={{ uri: user.photoURL }}
+                                source={{ uri: user.photo_url }}
                                 className="w-10 h-10 rounded-full"
                             />
                         ) : (

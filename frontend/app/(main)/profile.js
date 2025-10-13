@@ -91,7 +91,7 @@ export default function Profile() {
 
             // Launch camera with optimized settings
             const result = await ImagePicker.launchCameraAsync({
-                mediaTypes: ['images'], // Modern API, replaces MediaTypeOptions.Images
+                mediaTypes: ["images"], // Modern API, replaces MediaTypeOptions.Images
                 allowsEditing: true,
                 aspect: [1, 1], // Square aspect ratio for profile photos
                 quality: 0.8, // Good quality but not too large
@@ -131,7 +131,7 @@ export default function Profile() {
 
             // Launch image library with optimized settings
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images'], // Modern API, replaces MediaTypeOptions.Images
+                mediaTypes: ["images"], // Modern API, replaces MediaTypeOptions.Images
                 allowsEditing: true,
                 aspect: [1, 1], // Square aspect ratio for profile photos
                 quality: 0.8, // Good quality but not too large
@@ -186,8 +186,13 @@ export default function Profile() {
             // Upload to server
             const updatedUser = await apiService.uploadProfilePhoto(imageAsset);
 
+            Logger.log("👤 Updated user from server:", updatedUser);
+            Logger.log("🖼️ Photo URL from server:", updatedUser.photo_url);
+
             // Update local user state with new photo URL
             setUser(updatedUser);
+
+            Logger.log("✅ User state updated!");
 
             // Show success message
             setInfoConfig({
@@ -242,13 +247,13 @@ export default function Profile() {
 
     // Avatar logic: Google photo varsa onu göster, yoksa user icon
     const renderAvatar = () => {
-        if (user && user.photoURL) {
+        if (user && user.photo_url) {
             return (
                 <TouchableOpacity
                     onPress={handleAvatarPress}
                     activeOpacity={0.8}
                 >
-                    <Avatar uri={user.photoURL} name={user.name} size={96} />
+                    <Avatar uri={user.photo_url} name={user.name} size={96} />
                 </TouchableOpacity>
             );
         }
@@ -289,11 +294,11 @@ export default function Profile() {
                         <Ionicons name="close" size={32} color="#FFFFFF" />
                     </TouchableOpacity>
 
-                    {/* Large avatar preview */}
-                    <View className="items-center">
-                        {user && user.photoURL ? (
-                            <Image
-                                source={{ uri: user.photoURL }}
+                        {/* Large avatar preview */}
+                        <View className="items-center">
+                            {user && user.photo_url ? (
+                                <Image
+                                    source={{ uri: user.photo_url }}
                                 style={{
                                     width: Dimensions.get("window").width * 0.8,
                                     height:

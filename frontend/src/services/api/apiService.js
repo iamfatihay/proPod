@@ -615,6 +615,8 @@ class ApiService {
             }
 
             const data = await response.json();
+            Logger.log("✅ Upload success! User data:", data);
+            Logger.log("🖼️ New photo URL:", data.photo_url);
             return data; // Returns updated user object with new photo_url
         } catch (error) {
             Logger.error("Profile photo upload failed:", error);
