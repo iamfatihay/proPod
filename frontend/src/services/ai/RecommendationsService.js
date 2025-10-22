@@ -43,8 +43,14 @@ class RecommendationsService {
                 await Promise.all([
                     this.getUserListeningHistory(),
                     this.getUserLikedPodcasts(),
-                    apiService.getPodcasts(limit * 2), // Get more for filtering
+                    apiService.getPodcasts({ limit: limit * 2 }), // Get more for filtering
                 ]);
+
+            // Validate that allPodcasts is an array
+            if (!Array.isArray(allPodcasts)) {
+                Logger.error("getPodcasts returned invalid data:", allPodcasts);
+                return [];
+            }
 
             // Extract categories and keywords from user's preferences
             const preferredCategories = this.extractPreferredCategories([

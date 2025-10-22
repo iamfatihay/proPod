@@ -230,6 +230,38 @@ export default function HomeScreen() {
                         </View>
                     ) : error ? (
                         <Text className="text-text-secondary">{error}</Text>
+                    ) : podcasts.length === 0 ? (
+                        // Empty State - First user experience
+                        <View className="py-12 items-center">
+                            <View className="w-32 h-32 rounded-full bg-primary/10 items-center justify-center mb-6">
+                                <MaterialCommunityIcons
+                                    name="podcast"
+                                    size={64}
+                                    color="#D32F2F"
+                                />
+                            </View>
+                            <Text className="text-headline text-text-primary font-semibold mb-2 text-center">
+                                Create Your First Podcast
+                            </Text>
+                            <Text className="text-body text-text-secondary text-center mb-6 px-8">
+                                Share your story! Record audio or upload an
+                                existing file to get started.
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => router.push("/(main)/create")}
+                                className="bg-primary px-8 py-4 rounded-full flex-row items-center"
+                                activeOpacity={0.8}
+                            >
+                                <MaterialCommunityIcons
+                                    name="plus-circle"
+                                    size={24}
+                                    color="white"
+                                />
+                                <Text className="text-white font-semibold text-base ml-2">
+                                    Create New Podcast
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     ) : (
                         <FlatList
                             data={podcasts}

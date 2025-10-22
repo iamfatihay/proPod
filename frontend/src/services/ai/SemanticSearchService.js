@@ -39,7 +39,7 @@ class SemanticSearchService {
             this.addToHistory(query);
 
             // Get all AI-enhanced podcasts
-            const podcasts = await apiService.getPodcasts(100); // Get more for better results
+            const podcasts = await apiService.getPodcasts({ limit: 100 }); // Get more for better results
 
             // Filter only AI-enhanced podcasts
             const aiEnhancedPodcasts = podcasts.filter((p) => p.ai_enhanced);
@@ -78,7 +78,7 @@ class SemanticSearchService {
 
             Logger.log(`📝 Searching transcriptions for: "${query}"`);
 
-            const podcasts = await apiService.getPodcasts(100);
+            const podcasts = await apiService.getPodcasts({ limit: 100 });
             const queryLower = query.toLowerCase();
             const queryWords = queryLower
                 .split(" ")
@@ -133,7 +133,7 @@ class SemanticSearchService {
 
             Logger.log(`💡 Getting suggestions for: "${query}"`);
 
-            const podcasts = await apiService.getPodcasts(50);
+            const podcasts = await apiService.getPodcasts({ limit: 50 });
             const suggestions = new Set();
 
             // Extract keywords from AI-analyzed podcasts

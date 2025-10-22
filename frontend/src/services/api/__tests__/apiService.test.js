@@ -190,7 +190,8 @@ describe("ApiService", () => {
                 expect.any(Object)
             );
 
-            expect(result).toEqual(mockResponse);
+            // getPodcasts now returns only the podcasts array
+            expect(result).toEqual(mockResponse.podcasts);
         });
 
         test("updatePodcast() should update podcast", async () => {

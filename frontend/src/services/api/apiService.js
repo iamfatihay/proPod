@@ -249,7 +249,11 @@ class ApiService {
         const queryString = queryParams.toString();
         const endpoint = queryString ? `/podcasts?${queryString}` : "/podcasts";
 
-        return this.request(endpoint);
+        const response = await this.request(endpoint);
+
+        // Backend returns { podcasts: [], total, limit, offset, has_more }
+        // Return only the podcasts array for compatibility
+        return response?.podcasts || [];
     }
 
     async updatePodcast(podcastId, updateData) {
