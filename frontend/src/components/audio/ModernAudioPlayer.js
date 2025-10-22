@@ -45,6 +45,23 @@ const ModernAudioPlayer = ({
     // Progress bar interaction
     const [isDragging, setIsDragging] = useState(false);
     const [tempPosition, setTempPosition] = useState(0);
+    const [audioData, setAudioData] = useState(null); // For real waveform visualization
+
+    // Generate simulated audio data for waveform visualization
+    const generateSimulatedAudioData = () => {
+        const dataLength = 1000; // Simulate 1000 audio samples
+        const audioData = [];
+
+        for (let i = 0; i < dataLength; i++) {
+            // Generate a sine wave with some variation
+            const frequency = 440 + Math.sin(i * 0.01) * 100; // Varying frequency
+            const amplitude =
+                Math.sin(i * frequency * 0.01) * (0.5 + Math.random() * 0.5);
+            audioData.push(amplitude);
+        }
+
+        return audioData;
+    };
 
     // Demo implementation - replace with expo-audio when available
     useEffect(() => {
@@ -56,6 +73,11 @@ const ModernAudioPlayer = ({
     const handlePlay = async () => {
         try {
             Logger.log("🎵 ModernAudioPlayer: Starting playback (demo mode)");
+
+            // Generate simulated audio data for waveform visualization
+            if (!isPlaying) {
+                setAudioData(generateSimulatedAudioData());
+            }
 
             // Animate play button
             Animated.sequence([
@@ -294,6 +316,8 @@ const ModernAudioPlayer = ({
             <View className="mb-4">
                 <WaveformVisualizer
                     isActive={isPlaying}
+                    audioData={audioData}
+                    useRealData={!!audioData}
                     barCount={25}
                     barColor="#D32F2F"
                     minHeight={4}

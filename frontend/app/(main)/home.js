@@ -16,6 +16,7 @@ import useAudioStore from "../../src/context/useAudioStore";
 import PodcastCard from "../../src/components/PodcastCard";
 import ChatCard from "../../src/components/ChatCard";
 import ActivityCard from "../../src/components/ActivityCard";
+import RecommendedPodcasts from "../../src/components/RecommendedPodcasts";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
 import Logger from "../../src/utils/logger";
@@ -203,6 +204,21 @@ export default function HomeScreen() {
                         )}
                     </TouchableOpacity>
                 </View>
+
+                {/* AI-Powered Recommendations */}
+                <RecommendedPodcasts
+                    title="🤖 For You"
+                    limit={5}
+                    onPodcastPress={(podcast) =>
+                        router.push({
+                            pathname: "/(main)/details",
+                            params: { id: podcast.id },
+                        })
+                    }
+                    onPlayPress={handlePlayPodcast}
+                    horizontal={true}
+                />
+
                 {/* Episodes */}
                 <Text className="text-lg font-semibold text-text-primary mb-2">
                     Recent Episodes

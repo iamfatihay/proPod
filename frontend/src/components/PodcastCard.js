@@ -31,8 +31,14 @@ const PodcastCard = React.memo(function PodcastCard({
     showPlayButton = true,
 }) {
     // Memoize formatted values to prevent recalculation on every render
-    const formattedDuration = useMemo(() => formatDuration(podcast.duration), [podcast.duration]);
-    const formattedDate = useMemo(() => formatDate(podcast.created_at), [podcast.created_at]);
+    const formattedDuration = useMemo(
+        () => formatDuration(podcast.duration),
+        [podcast.duration]
+    );
+    const formattedDate = useMemo(
+        () => formatDate(podcast.created_at),
+        [podcast.created_at]
+    );
 
     return (
         <Surface
@@ -75,9 +81,47 @@ const PodcastCard = React.memo(function PodcastCard({
                     <Text className="text-base font-medium text-text-primary">
                         {podcast.title}
                     </Text>
-                    <Text className="text-xs text-text-secondary">
-                        {formattedDuration} • {formattedDate}
-                    </Text>
+                    <View className="flex-row items-center justify-between">
+                        <Text className="text-xs text-text-secondary">
+                            {formattedDuration} • {formattedDate}
+                        </Text>
+                        {/* Relevance Score Indicator for Search Results */}
+                        {podcast.relevance !== undefined && (
+                            <View className="flex-row items-center">
+                                {podcast.matchCount !== undefined ? (
+                                    // Transcription search results
+                                    <>
+                                        <MaterialCommunityIcons
+                                            name="text-search"
+                                            size={12}
+                                            color="#3B82F6"
+                                        />
+                                        <Text className="text-xs text-info ml-1 font-medium">
+                                            {podcast.matchCount} match
+                                            {podcast.matchCount !== 1
+                                                ? "es"
+                                                : ""}
+                                        </Text>
+                                    </>
+                                ) : (
+                                    // General search results
+                                    <>
+                                        <MaterialCommunityIcons
+                                            name="target"
+                                            size={12}
+                                            color="#10B981"
+                                        />
+                                        <Text className="text-xs text-success ml-1 font-medium">
+                                            {Math.round(
+                                                podcast.relevance * 100
+                                            )}
+                                            %
+                                        </Text>
+                                    </>
+                                )}
+                            </View>
+                        )}
+                    </View>
                 </View>
 
                 {/* Modern Play Button */}
