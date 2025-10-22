@@ -294,11 +294,11 @@ export default function Profile() {
                         <Ionicons name="close" size={32} color="#FFFFFF" />
                     </TouchableOpacity>
 
-                        {/* Large avatar preview */}
-                        <View className="items-center">
-                            {user && user.photo_url ? (
-                                <Image
-                                    source={{ uri: user.photo_url }}
+                    {/* Large avatar preview */}
+                    <View className="items-center">
+                        {user && user.photo_url ? (
+                            <Image
+                                source={{ uri: user.photo_url }}
                                 style={{
                                     width: Dimensions.get("window").width * 0.8,
                                     height:

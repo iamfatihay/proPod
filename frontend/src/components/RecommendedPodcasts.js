@@ -6,10 +6,10 @@ import Logger from "../utils/logger";
 
 /**
  * AI-Powered Recommended Podcasts Component
- * 
+ *
  * Displays personalized podcast recommendations using AI analysis.
  * Automatically updates based on user's listening history and preferences.
- * 
+ *
  * Features:
  * - Smart caching for performance
  * - Loading states
@@ -35,10 +35,13 @@ const RecommendedPodcasts = ({
         try {
             setIsLoading(true);
             setError(null);
-            
-            const recs = await RecommendationsService.getPersonalizedRecommendations(limit);
+
+            const recs =
+                await RecommendationsService.getPersonalizedRecommendations(
+                    limit
+                );
             setRecommendations(recs);
-            
+
             Logger.log(`✅ Loaded ${recs.length} recommendations`);
         } catch (err) {
             Logger.error("Failed to load recommendations:", err);
@@ -97,4 +100,3 @@ const RecommendedPodcasts = ({
 };
 
 export default RecommendedPodcasts;
-

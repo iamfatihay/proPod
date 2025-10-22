@@ -3,13 +3,13 @@ import Logger from "../../utils/logger";
 
 /**
  * AI-Powered Recommendations Service
- * 
+ *
  * Provides intelligent podcast recommendations based on:
  * - User's listening history
  * - Podcast categories and keywords
  * - AI-analyzed content similarity
  * - User interactions (likes, bookmarks)
- * 
+ *
  * Uses backend AI services for content analysis and similarity matching.
  */
 class RecommendationsService {
@@ -26,7 +26,7 @@ class RecommendationsService {
     async getPersonalizedRecommendations(limit = 10) {
         try {
             const cacheKey = `recommendations_${limit}`;
-            
+
             // Check cache
             if (this.cache.has(cacheKey)) {
                 const cached = this.cache.get(cacheKey);
@@ -39,38 +39,41 @@ class RecommendationsService {
             Logger.log("🤖 Fetching AI-powered recommendations...");
 
             // Get user's listening history and preferences
-            const [listeningHistory, likedPodcasts, allPodcasts] = await Promise.all([
-                this.getUserListeningHistory(),
-                this.getUserLikedPodcasts(),
-                apiService.getPodcasts(limit * 2) // Get more for filtering
-            ]);
+            const [listeningHistory, likedPodcasts, allPodcasts] =
+                await Promise.all([
+                    this.getUserListeningHistory(),
+                    this.getUserLikedPodcasts(),
+                    apiService.getPodcasts(limit * 2), // Get more for filtering
+                ]);
 
             // Extract categories and keywords from user's preferences
-            const preferredCategories = this.extractPreferredCategories(
-                [...listeningHistory, ...likedPodcasts]
-            );
-            
-            const preferredKeywords = this.extractPreferredKeywords(
-                [...listeningHistory, ...likedPodcasts]
-            );
+            const preferredCategories = this.extractPreferredCategories([
+                ...listeningHistory,
+                ...likedPodcasts,
+            ]);
+
+            const preferredKeywords = this.extractPreferredKeywords([
+                ...listeningHistory,
+                ...likedPodcasts,
+            ]);
 
             // Filter and score podcasts
             const recommendations = allPodcasts
-                .filter(podcast => {
+                .filter((podcast) => {
                     // Exclude already listened/liked podcasts
                     const alreadyInteracted = [
                         ...listeningHistory,
-                        ...likedPodcasts
-                    ].some(p => p.id === podcast.id);
+                        ...likedPodcasts,
+                    ].some((p) => p.id === podcast.id);
                     return !alreadyInteracted && podcast.ai_enhanced;
                 })
-                .map(podcast => ({
+                .map((podcast) => ({
                     ...podcast,
                     score: this.calculateRelevanceScore(
                         podcast,
                         preferredCategories,
                         preferredKeywords
-                    )
+                    ),
                 }))
                 .sort((a, b) => b.score - a.score)
                 .slice(0, limit);
@@ -78,12 +81,13 @@ class RecommendationsService {
             // Cache results
             this.cache.set(cacheKey, {
                 data: recommendations,
-                timestamp: Date.now()
+                timestamp: Date.now(),
             });
 
-            Logger.log(`✅ Generated ${recommendations.length} recommendations`);
+            Logger.log(
+                `✅ Generated ${recommendations.length} recommendations`
+            );
             return recommendations;
-
         } catch (error) {
             Logger.error("Failed to get recommendations:", error);
             // Return empty array on error instead of throwing
@@ -103,7 +107,7 @@ class RecommendationsService {
 
             // Get the reference podcast
             const referencePodcast = await apiService.getPodcast(podcastId);
-            
+
             if (!referencePodcast) {
                 return [];
             }
@@ -113,20 +117,19 @@ class RecommendationsService {
 
             // Find similar podcasts based on AI-analyzed content
             const similarPodcasts = allPodcasts
-                .filter(p => p.id !== podcastId && p.ai_enhanced)
-                .map(podcast => ({
+                .filter((p) => p.id !== podcastId && p.ai_enhanced)
+                .map((podcast) => ({
                     ...podcast,
                     similarity: this.calculateSimilarity(
                         referencePodcast,
                         podcast
-                    )
+                    ),
                 }))
                 .sort((a, b) => b.similarity - a.similarity)
                 .slice(0, limit);
 
             Logger.log(`✅ Found ${similarPodcasts.length} similar podcasts`);
             return similarPodcasts;
-
         } catch (error) {
             Logger.error("Failed to get similar podcasts:", error);
             return [];
@@ -147,18 +150,23 @@ class RecommendationsService {
 
         // Keyword match (30% weight)
         if (podcast.ai_keywords) {
-            const podcastKeywords = podcast.ai_keywords.toLowerCase().split(',');
-            const matchedKeywords = podcastKeywords.filter(kw =>
-                preferredKeywords.some(pref => kw.includes(pref))
+            const podcastKeywords = podcast.ai_keywords
+                .toLowerCase()
+                .split(",");
+            const matchedKeywords = podcastKeywords.filter((kw) =>
+                preferredKeywords.some((pref) => kw.includes(pref))
             );
-            score += (matchedKeywords.length / Math.max(podcastKeywords.length, 1)) * 0.3;
+            score +=
+                (matchedKeywords.length / Math.max(podcastKeywords.length, 1)) *
+                0.3;
         }
 
         // AI sentiment match (15% weight)
         if (podcast.ai_sentiment) {
             try {
                 const sentiment = JSON.parse(podcast.ai_sentiment);
-                if (sentiment.compound > 0.5) { // Prefer positive content
+                if (sentiment.compound > 0.5) {
+                    // Prefer positive content
                     score += 0.15;
                 }
             } catch (e) {
@@ -167,10 +175,8 @@ class RecommendationsService {
         }
 
         // Popularity boost (15% weight)
-        const popularityScore = Math.min(
-            (podcast.play_count || 0) / 100,
-            1
-        ) * 0.15;
+        const popularityScore =
+            Math.min((podcast.play_count || 0) / 100, 1) * 0.15;
         score += popularityScore;
 
         return score;
@@ -190,12 +196,13 @@ class RecommendationsService {
 
         // Keyword overlap (30% weight)
         if (podcast1.ai_keywords && podcast2.ai_keywords) {
-            const keywords1 = podcast1.ai_keywords.toLowerCase().split(',');
-            const keywords2 = podcast2.ai_keywords.toLowerCase().split(',');
-            const overlap = keywords1.filter(kw1 =>
-                keywords2.some(kw2 => kw2.includes(kw1) || kw1.includes(kw2))
+            const keywords1 = podcast1.ai_keywords.toLowerCase().split(",");
+            const keywords2 = podcast2.ai_keywords.toLowerCase().split(",");
+            const overlap = keywords1.filter((kw1) =>
+                keywords2.some((kw2) => kw2.includes(kw1) || kw1.includes(kw2))
             ).length;
-            similarity += (overlap / Math.max(keywords1.length, keywords2.length)) * 0.3;
+            similarity +=
+                (overlap / Math.max(keywords1.length, keywords2.length)) * 0.3;
         }
 
         // Sentiment similarity (20% weight)
@@ -203,7 +210,9 @@ class RecommendationsService {
             try {
                 const sentiment1 = JSON.parse(podcast1.ai_sentiment);
                 const sentiment2 = JSON.parse(podcast2.ai_sentiment);
-                const sentimentDiff = Math.abs(sentiment1.compound - sentiment2.compound);
+                const sentimentDiff = Math.abs(
+                    sentiment1.compound - sentiment2.compound
+                );
                 similarity += (1 - sentimentDiff) * 0.2;
             } catch (e) {
                 // Ignore parse errors
@@ -219,10 +228,10 @@ class RecommendationsService {
      */
     extractPreferredCategories(podcasts) {
         const categoryCounts = {};
-        podcasts.forEach(p => {
+        podcasts.forEach((p) => {
             categoryCounts[p.category] = (categoryCounts[p.category] || 0) + 1;
         });
-        
+
         // Return top 3 categories
         return Object.entries(categoryCounts)
             .sort((a, b) => b[1] - a[1])
@@ -236,17 +245,17 @@ class RecommendationsService {
      */
     extractPreferredKeywords(podcasts) {
         const keywordCounts = {};
-        
-        podcasts.forEach(p => {
+
+        podcasts.forEach((p) => {
             if (p.ai_keywords) {
-                const keywords = p.ai_keywords.toLowerCase().split(',');
-                keywords.forEach(kw => {
+                const keywords = p.ai_keywords.toLowerCase().split(",");
+                keywords.forEach((kw) => {
                     const trimmed = kw.trim();
                     keywordCounts[trimmed] = (keywordCounts[trimmed] || 0) + 1;
                 });
             }
         });
-        
+
         // Return top 5 keywords
         return Object.entries(keywordCounts)
             .sort((a, b) => b[1] - a[1])
@@ -295,4 +304,3 @@ class RecommendationsService {
 
 // Export singleton instance
 export default new RecommendationsService();
-

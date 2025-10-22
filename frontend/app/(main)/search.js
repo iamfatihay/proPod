@@ -19,7 +19,7 @@ import Logger from "../../src/utils/logger";
 const Search = () => {
     const router = useRouter();
     const { play, setQueue, currentTrack, isPlaying, pause } = useAudioStore();
-    
+
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [suggestions, setSuggestions] = useState([]);
@@ -49,7 +49,9 @@ const Search = () => {
 
     const loadSuggestions = async () => {
         try {
-            const suggs = await SemanticSearchService.getSearchSuggestions(searchQuery);
+            const suggs = await SemanticSearchService.getSearchSuggestions(
+                searchQuery
+            );
             setSuggestions(suggs);
         } catch (error) {
             Logger.error("Failed to load suggestions:", error);
@@ -69,7 +71,9 @@ const Search = () => {
 
             let results;
             if (searchMode === "transcriptions") {
-                results = await SemanticSearchService.searchTranscriptions(query);
+                results = await SemanticSearchService.searchTranscriptions(
+                    query
+                );
             } else {
                 results = await SemanticSearchService.searchPodcasts(query);
             }
@@ -175,7 +179,11 @@ const Search = () => {
                                 setShowHistory(true);
                             }}
                         >
-                            <Ionicons name="close-circle" size={20} color="#888" />
+                            <Ionicons
+                                name="close-circle"
+                                size={20}
+                                color="#888"
+                            />
                         </TouchableOpacity>
                     )}
                 </View>
@@ -201,7 +209,9 @@ const Search = () => {
                     <TouchableOpacity
                         onPress={() => setSearchMode("transcriptions")}
                         className={`flex-1 py-2 rounded-lg ml-2 ${
-                            searchMode === "transcriptions" ? "bg-primary" : "bg-panel"
+                            searchMode === "transcriptions"
+                                ? "bg-primary"
+                                : "bg-panel"
                         }`}
                     >
                         <Text
@@ -250,8 +260,8 @@ const Search = () => {
                         Semantic Search
                     </Text>
                     <Text className="text-text-secondary text-center mt-2">
-                        Powered by AI. Search by topic, mood, keywords, or even specific phrases
-                        from transcriptions.
+                        Powered by AI. Search by topic, mood, keywords, or even
+                        specific phrases from transcriptions.
                     </Text>
                 </View>
             )}

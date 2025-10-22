@@ -243,7 +243,7 @@ export default function ResetPasswordScreen() {
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
-            
+
             {/* Info Modal for loading warning */}
             <InfoModal
                 visible={infoModalVisible}

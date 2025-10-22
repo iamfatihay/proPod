@@ -35,7 +35,11 @@ const Settings = () => {
     const [supportModalVisible, setSupportModalVisible] = useState(false);
     const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
     const [infoModalVisible, setInfoModalVisible] = useState(false);
-    const [infoConfig, setInfoConfig] = useState({ title: "", message: "", type: "info" });
+    const [infoConfig, setInfoConfig] = useState({
+        title: "",
+        message: "",
+        type: "info",
+    });
     const [oldPassword, setOldPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [pwLoading, setPwLoading] = useState(false);
@@ -110,7 +114,7 @@ const Settings = () => {
         setInfoConfig({
             title: "Notifications",
             message: "Notifications feature will be available soon.",
-            type: "info"
+            type: "info",
         });
         setInfoModalVisible(true);
     };

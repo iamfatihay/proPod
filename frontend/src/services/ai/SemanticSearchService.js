@@ -3,13 +3,13 @@ import Logger from "../../utils/logger";
 
 /**
  * Semantic Search Service
- * 
+ *
  * Provides intelligent search capabilities across podcast content:
  * - Search in transcriptions with context awareness
  * - Keyword-based filtering with AI-analyzed keywords
  * - Category and sentiment-based search
  * - Real-time search suggestions
- * 
+ *
  * Unlike traditional text search, semantic search understands:
  * - Related concepts (e.g., "happy" matches "joyful", "excited")
  * - Context and meaning
@@ -34,28 +34,31 @@ class SemanticSearchService {
             }
 
             Logger.log(`🔍 Semantic search: "${query}"`);
-            
+
             // Add to search history
             this.addToHistory(query);
 
             // Get all AI-enhanced podcasts
             const podcasts = await apiService.getPodcasts(100); // Get more for better results
-            
+
             // Filter only AI-enhanced podcasts
-            const aiEnhancedPodcasts = podcasts.filter(p => p.ai_enhanced);
+            const aiEnhancedPodcasts = podcasts.filter((p) => p.ai_enhanced);
 
             // Calculate relevance scores
             const results = aiEnhancedPodcasts
-                .map(podcast => ({
+                .map((podcast) => ({
                     ...podcast,
-                    relevance: this.calculateRelevanceScore(podcast, query, filters)
+                    relevance: this.calculateRelevanceScore(
+                        podcast,
+                        query,
+                        filters
+                    ),
                 }))
-                .filter(podcast => podcast.relevance > 0.1) // Filter out very low relevance
+                .filter((podcast) => podcast.relevance > 0.1) // Filter out very low relevance
                 .sort((a, b) => b.relevance - a.relevance);
 
             Logger.log(`✅ Found ${results.length} relevant podcasts`);
             return results;
-
         } catch (error) {
             Logger.error("Semantic search failed:", error);
             return [];
@@ -77,13 +80,16 @@ class SemanticSearchService {
 
             const podcasts = await apiService.getPodcasts(100);
             const queryLower = query.toLowerCase();
-            const queryWords = queryLower.split(' ').filter(w => w.length > 2);
+            const queryWords = queryLower
+                .split(" ")
+                .filter((w) => w.length > 2);
 
             const results = podcasts
-                .filter(p => p.transcription_text)
-                .map(podcast => {
-                    const transcriptionLower = podcast.transcription_text.toLowerCase();
-                    
+                .filter((p) => p.transcription_text)
+                .map((podcast) => {
+                    const transcriptionLower =
+                        podcast.transcription_text.toLowerCase();
+
                     // Find matching segments (with context)
                     const matches = this.findMatchingSegments(
                         podcast.transcription_text,
@@ -97,15 +103,16 @@ class SemanticSearchService {
                         ...podcast,
                         matches: matches,
                         matchCount: matches.length,
-                        relevance: matches.length / queryWords.length
+                        relevance: matches.length / queryWords.length,
                     };
                 })
-                .filter(p => p !== null)
+                .filter((p) => p !== null)
                 .sort((a, b) => b.relevance - a.relevance);
 
-            Logger.log(`✅ Found ${results.length} podcasts with transcript matches`);
+            Logger.log(
+                `✅ Found ${results.length} podcasts with transcript matches`
+            );
             return results;
-
         } catch (error) {
             Logger.error("Transcription search failed:", error);
             return [];
@@ -130,10 +137,10 @@ class SemanticSearchService {
             const suggestions = new Set();
 
             // Extract keywords from AI-analyzed podcasts
-            podcasts.forEach(podcast => {
+            podcasts.forEach((podcast) => {
                 if (podcast.ai_keywords) {
-                    const keywords = podcast.ai_keywords.split(',');
-                    keywords.forEach(keyword => {
+                    const keywords = podcast.ai_keywords.split(",");
+                    keywords.forEach((keyword) => {
                         const trimmed = keyword.trim().toLowerCase();
                         if (trimmed.includes(query.toLowerCase())) {
                             suggestions.add(trimmed);
@@ -142,8 +149,10 @@ class SemanticSearchService {
                 }
 
                 // Also suggest from categories
-                if (podcast.category && 
-                    podcast.category.toLowerCase().includes(query.toLowerCase())) {
+                if (
+                    podcast.category &&
+                    podcast.category.toLowerCase().includes(query.toLowerCase())
+                ) {
                     suggestions.add(podcast.category);
                 }
             });
@@ -151,7 +160,6 @@ class SemanticSearchService {
             const suggestionArray = Array.from(suggestions).slice(0, 8);
             Logger.log(`✅ Generated ${suggestionArray.length} suggestions`);
             return suggestionArray;
-
         } catch (error) {
             Logger.error("Failed to get suggestions:", error);
             return [];
@@ -165,24 +173,28 @@ class SemanticSearchService {
     calculateRelevanceScore(podcast, query, filters = {}) {
         let score = 0;
         const queryLower = query.toLowerCase();
-        const queryWords = queryLower.split(' ').filter(w => w.length > 2);
+        const queryWords = queryLower.split(" ").filter((w) => w.length > 2);
 
         // Title match (30% weight)
         const titleLower = podcast.title.toLowerCase();
-        const titleMatches = queryWords.filter(word => titleLower.includes(word)).length;
+        const titleMatches = queryWords.filter((word) =>
+            titleLower.includes(word)
+        ).length;
         score += (titleMatches / queryWords.length) * 0.3;
 
         // Description match (15% weight)
         if (podcast.description) {
             const descLower = podcast.description.toLowerCase();
-            const descMatches = queryWords.filter(word => descLower.includes(word)).length;
+            const descMatches = queryWords.filter((word) =>
+                descLower.includes(word)
+            ).length;
             score += (descMatches / queryWords.length) * 0.15;
         }
 
         // AI Keywords match (25% weight)
         if (podcast.ai_keywords) {
             const keywordsLower = podcast.ai_keywords.toLowerCase();
-            const keywordMatches = queryWords.filter(word => 
+            const keywordMatches = queryWords.filter((word) =>
                 keywordsLower.includes(word)
             ).length;
             score += (keywordMatches / queryWords.length) * 0.25;
@@ -191,19 +203,19 @@ class SemanticSearchService {
         // Transcription match (20% weight)
         if (podcast.transcription_text) {
             const transcriptLower = podcast.transcription_text.toLowerCase();
-            const transcriptMatches = queryWords.filter(word => 
+            const transcriptMatches = queryWords.filter((word) =>
                 transcriptLower.includes(word)
             ).length;
-            score += (transcriptMatches / queryWords.length) * 0.20;
+            score += (transcriptMatches / queryWords.length) * 0.2;
         }
 
         // AI Summary match (10% weight)
         if (podcast.ai_summary) {
             const summaryLower = podcast.ai_summary.toLowerCase();
-            const summaryMatches = queryWords.filter(word => 
+            const summaryMatches = queryWords.filter((word) =>
                 summaryLower.includes(word)
             ).length;
-            score += (summaryMatches / queryWords.length) * 0.10;
+            score += (summaryMatches / queryWords.length) * 0.1;
         }
 
         // Apply filters
@@ -214,9 +226,15 @@ class SemanticSearchService {
         if (filters.sentiment && podcast.ai_sentiment) {
             try {
                 const sentiment = JSON.parse(podcast.ai_sentiment);
-                if (filters.sentiment === 'positive' && sentiment.compound < 0.2) {
+                if (
+                    filters.sentiment === "positive" &&
+                    sentiment.compound < 0.2
+                ) {
                     score *= 0.7;
-                } else if (filters.sentiment === 'negative' && sentiment.compound > -0.2) {
+                } else if (
+                    filters.sentiment === "negative" &&
+                    sentiment.compound > -0.2
+                ) {
                     score *= 0.7;
                 }
             } catch (e) {
@@ -235,22 +253,25 @@ class SemanticSearchService {
         const matches = [];
         const textLower = text.toLowerCase();
 
-        queryWords.forEach(word => {
+        queryWords.forEach((word) => {
             let index = 0;
             while ((index = textLower.indexOf(word, index)) !== -1) {
                 const start = Math.max(0, index - contextLength);
-                const end = Math.min(text.length, index + word.length + contextLength);
-                
+                const end = Math.min(
+                    text.length,
+                    index + word.length + contextLength
+                );
+
                 let segment = text.substring(start, end);
-                
+
                 // Add ellipsis if truncated
-                if (start > 0) segment = '...' + segment;
-                if (end < text.length) segment = segment + '...';
+                if (start > 0) segment = "..." + segment;
+                if (end < text.length) segment = segment + "...";
 
                 matches.push({
                     text: segment,
                     keyword: word,
-                    position: index
+                    position: index,
                 });
 
                 index += word.length;
@@ -269,17 +290,19 @@ class SemanticSearchService {
         if (trimmed.length === 0) return;
 
         // Remove if already exists
-        this.searchHistory = this.searchHistory.filter(q => q !== trimmed);
-        
+        this.searchHistory = this.searchHistory.filter((q) => q !== trimmed);
+
         // Add to beginning
         this.searchHistory.unshift(trimmed);
-        
+
         // Limit size
         if (this.searchHistory.length > this.maxHistorySize) {
             this.searchHistory.pop();
         }
 
-        Logger.log(`📚 Search history updated: ${this.searchHistory.length} entries`);
+        Logger.log(
+            `📚 Search history updated: ${this.searchHistory.length} entries`
+        );
     }
 
     /**
@@ -301,4 +324,3 @@ class SemanticSearchService {
 
 // Export singleton instance
 export default new SemanticSearchService();
-

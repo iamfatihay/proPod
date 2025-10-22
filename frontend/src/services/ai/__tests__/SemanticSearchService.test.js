@@ -19,8 +19,18 @@ describe("SemanticSearchService", () => {
 
         it("should filter out non-AI-enhanced podcasts", async () => {
             const mockPodcasts = [
-                { id: 1, title: "AI Test", ai_enhanced: true, transcription_text: "test" },
-                { id: 2, title: "Regular Test", ai_enhanced: false, transcription_text: "test" },
+                {
+                    id: 1,
+                    title: "AI Test",
+                    ai_enhanced: true,
+                    transcription_text: "test",
+                },
+                {
+                    id: 2,
+                    title: "Regular Test",
+                    ai_enhanced: false,
+                    transcription_text: "test",
+                },
             ];
 
             apiService.getPodcasts.mockResolvedValue(mockPodcasts);
@@ -33,25 +43,27 @@ describe("SemanticSearchService", () => {
 
         it("should calculate relevance scores based on title match", async () => {
             const mockPodcasts = [
-                { 
-                    id: 1, 
-                    title: "JavaScript Tutorial", 
+                {
+                    id: 1,
+                    title: "JavaScript Tutorial",
                     description: "Learn JS",
                     ai_enhanced: true,
-                    transcription_text: "basics"
+                    transcription_text: "basics",
                 },
-                { 
-                    id: 2, 
-                    title: "Python Basics", 
+                {
+                    id: 2,
+                    title: "Python Basics",
                     description: "Python intro",
                     ai_enhanced: true,
-                    transcription_text: "javascript intro"
+                    transcription_text: "javascript intro",
                 },
             ];
 
             apiService.getPodcasts.mockResolvedValue(mockPodcasts);
 
-            const results = await SemanticSearchService.searchPodcasts("javascript");
+            const results = await SemanticSearchService.searchPodcasts(
+                "javascript"
+            );
 
             // Podcast with "javascript" in title should rank higher
             expect(results[0].id).toBe(1);
@@ -72,23 +84,25 @@ describe("SemanticSearchService", () => {
     describe("searchTranscriptions", () => {
         it("should find podcasts with matching transcription text", async () => {
             const mockPodcasts = [
-                { 
-                    id: 1, 
+                {
+                    id: 1,
                     title: "Podcast 1",
                     transcription_text: "This is about machine learning and AI",
-                    ai_enhanced: true
+                    ai_enhanced: true,
                 },
-                { 
-                    id: 2, 
+                {
+                    id: 2,
                     title: "Podcast 2",
                     transcription_text: "This is about web development",
-                    ai_enhanced: true
+                    ai_enhanced: true,
                 },
             ];
 
             apiService.getPodcasts.mockResolvedValue(mockPodcasts);
 
-            const results = await SemanticSearchService.searchTranscriptions("machine learning");
+            const results = await SemanticSearchService.searchTranscriptions(
+                "machine learning"
+            );
 
             expect(results.length).toBeGreaterThan(0);
             expect(results[0].matches).toBeDefined();
@@ -97,59 +111,67 @@ describe("SemanticSearchService", () => {
 
         it("should return matching segments with context", async () => {
             const mockPodcasts = [
-                { 
-                    id: 1, 
+                {
+                    id: 1,
                     title: "Test",
-                    transcription_text: "In this episode we discuss artificial intelligence and machine learning concepts",
-                    ai_enhanced: true
+                    transcription_text:
+                        "In this episode we discuss artificial intelligence and machine learning concepts",
+                    ai_enhanced: true,
                 },
             ];
 
             apiService.getPodcasts.mockResolvedValue(mockPodcasts);
 
-            const results = await SemanticSearchService.searchTranscriptions("artificial intelligence");
+            const results = await SemanticSearchService.searchTranscriptions(
+                "artificial intelligence"
+            );
 
-            expect(results[0].matches[0].text).toContain("artificial intelligence");
+            expect(results[0].matches[0].text).toContain(
+                "artificial intelligence"
+            );
         });
     });
 
     describe("getSearchSuggestions", () => {
         it("should return empty array for very short queries", async () => {
-            const suggestions = await SemanticSearchService.getSearchSuggestions("a");
+            const suggestions =
+                await SemanticSearchService.getSearchSuggestions("a");
 
             expect(Array.isArray(suggestions)).toBe(true);
         });
 
         it("should extract keywords from AI-analyzed podcasts", async () => {
             const mockPodcasts = [
-                { 
-                    id: 1, 
+                {
+                    id: 1,
                     ai_keywords: "javascript,react,typescript,programming",
                     category: "Tech",
-                    ai_enhanced: true
+                    ai_enhanced: true,
                 },
             ];
 
             apiService.getPodcasts.mockResolvedValue(mockPodcasts);
 
-            const suggestions = await SemanticSearchService.getSearchSuggestions("java");
+            const suggestions =
+                await SemanticSearchService.getSearchSuggestions("java");
 
             expect(suggestions).toContain("javascript");
         });
 
         it("should suggest categories that match query", async () => {
             const mockPodcasts = [
-                { 
-                    id: 1, 
+                {
+                    id: 1,
                     ai_keywords: "test",
                     category: "Technology",
-                    ai_enhanced: true
+                    ai_enhanced: true,
                 },
             ];
 
             apiService.getPodcasts.mockResolvedValue(mockPodcasts);
 
-            const suggestions = await SemanticSearchService.getSearchSuggestions("tech");
+            const suggestions =
+                await SemanticSearchService.getSearchSuggestions("tech");
 
             expect(suggestions).toContain("Technology");
         });
@@ -198,7 +220,7 @@ describe("SemanticSearchService", () => {
                 description: "Learn JS",
                 ai_keywords: "programming",
                 transcription_text: "basics",
-                ai_summary: "intro"
+                ai_summary: "intro",
             };
 
             const score = SemanticSearchService.calculateRelevanceScore(
@@ -216,7 +238,7 @@ describe("SemanticSearchService", () => {
                 description: "Deep learning tutorial",
                 ai_keywords: "neural networks,machine learning",
                 transcription_text: "machine learning algorithms",
-                ai_summary: "Introduction to machine learning"
+                ai_summary: "Introduction to machine learning",
             };
 
             const score = SemanticSearchService.calculateRelevanceScore(
@@ -229,4 +251,3 @@ describe("SemanticSearchService", () => {
         });
     });
 });
-

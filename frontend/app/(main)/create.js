@@ -47,7 +47,7 @@ const Create = () => {
     const [currentStep, setCurrentStep] = useState(
         mode === "quick-record" ? "recording" : "setup"
     );
-    
+
     // Modal state
     const [permissionModalVisible, setPermissionModalVisible] = useState(false);
     const [discardConfirmVisible, setDiscardConfirmVisible] = useState(false);
@@ -436,7 +436,7 @@ const Create = () => {
             {currentStep === "setup" && renderSetupStep()}
             {currentStep === "recording" && renderRecordingStep()}
             {currentStep === "review" && renderReviewStep()}
-            
+
             {/* Permission Modal */}
             <PermissionModal
                 visible={permissionModalVisible}
@@ -452,7 +452,7 @@ const Create = () => {
                 message="Please grant microphone permissions to record podcasts."
                 icon="mic"
             />
-            
+
             {/* Discard Confirmation Modal */}
             <ConfirmationModal
                 visible={discardConfirmVisible}

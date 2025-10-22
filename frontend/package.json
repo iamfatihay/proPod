@@ -24,19 +24,21 @@
     "lint:fix": "eslint src/ --ext .js,.jsx --fix"
   },
   "dependencies": {
-    "@expo/metro-runtime": "^5.0.4",
+    "@expo/metro-runtime": "~5.0.5",
     "@expo/vector-icons": "^14.1.0",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-navigation/native": "^7.1.6",
-    "expo": "53.0.22",
+    "expo": "~53.0.23",
     "expo-auth-session": "^6.2.0",
     "expo-av": "~15.1.5",
     "expo-constants": "^17.1.7",
     "expo-dev-client": "^5.2.4",
     "expo-file-system": "~18.1.10",
+    "expo-font": "~13.3.2",
+    "expo-image-picker": "~16.1.4",
     "expo-linking": "^7.1.5",
     "expo-media-library": "^17.1.7",
-    "expo-router": "~5.1.5",
+    "expo-router": "~5.1.7",
     "expo-secure-store": "~14.2.4",
     "expo-system-ui": "~5.0.11",
     "metro": "^0.82.0",
@@ -50,9 +52,7 @@
     "react-native-paper": "^5.14.5",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
-    "zustand": "^5.0.2",
-    "expo-font": "~13.3.2",
-    "expo-image-picker": "~16.1.4"
+    "zustand": "^5.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
