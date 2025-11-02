@@ -3,8 +3,11 @@ import { getToken, saveToken, deleteToken } from "../auth/tokenStorage";
 import { Platform } from "react-native";
 import Logger from "../../utils/logger";
 
-// This line is used to get the API base URL from app.config.js (extra.apiBaseUrl).
-const API_BASE_URL = Constants.expoConfig.extra.apiBaseUrl;
+// IMPORTANT: API URL is read from .env → app.config.js → here
+// The fallback IP is only used if .env is missing (shouldn't happen)
+const API_BASE_URL =
+    Constants.expoConfig?.extra?.apiBaseUrl || "http://192.168.178.27:8000";
+Logger.log("🌐 API Base URL:", API_BASE_URL);
 
 // Network timeout configuration
 const NETWORK_TIMEOUT = Platform.OS === "ios" ? 30000 : 25000; // iOS can handle longer timeouts

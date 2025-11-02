@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 export default ({ config }) => ({
     ...config,
     name: "Volo",
@@ -52,9 +54,9 @@ export default ({ config }) => ({
         favicon: "./assets/Volo-logo.png",
     },
     extra: {
-        // Read from .env file - change IP there when network changes
+        // IMPORTANT: Set API_BASE_URL in .env file
+        // This fallback is only used if .env is missing (shouldn't happen in production)
         apiBaseUrl: process.env.API_BASE_URL || "http://192.168.178.27:8000",
-        // apiBaseUrl: "http://10.79.165.39:8000",
         eas: {
             projectId: "6760a9ac-697b-4e25-9f44-0d0ecc8edbbb",
         },
@@ -75,6 +77,9 @@ export default ({ config }) => ({
             {
                 microphonePermission:
                     "Allow Volo to access your microphone to record podcasts.",
+                android: {
+                    audioDecodingMode: "no-offload",
+                },
             },
         ],
     ],
