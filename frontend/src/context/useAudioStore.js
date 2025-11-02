@@ -113,11 +113,31 @@ const useAudioStore = create(
 
                 const currentTrack = track || state.currentTrack;
                 if (!currentTrack?.uri) {
+                    Logger.error("No track to play");
                     throw new Error("No track to play");
                 }
 
-                // Skip audio session setup for now (avoid interruptionModeIOS error)
-                // await Audio.setAudioModeAsync({...});
+                // Validate audio URL
+                if (!currentTrack.uri.startsWith("http")) {
+                    Logger.error("Invalid audio URL format:", currentTrack.uri);
+                    throw new Error("Invalid audio URL format");
+                }
+
+                Logger.log("🎵 Starting playback:", {
+                    title: currentTrack.title,
+                    uri: currentTrack.uri.substring(0, 50) + "...",
+                });
+
+                // Configure audio mode for playback
+                await Audio.setAudioModeAsync({
+                    playsInSilentModeIOS: true,
+                    staysActiveInBackground: true,
+                    shouldDuckAndroid: true,
+                    interruptionModeIOS: Audio.InterruptionModeIOS.DoNotMix,
+                    interruptionModeAndroid:
+                        Audio.InterruptionModeAndroid.DoNotMix,
+                    playThroughEarpieceAndroid: false,
+                });
 
                 let sound = state.sound;
 
@@ -150,10 +170,23 @@ const useAudioStore = create(
             } catch (error) {
                 Logger.error("Playback failed:", error);
                 set({
-                    error: error.message,
+                    error:
+                        error.message ||
+                        "Failed to play audio. Please check your connection.",
                     isLoading: false,
                     isPlaying: false,
+                    showMiniPlayer: false,
                 });
+
+                // Notify user about the error
+                if (
+                    error.message?.includes("ExoPlayer") ||
+                    error.message?.includes("404")
+                ) {
+                    throw new Error(
+                        "Audio file not found. Please try a different podcast."
+                    );
+                }
             }
         },
 

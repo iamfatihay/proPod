@@ -482,21 +482,28 @@ const Details = () => {
                         )}
                     </View>
 
-                    {/* Action Buttons */}
-                    <View className="flex-row items-center mb-6">
+                    {/* Action Buttons - Improved spacing and layout */}
+                    <View className="flex-row items-center mb-6 gap-3">
                         <TouchableOpacity
                             onPress={handleLike}
-                            className={`flex-row items-center px-4 py-2 rounded-lg mr-3 ${
+                            className={`flex-row items-center px-5 py-3 rounded-xl ${
                                 isLiked ? "bg-primary" : "bg-panel"
                             }`}
+                            activeOpacity={0.7}
+                            hitSlop={{
+                                top: 10,
+                                bottom: 10,
+                                left: 10,
+                                right: 10,
+                            }}
                         >
                             <MaterialCommunityIcons
                                 name={isLiked ? "heart" : "heart-outline"}
-                                size={20}
+                                size={22}
                                 color={isLiked ? "white" : "#888888"}
                             />
                             <Text
-                                className={`ml-2 ${
+                                className={`ml-2 font-medium ${
                                     isLiked
                                         ? "text-white"
                                         : "text-text-secondary"
@@ -508,9 +515,16 @@ const Details = () => {
 
                         <TouchableOpacity
                             onPress={handleBookmark}
-                            className={`flex-row items-center px-4 py-2 rounded-lg mr-3 ${
+                            className={`flex-row items-center px-5 py-3 rounded-xl ${
                                 isBookmarked ? "bg-warning" : "bg-panel"
                             }`}
+                            activeOpacity={0.7}
+                            hitSlop={{
+                                top: 10,
+                                bottom: 10,
+                                left: 10,
+                                right: 10,
+                            }}
                         >
                             <MaterialCommunityIcons
                                 name={
@@ -518,11 +532,11 @@ const Details = () => {
                                         ? "bookmark"
                                         : "bookmark-outline"
                                 }
-                                size={20}
+                                size={22}
                                 color={isBookmarked ? "white" : "#888888"}
                             />
                             <Text
-                                className={`ml-2 ${
+                                className={`ml-2 font-medium ${
                                     isBookmarked
                                         ? "text-white"
                                         : "text-text-secondary"
@@ -534,14 +548,21 @@ const Details = () => {
 
                         <TouchableOpacity
                             onPress={handleAddToQueue}
-                            className="flex-row items-center px-4 py-2 rounded-lg bg-panel mr-3"
+                            className="flex-row items-center px-5 py-3 rounded-xl bg-panel"
+                            activeOpacity={0.7}
+                            hitSlop={{
+                                top: 10,
+                                bottom: 10,
+                                left: 10,
+                                right: 10,
+                            }}
                         >
                             <MaterialCommunityIcons
                                 name="playlist-plus"
-                                size={20}
+                                size={22}
                                 color="#888888"
                             />
-                            <Text className="text-text-secondary ml-2">
+                            <Text className="text-text-secondary ml-2 font-medium">
                                 Queue
                             </Text>
                         </TouchableOpacity>

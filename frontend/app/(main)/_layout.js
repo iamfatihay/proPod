@@ -9,7 +9,7 @@ import {
     Modal,
     Text,
 } from "react-native";
-import { MiniPlayer } from "../../src/components/audio";
+import BottomMiniPlayer from "../../src/components/audio/BottomMiniPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -137,12 +137,13 @@ export default function TabLayout() {
         currentTrack,
         isPlaying,
         showMiniPlayer,
-        miniPlayerPosition,
+        position,
+        duration,
         play,
         pause,
         stop,
+        next,
         toggleMiniPlayer,
-        setMiniPlayerPosition,
     } = useAudioStore();
 
     // Responsive tab bar height
@@ -306,19 +307,18 @@ export default function TabLayout() {
                 </View>
             )} */}
 
-            {/* Global Mini Player */}
-            <MiniPlayer
+            {/* Global Bottom Mini Player */}
+            <BottomMiniPlayer
                 isVisible={showMiniPlayer}
                 track={currentTrack}
                 isPlaying={isPlaying}
-                position={miniPlayerPosition}
+                position={position}
+                duration={duration}
                 onPlayPause={handleMiniPlayerPlayPause}
+                onNext={next}
                 onClose={handleMiniPlayerClose}
                 onExpand={handleMiniPlayerExpand}
-                onPositionChange={setMiniPlayerPosition}
             />
-            {/* Spacer to prevent tab icons from being pushed by MiniPlayer */}
-            {showMiniPlayer ? <View style={{ height: 16 }} /> : null}
         </View>
     );
 }
