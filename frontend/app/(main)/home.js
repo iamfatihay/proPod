@@ -7,6 +7,7 @@ import {
     ActivityIndicator,
     TouchableOpacity,
     Platform,
+    ScrollView,
 } from "react-native";
 import React, { useEffect, useState, useCallback } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -17,23 +18,36 @@ import PodcastCard from "../../src/components/PodcastCard";
 import ChatCard from "../../src/components/ChatCard";
 import ActivityCard from "../../src/components/ActivityCard";
 import RecommendedPodcasts from "../../src/components/RecommendedPodcasts";
+import { PodcastCardSkeleton } from "../../src/components/SkeletonLoader";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
 import Logger from "../../src/utils/logger";
 
 // Removed mock episodes; will fetch from API
 
+// Category filters for home page
+const CATEGORIES = [
+    { id: "all", label: "All", icon: "apps" },
+    { id: "Technology", label: "Technology", icon: "laptop-outline" },
+    { id: "Business", label: "Business", icon: "briefcase-outline" },
+    { id: "Health & Wellness", label: "Health", icon: "fitness-outline" },
+    { id: "Science", label: "Science", icon: "flask-outline" },
+    { id: "Education", label: "Education", icon: "school-outline" },
+    { id: "Entertainment", label: "Entertainment", icon: "film-outline" },
+    { id: "Food & Drink", label: "Food", icon: "restaurant-outline" },
+];
+
 const chats = [
     {
         id: "1",
         name: "Daniel",
-        message: "Hallo!",
+        message: "Hello!",
         time: "2h ago",
     },
     {
         id: "2",
         name: "Anna",
-        message: "Das war eine interessante Folge.",
+        message: "That was an interesting episode.",
         time: "3h ago",
     },
 ];
@@ -42,19 +56,19 @@ const activities = [
     {
         id: "1",
         type: "comment",
-        text: "User XY hat deine Episode kommentiert",
+        text: "User XY commented on your episode",
         time: "4h ago",
     },
     {
         id: "2",
         type: "livestream",
-        text: "Livestream gestartet von @PodcastStar",
+        text: "Livestream started by @PodcastStar",
         time: "3h ago",
     },
     {
         id: "3",
         type: "message",
-        text: "Neue Nachricht von Anna",
+        text: "New message from Anna",
         time: "2h ago",
     },
 ];
@@ -78,12 +92,17 @@ export default function HomeScreen() {
     const [podcasts, setPodcasts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [selectedCategory, setSelectedCategory] = useState("all");
     const [refreshing, setRefreshing] = useState(false);
 
     const load = useCallback(async () => {
         try {
-            const res = await apiService.getPodcasts({ limit: 20 });
-            const normalized = (res.podcasts || []).map((p) => {
+            const params = { limit: 20 };
+            if (selectedCategory && selectedCategory !== "all") {
+                params.category = selectedCategory;
+            }
+            const res = await apiService.getPodcasts(params);
+            const normalized = (res || []).map((p) => {
                 // Convert duration from seconds to milliseconds for display
                 const durationMs =
                     (typeof p.duration === "number" && p.duration * 1000) || 0;
@@ -97,7 +116,7 @@ export default function HomeScreen() {
         } catch (e) {
             setError(e?.detail || e?.message || "Failed to load podcasts");
         }
-    }, []);
+    }, [selectedCategory]);
 
     useEffect(() => {
         (async () => {
@@ -205,6 +224,46 @@ export default function HomeScreen() {
                     </TouchableOpacity>
                 </View>
 
+                {/* Category Filters - Horizontal scroll */}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    className="mb-6"
+                    contentContainerStyle={{ paddingRight: 16 }}
+                >
+                    {CATEGORIES.map((category) => (
+                        <TouchableOpacity
+                            key={category.id}
+                            onPress={() => setSelectedCategory(category.id)}
+                            className={`flex-row items-center px-4 py-2 rounded-full mr-3 ${
+                                selectedCategory === category.id
+                                    ? "bg-primary"
+                                    : "bg-panel"
+                            }`}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons
+                                name={category.icon}
+                                size={18}
+                                color={
+                                    selectedCategory === category.id
+                                        ? "#FFFFFF"
+                                        : "#888888"
+                                }
+                            />
+                            <Text
+                                className={`ml-2 font-medium ${
+                                    selectedCategory === category.id
+                                        ? "text-white"
+                                        : "text-text-secondary"
+                                }`}
+                            >
+                                {category.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+
                 {/* AI-Powered Recommendations */}
                 <RecommendedPodcasts
                     title="🤖 For You"
@@ -220,14 +279,34 @@ export default function HomeScreen() {
                 />
 
                 {/* Episodes */}
-                <Text className="text-lg font-semibold text-text-primary mb-2">
-                    Recent Episodes
-                </Text>
+                <View className="flex-row items-center justify-between mb-3">
+                    <Text className="text-xl font-semibold text-text-primary">
+                        Recent Episodes
+                    </Text>
+                    {podcasts.length > 0 && (
+                        <TouchableOpacity
+                            onPress={() => router.push("/(main)/library")}
+                            className="flex-row items-center"
+                        >
+                            <Text className="text-primary text-sm font-medium mr-1">
+                                See all
+                            </Text>
+                            <Ionicons
+                                name="chevron-forward"
+                                size={16}
+                                color="#D32F2F"
+                            />
+                        </TouchableOpacity>
+                    )}
+                </View>
                 <View className="mb-4">
                     {loading ? (
-                        <View className="py-6 items-center">
-                            <ActivityIndicator color="#D32F2F" />
-                        </View>
+                        // Skeleton loaders for better perceived performance
+                        <>
+                            <PodcastCardSkeleton />
+                            <PodcastCardSkeleton />
+                            <PodcastCardSkeleton />
+                        </>
                     ) : error ? (
                         <Text className="text-text-secondary">{error}</Text>
                     ) : podcasts.length === 0 ? (
