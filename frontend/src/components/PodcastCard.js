@@ -43,26 +43,26 @@ const PodcastCard = React.memo(function PodcastCard({
     return (
         <Surface
             style={{
-                // Cross-platform shadow for both iOS and Android
+                // Enhanced cross-platform shadow
                 ...(Platform.OS === "ios"
                     ? {
                           shadowColor: "#000",
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: 0.25,
-                          shadowRadius: 3.84,
+                          shadowOffset: { width: 0, height: 4 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 8,
                       }
                     : {
-                          elevation: 5,
+                          elevation: 8,
                       }),
                 borderRadius: 16,
-                marginBottom: 12,
+                marginBottom: 16,
             }}
             className="overflow-hidden bg-panel"
         >
             <TouchableOpacity
-                activeOpacity={0.8}
+                activeOpacity={0.85}
                 onPress={onPress}
-                className="flex-row items-center px-4 py-3"
+                className="flex-row items-center px-5 py-4"
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessible={true}
                 accessibilityRole="button"
@@ -70,19 +70,38 @@ const PodcastCard = React.memo(function PodcastCard({
                 accessibilityHint="Tap to view episode details"
                 testID={`podcast-card-${podcast.id}`}
             >
-                <View className="w-10 h-10 bg-primary/20 rounded-full items-center justify-center mr-3">
+                {/* Thumbnail/Icon - Improved size and visual */}
+                <View className="w-14 h-14 bg-primary/10 rounded-xl items-center justify-center mr-4 border border-primary/20">
                     <MaterialCommunityIcons
-                        name="microphone"
-                        size={24}
+                        name="waveform"
+                        size={28}
                         color="#D32F2F"
                     />
+                    {podcast.ai_enhanced && (
+                        <View className="absolute -top-1 -right-1 w-5 h-5 bg-success rounded-full items-center justify-center">
+                            <MaterialCommunityIcons
+                                name="auto-fix"
+                                size={12}
+                                color="#FFFFFF"
+                            />
+                        </View>
+                    )}
                 </View>
                 <View className="flex-1">
-                    <Text className="text-base font-medium text-text-primary">
+                    <Text
+                        className="text-base font-semibold text-text-primary mb-1"
+                        numberOfLines={2}
+                    >
                         {podcast.title}
                     </Text>
+                    <Text
+                        className="text-sm text-text-secondary mb-1"
+                        numberOfLines={1}
+                    >
+                        {podcast.owner?.name || "Unknown Artist"}
+                    </Text>
                     <View className="flex-row items-center justify-between">
-                        <Text className="text-xs text-text-secondary">
+                        <Text className="text-xs text-text-secondary font-medium">
                             {formattedDuration} • {formattedDate}
                         </Text>
                         {/* Relevance Score Indicator for Search Results */}
