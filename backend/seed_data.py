@@ -118,7 +118,7 @@ def create_demo_user(db: Session) -> models.User:
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"✅ Demo user created with ID: {user.id}")
+        print(f"[OK] Demo user created with ID: {user.id}")
     else:
         print(f"Demo user already exists with ID: {user.id}")
 
@@ -127,7 +127,7 @@ def create_demo_user(db: Session) -> models.User:
 
 def seed_podcasts(db: Session, owner: models.User):
     """Seed database with sample podcasts."""
-    print(f"\n📚 Seeding {len(SAMPLE_PODCASTS)} sample podcasts...")
+    print(f"\nSeeding {len(SAMPLE_PODCASTS)} sample podcasts...")
 
     created_count = 0
 
@@ -143,13 +143,23 @@ def seed_podcasts(db: Session, owner: models.User):
             continue
 
         # Create podcast
+        # Use demo online audio files (free to use)
+        demo_audio_files = [
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+        ]
+        # Cycle through demo audio files
+        audio_url = demo_audio_files[(idx - 1) % len(demo_audio_files)]
+
         podcast = models.Podcast(
             title=podcast_data["title"],
             description=podcast_data["description"],
             category=podcast_data["category"],
             duration=podcast_data["duration"],
-            # Placeholder
-            audio_url=f"https://example.com/audio/podcast_{idx}.mp3",
+            audio_url=audio_url,  # Use real audio files
             # Random image
             thumbnail_url=f"https://picsum.photos/seed/{idx}/400/400",
             owner_id=owner.id,
@@ -162,15 +172,15 @@ def seed_podcasts(db: Session, owner: models.User):
         db.refresh(podcast)
         created_count += 1
         print(
-            f"  [{idx}/{len(SAMPLE_PODCASTS)}] ✅ Created: {podcast_data['title'][:50]}...")
+            f"  [{idx}/{len(SAMPLE_PODCASTS)}] Created: {podcast_data['title'][:50]}...")
 
-    print(f"\n✅ Successfully created {created_count} new podcasts")
-    print(f"📊 Total podcasts in database: {db.query(models.Podcast).count()}")
+    print(f"\n[OK] Successfully created {created_count} new podcasts")
+    print(f"Total podcasts in database: {db.query(models.Podcast).count()}")
 
 
 def clear_existing_data(db: Session):
     """Clear existing seed data (optional)."""
-    print("\n⚠️  Clearing existing demo data...")
+    print("\n[WARNING] Clearing existing demo data...")
 
     # Delete all podcasts owned by demo user
     demo_user = db.query(models.User).filter(
@@ -185,7 +195,7 @@ def clear_existing_data(db: Session):
 def main():
     """Main seed function."""
     print("=" * 60)
-    print("🌱 VOLO PODCAST APP - DATABASE SEEDING")
+    print("VOLO PODCAST APP - DATABASE SEEDING")
     print("=" * 60)
 
     db = SessionLocal()
@@ -203,15 +213,15 @@ def main():
         seed_podcasts(db, demo_user)
 
         print("\n" + "=" * 60)
-        print("✅ SEEDING COMPLETED SUCCESSFULLY")
+        print("[OK] SEEDING COMPLETED SUCCESSFULLY")
         print("=" * 60)
-        print(f"\n📝 Demo credentials:")
+        print(f"\nDemo credentials:")
         print(f"   Email: {DEMO_USER['email']}")
         print(f"   Password: {DEMO_USER['password']}")
-        print("\n💡 You can now log in with these credentials to see sample data!")
+        print("\nYou can now log in with these credentials to see sample data!")
 
     except Exception as e:
-        print(f"\n❌ Error during seeding: {e}")
+        print(f"\n[ERROR] Error during seeding: {e}")
         db.rollback()
         raise
     finally:

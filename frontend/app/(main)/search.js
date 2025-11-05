@@ -15,6 +15,7 @@ import PodcastCard from "../../src/components/PodcastCard";
 import SemanticSearchService from "../../src/services/ai/SemanticSearchService";
 import useAudioStore from "../../src/context/useAudioStore";
 import Logger from "../../src/utils/logger";
+import { normalizePodcasts } from "../../src/utils/urlHelper";
 
 const Search = () => {
     const router = useRouter();
@@ -78,7 +79,8 @@ const Search = () => {
                 results = await SemanticSearchService.searchPodcasts(query);
             }
 
-            setSearchResults(results);
+            // Normalize URLs (relative to absolute)
+            setSearchResults(normalizePodcasts(results));
             Logger.log(`🔍 Search completed: ${results.length} results`);
         } catch (error) {
             Logger.error("Search failed:", error);

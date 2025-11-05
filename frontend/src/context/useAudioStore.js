@@ -133,9 +133,6 @@ const useAudioStore = create(
                     playsInSilentModeIOS: true,
                     staysActiveInBackground: true,
                     shouldDuckAndroid: true,
-                    interruptionModeIOS: Audio.InterruptionModeIOS.DoNotMix,
-                    interruptionModeAndroid:
-                        Audio.InterruptionModeAndroid.DoNotMix,
                     playThroughEarpieceAndroid: false,
                 });
 

@@ -19,6 +19,7 @@ import { useToast } from "../../src/components/Toast";
 import { Stack } from "expo-router";
 import Logger from "../../src/utils/logger";
 import ConfirmationModal from "../../src/components/ConfirmationModal";
+import { normalizePodcast, normalizePodcasts } from "../../src/utils/urlHelper";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -79,7 +80,8 @@ const Details = () => {
 
             // Load podcast details
             const podcastData = await apiService.getPodcast(params.id);
-            setPodcast(podcastData);
+            // Normalize URLs (relative to absolute)
+            setPodcast(normalizePodcast(podcastData));
 
             // Check if current user is owner
             const userProfile = await apiService.getUserProfile();
@@ -94,7 +96,8 @@ const Details = () => {
 
             // Load related podcasts
             const related = await apiService.getRelatedPodcasts(params.id);
-            setRelatedPodcasts(related);
+            // Normalize related podcasts URLs
+            setRelatedPodcasts(normalizePodcasts(related));
         } catch (error) {
             Logger.error("Failed to load podcast details:", error);
             showToast("Failed to load podcast details", "error");

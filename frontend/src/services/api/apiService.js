@@ -17,6 +17,27 @@ class ApiService {
         this.baseURL = API_BASE_URL;
     }
 
+    /**
+     * Normalize podcast audio URLs - convert relative paths to absolute URLs
+     */
+    normalizePodcast(podcast) {
+        if (!podcast) return podcast;
+        
+        if (podcast.audio_url && !podcast.audio_url.startsWith('http')) {
+            podcast.audio_url = `${this.baseURL}${podcast.audio_url}`;
+        }
+        
+        return podcast;
+    }
+
+    /**
+     * Normalize array of podcasts
+     */
+    normalizePodcasts(podcasts) {
+        if (!Array.isArray(podcasts)) return podcasts;
+        return podcasts.map(p => this.normalizePodcast(p));
+    }
+
     async request(endpoint, options = {}, retry = true) {
         const url = `${this.baseURL}${endpoint}`;
         const accessToken = await getToken("accessToken");
@@ -236,7 +257,8 @@ class ApiService {
     }
 
     async getPodcast(podcastId) {
-        return this.request(`/podcasts/${podcastId}`);
+        const podcast = await this.request(`/podcasts/${podcastId}`);
+        return this.normalizePodcast(podcast);
     }
 
     async getPodcasts(params = {}) {

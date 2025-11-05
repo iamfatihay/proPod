@@ -3,6 +3,7 @@ import { View, Text, FlatList, ActivityIndicator } from "react-native";
 import PodcastCard from "./PodcastCard";
 import RecommendationsService from "../services/ai/RecommendationsService";
 import Logger from "../utils/logger";
+import { normalizePodcasts } from "../utils/urlHelper";
 
 /**
  * AI-Powered Recommended Podcasts Component
@@ -40,7 +41,8 @@ const RecommendedPodcasts = ({
                 await RecommendationsService.getPersonalizedRecommendations(
                     limit
                 );
-            setRecommendations(recs);
+            // Normalize URLs (relative to absolute)
+            setRecommendations(normalizePodcasts(recs));
 
             Logger.log(`✅ Loaded ${recs.length} recommendations`);
         } catch (err) {

@@ -71,8 +71,6 @@ const AudioPlayer = ({
                 playsInSilentModeIOS: true,
                 shouldDuckAndroid: true,
                 playThroughEarpieceAndroid: false,
-                interruptionModeIOS: Audio.InterruptionModeIOS.DoNotMix,
-                interruptionModeAndroid: Audio.InterruptionModeAndroid.DoNotMix,
             });
 
             const { sound: newSound } = await Audio.Sound.createAsync(

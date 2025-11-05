@@ -79,10 +79,9 @@ const BottomMiniPlayer = ({
         <Animated.View
             style={{
                 position: "absolute",
-                bottom: 0, // Will be overridden by paddingBottom for safe area
+                bottom: 37 + insets.bottom, // Tab bar height (60) + safe area
                 left: 0,
                 right: 0,
-                paddingBottom: insets.bottom,
                 transform: [{ translateY: slideAnim }],
                 zIndex: 1000,
                 // Shadow for elevation

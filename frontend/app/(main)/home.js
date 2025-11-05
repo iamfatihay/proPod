@@ -18,6 +18,7 @@ import PodcastCard from "../../src/components/PodcastCard";
 import ChatCard from "../../src/components/ChatCard";
 import ActivityCard from "../../src/components/ActivityCard";
 import RecommendedPodcasts from "../../src/components/RecommendedPodcasts";
+import { normalizePodcast } from "../../src/utils/urlHelper";
 import { PodcastCardSkeleton } from "../../src/components/SkeletonLoader";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
@@ -106,8 +107,10 @@ export default function HomeScreen() {
                 // Convert duration from seconds to milliseconds for display
                 const durationMs =
                     (typeof p.duration === "number" && p.duration * 1000) || 0;
+                // Normalize URLs (relative to absolute)
+                const normalizedPodcast = normalizePodcast(p);
                 return {
-                    ...p,
+                    ...normalizedPodcast,
                     duration: durationMs,
                 };
             });

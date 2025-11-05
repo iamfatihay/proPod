@@ -63,6 +63,7 @@ class AIProcessingRequest(BaseModel):
     analyze_content: bool = True
     language: Optional[str] = "auto"
 
+
 class TranscriptionResult(BaseModel):
     success: bool
     text: str
@@ -74,6 +75,7 @@ class TranscriptionResult(BaseModel):
     processing_time: float
     model_used: str
 
+
 class ContentAnalysisResult(BaseModel):
     success: bool
     text_stats: dict
@@ -84,10 +86,12 @@ class ContentAnalysisResult(BaseModel):
     topics: List[dict] = []
     readability: dict
 
+
 class AudioEnhancementResult(BaseModel):
     success: bool
     stats: dict
     processing_steps: List[str] = []
+
 
 class AIProcessingResult(BaseModel):
     success: bool
@@ -107,7 +111,7 @@ class Podcast(PodcastBase):
     play_count: int
     like_count: int
     bookmark_count: int
-    
+
     # AI-related fields
     transcription_text: Optional[str] = None
     transcription_language: Optional[str] = None
@@ -119,7 +123,7 @@ class Podcast(PodcastBase):
     ai_processing_status: str = "pending"
     ai_processing_date: Optional[datetime.datetime] = None
     ai_quality_score: Optional[str] = None
-    
+
     created_at: datetime.datetime
     updated_at: datetime.datetime
     owner_id: int
@@ -286,11 +290,15 @@ class AudioUploadResponse(BaseModel):
     filename: str
 
 # Success Message Schema
+
+
 class SuccessMessage(BaseModel):
     message: str
     status: str = "success"
 
 # Error Response Schema
+
+
 class ErrorResponse(BaseModel):
     detail: str
     status_code: int
