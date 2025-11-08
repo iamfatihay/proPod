@@ -31,6 +31,23 @@ module.exports = {
                 playing: "#10B981",
                 paused: "#F59E0B",
                 icon: "#FFFFFF",
+                // Gradient theme colors
+                gradient: {
+                    purple: "#667eea",
+                    purpleDark: "#764ba2",
+                    pink: "#f093fb",
+                    pinkDark: "#f5576c",
+                    blue: "#4facfe",
+                    cyan: "#00f2fe",
+                    green: "#43e97b",
+                    greenLight: "#38f9d7",
+                    orange: "#fa709a",
+                    yellow: "#fee140",
+                    teal: "#30cfd0",
+                    tealDark: "#330867",
+                    rose: "#ff9a9e",
+                    roseLight: "#fecfef",
+                },
             },
             fontSize: {
                 title: 32,
