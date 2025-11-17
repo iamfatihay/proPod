@@ -7,6 +7,8 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     Keyboard,
+    Platform,
+    StatusBar,
 } from "react-native";
 import React, { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -156,9 +158,14 @@ const Search = () => {
     );
 
     return (
-        <SafeAreaView className="flex-1 bg-background">
+        <SafeAreaView 
+            className="flex-1 bg-background"
+            style={{
+                paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0
+            }}
+        >
             {/* Search Header */}
-            <View className="px-4 py-3 border-b border-border">
+            <View className="px-4 py-3 pb-6 border-b border-border">
                 <View className="flex-row items-center bg-panel rounded-lg px-3">
                     <Ionicons name="search" size={20} color="#888" />
                     <TextInput
@@ -242,7 +249,7 @@ const Search = () => {
                     data={searchResults}
                     renderItem={renderSearchResult}
                     keyExtractor={(item) => item.id.toString()}
-                    contentContainerStyle={{ padding: 16 }}
+                    contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
                 />
             ) : suggestions.length > 0 && searchQuery.length >= 0 ? (
                 <View className="flex-1">

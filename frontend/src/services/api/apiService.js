@@ -15,6 +15,29 @@ const NETWORK_TIMEOUT = Platform.OS === "ios" ? 30000 : 25000; // iOS can handle
 class ApiService {
     constructor() {
         this.baseURL = API_BASE_URL;
+        this.token = null;
+        this.onSessionExpired = null; // Callback for handling session expiration
+    }
+
+    /**
+     * Set authentication token for API requests
+     */
+    setToken(token) {
+        this.token = token;
+    }
+
+    /**
+     * Clear authentication token
+     */
+    clearToken() {
+        this.token = null;
+    }
+
+    /**
+     * Set callback for session expiration events
+     */
+    setSessionExpiredHandler(callback) {
+        this.onSessionExpired = callback;
     }
 
     /**
@@ -22,11 +45,11 @@ class ApiService {
      */
     normalizePodcast(podcast) {
         if (!podcast) return podcast;
-        
-        if (podcast.audio_url && !podcast.audio_url.startsWith('http')) {
+
+        if (podcast.audio_url && !podcast.audio_url.startsWith("http")) {
             podcast.audio_url = `${this.baseURL}${podcast.audio_url}`;
         }
-        
+
         return podcast;
     }
 
@@ -35,12 +58,13 @@ class ApiService {
      */
     normalizePodcasts(podcasts) {
         if (!Array.isArray(podcasts)) return podcasts;
-        return podcasts.map(p => this.normalizePodcast(p));
+        return podcasts.map((p) => this.normalizePodcast(p));
     }
 
     async request(endpoint, options = {}, retry = true) {
         const url = `${this.baseURL}${endpoint}`;
-        const accessToken = await getToken("accessToken");
+        // Use in-memory token if set, otherwise read from SecureStore
+        const accessToken = this.token || (await getToken("accessToken"));
         const refreshToken = await getToken("refreshToken");
 
         const config = {
@@ -99,9 +123,16 @@ class ApiService {
                     // accessToken updated, retry the request (retry=false to avoid infinite loop)
                     return this.request(endpoint, options, false);
                 } else {
-                    // If refresh token is also expired, logout
+                    // If refresh token is also expired, handle session expiration
                     await deleteToken("accessToken");
                     await deleteToken("refreshToken");
+                    this.clearToken();
+
+                    // Trigger session expired callback (will redirect to login)
+                    if (this.onSessionExpired) {
+                        this.onSessionExpired();
+                    }
+
                     throw new Error("Session expired. Please login again.");
                 }
             }
@@ -182,6 +213,18 @@ class ApiService {
         await saveToken("accessToken", data.access_token);
         await saveToken("refreshToken", data.refresh_token);
         return data;
+    }
+
+    async getMe() {
+        try {
+            const data = await this.request("/users/me", {
+                method: "GET",
+            });
+            return data;
+        } catch (error) {
+            Logger.error("GET ME API ERROR:", error);
+            throw error;
+        }
     }
 
     async googleLogin({ email, name, photo_url }) {

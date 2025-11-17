@@ -1,12 +1,18 @@
 import React from "react";
-import { View, Text, TouchableOpacity, ScrollView, Platform } from "react-native";
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    ScrollView,
+    Platform,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import useViewModeStore from "../context/useViewModeStore";
 
 /**
  * QuickActionsBar - Icon-based navigation for quick access
- * 
+ *
  * Adapts to view mode:
  * - Discover: Bookmarks, History, Trending, Categories
  * - Studio: Record, Analytics, Messages, Drafts
@@ -14,18 +20,58 @@ import useViewModeStore from "../context/useViewModeStore";
 
 const ACTION_SETS = {
     discover: [
-        { id: "record", icon: "microphone-variant", label: "Record", color: "#D32F2F" },
-        { id: "bookmarks", icon: "bookmark-outline", label: "Saved", color: "#10B981" },
+        {
+            id: "record",
+            icon: "microphone-variant",
+            label: "Record",
+            color: "#D32F2F",
+        },
+        {
+            id: "bookmarks",
+            icon: "bookmark-outline",
+            label: "Saved",
+            color: "#10B981",
+        },
         { id: "history", icon: "history", label: "History", color: "#3B82F6" },
         { id: "trending", icon: "fire", label: "Trending", color: "#F59E0B" },
-        { id: "categories", icon: "view-grid-outline", label: "Browse", color: "#8B5CF6" },
+        {
+            id: "categories",
+            icon: "view-grid-outline",
+            label: "Browse",
+            color: "#8B5CF6",
+        },
     ],
     studio: [
-        { id: "quick-record", icon: "record-circle", label: "Record", color: "#D32F2F" },
-        { id: "analytics", icon: "chart-line", label: "Analytics", color: "#10B981" },
-        { id: "comments", icon: "message-reply-text-outline", label: "Messages", color: "#3B82F6" },
-        { id: "drafts", icon: "file-document-edit-outline", label: "Drafts", color: "#F59E0B" },
-        { id: "schedule", icon: "calendar-clock", label: "Schedule", color: "#8B5CF6" },
+        {
+            id: "quick-record",
+            icon: "record-circle",
+            label: "Record",
+            color: "#D32F2F",
+        },
+        {
+            id: "analytics",
+            icon: "chart-line",
+            label: "Analytics",
+            color: "#10B981",
+        },
+        {
+            id: "comments",
+            icon: "message-reply-text-outline",
+            label: "Messages",
+            color: "#3B82F6",
+        },
+        {
+            id: "drafts",
+            icon: "file-document-edit-outline",
+            label: "Drafts",
+            color: "#F59E0B",
+        },
+        {
+            id: "schedule",
+            icon: "calendar-clock",
+            label: "Schedule",
+            color: "#8B5CF6",
+        },
     ],
 };
 
@@ -46,7 +92,7 @@ const QuickActionsBar = ({ onActionPress, notifications = {}, style }) => {
             <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingRight: 16 }}
+                contentContainerStyle={{ paddingHorizontal: 16 }}
             >
                 {actions.map((action, index) => {
                     const badgeCount = notifications[action.id] || 0;
@@ -70,23 +116,32 @@ const QuickActionsBar = ({ onActionPress, notifications = {}, style }) => {
                             {/* Icon Container */}
                             <View
                                 style={{
-                                    width: isFirst ? 64 : 56,
-                                    height: isFirst ? 64 : 56,
-                                    borderRadius: isFirst ? 32 : 28,
+                                    width: isFirst ? 66 : 56,
+                                    height: isFirst ? 66 : 56,
+                                    borderRadius: isFirst ? 33 : 28,
                                     backgroundColor: isFirst
                                         ? action.color
                                         : "#1a1a1a",
                                     borderWidth: isFirst ? 0 : 1.5,
-                                    borderColor: isFirst ? "transparent" : action.color,
+                                    borderColor: isFirst
+                                        ? "transparent"
+                                        : action.color,
                                     justifyContent: "center",
                                     alignItems: "center",
                                     marginBottom: 8,
                                     // Shadow
                                     ...(Platform.OS === "ios"
                                         ? {
-                                              shadowColor: isFirst ? action.color : "#000",
-                                              shadowOffset: { width: 0, height: isFirst ? 6 : 2 },
-                                              shadowOpacity: isFirst ? 0.4 : 0.2,
+                                              shadowColor: isFirst
+                                                  ? action.color
+                                                  : "#000",
+                                              shadowOffset: {
+                                                  width: 0,
+                                                  height: isFirst ? 6 : 2,
+                                              },
+                                              shadowOpacity: isFirst
+                                                  ? 0.4
+                                                  : 0.2,
                                               shadowRadius: isFirst ? 12 : 4,
                                           }
                                         : {
@@ -96,7 +151,7 @@ const QuickActionsBar = ({ onActionPress, notifications = {}, style }) => {
                             >
                                 <MaterialCommunityIcons
                                     name={action.icon}
-                                    size={isFirst ? 28 : 24}
+                                    size={isFirst ? 32 : 24}
                                     color={isFirst ? "white" : action.color}
                                 />
 
@@ -125,7 +180,9 @@ const QuickActionsBar = ({ onActionPress, notifications = {}, style }) => {
                                                 fontWeight: "700",
                                             }}
                                         >
-                                            {badgeCount > 99 ? "99+" : badgeCount}
+                                            {badgeCount > 99
+                                                ? "99+"
+                                                : badgeCount}
                                         </Text>
                                     </View>
                                 )}
@@ -150,4 +207,3 @@ const QuickActionsBar = ({ onActionPress, notifications = {}, style }) => {
 };
 
 export default QuickActionsBar;
-
