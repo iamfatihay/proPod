@@ -1,31 +1,63 @@
+"""CRUD (Create, Read, Update, Delete) operations for database models."""
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, desc, and_, or_
-from . import models, schemas
 from passlib.context import CryptContext
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 import secrets
 import datetime
 from datetime import timezone
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
+
+from . import models, schemas
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-# User CRUD
-def get_user_by_email(db: Session, email: str):
+# ==================== User CRUD Operations ====================
+
+def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
+    """
+    Get user by email address.
+    
+    Args:
+        db: Database session
+        email: User's email address
+        
+    Returns:
+        Optional[models.User]: User object if found, None otherwise
+    """
     return db.query(models.User).filter(models.User.email == email).first()
 
 
-def get_user_by_reset_token(db: Session, token: str):
-    """Get user by reset token if token is valid and not expired"""
+def get_user_by_reset_token(db: Session, token: str) -> Optional[models.User]:
+    """
+    Get user by reset token if token is valid and not expired.
+    
+    Args:
+        db: Database session
+        token: Password reset token
+        
+    Returns:
+        Optional[models.User]: User object if valid token found, None otherwise
+    """
     return db.query(models.User).filter(
         models.User.reset_token == token,
         models.User.reset_token_expires > datetime.datetime.now(timezone.utc)
     ).first()
 
 
-def create_user(db: Session, user: schemas.UserCreate):
-    hashed_password = pwd_context.hash(user.password)
+def create_user(db: Session, user: schemas.UserCreate) -> models.User:
+    """
+    Create a new user.
+    
+    Args:
+        db: Database session
+        user: User creation schema with email, name, and password
+        
+    Returns:
+        models.User: Created user object
+    """
+    hashed_password = pwd_context.hash(user.password) if user.password else None
     db_user = models.User(
         email=user.email,
         name=user.name,
@@ -37,7 +69,17 @@ def create_user(db: Session, user: schemas.UserCreate):
     return db_user
 
 
-def create_google_user(db: Session, user_data: dict):
+def create_google_user(db: Session, user_data: dict) -> models.User:
+    """
+    Create a new user from Google OAuth data.
+    
+    Args:
+        db: Database session
+        user_data: Dictionary containing user data from Google
+        
+    Returns:
+        models.User: Created user object
+    """
     db_user = models.User(**user_data)
     db.add(db_user)
     db.commit()
@@ -45,7 +87,18 @@ def create_google_user(db: Session, user_data: dict):
     return db_user
 
 
-def update_user(db: Session, user: models.User, user_update: schemas.UserUpdate):
+def update_user(db: Session, user: models.User, user_update: schemas.UserUpdate) -> models.User:
+    """
+    Update user information.
+    
+    Args:
+        db: Database session
+        user: User object to update
+        user_update: Schema containing fields to update
+        
+    Returns:
+        models.User: Updated user object
+    """
     for field, value in user_update.dict(exclude_unset=True).items():
         setattr(user, field, value)
     db.commit()
@@ -53,8 +106,17 @@ def update_user(db: Session, user: models.User, user_update: schemas.UserUpdate)
     return user
 
 
-def set_reset_token(db: Session, user: models.User):
-    """Generate and set reset token for user"""
+def set_reset_token(db: Session, user: models.User) -> str:
+    """
+    Generate and set password reset token for user.
+    
+    Args:
+        db: Database session
+        user: User object
+        
+    Returns:
+        str: Generated reset token
+    """
     token = secrets.token_urlsafe(32)
     user.reset_token = token
     user.reset_token_expires = datetime.datetime.now(timezone.utc) + datetime.timedelta(hours=1)
@@ -63,8 +125,18 @@ def set_reset_token(db: Session, user: models.User):
     return token
 
 
-def reset_user_password(db: Session, user: models.User, new_password: str):
-    """Reset user password and clear reset token"""
+def reset_user_password(db: Session, user: models.User, new_password: str) -> models.User:
+    """
+    Reset user password and clear reset token.
+    
+    Args:
+        db: Database session
+        user: User object
+        new_password: New plain text password
+        
+    Returns:
+        models.User: Updated user object
+    """
     user.hashed_password = pwd_context.hash(new_password)
     user.reset_token = None
     user.reset_token_expires = None
@@ -73,9 +145,27 @@ def reset_user_password(db: Session, user: models.User, new_password: str):
     return user
 
 
-def change_user_password(db: Session, user: models.User, old_password: str, new_password: str):
+def change_user_password(db: Session, user: models.User, old_password: str, new_password: str) -> models.User:
+    """
+    Change user password after verifying old password.
+    
+    Args:
+        db: Database session
+        user: User object
+        old_password: Current password for verification
+        new_password: New password to set
+        
+    Returns:
+        models.User: Updated user object
+        
+    Raises:
+        HTTPException: If old password is incorrect
+    """
     if not pwd_context.verify(old_password, user.hashed_password):
-        raise HTTPException(status_code=400, detail="Old password is incorrect")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Old password is incorrect"
+        )
     
     user.hashed_password = pwd_context.hash(new_password)
     db.commit()
@@ -83,14 +173,36 @@ def change_user_password(db: Session, user: models.User, old_password: str, new_
     return user
 
 
-def soft_delete_user(db: Session, user: models.User):
+def soft_delete_user(db: Session, user: models.User) -> models.User:
+    """
+    Soft delete user by setting is_active to False.
+    
+    Args:
+        db: Database session
+        user: User object to deactivate
+        
+    Returns:
+        models.User: Deactivated user object
+    """
     user.is_active = False
     db.commit()
     return user
 
 
-# Podcast CRUD
-def create_podcast(db: Session, podcast: schemas.PodcastCreate, owner_id: int):
+# ==================== Podcast CRUD Operations ====================
+
+def create_podcast(db: Session, podcast: schemas.PodcastCreate, owner_id: int) -> models.Podcast:
+    """
+    Create a new podcast.
+    
+    Args:
+        db: Database session
+        podcast: Podcast creation schema
+        owner_id: ID of the podcast owner
+        
+    Returns:
+        models.Podcast: Created podcast object
+    """
     db_podcast = models.Podcast(**podcast.dict(), owner_id=owner_id)
     db.add(db_podcast)
     db.commit()
@@ -98,8 +210,18 @@ def create_podcast(db: Session, podcast: schemas.PodcastCreate, owner_id: int):
     return db_podcast
 
 
-def get_podcast(db: Session, podcast_id: int, user_id: Optional[int] = None):
-    """Get podcast with optional user-specific data"""
+def get_podcast(db: Session, podcast_id: int, increment_play_count: bool = True) -> Optional[models.Podcast]:
+    """
+    Get podcast by ID with optional play count increment.
+    
+    Args:
+        db: Database session
+        podcast_id: Podcast ID
+        increment_play_count: Whether to increment play count (default: True)
+        
+    Returns:
+        Optional[models.Podcast]: Podcast object if found, None otherwise
+    """
     query = db.query(models.Podcast).options(
         joinedload(models.Podcast.owner)
     ).filter(models.Podcast.id == podcast_id)
@@ -108,9 +230,10 @@ def get_podcast(db: Session, podcast_id: int, user_id: Optional[int] = None):
     if not podcast:
         return None
     
-    # Increment play count
-    podcast.play_count += 1
-    db.commit()
+    # Increment play count if requested
+    if increment_play_count:
+        podcast.play_count += 1
+        db.commit()
     
     return podcast
 
@@ -123,8 +246,22 @@ def get_podcasts(
     owner_id: Optional[int] = None,
     search_query: Optional[str] = None,
     is_public: bool = True
-):
-    """Get podcasts with filtering and pagination"""
+) -> Tuple[List[models.Podcast], int]:
+    """
+    Get podcasts with filtering and pagination.
+    
+    Args:
+        db: Database session
+        skip: Number of records to skip (pagination)
+        limit: Maximum number of records to return
+        category: Filter by category
+        owner_id: Filter by owner ID
+        search_query: Search term for title and description
+        is_public: Filter by public/private status
+        
+    Returns:
+        Tuple[List[models.Podcast], int]: List of podcasts and total count
+    """
     query = db.query(models.Podcast).options(
         joinedload(models.Podcast.owner)
     )
@@ -154,14 +291,21 @@ def get_podcasts(
     total = query.count()
     podcasts = query.offset(skip).limit(limit).all()
     
-    return {
-        "podcasts": podcasts,
-        "total": total,
-        "has_more": total > skip + limit
-    }
+    return (podcasts, total)
 
 
-def update_podcast(db: Session, podcast: models.Podcast, podcast_update: schemas.PodcastUpdate):
+def update_podcast(db: Session, podcast: models.Podcast, podcast_update: schemas.PodcastUpdate) -> models.Podcast:
+    """
+    Update podcast information.
+    
+    Args:
+        db: Database session
+        podcast: Podcast object to update
+        podcast_update: Schema containing fields to update
+        
+    Returns:
+        models.Podcast: Updated podcast object
+    """
     for field, value in podcast_update.dict(exclude_unset=True).items():
         setattr(podcast, field, value)
     
@@ -171,15 +315,36 @@ def update_podcast(db: Session, podcast: models.Podcast, podcast_update: schemas
     return podcast
 
 
-def delete_podcast(db: Session, podcast: models.Podcast):
+def delete_podcast(db: Session, podcast: models.Podcast) -> bool:
+    """
+    Delete a podcast.
+    
+    Args:
+        db: Database session
+        podcast: Podcast object to delete
+        
+    Returns:
+        bool: True if deletion successful
+    """
     db.delete(podcast)
     db.commit()
     return True
 
 
-# Podcast Interaction CRUD
-def get_user_podcast_interactions(db: Session, user_id: int, podcast_id: int):
-    """Get user's interactions with a specific podcast"""
+# ==================== Podcast Interaction CRUD Operations ====================
+
+def get_user_podcast_interactions(db: Session, user_id: int, podcast_id: int) -> Dict[str, Any]:
+    """
+    Get user's interactions with a specific podcast.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        podcast_id: Podcast ID
+        
+    Returns:
+        Dict: Dictionary containing like, bookmark, and history status
+    """
     like = db.query(models.PodcastLike).filter(
         models.PodcastLike.user_id == user_id,
         models.PodcastLike.podcast_id == podcast_id
@@ -202,8 +367,21 @@ def get_user_podcast_interactions(db: Session, user_id: int, podcast_id: int):
     }
 
 
-def like_podcast(db: Session, user_id: int, podcast_id: int):
-    """Like a podcast"""
+def like_podcast(db: Session, user_id: int, podcast_id: int) -> models.PodcastLike:
+    """
+    Like a podcast.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        podcast_id: Podcast ID
+        
+    Returns:
+        models.PodcastLike: Created like object
+        
+    Raises:
+        HTTPException: If podcast is already liked
+    """
     # Check if already liked
     existing_like = db.query(models.PodcastLike).filter(
         models.PodcastLike.user_id == user_id,
@@ -211,7 +389,10 @@ def like_podcast(db: Session, user_id: int, podcast_id: int):
     ).first()
     
     if existing_like:
-        raise HTTPException(status_code=400, detail="Podcast already liked")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Podcast already liked"
+        )
     
     # Create like
     like = models.PodcastLike(user_id=user_id, podcast_id=podcast_id)
@@ -227,15 +408,31 @@ def like_podcast(db: Session, user_id: int, podcast_id: int):
     return like
 
 
-def unlike_podcast(db: Session, user_id: int, podcast_id: int):
-    """Unlike a podcast"""
+def unlike_podcast(db: Session, user_id: int, podcast_id: int) -> bool:
+    """
+    Unlike a podcast.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        podcast_id: Podcast ID
+        
+    Returns:
+        bool: True if successful
+        
+    Raises:
+        HTTPException: If like not found
+    """
     like = db.query(models.PodcastLike).filter(
         models.PodcastLike.user_id == user_id,
         models.PodcastLike.podcast_id == podcast_id
     ).first()
     
     if not like:
-        raise HTTPException(status_code=404, detail="Like not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Like not found"
+        )
     
     # Remove like
     db.delete(like)
@@ -249,8 +446,21 @@ def unlike_podcast(db: Session, user_id: int, podcast_id: int):
     return True
 
 
-def bookmark_podcast(db: Session, user_id: int, podcast_id: int):
-    """Bookmark a podcast"""
+def bookmark_podcast(db: Session, user_id: int, podcast_id: int) -> models.PodcastBookmark:
+    """
+    Bookmark a podcast.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        podcast_id: Podcast ID
+        
+    Returns:
+        models.PodcastBookmark: Created bookmark object
+        
+    Raises:
+        HTTPException: If podcast is already bookmarked
+    """
     # Check if already bookmarked
     existing_bookmark = db.query(models.PodcastBookmark).filter(
         models.PodcastBookmark.user_id == user_id,
@@ -258,7 +468,10 @@ def bookmark_podcast(db: Session, user_id: int, podcast_id: int):
     ).first()
     
     if existing_bookmark:
-        raise HTTPException(status_code=400, detail="Podcast already bookmarked")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Podcast already bookmarked"
+        )
     
     # Create bookmark
     bookmark = models.PodcastBookmark(user_id=user_id, podcast_id=podcast_id)
@@ -274,15 +487,31 @@ def bookmark_podcast(db: Session, user_id: int, podcast_id: int):
     return bookmark
 
 
-def remove_bookmark(db: Session, user_id: int, podcast_id: int):
-    """Remove bookmark from a podcast"""
+def remove_bookmark(db: Session, user_id: int, podcast_id: int) -> bool:
+    """
+    Remove bookmark from a podcast.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        podcast_id: Podcast ID
+        
+    Returns:
+        bool: True if successful
+        
+    Raises:
+        HTTPException: If bookmark not found
+    """
     bookmark = db.query(models.PodcastBookmark).filter(
         models.PodcastBookmark.user_id == user_id,
         models.PodcastBookmark.podcast_id == podcast_id
     ).first()
     
     if not bookmark:
-        raise HTTPException(status_code=404, detail="Bookmark not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Bookmark not found"
+        )
     
     # Remove bookmark
     db.delete(bookmark)
@@ -296,8 +525,19 @@ def remove_bookmark(db: Session, user_id: int, podcast_id: int):
     return True
 
 
-def get_user_likes(db: Session, user_id: int, skip: int = 0, limit: int = 20):
-    """Get user's liked podcasts"""
+def get_user_likes(db: Session, user_id: int, skip: int = 0, limit: int = 20) -> List[models.Podcast]:
+    """
+    Get user's liked podcasts.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        skip: Number of records to skip
+        limit: Maximum number of records
+        
+    Returns:
+        List[models.Podcast]: List of liked podcasts
+    """
     likes = db.query(models.PodcastLike).options(
         joinedload(models.PodcastLike.podcast).joinedload(models.Podcast.owner)
     ).filter(
@@ -307,8 +547,19 @@ def get_user_likes(db: Session, user_id: int, skip: int = 0, limit: int = 20):
     return [like.podcast for like in likes]
 
 
-def get_user_bookmarks(db: Session, user_id: int, skip: int = 0, limit: int = 20):
-    """Get user's bookmarked podcasts"""
+def get_user_bookmarks(db: Session, user_id: int, skip: int = 0, limit: int = 20) -> List[models.Podcast]:
+    """
+    Get user's bookmarked podcasts.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        skip: Number of records to skip
+        limit: Maximum number of records
+        
+    Returns:
+        List[models.Podcast]: List of bookmarked podcasts
+    """
     bookmarks = db.query(models.PodcastBookmark).options(
         joinedload(models.PodcastBookmark.podcast).joinedload(models.Podcast.owner)
     ).filter(
@@ -318,7 +569,8 @@ def get_user_bookmarks(db: Session, user_id: int, skip: int = 0, limit: int = 20
     return [bookmark.podcast for bookmark in bookmarks]
 
 
-# Listening History CRUD
+# ==================== Listening History CRUD Operations ====================
+
 def update_listening_history(
     db: Session, 
     user_id: int, 
@@ -326,8 +578,21 @@ def update_listening_history(
     position: int,
     listen_time: Optional[int] = None,
     completed: Optional[bool] = None
-):
-    """Update user's listening history for a podcast"""
+) -> models.ListeningHistory:
+    """
+    Update user's listening history for a podcast.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        podcast_id: Podcast ID
+        position: Current position in seconds
+        listen_time: Total listen time in seconds
+        completed: Whether podcast was fully listened
+        
+    Returns:
+        models.ListeningHistory: Updated or created history object
+    """
     history = db.query(models.ListeningHistory).filter(
         models.ListeningHistory.user_id == user_id,
         models.ListeningHistory.podcast_id == podcast_id
@@ -357,8 +622,19 @@ def update_listening_history(
     return history
 
 
-def get_user_listening_history(db: Session, user_id: int, skip: int = 0, limit: int = 20):
-    """Get user's listening history"""
+def get_user_listening_history(db: Session, user_id: int, skip: int = 0, limit: int = 20) -> List[models.ListeningHistory]:
+    """
+    Get user's listening history.
+    
+    Args:
+        db: Database session
+        user_id: User ID
+        skip: Number of records to skip
+        limit: Maximum number of records
+        
+    Returns:
+        List[models.ListeningHistory]: List of listening history entries
+    """
     history = db.query(models.ListeningHistory).options(
         joinedload(models.ListeningHistory.podcast).joinedload(models.Podcast.owner)
     ).filter(
@@ -368,9 +644,20 @@ def get_user_listening_history(db: Session, user_id: int, skip: int = 0, limit: 
     return history
 
 
-# Comment CRUD
-def create_comment(db: Session, comment: schemas.PodcastCommentCreate, user_id: int):
-    """Create a new comment on a podcast"""
+# ==================== Comment CRUD Operations ====================
+
+def create_comment(db: Session, comment: schemas.PodcastCommentCreate, user_id: int) -> models.PodcastComment:
+    """
+    Create a new comment on a podcast.
+    
+    Args:
+        db: Database session
+        comment: Comment creation schema
+        user_id: User ID of commenter
+        
+    Returns:
+        models.PodcastComment: Created comment object
+    """
     db_comment = models.PodcastComment(
         user_id=user_id,
         podcast_id=comment.podcast_id,
@@ -383,8 +670,19 @@ def create_comment(db: Session, comment: schemas.PodcastCommentCreate, user_id: 
     return db_comment
 
 
-def get_podcast_comments(db: Session, podcast_id: int, skip: int = 0, limit: int = 50):
-    """Get comments for a podcast"""
+def get_podcast_comments(db: Session, podcast_id: int, skip: int = 0, limit: int = 50) -> List[models.PodcastComment]:
+    """
+    Get comments for a podcast.
+    
+    Args:
+        db: Database session
+        podcast_id: Podcast ID
+        skip: Number of records to skip
+        limit: Maximum number of records
+        
+    Returns:
+        List[models.PodcastComment]: List of active comments
+    """
     comments = db.query(models.PodcastComment).options(
         joinedload(models.PodcastComment.user)
     ).filter(
@@ -395,8 +693,18 @@ def get_podcast_comments(db: Session, podcast_id: int, skip: int = 0, limit: int
     return comments
 
 
-def update_comment(db: Session, comment: models.PodcastComment, comment_update: schemas.PodcastCommentUpdate):
-    """Update a comment"""
+def update_comment(db: Session, comment: models.PodcastComment, comment_update: schemas.PodcastCommentUpdate) -> models.PodcastComment:
+    """
+    Update a comment.
+    
+    Args:
+        db: Database session
+        comment: Comment object to update
+        comment_update: Schema containing fields to update
+        
+    Returns:
+        models.PodcastComment: Updated comment object
+    """
     for field, value in comment_update.dict(exclude_unset=True).items():
         setattr(comment, field, value)
     

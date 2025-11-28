@@ -1,34 +1,50 @@
+"""Application configuration settings."""
 from pydantic_settings import BaseSettings
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 import os
+from typing import Literal
 
 
 class Settings(BaseSettings):
-    ENV: str = "dev"  # dev, prod
-    SECRET_KEY: str
-    ALGORITHM: str
-    ACCESS_TOKEN_EXPIRE_MINUTES: int
-    REFRESH_TOKEN_EXPIRE_DAYS: int
-    DATABASE_URL: str
+    """Application settings loaded from environment variables."""
+    
+    # Environment
+    ENV: Literal["dev", "prod"] = Field(default="dev", description="Application environment")
+    
+    # Security
+    SECRET_KEY: str = Field(..., description="Secret key for JWT token generation")
+    ALGORITHM: str = Field(default="HS256", description="JWT algorithm")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, description="Access token expiration in minutes")
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, description="Refresh token expiration in days")
+    
+    # Database
+    DATABASE_URL: str = Field(..., description="Database connection URL")
 
-    # Email settings for production
-    SMTP_HOST: str = ""
-    SMTP_PORT: int = 587
-    SMTP_USERNAME: str = ""
-    SMTP_PASSWORD: str = ""
-    FROM_EMAIL: str = ""
+    # Email settings (required for production)
+    SMTP_HOST: str = Field(default="", description="SMTP server host")
+    SMTP_PORT: int = Field(default=587, description="SMTP server port")
+    SMTP_USERNAME: str = Field(default="", description="SMTP username")
+    SMTP_PASSWORD: str = Field(default="", description="SMTP password")
+    FROM_EMAIL: str = Field(default="", description="From email address")
 
-    # IMPORTANT: Set BASE_URL in .env file
-    # This fallback is only used if .env is missing (shouldn't happen in production)
-    BASE_URL: str = "http://192.168.178.27:8000"
+    # API Configuration
+    BASE_URL: str = Field(
+        default="http://localhost:8000",
+        description="Base URL for the API (used for generating links)"
+    )
 
     model_config = ConfigDict(
-        env_file=os.path.join(os.path.dirname(__file__), '..', '.env')
+        env_file=os.path.join(os.path.dirname(__file__), '..', '.env'),
+        case_sensitive=True,
+        extra='ignore'
     )
 
 
+# Global settings instance
 settings = Settings()
 
-# Only show debug info in development
+# Debug output only in development
 if settings.ENV == "dev":
-    print("DEBUG SETTINGS:", settings.model_dump())
+    print(f"🚀 Running in {settings.ENV} mode")
+    print(f"📊 Database: {settings.DATABASE_URL.split('://')[0]}")
+    print(f"🌐 Base URL: {settings.BASE_URL}")

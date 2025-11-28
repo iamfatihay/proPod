@@ -1,23 +1,17 @@
+"""Podcast management endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from pathlib import Path as SysPath
 import json
 import asyncio
-from .. import schemas, crud, models, auth, config
-from ..database import SessionLocal
-from ..services.ai_service import ai_service
 import os
-from pathlib import Path as SysPath
+
+from .. import schemas, crud, models, auth, config
+from ..database import get_db
+from ..services.ai_service import ai_service
 
 router = APIRouter(prefix="/podcasts", tags=["podcasts"])
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @router.post("/create", response_model=schemas.Podcast)

@@ -1,32 +1,26 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File
+"""User authentication and profile management endpoints."""
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
+from pathlib import Path as SysPath
+from typing import Dict
+import os
+import asyncio
+import secrets
+import datetime
+
 from .. import schemas, crud, models, auth
-from ..database import SessionLocal
+from ..database import get_db
 from ..schemas import User as UserSchema, BaseModel, ChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest
 from ..config import settings
 from ..services.email_service import email_service
-import secrets
-import datetime
-from fastapi import BackgroundTasks
-import os
-import asyncio
-from pathlib import Path as SysPath
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 # In-memory store for reset tokens (dev only)
-reset_tokens = {}
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
+reset_tokens: Dict[str, Dict] = {}
 
 class AuthResponse(BaseModel):
+    """Authentication response with tokens and user information."""
     access_token: str
     refresh_token: str
     token_type: str
@@ -34,36 +28,79 @@ class AuthResponse(BaseModel):
 
 
 @router.post("/register", response_model=AuthResponse)
-def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
+def register(user: schemas.UserCreate, db: Session = Depends(get_db)) -> AuthResponse:
+    """
+    Register a new user.
+    
+    Args:
+        user: User registration data (email, name, password)
+        db: Database session
+        
+    Returns:
+        AuthResponse: Access token, refresh token, and user information
+        
+    Raises:
+        HTTPException: If email is already registered
+    """
     db_user = crud.get_user_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(
-            status_code=400, detail="Email is already registered")
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email is already registered"
+        )
+    
     db_user = crud.create_user(db, user)
     access_token = auth.create_access_token(data={"sub": db_user.email})
     refresh_token = auth.create_refresh_token(data={"sub": db_user.email})
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "user": UserSchema.model_validate(db_user)
-    }
+    
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        user=UserSchema.model_validate(db_user)
+    )
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
+async def login(user: schemas.UserLogin, db: Session = Depends(get_db)) -> AuthResponse:
+    """
+    Authenticate user and return tokens.
+    
+    Args:
+        user: User login credentials (email, password)
+        db: Database session
+        
+    Returns:
+        AuthResponse: Access token, refresh token, and user information
+        
+    Raises:
+        HTTPException: If credentials are invalid
+    """
     db_user = crud.get_user_by_email(db, email=user.email)
-    if not db_user or not db_user.hashed_password or db_user.hashed_password.strip() == "" or not auth.verify_password(user.password, db_user.hashed_password):
+    
+    # Check if user exists and has valid password
+    if not db_user or not db_user.hashed_password or not db_user.hashed_password.strip():
         raise HTTPException(
-            status_code=400, detail="Invalid email or password")
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid email or password"
+        )
+    
+    # Verify password
+    if not auth.verify_password(user.password, db_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid email or password"
+        )
+    
     access_token = auth.create_access_token(data={"sub": db_user.email})
     refresh_token = auth.create_refresh_token(data={"sub": db_user.email})
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "user": UserSchema.model_validate(db_user)
-    }
+    
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        user=UserSchema.model_validate(db_user)
+    )
 
 
 @router.post("/google-login", response_model=AuthResponse)
