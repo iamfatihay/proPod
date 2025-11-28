@@ -224,17 +224,15 @@ async def process_podcast_with_ai(
 
 @router.get("/{podcast_id}", response_model=schemas.Podcast)
 def get_podcast(
-    podcast_id: int = Path(...,
-                           description="The ID of the podcast to retrieve"),
+    podcast_id: int = Path(..., description="The ID of the podcast to retrieve"),
     db: Session = Depends(get_db),
-    current_user: Optional[models.User] = Depends(
-        auth.get_current_user_optional)
+    current_user: Optional[models.User] = Depends(auth.get_current_user_optional)
 ):
-    """Get a specific podcast by ID"""
+    """Get a specific podcast by ID and increment play count."""
     podcast = crud.get_podcast(
         db=db,
         podcast_id=podcast_id,
-        user_id=current_user.id if current_user else None
+        increment_play_count=True
     )
     if not podcast:
         raise HTTPException(
@@ -263,12 +261,13 @@ def search_podcasts(
         is_public=True
     )
 
+    podcasts, total = result
     return schemas.PodcastListResponse(
-        podcasts=result["podcasts"],
-        total=result["total"],
+        podcasts=podcasts,
+        total=total,
         limit=limit,
         offset=skip,
-        has_more=result["has_more"]
+        has_more=total > skip + limit
     )
 
 
@@ -294,12 +293,13 @@ def get_podcasts(
         is_public=True
     )
 
+    podcasts, total = result
     return schemas.PodcastListResponse(
-        podcasts=result["podcasts"],
-        total=result["total"],
+        podcasts=podcasts,
+        total=total,
         limit=limit,
         offset=skip,
-        has_more=result["has_more"]
+        has_more=total > skip + limit
     )
 
 

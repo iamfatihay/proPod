@@ -348,6 +348,19 @@ class ApiService {
     }
 
     // ==================== Podcast CRUD Methods ====================
+
+    /**
+     * Create a new podcast
+     * 
+     * @param {Object} podcastData - Podcast creation data
+     * @param {string} podcastData.title - Podcast title
+     * @param {string} podcastData.description - Podcast description
+     * @param {string} podcastData.category - Podcast category
+     * @param {boolean} podcastData.is_public - Whether podcast is public
+     * @param {number} podcastData.duration - Duration in seconds
+     * @returns {Promise<Object>} Created podcast data
+     * @throws {Error} If creation fails
+     */
     async createPodcast(podcastData) {
         return this.request("/podcasts/create", {
             method: "POST",
@@ -355,11 +368,30 @@ class ApiService {
         });
     }
 
+    /**
+     * Get a specific podcast by ID
+     * 
+     * @param {number} podcastId - Podcast ID
+     * @returns {Promise<Object>} Podcast data with normalized URL
+     * @throws {Error} If request fails
+     */
     async getPodcast(podcastId) {
         const podcast = await this.request(`/podcasts/${podcastId}`);
         return this.normalizePodcast(podcast);
     }
 
+    /**
+     * Get list of podcasts with optional filtering
+     * 
+     * @param {Object} params - Query parameters
+     * @param {number} params.skip - Number of items to skip
+     * @param {number} params.limit - Number of items to return
+     * @param {string} params.category - Filter by category
+     * @param {string} params.search - Search query
+     * @param {number} params.owner_id - Filter by owner ID
+     * @returns {Promise<Array>} List of podcasts
+     * @throws {Error} If request fails
+     */
     async getPodcasts(params = {}) {
         const queryParams = new URLSearchParams();
 
@@ -376,10 +408,17 @@ class ApiService {
         const response = await this.request(endpoint);
 
         // Backend returns { podcasts: [], total, limit, offset, has_more }
-        // Return only the podcasts array for compatibility
         return response?.podcasts || [];
     }
 
+    /**
+     * Update podcast information
+     * 
+     * @param {number} podcastId - Podcast ID
+     * @param {Object} updateData - Fields to update
+     * @returns {Promise<Object>} Updated podcast data
+     * @throws {Error} If update fails
+     */
     async updatePodcast(podcastId, updateData) {
         return this.request(`/podcasts/${podcastId}`, {
             method: "PUT",
@@ -387,12 +426,29 @@ class ApiService {
         });
     }
 
+    /**
+     * Delete a podcast
+     * 
+     * @param {number} podcastId - Podcast ID
+     * @returns {Promise<Object>} Success message
+     * @throws {Error} If deletion fails
+     */
     async deletePodcast(podcastId) {
         return this.request(`/podcasts/${podcastId}`, {
             method: "DELETE",
         });
     }
 
+    /**
+     * Upload audio file for podcast
+     * 
+     * @param {Object} audioFile - Audio file data
+     * @param {string} audioFile.uri - File URI
+     * @param {string} audioFile.type - File MIME type
+     * @param {string} audioFile.name - File name
+     * @returns {Promise<Object>} Upload response with audio URL
+     * @throws {Error} If upload fails
+     */
     async uploadAudio(audioFile) {
         const formData = new FormData();
         formData.append("file", {

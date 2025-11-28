@@ -6,7 +6,7 @@ from fastapi import HTTPException, status
 import secrets
 import datetime
 from datetime import timezone
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple, Any
 
 from . import models, schemas
 
@@ -290,6 +290,58 @@ def get_podcasts(
     
     total = query.count()
     podcasts = query.offset(skip).limit(limit).all()
+    
+    return (podcasts, total)
+
+
+def search_podcasts(
+    db: Session,
+    query: str,
+    skip: int = 0,
+    limit: int = 20,
+    category: Optional[str] = None,
+    is_public: bool = True
+) -> Tuple[List[models.Podcast], int]:
+    """
+    Search podcasts by title and description.
+    
+    Args:
+        db: Database session
+        query: Search query string
+        skip: Number of records to skip (pagination)
+        limit: Maximum number of records to return
+        category: Optional category filter
+        is_public: Filter by public/private status
+        
+    Returns:
+        Tuple[List[models.Podcast], int]: List of podcasts and total count
+    """
+    search_query = db.query(models.Podcast).options(
+        joinedload(models.Podcast.owner)
+    )
+    
+    # Apply public filter
+    if is_public:
+        search_query = search_query.filter(models.Podcast.is_public == True)
+    
+    # Apply category filter
+    if category:
+        search_query = search_query.filter(models.Podcast.category == category)
+    
+    # Apply search term
+    search_term = f"%{query}%"
+    search_query = search_query.filter(
+        or_(
+            models.Podcast.title.ilike(search_term),
+            models.Podcast.description.ilike(search_term)
+        )
+    )
+    
+    # Order by relevance (you could add more sophisticated ranking later)
+    search_query = search_query.order_by(desc(models.Podcast.created_at))
+    
+    total = search_query.count()
+    podcasts = search_query.offset(skip).limit(limit).all()
     
     return (podcasts, total)
 
