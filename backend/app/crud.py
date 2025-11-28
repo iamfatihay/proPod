@@ -56,8 +56,21 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
         
     Returns:
         models.User: Created user object
+        
+    Raises:
+        HTTPException: If password is empty or whitespace-only
     """
-    hashed_password = pwd_context.hash(user.password) if user.password else None
+    # Hash password if provided (OAuth users may not have passwords)
+    hashed_password = None
+    if user.password:
+        # Validate password is not empty or whitespace
+        if not user.password.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password cannot be empty or whitespace"
+            )
+        hashed_password = pwd_context.hash(user.password)
+    
     db_user = models.User(
         email=user.email,
         name=user.name,

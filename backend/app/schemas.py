@@ -17,8 +17,12 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    """Schema for user registration."""
-    password: Optional[str] = None  # Optional for OAuth users
+    """
+    Schema for user registration.
+    
+    Note: Password is optional for OAuth users (e.g., Google login)
+    """
+    password: Optional[str] = None
 
 
 class UserLogin(BaseModel):

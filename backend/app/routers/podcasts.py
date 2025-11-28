@@ -228,7 +228,11 @@ def get_podcast(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(auth.get_current_user_optional)
 ):
-    """Get a specific podcast by ID and increment play count."""
+    """
+    Get a specific podcast by ID.
+    
+    Note: This endpoint automatically increments the podcast's play count.
+    """
     podcast = crud.get_podcast(
         db=db,
         podcast_id=podcast_id,
