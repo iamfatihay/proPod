@@ -1,3 +1,4 @@
+"""AI service endpoints for podcast processing."""
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -8,24 +9,24 @@ import aiofiles
 from pathlib import Path
 
 from .. import schemas, crud, models, auth
-from ..database import SessionLocal
+from ..database import get_db
 from ..services.ai_service import ai_service
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Maximum file size for mobile uploads (50MB)
+MAX_AUDIO_FILE_SIZE = 50 * 1024 * 1024
 
 @router.get("/status")
 async def get_ai_status():
-    """Get AI services status"""
+    """
+    Get AI services status.
+    
+    Returns service availability and initialization state.
+    """
     try:
-        status = ai_service.get_service_status()
-        return JSONResponse(content=status)
+        service_status = ai_service.get_service_status()
+        return JSONResponse(content=service_status)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -62,7 +63,10 @@ async def process_audio(
     current_user: models.User = Depends(auth.get_current_user)
 ):
     """
-    Process uploaded audio file with AI enhancement
+    Process uploaded audio file with AI enhancement.
+    
+    Supports mobile uploads with file size validation.
+    Maximum file size: 50MB for mobile compatibility.
     """
     try:
         # Validate file type
@@ -73,11 +77,22 @@ async def process_audio(
                 detail=f"Unsupported file type: {file.content_type}"
             )
         
+        # Read file content
+        content = await file.read()
+        
+        # Validate file size (important for mobile devices)
+        file_size = len(content)
+        if file_size > MAX_AUDIO_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large. Maximum size: {MAX_AUDIO_FILE_SIZE // (1024*1024)}MB"
+            )
+        
         # Create temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
-            # Save uploaded file
-            content = await file.read()
-            await aiofiles.open(temp_file.name, 'wb').write(content)
+            # Save uploaded file (corrected async file writing)
+            async with aiofiles.open(temp_file.name, 'wb') as f:
+                await f.write(content)
             temp_path = temp_file.name
         
         try:
@@ -144,13 +159,25 @@ async def enhance_audio_only(
     current_user: models.User = Depends(auth.get_current_user)
 ):
     """
-    Enhance audio quality only (no transcription)
+    Enhance audio quality only (no transcription).
+    
+    Optimized for mobile devices with file size validation.
     """
     try:
+        # Read and validate file
+        content = await file.read()
+        file_size = len(content)
+        
+        if file_size > MAX_AUDIO_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large. Maximum size: {MAX_AUDIO_FILE_SIZE // (1024*1024)}MB"
+            )
+        
         # Create temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
-            content = await file.read()
-            await aiofiles.open(temp_file.name, 'wb').write(content)
+            async with aiofiles.open(temp_file.name, 'wb') as f:
+                await f.write(content)
             temp_path = temp_file.name
         
         try:
@@ -193,13 +220,25 @@ async def transcribe_audio(
     current_user: models.User = Depends(auth.get_current_user)
 ):
     """
-    Transcribe audio to text
+    Transcribe audio to text.
+    
+    Mobile-friendly with automatic file size validation.
     """
     try:
+        # Read and validate file
+        content = await file.read()
+        file_size = len(content)
+        
+        if file_size > MAX_AUDIO_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large. Maximum size: {MAX_AUDIO_FILE_SIZE // (1024*1024)}MB"
+            )
+        
         # Create temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
-            content = await file.read()
-            await aiofiles.open(temp_file.name, 'wb').write(content)
+            async with aiofiles.open(temp_file.name, 'wb') as f:
+                await f.write(content)
             temp_path = temp_file.name
         
         try:
@@ -291,13 +330,25 @@ async def detect_audio_language(
     current_user: models.User = Depends(auth.get_current_user)
 ):
     """
-    Detect language of audio file
+    Detect language of audio file.
+    
+    Validates file size for mobile compatibility.
     """
     try:
+        # Read and validate file
+        content = await file.read()
+        file_size = len(content)
+        
+        if file_size > MAX_AUDIO_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large. Maximum size: {MAX_AUDIO_FILE_SIZE // (1024*1024)}MB"
+            )
+        
         # Create temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
-            content = await file.read()
-            await aiofiles.open(temp_file.name, 'wb').write(content)
+            async with aiofiles.open(temp_file.name, 'wb') as f:
+                await f.write(content)
             temp_path = temp_file.name
         
         try:

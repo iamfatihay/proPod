@@ -2,7 +2,8 @@
  * API Service
  * 
  * Centralized service for making HTTP requests to the backend API.
- * Handles authentication, token refresh, error handling, and request timeouts.
+ * Handles authentication, token refresh, error handling, request timeouts,
+ * and automatic retry logic for mobile network issues.
  * 
  * @module apiService
  */
@@ -11,6 +12,7 @@ import Constants from "expo-constants";
 import { getToken, saveToken, deleteToken } from "../auth/tokenStorage";
 import { Platform } from "react-native";
 import Logger from "../../utils/logger";
+import { retryWithBackoff, isNetworkError } from "../../utils/networkUtils";
 
 // API Configuration
 const API_BASE_URL =
@@ -19,6 +21,14 @@ Logger.log("🌐 API Base URL:", API_BASE_URL);
 
 // Network timeout configuration (iOS can handle longer timeouts)
 const NETWORK_TIMEOUT = Platform.OS === "ios" ? 30000 : 25000;
+
+// Retry configuration for mobile
+const RETRY_CONFIG = {
+    maxRetries: 3,
+    initialDelay: 1000,
+    maxDelay: 10000,
+    checkNetwork: false  // Don't check network to avoid extra requests
+};
 
 /**
  * ApiService Class
@@ -176,6 +186,25 @@ class ApiService {
             Logger.error("API request failed:", error);
             throw error;
         }
+    }
+    /**
+     * Make an HTTP request with automatic retry for network failures
+     * 
+     * @param {string} endpoint - API endpoint path
+     * @param {Object} options - Fetch options
+     * @param {boolean} withRetry - Enable retry logic for network errors
+     * @returns {Promise<Object>} Response data
+     * @throws {Error} Network or HTTP errors
+     */
+    async requestWithRetry(endpoint, options = {}, withRetry = true) {
+        if (!withRetry) {
+            return this.request(endpoint, options);
+        }
+        
+        return retryWithBackoff(
+            () => this.request(endpoint, options),
+            RETRY_CONFIG
+        );
     }
 
     // ==================== Authentication Methods ====================
