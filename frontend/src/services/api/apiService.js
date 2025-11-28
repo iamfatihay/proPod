@@ -23,11 +23,13 @@ Logger.log("🌐 API Base URL:", API_BASE_URL);
 const NETWORK_TIMEOUT = Platform.OS === "ios" ? 30000 : 25000;
 
 // Retry configuration for mobile
+// Network check disabled to avoid external dependency on google.com
+// Retry logic will still work based on error detection
 const RETRY_CONFIG = {
     maxRetries: 3,
     initialDelay: 1000,
     maxDelay: 10000,
-    checkNetwork: false  // Don't check network to avoid extra requests
+    checkNetwork: false  // Disabled to avoid external dependencies
 };
 
 /**
@@ -475,10 +477,19 @@ class ApiService {
      * @param {string} audioFile.uri - File URI
      * @param {string} audioFile.type - File MIME type
      * @param {string} audioFile.name - File name
+     * @param {number} audioFile.size - File size in bytes (optional)
      * @returns {Promise<Object>} Upload response with audio URL
-     * @throws {Error} If upload fails
+     * @throws {Error} If upload fails or file too large
      */
     async uploadAudio(audioFile) {
+        // Check file size before upload (mobile friendly: max 50MB)
+        const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+        if (audioFile.size && audioFile.size > MAX_FILE_SIZE) {
+            throw new Error(
+                `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB. Your file is ${(audioFile.size / (1024 * 1024)).toFixed(2)}MB.`
+            );
+        }
+
         const formData = new FormData();
         formData.append("file", {
             uri: audioFile.uri,
@@ -487,14 +498,16 @@ class ApiService {
         });
 
         const accessToken = await getToken("accessToken");
-        return this.request("/podcasts/upload", {
+        
+        // Use retry logic for uploads (network issues common on mobile)
+        return this.requestWithRetry("/podcasts/upload", {
             method: "POST",
             headers: {
                 "Content-Type": "multipart/form-data",
                 ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
             },
             body: formData,
-        });
+        }, true);
     }
 
     // Podcast Interaction methods

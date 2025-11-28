@@ -69,7 +69,7 @@ async def process_audio(
     Maximum file size: 50MB for mobile compatibility.
     """
     try:
-        # Validate file type
+        # Validate file type first
         allowed_types = ["audio/mpeg", "audio/mp4", "audio/wav", "audio/m4a", "audio/ogg"]
         if file.content_type not in allowed_types:
             raise HTTPException(
@@ -77,11 +77,18 @@ async def process_audio(
                 detail=f"Unsupported file type: {file.content_type}"
             )
         
-        # Read file content
-        content = await file.read()
+        # Check file size if available (without reading entire file)
+        if hasattr(file, 'size') and file.size and file.size > MAX_AUDIO_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large. Maximum size: {MAX_AUDIO_FILE_SIZE // (1024*1024)}MB"
+            )
         
-        # Validate file size (important for mobile devices)
+        # Read file content (with size validation as fallback)
+        content = await file.read()
         file_size = len(content)
+        
+        # Validate file size after reading (in case size attribute wasn't available)
         if file_size > MAX_AUDIO_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
@@ -164,6 +171,13 @@ async def enhance_audio_only(
     Optimized for mobile devices with file size validation.
     """
     try:
+        # Check file size before reading if available
+        if hasattr(file, 'size') and file.size and file.size > MAX_AUDIO_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large. Maximum size: {MAX_AUDIO_FILE_SIZE // (1024*1024)}MB"
+            )
+        
         # Read and validate file
         content = await file.read()
         file_size = len(content)
@@ -225,6 +239,13 @@ async def transcribe_audio(
     Mobile-friendly with automatic file size validation.
     """
     try:
+        # Check file size before reading if available
+        if hasattr(file, 'size') and file.size and file.size > MAX_AUDIO_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large. Maximum size: {MAX_AUDIO_FILE_SIZE // (1024*1024)}MB"
+            )
+        
         # Read and validate file
         content = await file.read()
         file_size = len(content)
@@ -335,6 +356,13 @@ async def detect_audio_language(
     Validates file size for mobile compatibility.
     """
     try:
+        # Check file size before reading if available
+        if hasattr(file, 'size') and file.size and file.size > MAX_AUDIO_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large. Maximum size: {MAX_AUDIO_FILE_SIZE // (1024*1024)}MB"
+            )
+        
         # Read and validate file
         content = await file.read()
         file_size = len(content)
