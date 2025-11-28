@@ -23,13 +23,14 @@ Logger.log("🌐 API Base URL:", API_BASE_URL);
 const NETWORK_TIMEOUT = Platform.OS === "ios" ? 30000 : 25000;
 
 // Retry configuration for mobile
-// Network check disabled to avoid external dependency on google.com
-// Retry logic will still work based on error detection
+// Network check disabled to avoid external dependency
+// The retry logic itself will handle network errors through error detection
+// To enable network checks, provide a health check URL to isNetworkAvailable()
 const RETRY_CONFIG = {
     maxRetries: 3,
     initialDelay: 1000,
     maxDelay: 10000,
-    checkNetwork: false  // Disabled to avoid external dependencies
+    checkNetwork: false  // Disabled - no default external dependency
 };
 
 /**

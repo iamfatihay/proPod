@@ -10,21 +10,24 @@ import Logger from './logger';
 
 /**
  * Check if device has network connectivity
- * Simple implementation that works without additional packages
  * 
- * @param {string} healthCheckUrl - Optional health check URL (defaults to google.com)
- * @returns {Promise<boolean>} True if connected (optimistic check)
+ * Note: This is an optimistic check that doesn't block on external dependencies.
+ * Network errors will still be handled by the retry logic.
+ * 
+ * @param {string} healthCheckUrl - Health check URL (use app's own endpoint in production)
+ * @returns {Promise<boolean>} True if connected (optimistic on failure)
  */
 export async function isNetworkAvailable(healthCheckUrl = null) {
+    // Skip network check if no URL provided (optimistic approach)
+    if (!healthCheckUrl) {
+        return true;
+    }
+    
     try {
-        // Use provided URL or default to a reliable endpoint
-        // For production, this should be configured to use app's own health check
-        const checkUrl = healthCheckUrl || 'https://www.google.com/generate_204';
-        
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000);
         
-        const response = await fetch(checkUrl, {
+        const response = await fetch(healthCheckUrl, {
             method: 'HEAD',
             signal: controller.signal,
             cache: 'no-cache'
