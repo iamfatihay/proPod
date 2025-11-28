@@ -1,17 +1,30 @@
+/**
+ * API Service
+ * 
+ * Centralized service for making HTTP requests to the backend API.
+ * Handles authentication, token refresh, error handling, and request timeouts.
+ * 
+ * @module apiService
+ */
+
 import Constants from "expo-constants";
 import { getToken, saveToken, deleteToken } from "../auth/tokenStorage";
 import { Platform } from "react-native";
 import Logger from "../../utils/logger";
 
-// IMPORTANT: API URL is read from .env → app.config.js → here
-// The fallback IP is only used if .env is missing (shouldn't happen)
+// API Configuration
 const API_BASE_URL =
     Constants.expoConfig?.extra?.apiBaseUrl || "http://192.168.178.27:8000";
 Logger.log("🌐 API Base URL:", API_BASE_URL);
 
-// Network timeout configuration
-const NETWORK_TIMEOUT = Platform.OS === "ios" ? 30000 : 25000; // iOS can handle longer timeouts
+// Network timeout configuration (iOS can handle longer timeouts)
+const NETWORK_TIMEOUT = Platform.OS === "ios" ? 30000 : 25000;
 
+/**
+ * ApiService Class
+ * 
+ * Main service class for API communication
+ */
 class ApiService {
     constructor() {
         this.baseURL = API_BASE_URL;
@@ -19,6 +32,8 @@ class ApiService {
 
     /**
      * Normalize podcast audio URLs - convert relative paths to absolute URLs
+     * @param {Object} podcast - Podcast object
+     * @returns {Object} Podcast with normalized audio URL
      */
     normalizePodcast(podcast) {
         if (!podcast) return podcast;
@@ -32,12 +47,23 @@ class ApiService {
 
     /**
      * Normalize array of podcasts
+     * @param {Array} podcasts - Array of podcast objects
+     * @returns {Array} Podcasts with normalized audio URLs
      */
     normalizePodcasts(podcasts) {
         if (!Array.isArray(podcasts)) return podcasts;
         return podcasts.map(p => this.normalizePodcast(p));
     }
 
+    /**
+     * Make an HTTP request to the API
+     * 
+     * @param {string} endpoint - API endpoint path
+     * @param {Object} options - Fetch options (method, headers, body, etc.)
+     * @param {boolean} retry - Whether to retry on 401 with token refresh
+     * @returns {Promise<Object>} Response data
+     * @throws {Error} Network or HTTP errors
+     */
     async request(endpoint, options = {}, retry = true) {
         const url = `${this.baseURL}${endpoint}`;
         const accessToken = await getToken("accessToken");
@@ -46,13 +72,10 @@ class ApiService {
         const config = {
             headers: {
                 "Content-Type": "application/json",
-                // Add user agent for better compatibility
-                "User-Agent":
-                    Platform.OS === "ios" ? "VoloApp/iOS" : "VoloApp/Android",
+                "User-Agent": Platform.OS === "ios" ? "ProPodApp/iOS" : "ProPodApp/Android",
                 ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
                 ...options.headers,
             },
-            // Add timeout for network requests
             timeout: NETWORK_TIMEOUT,
             ...options,
         };
@@ -66,9 +89,8 @@ class ApiService {
             const response = await fetch(url, config);
             clearTimeout(timeoutId);
 
-            // If access token is expired and 401 is returned, try to refresh
+            // Handle token expiration and refresh
             if (response.status === 401 && retry && refreshToken) {
-                // Get a new access token using the refresh token
                 const refreshController = new AbortController();
                 const refreshTimeoutId = setTimeout(
                     () => refreshController.abort(),
@@ -81,10 +103,7 @@ class ApiService {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
-                            "User-Agent":
-                                Platform.OS === "ios"
-                                    ? "VoloApp/iOS"
-                                    : "VoloApp/Android",
+                            "User-Agent": Platform.OS === "ios" ? "ProPodApp/iOS" : "ProPodApp/Android",
                         },
                         body: JSON.stringify({ refresh_token: refreshToken }),
                         timeout: NETWORK_TIMEOUT,
@@ -96,10 +115,10 @@ class ApiService {
                 if (refreshRes.ok) {
                     const refreshData = await refreshRes.json();
                     await saveToken("accessToken", refreshData.access_token);
-                    // accessToken updated, retry the request (retry=false to avoid infinite loop)
+                    // Retry original request with new token
                     return this.request(endpoint, options, false);
                 } else {
-                    // If refresh token is also expired, logout
+                    // Refresh token expired, logout user
                     await deleteToken("accessToken");
                     await deleteToken("refreshToken");
                     throw new Error("Session expired. Please login again.");
@@ -109,7 +128,8 @@ class ApiService {
             if (!response.ok) {
                 let error = new Error(`HTTP error! status: ${response.status}`);
                 error.status = response.status;
-                // Prefer JSON details if available
+                
+                // Try to parse error details from response
                 try {
                     const data = await response.json();
                     if (data && data.detail) {
@@ -117,7 +137,7 @@ class ApiService {
                     }
                     error.response = { data };
                 } catch (e) {
-                    // Fallback: capture raw text body to surface backend errors without JSON
+                    // Fallback to raw text if JSON parsing fails
                     try {
                         const rawText = await response.text();
                         if (rawText && rawText.length > 0) {
@@ -135,7 +155,7 @@ class ApiService {
         } catch (error) {
             clearTimeout(timeoutId);
 
-            // Handle different error types with better messages
+            // Provide user-friendly error messages
             if (error.name === "AbortError") {
                 throw new Error(
                     "Request timeout. Please check your internet connection and try again."
@@ -158,7 +178,16 @@ class ApiService {
         }
     }
 
-    // Auth methods
+    // ==================== Authentication Methods ====================
+
+    /**
+     * Login user with email and password
+     * 
+     * @param {string} email - User's email address
+     * @param {string} password - User's password
+     * @returns {Promise<Object>} User data and tokens
+     * @throws {Error} If login fails
+     */
     async login(email, password) {
         try {
             const data = await this.request("/users/login", {
@@ -174,6 +203,15 @@ class ApiService {
         }
     }
 
+    /**
+     * Register new user
+     * 
+     * @param {string} name - User's display name
+     * @param {string} email - User's email address
+     * @param {string} password - User's password
+     * @returns {Promise<Object>} User data and tokens
+     * @throws {Error} If registration fails
+     */
     async register(name, email, password) {
         const data = await this.request("/users/register", {
             method: "POST",
@@ -184,6 +222,16 @@ class ApiService {
         return data;
     }
 
+    /**
+     * Login or register user with Google OAuth
+     * 
+     * @param {Object} userData - Google user data
+     * @param {string} userData.email - User's email
+     * @param {string} userData.name - User's name
+     * @param {string} userData.photo_url - User's profile photo URL
+     * @returns {Promise<Object>} User data and tokens
+     * @throws {Error} If login fails
+     */
     async googleLogin({ email, name, photo_url }) {
         const data = await this.request("/users/google-login", {
             method: "POST",
@@ -199,6 +247,13 @@ class ApiService {
         return data;
     }
 
+    /**
+     * Refresh access token using refresh token
+     * 
+     * @param {string} refresh_token - Refresh token
+     * @returns {Promise<Object>} New access token
+     * @throws {Error} If refresh fails
+     */
     async refreshToken(refresh_token) {
         const data = await this.request("/users/refresh-token", {
             method: "POST",
@@ -208,11 +263,26 @@ class ApiService {
         return data;
     }
 
-    // User Profile methods
+    // ==================== User Profile Methods ====================
+
+    /**
+     * Get current user profile
+     * 
+     * @returns {Promise<Object>} User profile data
+     * @throws {Error} If request fails
+     */
     async getUserProfile() {
         return this.request("/users/me");
     }
 
+    /**
+     * Update user profile
+     * 
+     * @param {Object} profileData - Profile data to update
+     * @param {string} profileData.name - User's display name
+     * @returns {Promise<Object>} Updated user data
+     * @throws {Error} If update fails
+     */
     async updateProfile({ name }) {
         const data = await this.request("/users/me", {
             method: "PUT",
@@ -221,6 +291,14 @@ class ApiService {
         return data;
     }
 
+    /**
+     * Change user password
+     * 
+     * @param {string} old_password - Current password
+     * @param {string} new_password - New password
+     * @returns {Promise<Object>} Success message
+     * @throws {Error} If password change fails
+     */
     async changePassword(old_password, new_password) {
         return this.request("/users/change-password", {
             method: "POST",
@@ -228,12 +306,25 @@ class ApiService {
         });
     }
 
+    /**
+     * Delete user account (soft delete)
+     * 
+     * @returns {Promise<Object>} Success message
+     * @throws {Error} If deletion fails
+     */
     async deleteAccount() {
         return this.request("/users/delete", {
             method: "POST",
         });
     }
 
+    /**
+     * Request password reset
+     * 
+     * @param {string} email - User's email address
+     * @returns {Promise<Object>} Success message
+     * @throws {Error} If request fails
+     */
     async forgotPassword(email) {
         return this.request("/users/forgot-password", {
             method: "POST",
@@ -241,6 +332,14 @@ class ApiService {
         });
     }
 
+    /**
+     * Reset password with token
+     * 
+     * @param {string} token - Reset token
+     * @param {string} new_password - New password
+     * @returns {Promise<Object>} Success message
+     * @throws {Error} If reset fails
+     */
     async resetPassword(token, new_password) {
         return this.request("/users/reset-password", {
             method: "POST",
@@ -248,7 +347,7 @@ class ApiService {
         });
     }
 
-    // Podcast CRUD methods
+    // ==================== Podcast CRUD Methods ====================
     async createPodcast(podcastData) {
         return this.request("/podcasts/create", {
             method: "POST",
