@@ -5,9 +5,11 @@ import {
     SafeAreaView,
     FlatList,
     ActivityIndicator,
+    RefreshControl,
     TouchableOpacity,
     Platform,
     ScrollView,
+    StatusBar,
 } from "react-native";
 import React, { useEffect, useState, useCallback } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -234,15 +236,28 @@ export default function HomeScreen() {
                 className="flex-1"
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <ActivityIndicator refreshing={refreshing} onRefresh={onRefresh} />
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                    />
                 }
             >
-                <View className="px-4 pt-8 pb-24">
+                <View
+                    className="px-4 pb-32"
+                    style={{
+                        paddingTop:
+                            Platform.OS === "android"
+                                ? StatusBar.currentHeight + 16
+                                : 32,
+                    }}
+                >
                     {/* Header with Mode Toggle */}
                     <View className="flex-row items-center justify-between mb-6">
                         <View className="flex-1">
                             <Text className="text-2xl font-bold text-text-primary mb-2">
-                                {viewMode === "studio" ? "🎙️ Studio" : "🎧 Discover"}
+                                {viewMode === "studio"
+                                    ? "🎙️ Studio"
+                                    : "🎧 Discover"}
                             </Text>
                             <Text className="text-sm text-text-secondary">
                                 {viewMode === "studio"
@@ -253,7 +268,12 @@ export default function HomeScreen() {
                         <TouchableOpacity
                             onPress={() => router.push("/(main)/profile")}
                             activeOpacity={0.7}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            hitSlop={{
+                                top: 10,
+                                bottom: 10,
+                                left: 10,
+                                right: 10,
+                            }}
                         >
                             {user && user.photo_url ? (
                                 <Image
@@ -262,7 +282,11 @@ export default function HomeScreen() {
                                 />
                             ) : (
                                 <View className="w-12 h-12 rounded-full bg-card items-center justify-center border-2 border-border">
-                                    <Ionicons name="person" size={28} color="#888" />
+                                    <Ionicons
+                                        name="person"
+                                        size={28}
+                                        color="#888"
+                                    />
                                 </View>
                             )}
                         </TouchableOpacity>
@@ -283,66 +307,78 @@ export default function HomeScreen() {
                     />
 
                     {/* Quick Actions Bar */}
-                    <QuickActionsBar
-                        onActionPress={handleQuickAction}
-                        notifications={{
-                            comments: 3,
-                            analytics: 0,
-                        }}
-                    />
+                    <View className="-mx-4">
+                        <QuickActionsBar
+                            onActionPress={handleQuickAction}
+                            notifications={{
+                                comments: 3,
+                                analytics: 0,
+                            }}
+                        />
+                    </View>
 
-                {/* Category Filters - Horizontal scroll */}
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    className="mb-6"
-                    contentContainerStyle={{ paddingRight: 16 }}
-                >
-                    {CATEGORIES.map((category) => (
-                        <TouchableOpacity
-                            key={category.id}
-                            onPress={() => setSelectedCategory(category.id)}
-                            className={`flex-row items-center px-4 py-2 rounded-full mr-3 ${
-                                selectedCategory === category.id
-                                    ? "bg-primary"
-                                    : "bg-panel"
-                            }`}
-                            activeOpacity={0.7}
-                        >
-                            <Ionicons
-                                name={category.icon}
-                                size={18}
-                                color={
+                    {/* Category Filters - Horizontal scroll */}
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        className="mb-6"
+                        contentContainerStyle={{ paddingRight: 16 }}
+                    >
+                        {CATEGORIES.map((category) => (
+                            <TouchableOpacity
+                                key={category.id}
+                                onPress={() => setSelectedCategory(category.id)}
+                                className={`flex-row items-center px-4 py-2 rounded-full mr-3 ${
                                     selectedCategory === category.id
-                                        ? "#FFFFFF"
-                                        : "#888888"
-                                }
-                            />
-                            <Text
-                                className={`ml-2 font-medium ${
-                                    selectedCategory === category.id
-                                        ? "text-white"
-                                        : "text-text-secondary"
+                                        ? "bg-primary"
+                                        : "bg-panel"
                                 }`}
+                                activeOpacity={0.7}
                             >
-                                {category.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
+                                <Ionicons
+                                    name={category.icon}
+                                    size={18}
+                                    color={
+                                        selectedCategory === category.id
+                                            ? "#FFFFFF"
+                                            : "#888888"
+                                    }
+                                />
+                                <Text
+                                    className={`ml-2 font-medium ${
+                                        selectedCategory === category.id
+                                            ? "text-white"
+                                            : "text-text-secondary"
+                                    }`}
+                                >
+                                    {category.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
 
                     {/* For You Feed - Gradient Cards */}
                     <View className="mb-6">
                         <View className="flex-row items-center justify-between mb-4">
                             <View className="flex-row items-center">
-                                <MaterialCommunityIcons name="robot" size={24} color="#4facfe" />
+                                <MaterialCommunityIcons
+                                    name="robot"
+                                    size={24}
+                                    color="#4facfe"
+                                />
                                 <Text className="text-xl font-bold text-text-primary ml-2">
                                     For You
                                 </Text>
                             </View>
                             <TouchableOpacity className="flex-row items-center">
-                                <Text className="text-primary text-sm font-medium mr-1">See all</Text>
-                                <Ionicons name="chevron-forward" size={16} color="#D32F2F" />
+                                <Text className="text-primary text-sm font-medium mr-1">
+                                    See all
+                                </Text>
+                                <Ionicons
+                                    name="chevron-forward"
+                                    size={16}
+                                    color="#D32F2F"
+                                />
                             </TouchableOpacity>
                         </View>
                         <ScrollView
@@ -369,8 +405,13 @@ export default function HomeScreen() {
                                                 params: { id: podcast.id },
                                             })
                                         }
-                                        onPlayPress={() => handlePlayPodcast(podcast)}
-                                        isPlaying={currentTrack?.id === podcast.id && isPlaying}
+                                        onPlayPress={() =>
+                                            handlePlayPodcast(podcast)
+                                        }
+                                        isPlaying={
+                                            currentTrack?.id === podcast.id &&
+                                            isPlaying
+                                        }
                                         showAIBadge={true}
                                     />
                                 ))
@@ -378,168 +419,190 @@ export default function HomeScreen() {
                         </ScrollView>
                     </View>
 
-                {/* Episodes */}
-                <View className="flex-row items-center justify-between mb-3">
-                    <Text className="text-xl font-semibold text-text-primary">
-                        Recent Episodes
-                    </Text>
-                    {podcasts.length > 0 && (
-                        <TouchableOpacity
-                            onPress={() => router.push("/(main)/library")}
-                            className="flex-row items-center"
-                        >
-                            <Text className="text-primary text-sm font-medium mr-1">
-                                See all
-                            </Text>
-                            <Ionicons
-                                name="chevron-forward"
-                                size={16}
-                                color="#D32F2F"
-                            />
-                        </TouchableOpacity>
-                    )}
-                </View>
-                <View className="mb-4">
-                    {loading ? (
-                        // Skeleton loaders for better perceived performance
-                        <>
-                            <PodcastCardSkeleton />
-                            <PodcastCardSkeleton />
-                            <PodcastCardSkeleton />
-                        </>
-                    ) : error ? (
-                        // Error State
-                        <View className="py-12 items-center px-6">
-                            <View className="w-24 h-24 rounded-full bg-error/10 items-center justify-center mb-4">
-                                <MaterialCommunityIcons
-                                    name="alert-circle-outline"
-                                    size={48}
-                                    color="#EF4444"
-                                />
-                            </View>
-                            <Text className="text-lg text-text-primary font-semibold mb-2 text-center">
-                                Oops! Something went wrong
-                            </Text>
-                            <Text className="text-sm text-text-secondary text-center mb-6">
-                                {error}
-                            </Text>
+                    {/* Episodes */}
+                    <View className="flex-row items-center justify-between mb-3">
+                        <Text className="text-xl font-semibold text-text-primary">
+                            Recent Episodes
+                        </Text>
+                        {podcasts.length > 0 && (
                             <TouchableOpacity
-                                onPress={onRefresh}
-                                className="bg-primary px-6 py-3 rounded-full flex-row items-center"
-                                activeOpacity={0.8}
+                                onPress={() => router.push("/(main)/library")}
+                                className="flex-row items-center"
                             >
-                                <MaterialCommunityIcons name="refresh" size={20} color="white" />
-                                <Text className="text-white font-semibold ml-2">Try Again</Text>
-                            </TouchableOpacity>
-                        </View>
-                    ) : podcasts.length === 0 ? (
-                        // Empty State - Mode-specific
-                        <View className="py-12 items-center px-6">
-                            {viewMode === "studio" ? (
-                                <>
-                                    <View className="w-32 h-32 rounded-full bg-primary/10 items-center justify-center mb-6">
-                                        <MaterialCommunityIcons
-                                            name="microphone-variant"
-                                            size={64}
-                                            color="#D32F2F"
-                                        />
-                                    </View>
-                                    <Text className="text-headline text-text-primary font-semibold mb-2 text-center">
-                                        Start Your Creator Journey
-                                    </Text>
-                                    <Text className="text-body text-text-secondary text-center mb-6 px-4">
-                                        Create your first podcast with AI-powered tools. Record, edit,
-                                        and share your voice with the world!
-                                    </Text>
-                                    <TouchableOpacity
-                                        onPress={() => router.push("/(main)/create")}
-                                        className="bg-primary px-8 py-4 rounded-full flex-row items-center"
-                                        activeOpacity={0.8}
-                                        style={{
-                                            ...(Platform.OS === "ios"
-                                                ? {
-                                                      shadowColor: "#D32F2F",
-                                                      shadowOffset: { width: 0, height: 4 },
-                                                      shadowOpacity: 0.3,
-                                                      shadowRadius: 8,
-                                                  }
-                                                : {
-                                                      elevation: 8,
-                                                  }),
-                                        }}
-                                    >
-                                        <MaterialCommunityIcons
-                                            name="record-circle"
-                                            size={24}
-                                            color="white"
-                                        />
-                                        <Text className="text-white font-semibold text-base ml-2">
-                                            Create First Podcast
-                                        </Text>
-                                    </TouchableOpacity>
-                                </>
-                            ) : (
-                                <>
-                                    <View className="w-32 h-32 rounded-full bg-info/10 items-center justify-center mb-6">
-                                        <MaterialCommunityIcons
-                                            name="compass-outline"
-                                            size={64}
-                                            color="#3B82F6"
-                                        />
-                                    </View>
-                                    <Text className="text-headline text-text-primary font-semibold mb-2 text-center">
-                                        No Podcasts Yet
-                                    </Text>
-                                    <Text className="text-body text-text-secondary text-center mb-6 px-4">
-                                        Be the first to discover amazing content! Check back soon or
-                                        try different categories.
-                                    </Text>
-                                    <TouchableOpacity
-                                        onPress={() => setSelectedCategory("all")}
-                                        className="bg-info px-8 py-4 rounded-full flex-row items-center"
-                                        activeOpacity={0.8}
-                                    >
-                                        <MaterialCommunityIcons name="refresh" size={20} color="white" />
-                                        <Text className="text-white font-semibold text-base ml-2">
-                                            Refresh Feed
-                                        </Text>
-                                    </TouchableOpacity>
-                                </>
-                            )}
-                        </View>
-                    ) : (
-                        <FlatList
-                            data={podcasts}
-                            keyExtractor={(item) => String(item.id)}
-                            renderItem={({ item }) => (
-                                <PodcastCard
-                                    podcast={item}
-                                    onPress={() =>
-                                        router.push({
-                                            pathname: "/(main)/details",
-                                            params: { id: item.id },
-                                        })
-                                    }
-                                    onPlayPress={() => handlePlayPodcast(item)}
-                                    isPlaying={
-                                        currentTrack?.id === item.id &&
-                                        isPlaying
-                                    }
-                                    showPlayButton={true}
+                                <Text className="text-primary text-sm font-medium mr-1">
+                                    See all
+                                </Text>
+                                <Ionicons
+                                    name="chevron-forward"
+                                    size={16}
+                                    color="#D32F2F"
                                 />
-                            )}
-                            showsVerticalScrollIndicator={false}
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                        />
-                    )}
-                </View>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                    <View className="mb-4">
+                        {loading ? (
+                            // Skeleton loaders for better perceived performance
+                            <>
+                                <PodcastCardSkeleton />
+                                <PodcastCardSkeleton />
+                                <PodcastCardSkeleton />
+                            </>
+                        ) : error ? (
+                            // Error State
+                            <View className="py-12 items-center px-6">
+                                <View className="w-24 h-24 rounded-full bg-error/10 items-center justify-center mb-4">
+                                    <MaterialCommunityIcons
+                                        name="alert-circle-outline"
+                                        size={48}
+                                        color="#EF4444"
+                                    />
+                                </View>
+                                <Text className="text-lg text-text-primary font-semibold mb-2 text-center">
+                                    Oops! Something went wrong
+                                </Text>
+                                <Text className="text-sm text-text-secondary text-center mb-6">
+                                    {error}
+                                </Text>
+                                <TouchableOpacity
+                                    onPress={onRefresh}
+                                    className="bg-primary px-6 py-3 rounded-full flex-row items-center"
+                                    activeOpacity={0.8}
+                                >
+                                    <MaterialCommunityIcons
+                                        name="refresh"
+                                        size={20}
+                                        color="white"
+                                    />
+                                    <Text className="text-white font-semibold ml-2">
+                                        Try Again
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : podcasts.length === 0 ? (
+                            // Empty State - Mode-specific
+                            <View className="py-12 items-center px-6">
+                                {viewMode === "studio" ? (
+                                    <>
+                                        <View className="w-32 h-32 rounded-full bg-primary/10 items-center justify-center mb-6">
+                                            <MaterialCommunityIcons
+                                                name="microphone-variant"
+                                                size={64}
+                                                color="#D32F2F"
+                                            />
+                                        </View>
+                                        <Text className="text-headline text-text-primary font-semibold mb-2 text-center">
+                                            Start Your Creator Journey
+                                        </Text>
+                                        <Text className="text-body text-text-secondary text-center mb-6 px-4">
+                                            Create your first podcast with
+                                            AI-powered tools. Record, edit, and
+                                            share your voice with the world!
+                                        </Text>
+                                        <TouchableOpacity
+                                            onPress={() =>
+                                                router.push("/(main)/create")
+                                            }
+                                            className="bg-primary px-8 py-4 rounded-full flex-row items-center"
+                                            activeOpacity={0.8}
+                                            style={{
+                                                ...(Platform.OS === "ios"
+                                                    ? {
+                                                          shadowColor:
+                                                              "#D32F2F",
+                                                          shadowOffset: {
+                                                              width: 0,
+                                                              height: 4,
+                                                          },
+                                                          shadowOpacity: 0.3,
+                                                          shadowRadius: 8,
+                                                      }
+                                                    : {
+                                                          elevation: 8,
+                                                      }),
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons
+                                                name="record-circle"
+                                                size={24}
+                                                color="white"
+                                            />
+                                            <Text className="text-white font-semibold text-base ml-2">
+                                                Create First Podcast
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </>
+                                ) : (
+                                    <>
+                                        <View className="w-32 h-32 rounded-full bg-info/10 items-center justify-center mb-6">
+                                            <MaterialCommunityIcons
+                                                name="compass-outline"
+                                                size={64}
+                                                color="#3B82F6"
+                                            />
+                                        </View>
+                                        <Text className="text-headline text-text-primary font-semibold mb-2 text-center">
+                                            No Podcasts Yet
+                                        </Text>
+                                        <Text className="text-body text-text-secondary text-center mb-6 px-4">
+                                            Be the first to discover amazing
+                                            content! Check back soon or try
+                                            different categories.
+                                        </Text>
+                                        <TouchableOpacity
+                                            onPress={() =>
+                                                setSelectedCategory("all")
+                                            }
+                                            className="bg-info px-8 py-4 rounded-full flex-row items-center"
+                                            activeOpacity={0.8}
+                                        >
+                                            <MaterialCommunityIcons
+                                                name="refresh"
+                                                size={20}
+                                                color="white"
+                                            />
+                                            <Text className="text-white font-semibold text-base ml-2">
+                                                Refresh Feed
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </>
+                                )}
+                            </View>
+                        ) : (
+                            <>
+                                {podcasts.map((item) => (
+                                    <PodcastCard
+                                        key={String(item.id)}
+                                        podcast={item}
+                                        onPress={() =>
+                                            router.push({
+                                                pathname: "/(main)/details",
+                                                params: { id: item.id },
+                                            })
+                                        }
+                                        onPlayPress={() =>
+                                            handlePlayPodcast(item)
+                                        }
+                                        isPlaying={
+                                            currentTrack?.id === item.id &&
+                                            isPlaying
+                                        }
+                                        showPlayButton={true}
+                                    />
+                                ))}
+                            </>
+                        )}
+                    </View>
 
                     {/* Trending Now Section */}
                     <View className="mb-6">
                         <View className="flex-row items-center justify-between mb-4">
                             <View className="flex-row items-center">
-                                <MaterialCommunityIcons name="fire" size={24} color="#F59E0B" />
+                                <MaterialCommunityIcons
+                                    name="fire"
+                                    size={24}
+                                    color="#F59E0B"
+                                />
                                 <Text className="text-xl font-bold text-text-primary ml-2">
                                     Trending Now
                                 </Text>
@@ -580,10 +643,13 @@ export default function HomeScreen() {
                                         </View>
                                     </TouchableOpacity>
                                 </View>
-                                <TouchableOpacity onPress={() => handlePlayPodcast(podcast)}>
+                                <TouchableOpacity
+                                    onPress={() => handlePlayPodcast(podcast)}
+                                >
                                     <MaterialCommunityIcons
                                         name={
-                                            currentTrack?.id === podcast.id && isPlaying
+                                            currentTrack?.id === podcast.id &&
+                                            isPlaying
                                                 ? "pause-circle"
                                                 : "play-circle"
                                         }
@@ -603,7 +669,9 @@ export default function HomeScreen() {
                                     Your Podcasts
                                 </Text>
                                 <TouchableOpacity
-                                    onPress={() => router.push("/(main)/library")}
+                                    onPress={() =>
+                                        router.push("/(main)/library")
+                                    }
                                     className="flex-row items-center"
                                 >
                                     <Text className="text-primary text-sm font-medium mr-1">
@@ -626,8 +694,13 @@ export default function HomeScreen() {
                                             params: { id: podcast.id },
                                         })
                                     }
-                                    onPlayPress={() => handlePlayPodcast(podcast)}
-                                    isPlaying={currentTrack?.id === podcast.id && isPlaying}
+                                    onPlayPress={() =>
+                                        handlePlayPodcast(podcast)
+                                    }
+                                    isPlaying={
+                                        currentTrack?.id === podcast.id &&
+                                        isPlaying
+                                    }
                                     showPlayButton={true}
                                 />
                             ))}

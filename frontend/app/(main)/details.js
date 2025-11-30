@@ -9,6 +9,7 @@ import {
     Dimensions,
     Share,
     Animated,
+    StatusBar,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -424,7 +425,15 @@ const Details = () => {
                 }}
             />
 
-            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+            <ScrollView
+                className="flex-1"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{
+                    paddingTop:
+                        Platform.OS === "android" ? StatusBar.currentHeight : 0,
+                    paddingBottom: 32,
+                }}
+            >
                 {/* Podcast Header */}
                 <View className="px-6 py-6">
                     {/* AI Artwork */}

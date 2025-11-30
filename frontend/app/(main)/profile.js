@@ -10,6 +10,8 @@ import {
     Image,
     Dimensions,
     Linking,
+    Platform,
+    StatusBar,
 } from "react-native";
 import React from "react";
 import useAuthStore from "../../src/context/useAuthStore";
@@ -440,8 +442,17 @@ export default function Profile() {
                 type={infoConfig.type}
             />
 
-            <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-                <View className="items-center mt-xl mb-lg">
+            <ScrollView
+                contentContainerStyle={{
+                    flexGrow: 1,
+                    paddingTop:
+                        Platform.OS === "android"
+                            ? StatusBar.currentHeight
+                            : 16,
+                    paddingBottom: 32,
+                }}
+            >
+                <View className="items-center mb-lg">
                     {/* User Avatar and Name */}
                     {renderAvatar()}
                     <Text className="text-text-secondary text-base mt-1">

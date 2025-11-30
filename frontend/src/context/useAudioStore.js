@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
-import { Audio } from "expo-av";
+import { AudioPlayer, setAudioModeAsync } from "expo-audio";
 import Logger from "../utils/logger";
 // import AudioService from "../services/audio"; // Temporarily disabled
 
@@ -129,9 +129,9 @@ const useAudioStore = create(
                 });
 
                 // Configure audio mode for playback
-                await Audio.setAudioModeAsync({
+                await setAudioModeAsync({
                     playsInSilentModeIOS: true,
-                    staysActiveInBackground: true,
+                    shouldPlayInBackground: true,
                     shouldDuckAndroid: true,
                     playThroughEarpieceAndroid: false,
                 });
@@ -139,23 +139,30 @@ const useAudioStore = create(
                 let sound = state.sound;
 
                 if (!sound) {
-                    // Create new sound object
-                    const { sound: newSound } = await Audio.Sound.createAsync(
-                        { uri: currentTrack.uri },
-                        {
-                            shouldPlay: true,
-                            isLooping: false,
-                            volume: state.volume,
-                            rate: state.playbackRate,
-                            shouldCorrectPitch: true,
-                        },
+                    // Create new audio player instance
+                    sound = new AudioPlayer({ uri: currentTrack.uri });
+
+                    // Load the audio
+                    await sound.load();
+
+                    // Set playback options
+                    sound.volume = state.volume;
+                    sound.rate = state.playbackRate;
+                    sound.loop = false;
+
+                    // Add status update listener
+                    sound.addListener(
+                        "playbackStatus",
                         get().onPlaybackStatusUpdate
                     );
-                    sound = newSound;
+
+                    // Start playback
+                    await sound.play();
+
                     set({ sound });
                 } else {
                     // Resume existing sound
-                    await sound.playAsync();
+                    await sound.play();
                 }
 
                 set({
@@ -191,7 +198,7 @@ const useAudioStore = create(
             const { sound } = get();
             if (sound) {
                 try {
-                    await sound.pauseAsync();
+                    await sound.pause();
                     set({ isPlaying: false });
                 } catch (error) {
                     Logger.error("Pause failed:", error);
@@ -204,8 +211,8 @@ const useAudioStore = create(
             const { sound } = get();
             if (sound) {
                 try {
-                    await sound.stopAsync();
-                    await sound.unloadAsync();
+                    await sound.stop();
+                    await sound.unload();
                     set({
                         sound: null,
                         isPlaying: false,
@@ -222,7 +229,7 @@ const useAudioStore = create(
             const { sound } = get();
             if (sound) {
                 try {
-                    await sound.setPositionAsync(positionMillis);
+                    sound.currentTime = positionMillis / 1000; // Convert to seconds
                     set({ position: positionMillis });
                 } catch (error) {
                     Logger.error("Seek failed:", error);
@@ -237,7 +244,7 @@ const useAudioStore = create(
 
             if (sound) {
                 try {
-                    await sound.setVolumeAsync(clampedVolume);
+                    sound.volume = clampedVolume;
                 } catch (error) {
                     Logger.error("Volume change failed:", error);
                 }
@@ -252,7 +259,7 @@ const useAudioStore = create(
 
             if (sound) {
                 try {
-                    await sound.setRateAsync(clampedRate, true);
+                    sound.rate = clampedRate;
                 } catch (error) {
                     Logger.error("Rate change failed:", error);
                 }
@@ -327,16 +334,22 @@ const useAudioStore = create(
             set({ error: null });
         },
 
-        // Status Update Handler
+        // Status Update Handler for expo-audio
         onPlaybackStatusUpdate: (status) => {
-            if (status.isLoaded) {
+            const { sound } = get();
+            if (status && sound) {
                 const updates = {
-                    position: status.positionMillis || 0,
-                    duration: status.durationMillis || 0,
+                    position:
+                        (status.currentTime || sound.currentTime || 0) * 1000, // Convert to ms
+                    duration: (status.duration || sound.duration || 0) * 1000, // Convert to ms
                     isLoading: false,
                 };
 
-                if (status.didJustFinish) {
+                // Check if playback finished
+                if (
+                    status.didJustFinish ||
+                    (sound.currentTime >= sound.duration && sound.duration > 0)
+                ) {
                     // Track finished, move to next
                     get().next();
                     return;
@@ -348,7 +361,7 @@ const useAudioStore = create(
                 }
 
                 set(updates);
-            } else if (status.error) {
+            } else if (status?.error) {
                 Logger.error("Playback error:", status.error);
                 set({
                     error: status.error,
@@ -363,7 +376,7 @@ const useAudioStore = create(
             const { sound } = get();
             if (sound) {
                 try {
-                    await sound.unloadAsync();
+                    await sound.unload();
                 } catch (error) {
                     Logger.error("Cleanup failed:", error);
                 }

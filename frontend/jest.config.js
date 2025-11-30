@@ -20,7 +20,7 @@ module.exports = {
     moduleNameMapper: {
         "^expo-constants$": "<rootDir>/src/tests/mocks/expoConstants.js",
         "^react-native$": "<rootDir>/src/tests/mocks/reactNative.js",
-        "^expo-av$": "<rootDir>/src/tests/mocks/expoAv.js",
+        "^expo-audio$": "<rootDir>/src/tests/mocks/expoAudio.js",
         "^expo-secure-store$": "<rootDir>/src/tests/mocks/expoSecureStore.js",
         "^expo-font$": "<rootDir>/src/tests/mocks/expoFont.js",
         "^expo-file-system$": "<rootDir>/src/tests/mocks/expoFileSystem.js",

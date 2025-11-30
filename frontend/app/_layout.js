@@ -5,23 +5,42 @@ import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PaperProvider } from "react-native-paper";
 import { ToastProvider } from "../src/components/Toast";
+import { View, ActivityIndicator } from "react-native";
+import apiService from "../src/services/api/apiService";
 
 cssInterop(Stack, {
     className: "style",
 });
 
 export default function Layout() {
-    const { user } = useAuthStore();
+    const { user, isInitializing } = useAuthStore();
     const router = useRouter();
     const segments = useSegments();
     const initAuth = useAuthStore((state) => state.initAuth);
+    const logout = useAuthStore((state) => state.logout);
 
     useEffect(() => {
-        // Load tokens from SecureStore when the app starts
+        // Load tokens and user data from SecureStore when the app starts
         initAuth();
+
+        // Register session expired handler - will automatically redirect to login
+        apiService.setSessionExpiredHandler(() => {
+            logout();
+            // The useEffect below will handle the redirect to login when user becomes null
+        });
+
+        // Cleanup on unmount
+        return () => {
+            apiService.setSessionExpiredHandler(null);
+        };
     }, []);
 
     useEffect(() => {
+        // Don't do anything while initializing
+        if (isInitializing) {
+            return;
+        }
+
         const inAuthGroup = segments[0] === "(auth)";
         const inMainGroup = segments[0] === "(main)";
 
@@ -39,7 +58,23 @@ export default function Layout() {
             // Redirect to the sign-in screen.
             router.replace("/");
         }
-    }, [user, segments]);
+    }, [user, segments, isInitializing]);
+
+    // Show loading screen while initializing auth
+    if (isInitializing) {
+        return (
+            <View
+                style={{
+                    flex: 1,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: "#000",
+                }}
+            >
+                <ActivityIndicator size="large" color="#D32F2F" />
+            </View>
+        );
+    }
 
     return (
         <ToastProvider>

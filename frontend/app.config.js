@@ -73,7 +73,7 @@ export default ({ config }) => ({
         "expo-font",
         "expo-image-picker",
         [
-            "expo-av",
+            "expo-audio",
             {
                 microphonePermission:
                     "Allow Volo to access your microphone to record podcasts.",
