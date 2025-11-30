@@ -10,7 +10,7 @@ import {
     PanResponder,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import { Audio } from "expo-av";
+import { AudioPlayer as ExpoAudioPlayer, setAudioModeAsync } from "expo-audio";
 import Logger from "../../utils/logger";
 import WaveformVisualizer from "./WaveformVisualizer";
 
