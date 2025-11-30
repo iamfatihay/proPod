@@ -33,6 +33,10 @@ class AuthResponse(BaseModel):
     user: UserSchema
 
 
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+
 @router.post("/register", response_model=AuthResponse)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_email(db, email=user.email)
@@ -89,8 +93,8 @@ def google_login(user: schemas.UserBase, db: Session = Depends(get_db)):
 
 
 @router.post("/refresh-token")
-def refresh_token_endpoint(refresh_token: str):
-    payload = auth.verify_token(refresh_token)
+def refresh_token_endpoint(request: RefreshTokenRequest):
+    payload = auth.verify_token(request.refresh_token)
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
     access_token = auth.create_access_token(data={"sub": payload["sub"]})
