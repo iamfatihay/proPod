@@ -1,4 +1,4 @@
-import { Audio } from "expo-av";
+import { requestPermissionsAsync, getPermissionsAsync } from "expo-audio";
 import { Platform, Alert } from "react-native";
 import * as MediaLibrary from "expo-media-library";
 import Logger from "../../utils/logger";
@@ -20,7 +20,7 @@ class AudioPermissions {
 
             // Request recording permission
             Logger.log("🎤 Requesting AUDIO recording permission...");
-            const recordingResponse = await Audio.requestPermissionsAsync();
+            const recordingResponse = await requestPermissionsAsync();
             this.recordingPermission = recordingResponse.status === "granted";
             Logger.log("🎤 Audio permission result:", {
                 status: recordingResponse.status,
@@ -73,7 +73,7 @@ class AudioPermissions {
         try {
             Logger.log("🔍 Checking existing permissions...");
 
-            const recordingStatus = await Audio.getPermissionsAsync();
+            const recordingStatus = await getPermissionsAsync();
             const mediaStatus = await MediaLibrary.getPermissionsAsync();
 
             Logger.log("🔍 Permission check results:", {

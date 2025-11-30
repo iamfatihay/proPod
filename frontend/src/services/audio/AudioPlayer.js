@@ -1,4 +1,4 @@
-import { Audio } from "expo-av";
+import { AudioPlayer as ExpoAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { Platform } from "react-native";
 import Logger from "../../utils/logger";
 
@@ -23,15 +23,12 @@ class AudioPlayer {
      */
     async initializePlayback() {
         try {
-            await Audio.setAudioModeAsync({
+            await setAudioModeAsync({
                 allowsRecordingIOS: false,
                 playsInSilentModeIOS: true,
-                staysActiveInBackground: true,
+                shouldPlayInBackground: true,
                 shouldDuckAndroid: true,
                 playThroughEarpieceAndroid: false,
-                interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DUCK_OTHERS,
-                interruptionModeAndroid:
-                    Audio.INTERRUPTION_MODE_ANDROID_DUCK_OTHERS,
             });
             return true;
         } catch (error) {
@@ -56,20 +53,24 @@ class AudioPlayer {
             // Initialize playback mode
             await this.initializePlayback();
 
-            // Create new sound object
-            const { sound, status } = await Audio.Sound.createAsync(
-                { uri },
-                {
-                    shouldPlay: false,
-                    rate: this.playbackRate,
-                    isLooping: false,
-                },
+            // Create new audio player instance with expo-audio
+            this.sound = new ExpoAudioPlayer({ uri });
+
+            // Load and prepare the audio
+            await this.sound.load();
+
+            // Set playback options
+            this.sound.rate = this.playbackRate;
+            this.sound.loop = false;
+
+            // Set status update callback
+            this.sound.addListener(
+                "playbackStatus",
                 this._onPlaybackStatusUpdate.bind(this)
             );
 
-            this.sound = sound;
             this.currentTrack = { uri, ...trackInfo };
-            this.duration = status.durationMillis || 0;
+            this.duration = this.sound.duration || 0;
             this.currentPosition = 0;
             this.isLoading = false;
 
@@ -98,7 +99,7 @@ class AudioPlayer {
                 return true;
             }
 
-            await this.sound.playAsync();
+            await this.sound.play();
             this.isPlaying = true;
             this.isPaused = false;
 
@@ -122,7 +123,7 @@ class AudioPlayer {
                 return false;
             }
 
-            await this.sound.pauseAsync();
+            await this.sound.pause();
             this.isPlaying = false;
             this.isPaused = true;
 
@@ -144,8 +145,8 @@ class AudioPlayer {
             this._stopPositionTimer();
 
             if (this.sound) {
-                await this.sound.stopAsync();
-                await this.sound.unloadAsync();
+                await this.sound.stop();
+                await this.sound.unload();
                 this.sound = null;
             }
 
@@ -174,7 +175,7 @@ class AudioPlayer {
                 return false;
             }
 
-            await this.sound.setPositionAsync(positionMs);
+            this.sound.currentTime = positionMs / 1000; // expo-audio uses seconds
             this.currentPosition = positionMs;
 
             Logger.log("Seeked to:", positionMs);
@@ -198,7 +199,7 @@ class AudioPlayer {
             }
 
             const clampedRate = Math.max(0.5, Math.min(2.0, rate));
-            await this.sound.setRateAsync(clampedRate, true);
+            this.sound.rate = clampedRate;
             this.playbackRate = clampedRate;
 
             Logger.log("Playback rate set to:", clampedRate);
@@ -292,17 +293,27 @@ class AudioPlayer {
     }
 
     /**
-     * Handle playback status updates from expo-av
+     * Handle playback status updates from expo-audio
      * @private
      */
     _onPlaybackStatusUpdate(status) {
-        if (status.isLoaded) {
-            this.currentPosition = status.positionMillis || 0;
-            this.duration = status.durationMillis || 0;
-            this.isPlaying = status.isPlaying || false;
+        // expo-audio provides status updates with currentTime, duration, isPlaying
+        if (status && this.sound) {
+            this.currentPosition =
+                (status.currentTime || this.sound.currentTime || 0) * 1000; // Convert to ms
+            this.duration =
+                (status.duration || this.sound.duration || 0) * 1000; // Convert to ms
+            this.isPlaying =
+                status.isPlaying !== undefined
+                    ? status.isPlaying
+                    : this.isPlaying;
 
             // Check if playback finished
-            if (status.didJustFinish) {
+            if (
+                status.didJustFinish ||
+                (this.sound.currentTime >= this.sound.duration &&
+                    this.sound.duration > 0)
+            ) {
                 this.isPlaying = false;
                 this.isPaused = false;
                 this.currentPosition = 0;

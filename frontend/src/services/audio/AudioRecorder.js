@@ -1,4 +1,13 @@
-import { Audio } from "expo-av";
+import {
+    AudioRecorder as ExpoAudioRecorder,
+    RecordingOptions,
+    RecordingPreset,
+    setAudioModeAsync,
+    AndroidAudioEncoder,
+    AndroidOutputFormat,
+    IOSOutputFormat,
+    IOSAudioQuality,
+} from "expo-audio";
 import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system";
 import { AudioConfig } from "../../constants/audio/AudioConfig";
@@ -32,20 +41,18 @@ class AudioRecorder {
             }
 
             // Set audio mode for recording (platform-specific)
-            if (Platform.OS === "ios") {
-                await Audio.setAudioModeAsync({
-                    allowsRecordingIOS: true,
-                    playsInSilentModeIOS: true,
-                    staysActiveInBackground: true,
-                    interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
-                });
-            } else {
-                await Audio.setAudioModeAsync({
-                    staysActiveInBackground: true,
-                    shouldDuckAndroid: true,
-                    playThroughEarpieceAndroid: false,
-                });
-            }
+            await setAudioModeAsync({
+                playsInSilentModeIOS: true,
+                shouldPlayInBackground: true,
+                ...(Platform.OS === "ios"
+                    ? {
+                          allowsRecordingIOS: true,
+                      }
+                    : {
+                          shouldDuckAndroid: true,
+                          playThroughEarpieceAndroid: false,
+                      }),
+            });
 
             return true;
         } catch (error) {
@@ -76,13 +83,11 @@ class AudioRecorder {
             const recordingOptions = this._getRecordingOptions(options);
             Logger.log("⚙️ Recording options:", recordingOptions);
 
-            // Create new recording
-            Logger.log("📝 Creating new recording...");
-            this.recording = new Audio.Recording();
-            await this.recording.prepareToRecordAsync(recordingOptions);
-
-            // Start recording
-            Logger.log("▶️ Starting recording async...");
+            // Create and start recording with expo-audio
+            Logger.log("📝 Creating and starting recording...");
+            this.recording = await ExpoAudioRecorder.createRecordingAsync(
+                recordingOptions
+            );
             await this.recording.startAsync();
 
             this.isRecording = true;
@@ -279,17 +284,16 @@ class AudioRecorder {
         const baseOptions = {
             android: {
                 extension: ".mp3",
-                outputFormat:
-                    Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_MPEG_4,
-                audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_AAC,
+                outputFormat: AndroidOutputFormat.MPEG_4,
+                audioEncoder: AndroidAudioEncoder.AAC,
                 sampleRate: AudioConfig.recording.sampleRate,
                 numberOfChannels: AudioConfig.recording.numberOfChannels,
                 bitRate: AudioConfig.recording.bitRate,
             },
             ios: {
                 extension: ".m4a",
-                outputFormat: Audio.RECORDING_OPTION_IOS_OUTPUT_FORMAT_MPEG4AAC,
-                audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_HIGH,
+                outputFormat: IOSOutputFormat.MPEG4AAC,
+                audioQuality: IOSAudioQuality.HIGH,
                 sampleRate: AudioConfig.recording.sampleRate,
                 numberOfChannels: AudioConfig.recording.numberOfChannels,
                 bitRate: AudioConfig.recording.bitRate,
