@@ -376,7 +376,7 @@ const HeroSection = ({ onRecordPress, onContinueListening, onFeaturedPress, user
                             <View
                                 style={{
                                     height: "100%",
-                                    width: duration > 0 ? `${(position / duration) * 100}%` : "0%",
+                                    width: duration > 0 ? `${Math.min((position / duration) * 100, 100)}%` : "0%",
                                     backgroundColor: "white",
                                 }}
                             />
