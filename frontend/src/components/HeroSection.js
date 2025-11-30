@@ -20,7 +20,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const HeroSection = ({ onRecordPress, onContinueListening, onFeaturedPress, userPodcasts = [] }) => {
     const { viewMode } = useViewModeStore();
-    const { currentTrack, lastPlayedAt } = useAudioStore();
+    const { currentTrack, lastPlayedAt, position, duration } = useAudioStore();
     const { user } = useAuthStore();
     
     const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -364,7 +364,7 @@ const HeroSection = ({ onRecordPress, onContinueListening, onFeaturedPress, user
                             {currentTrack.artist}
                         </Text>
 
-                        {/* Progress Indicator (placeholder) */}
+                        {/* Progress Indicator */}
                         <View
                             style={{
                                 height: 4,
@@ -376,7 +376,7 @@ const HeroSection = ({ onRecordPress, onContinueListening, onFeaturedPress, user
                             <View
                                 style={{
                                     height: "100%",
-                                    width: "35%", // TODO: Connect to actual progress
+                                    width: duration > 0 ? `${(position / duration) * 100}%` : "0%",
                                     backgroundColor: "white",
                                 }}
                             />
