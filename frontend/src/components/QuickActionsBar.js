@@ -96,7 +96,6 @@ const QuickActionsBar = ({ onActionPress, notifications = {}, style }) => {
             >
                 {actions.map((action, index) => {
                     const badgeCount = notifications[action.id] || 0;
-                    const isFirst = index === 0;
 
                     return (
                         <TouchableOpacity
@@ -105,8 +104,6 @@ const QuickActionsBar = ({ onActionPress, notifications = {}, style }) => {
                             style={{
                                 alignItems: "center",
                                 marginRight: 20,
-                                // Emphasize first action
-                                transform: isFirst ? [{ scale: 1.05 }] : [],
                             }}
                             activeOpacity={0.7}
                             accessible={true}
@@ -116,43 +113,35 @@ const QuickActionsBar = ({ onActionPress, notifications = {}, style }) => {
                             {/* Icon Container */}
                             <View
                                 style={{
-                                    width: isFirst ? 66 : 56,
-                                    height: isFirst ? 66 : 56,
-                                    borderRadius: isFirst ? 33 : 28,
-                                    backgroundColor: isFirst
-                                        ? action.color
-                                        : "#1a1a1a",
-                                    borderWidth: isFirst ? 0 : 1.5,
-                                    borderColor: isFirst
-                                        ? "transparent"
-                                        : action.color,
+                                    width: 56,
+                                    height: 56,
+                                    borderRadius: 28,
+                                    backgroundColor: "#1a1a1a",
+                                    borderWidth: 1.5,
+                                    borderColor: action.color,
                                     justifyContent: "center",
                                     alignItems: "center",
                                     marginBottom: 8,
                                     // Shadow
                                     ...(Platform.OS === "ios"
                                         ? {
-                                              shadowColor: isFirst
-                                                  ? action.color
-                                                  : "#000",
+                                              shadowColor: "#000",
                                               shadowOffset: {
                                                   width: 0,
-                                                  height: isFirst ? 6 : 2,
+                                                  height: 2,
                                               },
-                                              shadowOpacity: isFirst
-                                                  ? 0.4
-                                                  : 0.2,
-                                              shadowRadius: isFirst ? 12 : 4,
+                                              shadowOpacity: 0.2,
+                                              shadowRadius: 4,
                                           }
                                         : {
-                                              elevation: isFirst ? 8 : 4,
+                                              elevation: 4,
                                           }),
                                 }}
                             >
                                 <MaterialCommunityIcons
                                     name={action.icon}
-                                    size={isFirst ? 32 : 24}
-                                    color={isFirst ? "white" : action.color}
+                                    size={24}
+                                    color={action.color}
                                 />
 
                                 {/* Notification Badge */}
@@ -191,9 +180,9 @@ const QuickActionsBar = ({ onActionPress, notifications = {}, style }) => {
                             {/* Label */}
                             <Text
                                 style={{
-                                    color: isFirst ? action.color : "#888",
+                                    color: "#888",
                                     fontSize: 12,
-                                    fontWeight: isFirst ? "700" : "500",
+                                    fontWeight: "500",
                                 }}
                             >
                                 {action.label}

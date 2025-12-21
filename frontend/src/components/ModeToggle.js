@@ -6,7 +6,7 @@ import useViewModeStore from "../context/useViewModeStore";
 
 /**
  * ModeToggle - Animated toggle switch between Discover and Studio modes
- * 
+ *
  * Features:
  * - Smooth animation
  * - Haptic feedback
@@ -15,8 +15,15 @@ import useViewModeStore from "../context/useViewModeStore";
  */
 
 const ModeToggle = ({ style }) => {
-    const { viewMode, toggleViewMode, hasSeenModeToggleTutorial, markTutorialSeen } = useViewModeStore();
-    const slideAnim = React.useRef(new Animated.Value(viewMode === "discover" ? 0 : 1)).current;
+    const {
+        viewMode,
+        toggleViewMode,
+        hasSeenModeToggleTutorial,
+        markTutorialSeen,
+    } = useViewModeStore();
+    const slideAnim = React.useRef(
+        new Animated.Value(viewMode === "discover" ? 0 : 1)
+    ).current;
     const [showTutorial, setShowTutorial] = React.useState(false);
 
     useEffect(() => {
@@ -50,7 +57,7 @@ const ModeToggle = ({ style }) => {
 
     const backgroundPosition = slideAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: ["0%", "50%"],
+        outputRange: ["4%", "50%"],
     });
 
     return (
@@ -224,4 +231,3 @@ const ModeToggle = ({ style }) => {
 };
 
 export default ModeToggle;
-

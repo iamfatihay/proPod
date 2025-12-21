@@ -6,7 +6,7 @@ import { BlurView } from "expo-blur";
 
 /**
  * GradientCard - Modern, glassmorphism-style card with gradient backgrounds
- * 
+ *
  * Features:
  * - Dynamic gradient colors based on category/theme
  * - Glassmorphism effect with blur
@@ -41,17 +41,18 @@ const GradientCard = ({
     style,
 }) => {
     // Determine gradient colors
-    const gradientColors = GRADIENT_THEMES[category.toLowerCase()] || GRADIENT_THEMES.default;
-    
+    const gradientColors =
+        GRADIENT_THEMES[category.toLowerCase()] || GRADIENT_THEMES.default;
+
     // Responsive sizing
     const cardSizes = {
         small: { width: 140, height: 140 },
         medium: { width: 180, height: 220 },
         large: { width: "100%", height: 260 },
     };
-    
+
     const dimensions = cardSizes[size];
-    
+
     return (
         <TouchableOpacity
             activeOpacity={0.85}
@@ -127,14 +128,20 @@ const GradientCard = ({
                         </BlurView>
                     </View>
                 )}
-                
+
                 {/* Center - Waveform Icon */}
-                <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+                <View
+                    style={{
+                        flex: 1,
+                        justifyContent: "center",
+                        alignItems: "center",
+                    }}
+                >
                     <View
                         style={{
-                            width: 80,
-                            height: 80,
-                            borderRadius: 40,
+                            width: 55,
+                            height: 55,
+                            borderRadius: 35,
                             backgroundColor: "rgba(255, 255, 255, 0.2)",
                             justifyContent: "center",
                             alignItems: "center",
@@ -144,12 +151,12 @@ const GradientCard = ({
                     >
                         <MaterialCommunityIcons
                             name="waveform"
-                            size={40}
+                            size={32}
                             color="white"
                         />
                     </View>
                 </View>
-                
+
                 {/* Bottom Section - Content */}
                 <View>
                     {/* Title */}
@@ -164,7 +171,7 @@ const GradientCard = ({
                     >
                         {podcast?.title || "Untitled"}
                     </Text>
-                    
+
                     {/* Artist/Creator */}
                     <Text
                         style={{
@@ -177,7 +184,7 @@ const GradientCard = ({
                     >
                         {podcast?.owner?.name || "Unknown Artist"}
                     </Text>
-                    
+
                     {/* Bottom Row - Duration & Play Button */}
                     <View
                         style={{
@@ -195,12 +202,16 @@ const GradientCard = ({
                             }}
                         >
                             {podcast?.duration
-                                ? `${Math.floor(podcast.duration / 60000)}:${String(
-                                      Math.floor((podcast.duration % 60000) / 1000)
+                                ? `${Math.floor(
+                                      podcast.duration / 60000
+                                  )}:${String(
+                                      Math.floor(
+                                          (podcast.duration % 60000) / 1000
+                                      )
                                   ).padStart(2, "0")}`
                                 : "0:00"}
                         </Text>
-                        
+
                         {/* Play Button */}
                         {showPlayButton && onPlayPress && (
                             <TouchableOpacity
@@ -225,7 +236,9 @@ const GradientCard = ({
                                 }}
                                 accessible={true}
                                 accessibilityRole="button"
-                                accessibilityLabel={isPlaying ? "Pause" : "Play"}
+                                accessibilityLabel={
+                                    isPlaying ? "Pause" : "Play"
+                                }
                             >
                                 <MaterialCommunityIcons
                                     name={isPlaying ? "pause" : "play"}
@@ -243,4 +256,3 @@ const GradientCard = ({
 
 export default GradientCard;
 export { GRADIENT_THEMES };
-
