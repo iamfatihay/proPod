@@ -50,7 +50,7 @@ const Settings = () => {
 
     // Dummy handler for account settings
     const handleAccount = () => {
-        router.push("/profile");
+        router.push("/(main)/profile");
     };
 
     // Dummy handler for password change

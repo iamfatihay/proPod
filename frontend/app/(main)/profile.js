@@ -219,7 +219,7 @@ export default function Profile() {
     };
 
     const handleSettings = () => {
-        router.push("/settings");
+        router.push("/(main)/settings");
     };
 
     const handleEditProfile = () => {

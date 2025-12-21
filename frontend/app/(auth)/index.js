@@ -85,7 +85,7 @@ export default function LoginScreen() {
             setTokens(data.access_token, data.refresh_token);
             showToast("Login successful!", "success");
             setError("");
-            router.replace("/home");
+            router.replace("/(main)/home");
         } catch (err) {
             let msg = "Login failed. Please try again.";
             let status = err.status || (err.response && err.response.status);

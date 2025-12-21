@@ -89,7 +89,7 @@ export default function ForgotPasswordScreen() {
                             {loading ? "Sending..." : "Send Reset Link"}
                         </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => router.replace("/login")}>
+                    <TouchableOpacity onPress={() => router.replace("/")}>
                         <Text className="text-text-secondary text-center">
                             Back to Login
                         </Text>
