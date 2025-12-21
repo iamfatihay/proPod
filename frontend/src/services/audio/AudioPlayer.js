@@ -1,4 +1,4 @@
-import { AudioPlayer as ExpoAudioPlayer, setAudioModeAsync } from "expo-audio";
+import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { Platform } from "react-native";
 import Logger from "../../utils/logger";
 
@@ -54,23 +54,16 @@ class AudioPlayer {
             await this.initializePlayback();
 
             // Create new audio player instance with expo-audio
-            this.sound = new ExpoAudioPlayer({ uri });
-
-            // Load and prepare the audio
-            await this.sound.load();
+            this.sound = createAudioPlayer(uri);
 
             // Set playback options
-            this.sound.rate = this.playbackRate;
+            this.sound.playbackRate = this.playbackRate;
             this.sound.loop = false;
-
-            // Set status update callback
-            this.sound.addListener(
-                "playbackStatus",
-                this._onPlaybackStatusUpdate.bind(this)
-            );
+            this.sound.volume = 1.0;
 
             this.currentTrack = { uri, ...trackInfo };
-            this.duration = this.sound.duration || 0;
+            // Note: duration will be available after the audio starts loading
+            this.duration = 0;
             this.currentPosition = 0;
             this.isLoading = false;
 
@@ -145,8 +138,8 @@ class AudioPlayer {
             this._stopPositionTimer();
 
             if (this.sound) {
-                await this.sound.stop();
-                await this.sound.unload();
+                await this.sound.pause();
+                await this.sound.release();
                 this.sound = null;
             }
 
@@ -175,7 +168,8 @@ class AudioPlayer {
                 return false;
             }
 
-            this.sound.currentTime = positionMs / 1000; // expo-audio uses seconds
+            const positionSeconds = positionMs / 1000; // expo-audio uses seconds
+            this.sound.seekTo(positionSeconds);
             this.currentPosition = positionMs;
 
             Logger.log("Seeked to:", positionMs);
@@ -199,7 +193,7 @@ class AudioPlayer {
             }
 
             const clampedRate = Math.max(0.5, Math.min(2.0, rate));
-            this.sound.rate = clampedRate;
+            this.sound.playbackRate = clampedRate;
             this.playbackRate = clampedRate;
 
             Logger.log("Playback rate set to:", clampedRate);
