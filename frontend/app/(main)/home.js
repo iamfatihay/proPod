@@ -28,6 +28,9 @@ import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
 import Logger from "../../src/utils/logger";
 
+// Import design tokens from Tailwind config
+const colors = require("../../tailwind.config").theme.extend.colors;
+
 // Removed mock episodes; will fetch from API
 
 // Category filters for home page
@@ -253,7 +256,7 @@ export default function HomeScreen() {
                 >
                     {/* Header with Mode Toggle */}
                     <View className="flex-row items-center justify-between mb-6">
-                        <View className="flex-1">
+                        <View className="flex-1 mr-3">
                             <Text className="text-2xl font-bold text-text-primary mb-2">
                                 {viewMode === "studio"
                                     ? "🎙️ Studio"
@@ -274,20 +277,33 @@ export default function HomeScreen() {
                                 left: 10,
                                 right: 10,
                             }}
+                            style={{
+                                width: 48,
+                                height: 48,
+                                borderRadius: 24,
+                                overflow: "hidden",
+                                backgroundColor: colors.card,
+                                borderWidth: 2,
+                                borderColor: colors.primary,
+                                justifyContent: "center",
+                                alignItems: "center",
+                            }}
                         >
                             {user && user.photo_url ? (
                                 <Image
                                     source={{ uri: user.photo_url }}
-                                    className="w-12 h-12 rounded-full border-2 border-primary"
+                                    style={{
+                                        width: "100%",
+                                        height: "100%",
+                                    }}
+                                    resizeMode="cover"
                                 />
                             ) : (
-                                <View className="w-12 h-12 rounded-full bg-card items-center justify-center border-2 border-border">
-                                    <Ionicons
-                                        name="person"
-                                        size={28}
-                                        color="#888"
-                                    />
-                                </View>
+                                <Ionicons
+                                    name="person"
+                                    size={24}
+                                    color={colors.text.muted}
+                                />
                             )}
                         </TouchableOpacity>
                     </View>
@@ -340,8 +356,8 @@ export default function HomeScreen() {
                                     size={18}
                                     color={
                                         selectedCategory === category.id
-                                            ? "#FFFFFF"
-                                            : "#888888"
+                                            ? colors.text.primary
+                                            : colors.text.muted
                                     }
                                 />
                                 <Text
@@ -364,7 +380,7 @@ export default function HomeScreen() {
                                 <MaterialCommunityIcons
                                     name="robot"
                                     size={24}
-                                    color="#4facfe"
+                                    color={colors.gradient.blue}
                                 />
                                 <Text className="text-xl font-bold text-text-primary ml-2">
                                     For You
@@ -377,7 +393,7 @@ export default function HomeScreen() {
                                 <Ionicons
                                     name="chevron-forward"
                                     size={16}
-                                    color="#D32F2F"
+                                    color={colors.primary}
                                 />
                             </TouchableOpacity>
                         </View>
@@ -435,7 +451,7 @@ export default function HomeScreen() {
                                 <Ionicons
                                     name="chevron-forward"
                                     size={16}
-                                    color="#D32F2F"
+                                    color={colors.primary}
                                 />
                             </TouchableOpacity>
                         )}
@@ -455,7 +471,7 @@ export default function HomeScreen() {
                                     <MaterialCommunityIcons
                                         name="alert-circle-outline"
                                         size={48}
-                                        color="#EF4444"
+                                        color={colors.error}
                                     />
                                 </View>
                                 <Text className="text-lg text-text-primary font-semibold mb-2 text-center">
@@ -488,7 +504,7 @@ export default function HomeScreen() {
                                             <MaterialCommunityIcons
                                                 name="microphone-variant"
                                                 size={64}
-                                                color="#D32F2F"
+                                                color={colors.primary}
                                             />
                                         </View>
                                         <Text className="text-headline text-text-primary font-semibold mb-2 text-center">
@@ -509,7 +525,7 @@ export default function HomeScreen() {
                                                 ...(Platform.OS === "ios"
                                                     ? {
                                                           shadowColor:
-                                                              "#D32F2F",
+                                                              colors.primary,
                                                           shadowOffset: {
                                                               width: 0,
                                                               height: 4,
@@ -538,7 +554,7 @@ export default function HomeScreen() {
                                             <MaterialCommunityIcons
                                                 name="compass-outline"
                                                 size={64}
-                                                color="#3B82F6"
+                                                color={colors.info}
                                             />
                                         </View>
                                         <Text className="text-headline text-text-primary font-semibold mb-2 text-center">
@@ -601,7 +617,7 @@ export default function HomeScreen() {
                                 <MaterialCommunityIcons
                                     name="fire"
                                     size={24}
-                                    color="#F59E0B"
+                                    color={colors.warning}
                                 />
                                 <Text className="text-xl font-bold text-text-primary ml-2">
                                     Trending Now
@@ -635,7 +651,7 @@ export default function HomeScreen() {
                                             <MaterialCommunityIcons
                                                 name="trending-up"
                                                 size={12}
-                                                color="#10B981"
+                                                color={colors.success}
                                             />
                                             <Text className="text-xs text-success ml-1">
                                                 +{podcast.play_count || 0} plays
@@ -654,7 +670,7 @@ export default function HomeScreen() {
                                                 : "play-circle"
                                         }
                                         size={40}
-                                        color="#D32F2F"
+                                        color={colors.primary}
                                     />
                                 </TouchableOpacity>
                             </View>
@@ -680,7 +696,7 @@ export default function HomeScreen() {
                                     <Ionicons
                                         name="chevron-forward"
                                         size={16}
-                                        color="#D32F2F"
+                                        color={colors.primary}
                                     />
                                 </TouchableOpacity>
                             </View>
