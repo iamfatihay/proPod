@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Logger from "../utils/logger";
 
 /**
  * View Mode Store - Manages user interface mode (Discover vs Studio)
@@ -21,7 +22,7 @@ const storeConfig = (set, get) => ({
     // Actions
     setViewMode: (mode) => {
         if (mode !== "discover" && mode !== "studio") {
-            console.warn("Invalid view mode:", mode);
+            Logger.warn("Invalid view mode:", mode);
             return;
         }
         set({ viewMode: mode }, false, "viewMode/setViewMode");

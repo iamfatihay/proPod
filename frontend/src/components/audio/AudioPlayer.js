@@ -87,7 +87,7 @@ const AudioPlayer = ({
 
             setSound(newSound);
         } catch (error) {
-            console.error("Audio setup failed:", error);
+            Logger.error("Audio setup failed:", error);
             Alert.alert(
                 "Playback Error",
                 "Failed to load audio. Please check your connection and try again.",
@@ -104,7 +104,7 @@ const AudioPlayer = ({
                 await sound.unloadAsync();
                 setSound(null);
             } catch (error) {
-                console.error("Audio cleanup failed:", error);
+                Logger.error("Audio cleanup failed:", error);
             }
         }
     };
@@ -170,7 +170,7 @@ const AudioPlayer = ({
                 await sound.playAsync();
             }
         } catch (error) {
-            console.error("Playback control failed:", error);
+            Logger.error("Playback control failed:", error);
             Alert.alert("Playback Error", "Failed to control playback.");
         }
     };
