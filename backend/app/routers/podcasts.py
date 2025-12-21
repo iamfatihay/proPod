@@ -224,13 +224,15 @@ async def process_podcast_with_ai(
 
 @router.get("/{podcast_id}", response_model=schemas.Podcast)
 def get_podcast(
-    podcast_id: int = Path(..., description="The ID of the podcast to retrieve"),
+    podcast_id: int = Path(...,
+                           description="The ID of the podcast to retrieve"),
     db: Session = Depends(get_db),
-    current_user: Optional[models.User] = Depends(auth.get_current_user_optional)
+    current_user: Optional[models.User] = Depends(
+        auth.get_current_user_optional)
 ):
     """
     Get a specific podcast by ID.
-    
+
     Note: This endpoint automatically increments the podcast's play count.
     """
     podcast = crud.get_podcast(
@@ -616,7 +618,7 @@ def get_related_podcasts(
         )
 
     # Get podcasts in the same category, excluding the reference podcast
-    result = crud.get_podcasts(
+    podcasts, total = crud.get_podcasts(
         db=db,
         skip=0,
         limit=limit,
@@ -625,7 +627,7 @@ def get_related_podcasts(
     )
 
     # Filter out the reference podcast
-    related_podcasts = [p for p in result["podcasts"] if p.id != podcast_id]
+    related_podcasts = [p for p in podcasts if p.id != podcast_id]
 
     return related_podcasts[:limit]
 
@@ -677,7 +679,7 @@ def get_my_podcasts(
     current_user: models.User = Depends(auth.get_current_user)
 ):
     """Get user's created podcasts"""
-    result = crud.get_podcasts(
+    podcasts, total = crud.get_podcasts(
         db=db,
         skip=skip,
         limit=limit,
@@ -686,9 +688,9 @@ def get_my_podcasts(
     )
 
     return schemas.PodcastListResponse(
-        podcasts=result["podcasts"],
-        total=result["total"],
+        podcasts=podcasts,
+        total=total,
         limit=limit,
         offset=skip,
-        has_more=result["has_more"]
+        has_more=total > skip + limit
     )
