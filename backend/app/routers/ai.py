@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any
 import tempfile
 import os
 import aiofiles
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 MAX_AUDIO_FILE_SIZE = 50 * 1024 * 1024
 
 
-async def validate_and_read_audio_file(file: UploadFile) -> Tuple[bytes, str]:
+async def validate_and_read_audio_file(file: UploadFile) -> bytes:
     """
     Validate and read audio file with size checks.
     
@@ -25,7 +25,7 @@ async def validate_and_read_audio_file(file: UploadFile) -> Tuple[bytes, str]:
         file: Uploaded file
         
     Returns:
-        Tuple of (file_content, temp_path)
+        bytes: File content
         
     Raises:
         HTTPException: If file size exceeds limit
