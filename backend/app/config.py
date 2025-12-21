@@ -1,6 +1,6 @@
 """Application configuration settings."""
 from pydantic_settings import BaseSettings
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, field_validator
 import os
 from typing import Literal
 
@@ -10,6 +10,14 @@ class Settings(BaseSettings):
     
     # Environment
     ENV: Literal["dev", "prod"] = Field(default="dev", description="Application environment")
+    
+    @field_validator('ENV')
+    @classmethod
+    def validate_env(cls, v):
+        """Ensure ENV is either 'dev' or 'prod'."""
+        if v not in ["dev", "prod"]:
+            raise ValueError(f"ENV must be 'dev' or 'prod', got '{v}'")
+        return v
     
     # Security
     SECRET_KEY: str = Field(..., description="Secret key for JWT token generation")

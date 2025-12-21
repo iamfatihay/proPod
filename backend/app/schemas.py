@@ -21,8 +21,10 @@ class UserCreate(UserBase):
     Schema for user registration.
     
     Note: Password is optional for OAuth users (e.g., Google login)
+    For local users, password validation is enforced at the endpoint level.
     """
     password: Optional[str] = None
+    provider: str = "local"
 
 
 class UserLogin(BaseModel):

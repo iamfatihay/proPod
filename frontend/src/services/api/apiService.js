@@ -12,7 +12,7 @@ import Constants from "expo-constants";
 import { getToken, saveToken, deleteToken } from "../auth/tokenStorage";
 import { Platform } from "react-native";
 import Logger from "../../utils/logger";
-import { retryWithBackoff, isNetworkError } from "../../utils/networkUtils";
+import { retryWithBackoff } from "../../utils/networkUtils";
 
 // API Configuration
 const API_BASE_URL =
@@ -534,6 +534,10 @@ class ApiService {
                 `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB. Your file is ${(audioFile.size / (1024 * 1024)).toFixed(2)}MB.`
             );
         }
+        } else if (typeof audioFile.size === "undefined") {
+            Logger.warn(
+                "Audio file size is not available. Unable to check file size before upload. Large files may be rejected by the server."
+            );
 
         const formData = new FormData();
         formData.append("file", {

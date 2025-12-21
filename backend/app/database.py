@@ -11,11 +11,18 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 
+# Make SQL query logging configurable via DATABASE_ECHO environment variable
+def str_to_bool(value: str) -> bool:
+    """Convert string to boolean."""
+    return value.lower() in ("1", "true", "yes", "on")
+
+DATABASE_ECHO = str_to_bool(os.getenv("DATABASE_ECHO", "false"))
+
 # Create engine with connection pooling for better performance
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,  # Enable connection health checks
-    echo=False  # Set to True for SQL query logging in development
+    echo=DATABASE_ECHO  # Configurable SQL query logging via DATABASE_ECHO env var
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

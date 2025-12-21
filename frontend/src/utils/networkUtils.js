@@ -5,7 +5,6 @@
  * for Android and iOS platforms.
  */
 
-import { Platform } from 'react-native';
 import Logger from './logger';
 
 /**
@@ -103,8 +102,14 @@ export async function retryWithBackoff(fn, options = {}) {
         } catch (error) {
             lastError = error;
             
-            // Don't retry on certain errors (client errors)
-            if (error.status === 400 || error.status === 401 || error.status === 403 || error.status === 404) {
+            // Don't retry on certain errors (client errors that won't be fixed by retrying)
+            if (
+                error.status === 400 ||
+                error.status === 401 ||
+                error.status === 403 ||
+                error.status === 404 ||
+                error.status === 422
+            ) {
                 throw error;
             }
             

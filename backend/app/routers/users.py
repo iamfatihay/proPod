@@ -1,5 +1,5 @@
 """User authentication and profile management endpoints."""
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from pathlib import Path as SysPath
 from typing import Dict
@@ -40,8 +40,15 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)) -> AuthRes
         AuthResponse: Access token, refresh token, and user information
         
     Raises:
-        HTTPException: If email is already registered
+        HTTPException: If email is already registered or password missing for local users
     """
+    # Validate password is provided for local users
+    if user.provider == "local" and (not user.password or not user.password.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password is required for local user registration"
+        )
+    
     db_user = crud.get_user_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(
