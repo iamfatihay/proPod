@@ -1,3 +1,4 @@
+"""Database models using SQLAlchemy ORM."""
 import datetime
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Index, JSON
 from sqlalchemy.orm import relationship
@@ -5,37 +6,84 @@ from .database import Base
 
 
 class User(Base):
+    """
+    User model representing registered users.
+    
+    Attributes:
+        id: Primary key
+        email: Unique email address
+        name: User's display name
+        hashed_password: Bcrypt hashed password
+        provider: Authentication provider (local/google)
+        photo_url: URL to user's profile photo
+        is_active: Whether the user account is active
+        created_at: Account creation timestamp
+        updated_at: Last update timestamp
+        reset_token: Password reset token
+        reset_token_expires: Reset token expiration time
+    """
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True)
-    name = Column(String)
-    hashed_password = Column(String)
+    email = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=True)  # Nullable for OAuth users
     provider = Column(String, default="local")
     photo_url = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
-    reset_token = Column(String, nullable=True)  # For password reset
-    reset_token_expires = Column(DateTime, nullable=True)  # Token expiry
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), 
+                       onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
+    reset_token = Column(String, nullable=True)
+    reset_token_expires = Column(DateTime, nullable=True)
     
     # Relationships
-    podcasts = relationship("Podcast", back_populates="owner")
-    likes = relationship("PodcastLike", back_populates="user")
-    bookmarks = relationship("PodcastBookmark", back_populates="user")
-    listening_history = relationship("ListeningHistory", back_populates="user")
-    comments = relationship("PodcastComment", back_populates="user")
+    podcasts = relationship("Podcast", back_populates="owner", cascade="all, delete-orphan")
+    likes = relationship("PodcastLike", back_populates="user", cascade="all, delete-orphan")
+    bookmarks = relationship("PodcastBookmark", back_populates="user", cascade="all, delete-orphan")
+    listening_history = relationship("ListeningHistory", back_populates="user", cascade="all, delete-orphan")
+    comments = relationship("PodcastComment", back_populates="user", cascade="all, delete-orphan")
 
 
 class Podcast(Base):
+    """
+    Podcast model representing podcast episodes.
+    
+    Attributes:
+        id: Primary key
+        title: Podcast title
+        description: Podcast description
+        audio_url: URL to audio file
+        thumbnail_url: URL to thumbnail image
+        duration: Duration in seconds
+        category: Podcast category
+        is_public: Whether podcast is publicly visible
+        ai_enhanced: Whether AI processing has been applied
+        play_count: Total number of plays
+        like_count: Total number of likes
+        bookmark_count: Total number of bookmarks
+        transcription_text: AI-generated transcription
+        transcription_language: Detected language
+        transcription_confidence: Confidence scores (JSON)
+        ai_keywords: Extracted keywords (JSON)
+        ai_summary: AI-generated summary
+        ai_sentiment: Sentiment analysis result
+        ai_categories: AI-detected categories (JSON)
+        ai_processing_status: AI processing status
+        ai_processing_date: When AI processing completed
+        ai_quality_score: Quality assessment score
+        created_at: Creation timestamp
+        updated_at: Last update timestamp
+        owner_id: Foreign key to user
+    """
     __tablename__ = "podcasts"
 
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, index=True)
+    title = Column(String, index=True, nullable=False)
     description = Column(String, nullable=True)
     audio_url = Column(String, nullable=True)
     thumbnail_url = Column(String, nullable=True)
-    duration = Column(Integer, default=0)  # Duration in seconds
+    duration = Column(Integer, default=0)
     category = Column(String, default="General")
     is_public = Column(Boolean, default=True)
     ai_enhanced = Column(Boolean, default=False)
@@ -46,18 +94,19 @@ class Podcast(Base):
     # AI-related fields
     transcription_text = Column(Text, nullable=True)
     transcription_language = Column(String, nullable=True)
-    transcription_confidence = Column(String, nullable=True)  # Store as JSON string
-    ai_keywords = Column(Text, nullable=True)  # Store as JSON string
+    transcription_confidence = Column(String, nullable=True)
+    ai_keywords = Column(Text, nullable=True)
     ai_summary = Column(Text, nullable=True)
-    ai_sentiment = Column(String, nullable=True)  # positive/negative/neutral
-    ai_categories = Column(Text, nullable=True)  # Store as JSON string
-    ai_processing_status = Column(String, default="pending")  # pending/processing/completed/failed
+    ai_sentiment = Column(String, nullable=True)
+    ai_categories = Column(Text, nullable=True)
+    ai_processing_status = Column(String, default="pending")
     ai_processing_date = Column(DateTime, nullable=True)
     ai_quality_score = Column(String, nullable=True)
     
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
-    owner_id = Column(Integer, ForeignKey("users.id"))
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), 
+                       onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
     # Relationships
     owner = relationship("User", back_populates="podcasts")

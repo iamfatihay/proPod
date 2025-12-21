@@ -1,5 +1,6 @@
+"""Pydantic schemas for request/response validation."""
 from __future__ import annotations
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 import datetime
 from typing import Optional, List, TYPE_CHECKING
 
@@ -7,26 +8,38 @@ if TYPE_CHECKING:
     from .models import User
 
 
-# User Schemas
+# ==================== User Schemas ====================
+
 class UserBase(BaseModel):
+    """Base user schema with common fields."""
     email: EmailStr
     name: str
 
 
 class UserCreate(UserBase):
-    password: str
+    """
+    Schema for user registration.
+    
+    Note: Password is optional for OAuth users (e.g., Google login)
+    For local users, password validation is enforced at the endpoint level.
+    """
+    password: Optional[str] = None
+    provider: str = "local"
 
 
 class UserLogin(BaseModel):
+    """Schema for user login."""
     email: EmailStr
     password: str
 
 
 class UserUpdate(BaseModel):
+    """Schema for updating user profile."""
     name: Optional[str] = None
 
 
 class User(UserBase):
+    """User response schema."""
     id: int
     provider: str = "local"
     photo_url: Optional[str] = None
@@ -37,31 +50,37 @@ class User(UserBase):
     model_config = {'from_attributes': True}
 
 
-# Podcast Schemas
+# ==================== Podcast Schemas ====================
+
 class PodcastBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-    category: str = "General"
-    is_public: bool = True
+    """Base podcast schema with common fields."""
+    title: str = Field(..., min_length=1, max_length=200, description="Podcast title")
+    description: Optional[str] = Field(None, max_length=2000, description="Podcast description")
+    category: str = Field(default="General", description="Podcast category")
+    is_public: bool = Field(default=True, description="Whether podcast is publicly visible")
 
 
 class PodcastCreate(PodcastBase):
-    duration: int = 0  # seconds
+    """Schema for creating a new podcast."""
+    duration: int = Field(default=0, ge=0, description="Duration in seconds")
 
 
 class PodcastUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
+    """Schema for updating podcast information."""
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=2000)
     category: Optional[str] = None
     is_public: Optional[bool] = None
 
 
-# AI Processing Schemas
+# ==================== AI Processing Schemas ====================
+
 class AIProcessingRequest(BaseModel):
-    enhance_audio: bool = True
-    transcribe: bool = True
-    analyze_content: bool = True
-    language: Optional[str] = "auto"
+    """Schema for requesting AI processing on a podcast."""
+    enhance_audio: bool = Field(default=True, description="Apply audio enhancement")
+    transcribe: bool = Field(default=True, description="Generate transcription")
+    analyze_content: bool = Field(default=True, description="Analyze content")
+    language: Optional[str] = Field(default="auto", description="Language code or 'auto' for detection")
 
 
 class TranscriptionResult(BaseModel):

@@ -1,17 +1,43 @@
+/**
+ * API Service
+ * 
+ * Centralized service for making HTTP requests to the backend API.
+ * Handles authentication, token refresh, error handling, request timeouts,
+ * and automatic retry logic for mobile network issues.
+ * 
+ * @module apiService
+ */
+
 import Constants from "expo-constants";
 import { getToken, saveToken, deleteToken } from "../auth/tokenStorage";
 import { Platform } from "react-native";
 import Logger from "../../utils/logger";
+import { retryWithBackoff } from "../../utils/networkUtils";
 
-// IMPORTANT: API URL is read from .env → app.config.js → here
-// The fallback IP is only used if .env is missing (shouldn't happen)
+// API Configuration
 const API_BASE_URL =
     Constants.expoConfig?.extra?.apiBaseUrl || "http://192.168.178.27:8000";
 Logger.log("🌐 API Base URL:", API_BASE_URL);
 
-// Network timeout configuration
-const NETWORK_TIMEOUT = Platform.OS === "ios" ? 30000 : 25000; // iOS can handle longer timeouts
+// Network timeout configuration (iOS can handle longer timeouts)
+const NETWORK_TIMEOUT = Platform.OS === "ios" ? 30000 : 25000;
 
+// Retry configuration for mobile
+// Network check disabled to avoid external dependency
+// The retry logic itself will handle network errors through error detection
+// To enable network checks, provide a health check URL to isNetworkAvailable()
+const RETRY_CONFIG = {
+    maxRetries: 3,
+    initialDelay: 1000,
+    maxDelay: 10000,
+    checkNetwork: false  // Disabled - no default external dependency
+};
+
+/**
+ * ApiService Class
+ * 
+ * Main service class for API communication
+ */
 class ApiService {
     constructor() {
         this.baseURL = API_BASE_URL;
@@ -42,6 +68,8 @@ class ApiService {
 
     /**
      * Normalize podcast audio URLs - convert relative paths to absolute URLs
+     * @param {Object} podcast - Podcast object
+     * @returns {Object} Podcast with normalized audio URL
      */
     normalizePodcast(podcast) {
         if (!podcast) return podcast;
@@ -55,12 +83,23 @@ class ApiService {
 
     /**
      * Normalize array of podcasts
+     * @param {Array} podcasts - Array of podcast objects
+     * @returns {Array} Podcasts with normalized audio URLs
      */
     normalizePodcasts(podcasts) {
         if (!Array.isArray(podcasts)) return podcasts;
         return podcasts.map((p) => this.normalizePodcast(p));
     }
 
+    /**
+     * Make an HTTP request to the API
+     * 
+     * @param {string} endpoint - API endpoint path
+     * @param {Object} options - Fetch options (method, headers, body, etc.)
+     * @param {boolean} retry - Whether to retry on 401 with token refresh
+     * @returns {Promise<Object>} Response data
+     * @throws {Error} Network or HTTP errors
+     */
     async request(endpoint, options = {}, retry = true) {
         const url = `${this.baseURL}${endpoint}`;
         // Use in-memory token if set, otherwise read from SecureStore
@@ -70,13 +109,10 @@ class ApiService {
         const config = {
             headers: {
                 "Content-Type": "application/json",
-                // Add user agent for better compatibility
-                "User-Agent":
-                    Platform.OS === "ios" ? "VoloApp/iOS" : "VoloApp/Android",
+                "User-Agent": Platform.OS === "ios" ? "ProPodApp/iOS" : "ProPodApp/Android",
                 ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
                 ...options.headers,
             },
-            // Add timeout for network requests
             timeout: NETWORK_TIMEOUT,
             ...options,
         };
@@ -90,9 +126,8 @@ class ApiService {
             const response = await fetch(url, config);
             clearTimeout(timeoutId);
 
-            // If access token is expired and 401 is returned, try to refresh
+            // Handle token expiration and refresh
             if (response.status === 401 && retry && refreshToken) {
-                // Get a new access token using the refresh token
                 const refreshController = new AbortController();
                 const refreshTimeoutId = setTimeout(
                     () => refreshController.abort(),
@@ -105,10 +140,7 @@ class ApiService {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
-                            "User-Agent":
-                                Platform.OS === "ios"
-                                    ? "VoloApp/iOS"
-                                    : "VoloApp/Android",
+                            "User-Agent": Platform.OS === "ios" ? "ProPodApp/iOS" : "ProPodApp/Android",
                         },
                         body: JSON.stringify({ refresh_token: refreshToken }),
                         timeout: NETWORK_TIMEOUT,
@@ -120,9 +152,10 @@ class ApiService {
                 if (refreshRes.ok) {
                     const refreshData = await refreshRes.json();
                     await saveToken("accessToken", refreshData.access_token);
-                    // accessToken updated, retry the request (retry=false to avoid infinite loop)
+                    // Retry original request with new token
                     return this.request(endpoint, options, false);
                 } else {
+                    // Refresh token expired, logout user
                     // If refresh token is also expired, handle session expiration
                     await deleteToken("accessToken");
                     await deleteToken("refreshToken");
@@ -140,7 +173,8 @@ class ApiService {
             if (!response.ok) {
                 let error = new Error(`HTTP error! status: ${response.status}`);
                 error.status = response.status;
-                // Prefer JSON details if available
+                
+                // Try to parse error details from response
                 try {
                     const data = await response.json();
                     if (data && data.detail) {
@@ -148,7 +182,7 @@ class ApiService {
                     }
                     error.response = { data };
                 } catch (e) {
-                    // Fallback: capture raw text body to surface backend errors without JSON
+                    // Fallback to raw text if JSON parsing fails
                     try {
                         const rawText = await response.text();
                         if (rawText && rawText.length > 0) {
@@ -166,7 +200,7 @@ class ApiService {
         } catch (error) {
             clearTimeout(timeoutId);
 
-            // Handle different error types with better messages
+            // Provide user-friendly error messages
             if (error.name === "AbortError") {
                 throw new Error(
                     "Request timeout. Please check your internet connection and try again."
@@ -188,8 +222,36 @@ class ApiService {
             throw error;
         }
     }
+    /**
+     * Make an HTTP request with automatic retry for network failures
+     * 
+     * @param {string} endpoint - API endpoint path
+     * @param {Object} options - Fetch options
+     * @param {boolean} withRetry - Enable retry logic for network errors
+     * @returns {Promise<Object>} Response data
+     * @throws {Error} Network or HTTP errors
+     */
+    async requestWithRetry(endpoint, options = {}, withRetry = true) {
+        if (!withRetry) {
+            return this.request(endpoint, options);
+        }
+        
+        return retryWithBackoff(
+            () => this.request(endpoint, options),
+            RETRY_CONFIG
+        );
+    }
 
-    // Auth methods
+    // ==================== Authentication Methods ====================
+
+    /**
+     * Login user with email and password
+     * 
+     * @param {string} email - User's email address
+     * @param {string} password - User's password
+     * @returns {Promise<Object>} User data and tokens
+     * @throws {Error} If login fails
+     */
     async login(email, password) {
         try {
             const data = await this.request("/users/login", {
@@ -205,6 +267,15 @@ class ApiService {
         }
     }
 
+    /**
+     * Register new user
+     * 
+     * @param {string} name - User's display name
+     * @param {string} email - User's email address
+     * @param {string} password - User's password
+     * @returns {Promise<Object>} User data and tokens
+     * @throws {Error} If registration fails
+     */
     async register(name, email, password) {
         const data = await this.request("/users/register", {
             method: "POST",
@@ -215,6 +286,16 @@ class ApiService {
         return data;
     }
 
+    /**
+     * Login or register user with Google OAuth
+     * 
+     * @param {Object} userData - Google user data
+     * @param {string} userData.email - User's email
+     * @param {string} userData.name - User's name
+     * @param {string} userData.photo_url - User's profile photo URL
+     * @returns {Promise<Object>} User data and tokens
+     * @throws {Error} If login fails
+     */
     async getMe() {
         try {
             const data = await this.request("/users/me", {
@@ -242,6 +323,13 @@ class ApiService {
         return data;
     }
 
+    /**
+     * Refresh access token using refresh token
+     * 
+     * @param {string} refresh_token - Refresh token
+     * @returns {Promise<Object>} New access token
+     * @throws {Error} If refresh fails
+     */
     async refreshToken(refresh_token) {
         const data = await this.request("/users/refresh-token", {
             method: "POST",
@@ -251,11 +339,26 @@ class ApiService {
         return data;
     }
 
-    // User Profile methods
+    // ==================== User Profile Methods ====================
+
+    /**
+     * Get current user profile
+     * 
+     * @returns {Promise<Object>} User profile data
+     * @throws {Error} If request fails
+     */
     async getUserProfile() {
         return this.request("/users/me");
     }
 
+    /**
+     * Update user profile
+     * 
+     * @param {Object} profileData - Profile data to update
+     * @param {string} profileData.name - User's display name
+     * @returns {Promise<Object>} Updated user data
+     * @throws {Error} If update fails
+     */
     async updateProfile({ name }) {
         const data = await this.request("/users/me", {
             method: "PUT",
@@ -264,6 +367,14 @@ class ApiService {
         return data;
     }
 
+    /**
+     * Change user password
+     * 
+     * @param {string} old_password - Current password
+     * @param {string} new_password - New password
+     * @returns {Promise<Object>} Success message
+     * @throws {Error} If password change fails
+     */
     async changePassword(old_password, new_password) {
         return this.request("/users/change-password", {
             method: "POST",
@@ -271,12 +382,25 @@ class ApiService {
         });
     }
 
+    /**
+     * Delete user account (soft delete)
+     * 
+     * @returns {Promise<Object>} Success message
+     * @throws {Error} If deletion fails
+     */
     async deleteAccount() {
         return this.request("/users/delete", {
             method: "POST",
         });
     }
 
+    /**
+     * Request password reset
+     * 
+     * @param {string} email - User's email address
+     * @returns {Promise<Object>} Success message
+     * @throws {Error} If request fails
+     */
     async forgotPassword(email) {
         return this.request("/users/forgot-password", {
             method: "POST",
@@ -284,6 +408,14 @@ class ApiService {
         });
     }
 
+    /**
+     * Reset password with token
+     * 
+     * @param {string} token - Reset token
+     * @param {string} new_password - New password
+     * @returns {Promise<Object>} Success message
+     * @throws {Error} If reset fails
+     */
     async resetPassword(token, new_password) {
         return this.request("/users/reset-password", {
             method: "POST",
@@ -291,7 +423,20 @@ class ApiService {
         });
     }
 
-    // Podcast CRUD methods
+    // ==================== Podcast CRUD Methods ====================
+
+    /**
+     * Create a new podcast
+     * 
+     * @param {Object} podcastData - Podcast creation data
+     * @param {string} podcastData.title - Podcast title
+     * @param {string} podcastData.description - Podcast description
+     * @param {string} podcastData.category - Podcast category
+     * @param {boolean} podcastData.is_public - Whether podcast is public
+     * @param {number} podcastData.duration - Duration in seconds
+     * @returns {Promise<Object>} Created podcast data
+     * @throws {Error} If creation fails
+     */
     async createPodcast(podcastData) {
         return this.request("/podcasts/create", {
             method: "POST",
@@ -299,11 +444,30 @@ class ApiService {
         });
     }
 
+    /**
+     * Get a specific podcast by ID
+     * 
+     * @param {number} podcastId - Podcast ID
+     * @returns {Promise<Object>} Podcast data with normalized URL
+     * @throws {Error} If request fails
+     */
     async getPodcast(podcastId) {
         const podcast = await this.request(`/podcasts/${podcastId}`);
         return this.normalizePodcast(podcast);
     }
 
+    /**
+     * Get list of podcasts with optional filtering
+     * 
+     * @param {Object} params - Query parameters
+     * @param {number} params.skip - Number of items to skip
+     * @param {number} params.limit - Number of items to return
+     * @param {string} params.category - Filter by category
+     * @param {string} params.search - Search query
+     * @param {number} params.owner_id - Filter by owner ID
+     * @returns {Promise<Array>} List of podcasts
+     * @throws {Error} If request fails
+     */
     async getPodcasts(params = {}) {
         const queryParams = new URLSearchParams();
 
@@ -320,10 +484,17 @@ class ApiService {
         const response = await this.request(endpoint);
 
         // Backend returns { podcasts: [], total, limit, offset, has_more }
-        // Return only the podcasts array for compatibility
         return response?.podcasts || [];
     }
 
+    /**
+     * Update podcast information
+     * 
+     * @param {number} podcastId - Podcast ID
+     * @param {Object} updateData - Fields to update
+     * @returns {Promise<Object>} Updated podcast data
+     * @throws {Error} If update fails
+     */
     async updatePodcast(podcastId, updateData) {
         return this.request(`/podcasts/${podcastId}`, {
             method: "PUT",
@@ -331,13 +502,43 @@ class ApiService {
         });
     }
 
+    /**
+     * Delete a podcast
+     * 
+     * @param {number} podcastId - Podcast ID
+     * @returns {Promise<Object>} Success message
+     * @throws {Error} If deletion fails
+     */
     async deletePodcast(podcastId) {
         return this.request(`/podcasts/${podcastId}`, {
             method: "DELETE",
         });
     }
 
+    /**
+     * Upload audio file for podcast
+     * 
+     * @param {Object} audioFile - Audio file data
+     * @param {string} audioFile.uri - File URI
+     * @param {string} audioFile.type - File MIME type
+     * @param {string} audioFile.name - File name
+     * @param {number} audioFile.size - File size in bytes (optional)
+     * @returns {Promise<Object>} Upload response with audio URL
+     * @throws {Error} If upload fails or file too large
+     */
     async uploadAudio(audioFile) {
+        // Check file size before upload (mobile friendly: max 50MB)
+        const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+        if (audioFile.size && audioFile.size > MAX_FILE_SIZE) {
+            throw new Error(
+                `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB. Your file is ${(audioFile.size / (1024 * 1024)).toFixed(2)}MB.`
+            );
+        }
+        } else if (typeof audioFile.size === "undefined") {
+            Logger.warn(
+                "Audio file size is not available. Unable to check file size before upload. Large files may be rejected by the server."
+            );
+
         const formData = new FormData();
         formData.append("file", {
             uri: audioFile.uri,
@@ -346,14 +547,16 @@ class ApiService {
         });
 
         const accessToken = await getToken("accessToken");
-        return this.request("/podcasts/upload", {
+        
+        // Use retry logic for uploads (network issues common on mobile)
+        return this.requestWithRetry("/podcasts/upload", {
             method: "POST",
             headers: {
                 "Content-Type": "multipart/form-data",
                 ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
             },
             body: formData,
-        });
+        }, true);
     }
 
     // Podcast Interaction methods

@@ -1,23 +1,17 @@
+"""Podcast management endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from pathlib import Path as SysPath
 import json
 import asyncio
-from .. import schemas, crud, models, auth, config
-from ..database import SessionLocal
-from ..services.ai_service import ai_service
 import os
-from pathlib import Path as SysPath
+
+from .. import schemas, crud, models, auth, config
+from ..database import get_db
+from ..services.ai_service import ai_service
 
 router = APIRouter(prefix="/podcasts", tags=["podcasts"])
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @router.post("/create", response_model=schemas.Podcast)
@@ -230,17 +224,19 @@ async def process_podcast_with_ai(
 
 @router.get("/{podcast_id}", response_model=schemas.Podcast)
 def get_podcast(
-    podcast_id: int = Path(...,
-                           description="The ID of the podcast to retrieve"),
+    podcast_id: int = Path(..., description="The ID of the podcast to retrieve"),
     db: Session = Depends(get_db),
-    current_user: Optional[models.User] = Depends(
-        auth.get_current_user_optional)
+    current_user: Optional[models.User] = Depends(auth.get_current_user_optional)
 ):
-    """Get a specific podcast by ID"""
+    """
+    Get a specific podcast by ID.
+    
+    Note: This endpoint automatically increments the podcast's play count.
+    """
     podcast = crud.get_podcast(
         db=db,
         podcast_id=podcast_id,
-        user_id=current_user.id if current_user else None
+        increment_play_count=True
     )
     if not podcast:
         raise HTTPException(
@@ -269,12 +265,13 @@ def search_podcasts(
         is_public=True
     )
 
+    podcasts, total = result
     return schemas.PodcastListResponse(
-        podcasts=result["podcasts"],
-        total=result["total"],
+        podcasts=podcasts,
+        total=total,
         limit=limit,
         offset=skip,
-        has_more=result["has_more"]
+        has_more=total > skip + limit
     )
 
 
@@ -300,12 +297,13 @@ def get_podcasts(
         is_public=True
     )
 
+    podcasts, total = result
     return schemas.PodcastListResponse(
-        podcasts=result["podcasts"],
-        total=result["total"],
+        podcasts=podcasts,
+        total=total,
         limit=limit,
         offset=skip,
-        has_more=result["has_more"]
+        has_more=total > skip + limit
     )
 
 
