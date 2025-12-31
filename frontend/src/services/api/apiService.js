@@ -129,8 +129,8 @@ class ApiService {
             const response = await fetch(url, config);
             clearTimeout(timeoutId);
 
-            // Handle token expiration and refresh
-            if (response.status === 401 && retry && refreshToken) {
+            // Handle token expiration and refresh (but not if already retrying)
+            if (response.status === 401 && retry && refreshToken && !options._isRetry) {
                 const refreshController = new AbortController();
                 const refreshTimeoutId = setTimeout(
                     () => refreshController.abort(),
@@ -158,8 +158,9 @@ class ApiService {
                 if (refreshRes.ok) {
                     const refreshData = await refreshRes.json();
                     await saveToken("accessToken", refreshData.access_token);
-                    // Retry original request with new token
-                    return this.request(endpoint, options, false);
+                    this.setToken(refreshData.access_token); // Update in-memory token
+                    // Retry original request with new token (mark as retry to prevent loops)
+                    return this.request(endpoint, { ...options, _isRetry: true }, false);
                 } else {
                     // Refresh token expired, logout user
                     // If refresh token is also expired, handle session expiration
