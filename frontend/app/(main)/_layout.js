@@ -1,6 +1,6 @@
 import { Tabs, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
     View,
     TouchableOpacity,
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import BottomMiniPlayer from "../../src/components/audio/BottomMiniPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
+import Logger from "../../src/utils/logger";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -159,18 +160,24 @@ export default function TabLayout() {
         }
     };
 
-    const handleMiniPlayerClose = async () => {
-        await stop();
+    const handleMiniPlayerClose = useCallback(() => {
+        stop(); // Non-blocking
         toggleMiniPlayer(false);
-    };
+    }, [stop, toggleMiniPlayer]);
 
-    const handleMiniPlayerPlayPause = async () => {
-        if (isPlaying) {
-            await pause();
-        } else {
-            await play();
+    const handleMiniPlayerPlayPause = useCallback(() => {
+        if (!currentTrack) {
+            return;
         }
-    };
+
+        // Immediate response - don't await
+        if (isPlaying) {
+            pause();
+        } else {
+            // Resume current track - play() without params will use currentTrack
+            play();
+        }
+    }, [currentTrack, isPlaying, play, pause]);
 
     return (
         <View style={{ flex: 1 }}>

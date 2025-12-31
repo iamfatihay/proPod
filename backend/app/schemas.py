@@ -19,7 +19,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """
     Schema for user registration.
-    
+
     Note: Password is optional for OAuth users (e.g., Google login)
     For local users, password validation is enforced at the endpoint level.
     """
@@ -54,15 +54,21 @@ class User(UserBase):
 
 class PodcastBase(BaseModel):
     """Base podcast schema with common fields."""
-    title: str = Field(..., min_length=1, max_length=200, description="Podcast title")
-    description: Optional[str] = Field(None, max_length=2000, description="Podcast description")
+    title: str = Field(..., min_length=1, max_length=200,
+                       description="Podcast title")
+    description: Optional[str] = Field(
+        None, max_length=2000, description="Podcast description")
     category: str = Field(default="General", description="Podcast category")
-    is_public: bool = Field(default=True, description="Whether podcast is publicly visible")
+    is_public: bool = Field(
+        default=True, description="Whether podcast is publicly visible")
 
 
 class PodcastCreate(PodcastBase):
     """Schema for creating a new podcast."""
     duration: int = Field(default=0, ge=0, description="Duration in seconds")
+    audio_url: Optional[str] = Field(None, description="URL to the audio file")
+    thumbnail_url: Optional[str] = Field(
+        None, description="URL to the thumbnail image")
 
 
 class PodcastUpdate(BaseModel):
@@ -77,10 +83,13 @@ class PodcastUpdate(BaseModel):
 
 class AIProcessingRequest(BaseModel):
     """Schema for requesting AI processing on a podcast."""
-    enhance_audio: bool = Field(default=True, description="Apply audio enhancement")
-    transcribe: bool = Field(default=True, description="Generate transcription")
+    enhance_audio: bool = Field(
+        default=True, description="Apply audio enhancement")
+    transcribe: bool = Field(
+        default=True, description="Generate transcription")
     analyze_content: bool = Field(default=True, description="Analyze content")
-    language: Optional[str] = Field(default="auto", description="Language code or 'auto' for detection")
+    language: Optional[str] = Field(
+        default="auto", description="Language code or 'auto' for detection")
 
 
 class TranscriptionResult(BaseModel):

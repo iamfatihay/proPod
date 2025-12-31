@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     View,
     Text,
@@ -10,6 +10,8 @@ import {
     Share,
     Animated,
     StatusBar,
+    Image,
+    ActivityIndicator,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -33,12 +35,20 @@ const Details = () => {
     const {
         currentTrack,
         isPlaying,
+        isLoading: isAudioLoading, // Renamed to avoid confusion with local isLoading
         play,
         pause,
         setQueue,
         addToQueue,
         showMiniPlayer,
         toggleMiniPlayer,
+        position,
+        duration,
+        playbackRate,
+        setPlaybackRate,
+        volume,
+        setVolume,
+        seek,
     } = useAudioStore();
 
     // Local state
@@ -51,28 +61,52 @@ const Details = () => {
     const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
     const [pulse] = useState(new Animated.Value(1));
 
+    // Loading states for actions
+    // Note: isPlayingLoading removed - using isAudioLoading from useAudioStore instead
+    // Play action is fast (optimistic update), so separate loading state is unnecessary
+    const [isLiking, setIsLiking] = useState(false);
+    const [isBookmarking, setIsBookmarking] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
     useEffect(() => {
         loadPodcastDetails();
     }, [params.id, params.refresh]);
 
-    // Handle optimistic update from edit page
+    // Handle optimistic update from edit page (only once when params change)
     useEffect(() => {
         if (podcast && params.updatedTitle) {
-            setPodcast((prevPodcast) => ({
-                ...prevPodcast,
-                title: params.updatedTitle,
-                description:
-                    params.updatedDescription || prevPodcast.description,
-                category: params.updatedCategory || prevPodcast.category,
-                is_public: params.updatedIsPublic === "true",
-            }));
+            setPodcast((prevPodcast) => {
+                // Only update if values actually changed (prevent infinite loop)
+                if (
+                    prevPodcast.title !== params.updatedTitle ||
+                    prevPodcast.description !==
+                        (params.updatedDescription ||
+                            prevPodcast.description) ||
+                    prevPodcast.category !==
+                        (params.updatedCategory || prevPodcast.category) ||
+                    prevPodcast.is_public !==
+                        (params.updatedIsPublic === "true")
+                ) {
+                    return {
+                        ...prevPodcast,
+                        title: params.updatedTitle,
+                        description:
+                            params.updatedDescription ||
+                            prevPodcast.description,
+                        category:
+                            params.updatedCategory || prevPodcast.category,
+                        is_public: params.updatedIsPublic === "true",
+                    };
+                }
+                return prevPodcast;
+            });
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         params.updatedTitle,
         params.updatedDescription,
         params.updatedCategory,
         params.updatedIsPublic,
-        podcast,
     ]);
 
     const loadPodcastDetails = async () => {
@@ -124,18 +158,21 @@ const Details = () => {
         ).start();
     }, []);
 
-    const handlePlay = async () => {
+    const handlePlay = useCallback(() => {
         if (!podcast?.audio_url) {
             showToast("Audio not available", "error");
             return;
         }
+
+        // Prevent multiple clicks - use audio store's isLoading
+        if (isAudioLoading) return;
 
         const track = {
             id: podcast.id,
             uri: podcast.audio_url,
             title: podcast.title,
             artist: podcast.owner?.name || "Unknown Artist",
-            duration: podcast.duration || 0,
+            duration: (podcast.duration || 0) * 1000, // Convert to milliseconds
             artwork: podcast.thumbnail_url,
             category: podcast.category,
             description: podcast.description,
@@ -143,39 +180,55 @@ const Details = () => {
 
         try {
             if (currentTrack?.id === podcast.id) {
-                // Same track - toggle play/pause
+                // Same track - toggle play/pause (non-blocking)
                 if (isPlaying) {
-                    await pause();
+                    pause();
                 } else {
-                    await play();
+                    play();
                 }
             } else {
-                // New track - start playing
-                await play(track);
+                // New track - start playing (non-blocking)
+                play(track);
 
                 // Set queue with related podcasts
                 const queue = [
                     track,
-                    ...relatedPodcasts.map((p) => ({
-                        id: p.id,
-                        uri: p.audio_url,
-                        title: p.title,
-                        artist: p.owner?.name || "Unknown Artist",
-                        duration: p.duration || 0,
-                        artwork: p.thumbnail_url,
-                    })),
+                    ...relatedPodcasts
+                        .filter((p) => p.audio_url)
+                        .map((p) => ({
+                            id: p.id,
+                            uri: p.audio_url,
+                            title: p.title,
+                            artist: p.owner?.name || "Unknown Artist",
+                            duration: (p.duration || 0) * 1000,
+                            artwork: p.thumbnail_url,
+                        })),
                 ];
 
                 setQueue(queue, 0);
             }
         } catch (error) {
-            Logger.error("Playback failed:", error);
-            showToast("Failed to start playback", "error");
+            const errorMessage =
+                error.message || "Failed to start playback. Please try again.";
+            showToast(errorMessage, "error");
         }
-    };
+    }, [
+        podcast,
+        currentTrack?.id,
+        isPlaying,
+        isAudioLoading,
+        relatedPodcasts,
+        play,
+        pause,
+        setQueue,
+        showToast,
+    ]);
 
     const handleLike = async () => {
+        if (isLiking) return; // Prevent multiple clicks
+
         try {
+            setIsLiking(true);
             if (isLiked) {
                 await apiService.unlikePodcast(podcast.id);
                 setIsLiked(false);
@@ -193,11 +246,16 @@ const Details = () => {
                 error?.message ||
                 "Action failed";
             showToast(msg, "error");
+        } finally {
+            setIsLiking(false);
         }
     };
 
     const handleBookmark = async () => {
+        if (isBookmarking) return; // Prevent multiple clicks
+
         try {
+            setIsBookmarking(true);
             if (isBookmarked) {
                 await apiService.removeBookmark(podcast.id);
                 setIsBookmarked(false);
@@ -215,6 +273,13 @@ const Details = () => {
                 error?.message ||
                 "Action failed";
             showToast(msg, "error");
+
+            // Check if it's an auth error
+            if (error.status === 401) {
+                Logger.warn("Authentication error - session may have expired");
+            }
+        } finally {
+            setIsBookmarking(false);
         }
     };
 
@@ -266,13 +331,24 @@ const Details = () => {
 
     const confirmDelete = async () => {
         setDeleteConfirmVisible(false);
+        if (isDeleting) return; // Prevent multiple clicks
+
         try {
+            setIsDeleting(true);
             await apiService.deletePodcast(podcast.id);
             showToast("Podcast deleted", "success");
             router.back();
         } catch (error) {
             Logger.error("Delete failed:", error);
-            showToast("Failed to delete podcast", "error");
+            const errorMessage = error.message || "Failed to delete podcast";
+            showToast(errorMessage, "error");
+
+            // Check if it's an auth error
+            if (error.status === 401) {
+                Logger.warn("Authentication error - session may have expired");
+            }
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -436,10 +512,10 @@ const Details = () => {
             >
                 {/* Podcast Header */}
                 <View className="px-6 py-6">
-                    {/* AI Artwork */}
+                    {/* Podcast Artwork / Thumbnail */}
                     <Animated.View style={{ transform: [{ scale: pulse }] }}>
                         <View
-                            className="rounded-2xl mb-6 items-center justify-center"
+                            className="rounded-2xl mb-6 items-center justify-center overflow-hidden"
                             style={{
                                 width: screenWidth - 48,
                                 height: screenWidth - 48,
@@ -449,14 +525,24 @@ const Details = () => {
                                 borderColor: "#1f1f22",
                             }}
                         >
-                            <MaterialCommunityIcons
-                                name="waveform"
-                                size={74}
-                                color="#D32F2F"
-                            />
-                            <Text className="text-text-secondary mt-2">
-                                AI Optimized Playback
-                            </Text>
+                            {podcast.thumbnail_url ? (
+                                <Image
+                                    source={{ uri: podcast.thumbnail_url }}
+                                    className="w-full h-full"
+                                    resizeMode="cover"
+                                />
+                            ) : (
+                                <>
+                                    <MaterialCommunityIcons
+                                        name="music-note"
+                                        size={74}
+                                        color="#D32F2F"
+                                    />
+                                    <Text className="text-text-secondary mt-2">
+                                        {podcast.title}
+                                    </Text>
+                                </>
+                            )}
                         </View>
                     </Animated.View>
 
@@ -502,6 +588,7 @@ const Details = () => {
                                 isLiked ? "bg-primary" : "bg-panel"
                             }`}
                             activeOpacity={0.7}
+                            disabled={isLiking}
                             hitSlop={{
                                 top: 10,
                                 bottom: 10,
@@ -509,11 +596,18 @@ const Details = () => {
                                 right: 10,
                             }}
                         >
-                            <MaterialCommunityIcons
-                                name={isLiked ? "heart" : "heart-outline"}
-                                size={22}
-                                color={isLiked ? "white" : "#888888"}
-                            />
+                            {isLiking ? (
+                                <ActivityIndicator
+                                    size="small"
+                                    color={isLiked ? "white" : "#888888"}
+                                />
+                            ) : (
+                                <MaterialCommunityIcons
+                                    name={isLiked ? "heart" : "heart-outline"}
+                                    size={22}
+                                    color={isLiked ? "white" : "#888888"}
+                                />
+                            )}
                             <Text
                                 className={`ml-2 font-medium ${
                                     isLiked
@@ -531,6 +625,7 @@ const Details = () => {
                                 isBookmarked ? "bg-warning" : "bg-panel"
                             }`}
                             activeOpacity={0.7}
+                            disabled={isBookmarking}
                             hitSlop={{
                                 top: 10,
                                 bottom: 10,
@@ -538,15 +633,22 @@ const Details = () => {
                                 right: 10,
                             }}
                         >
-                            <MaterialCommunityIcons
-                                name={
-                                    isBookmarked
-                                        ? "bookmark"
-                                        : "bookmark-outline"
-                                }
-                                size={22}
-                                color={isBookmarked ? "white" : "#888888"}
-                            />
+                            {isBookmarking ? (
+                                <ActivityIndicator
+                                    size="small"
+                                    color={isBookmarked ? "white" : "#888888"}
+                                />
+                            ) : (
+                                <MaterialCommunityIcons
+                                    name={
+                                        isBookmarked
+                                            ? "bookmark"
+                                            : "bookmark-outline"
+                                    }
+                                    size={22}
+                                    color={isBookmarked ? "white" : "#888888"}
+                                />
+                            )}
                             <Text
                                 className={`ml-2 font-medium ${
                                     isBookmarked
@@ -582,35 +684,109 @@ const Details = () => {
                         {isOwner && (
                             <TouchableOpacity
                                 onPress={handleDelete}
-                                className="flex-row items-center px-4 py-2 rounded-lg bg-error/20"
+                                className="flex-row items-center px-5 py-3 rounded-xl bg-error/20"
+                                activeOpacity={0.7}
+                                disabled={isDeleting}
+                                hitSlop={{
+                                    top: 10,
+                                    bottom: 10,
+                                    left: 10,
+                                    right: 10,
+                                }}
                             >
-                                <MaterialCommunityIcons
-                                    name="delete-outline"
-                                    size={20}
-                                    color="#EF4444"
-                                />
+                                {isDeleting ? (
+                                    <ActivityIndicator
+                                        size="small"
+                                        color="#EF4444"
+                                    />
+                                ) : (
+                                    <MaterialCommunityIcons
+                                        name="delete-outline"
+                                        size={22}
+                                        color="#EF4444"
+                                    />
+                                )}
+                                <Text className="text-error ml-2 font-medium">
+                                    Delete
+                                </Text>
                             </TouchableOpacity>
                         )}
                     </View>
                 </View>
 
-                {/* Modern Audio Player - Use real audio URL if available */}
-                <View className="px-6 mb-6">
-                    <ModernAudioPlayer
-                        uri={
-                            podcast.audio_url ||
-                            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-                        }
-                        title={podcast.title}
-                        artist={podcast.owner?.name || "Unknown Artist"}
-                        duration={podcast.duration * 1000 || 180000} // Convert to milliseconds or 3 min demo
-                        onPlayStateChange={(playing) => {
-                            if (playing && !showMiniPlayer) {
-                                toggleMiniPlayer(true);
-                            }
-                        }}
-                    />
-                </View>
+                {/* Audio Player - Show full player when this track is playing */}
+                {currentTrack?.id === podcast.id && podcast.audio_url ? (
+                    <View className="px-6 mb-6">
+                        <ModernAudioPlayer
+                            uri={podcast.audio_url}
+                            title={podcast.title}
+                            artist={podcast.owner?.name || "Unknown Artist"}
+                            duration={duration || podcast.duration * 1000 || 0}
+                            isPlaying={isPlaying}
+                            currentPosition={position}
+                            onPlay={() => play()}
+                            onPause={() => pause()}
+                            onSeek={(positionMillis) => seek(positionMillis)}
+                            onSkipForward={() => {
+                                const newPos = Math.min(
+                                    position + 15000,
+                                    duration || podcast.duration * 1000
+                                );
+                                seek(newPos); // Non-blocking
+                            }}
+                            onSkipBackward={() => {
+                                const newPos = Math.max(position - 15000, 0);
+                                seek(newPos); // Non-blocking
+                            }}
+                            playbackRate={playbackRate}
+                            onPlaybackRateChange={setPlaybackRate}
+                            volume={volume}
+                            onVolumeChange={setVolume}
+                            showProgress={true}
+                            showControls={true}
+                        />
+                    </View>
+                ) : (
+                    /* Play Button - Show when track is not playing */
+                    <View className="px-6 mb-6">
+                        <TouchableOpacity
+                            onPress={handlePlay}
+                            className="flex-row items-center justify-center px-8 py-4 rounded-xl bg-panel border border-border"
+                            activeOpacity={0.8}
+                            disabled={!podcast.audio_url || isAudioLoading}
+                        >
+                            {isAudioLoading ? (
+                                <ActivityIndicator
+                                    size="small"
+                                    color="#D32F2F"
+                                />
+                            ) : (
+                                <MaterialCommunityIcons
+                                    name="play-circle"
+                                    size={32}
+                                    color={
+                                        podcast.audio_url
+                                            ? "#D32F2F"
+                                            : "#888888"
+                                    }
+                                />
+                            )}
+                            <Text
+                                className={`ml-3 text-lg font-semibold ${
+                                    podcast.audio_url && !isAudioLoading
+                                        ? "text-text-primary"
+                                        : "text-text-secondary"
+                                }`}
+                            >
+                                {isAudioLoading
+                                    ? "Loading..."
+                                    : podcast.audio_url
+                                    ? "Play"
+                                    : "Audio not available"}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
 
                 {/* Description */}
                 {podcast.description && (
