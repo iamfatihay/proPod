@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import BottomMiniPlayer from "../../src/components/audio/BottomMiniPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
-import Logger from "../../src/utils/logger";
 
 const { width: screenWidth } = Dimensions.get("window");
 
