@@ -22,10 +22,9 @@ const UnifiedAudio = {
     stopRecording: (...args) => AudioRecorder.stopRecording(...args),
     pauseRecording: (...args) => AudioRecorder.pauseRecording(...args),
     resumeRecording: (...args) => AudioRecorder.resumeRecording(...args),
-    getRecordingStatus: () => AudioRecorder.getRecordingStatus(),
+    getRecordingStatus: () => AudioRecorder.getStatus(),
 
     // Recorder file helpers
-    saveRecording: (filename) => AudioRecorder.saveRecording(filename),
     deleteAudioFile: (uri) => AudioRecorder.deleteRecording(uri),
 };
 
