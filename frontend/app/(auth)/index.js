@@ -147,7 +147,7 @@ export default function LoginScreen() {
                     </View>
                     <View className="w-full space-y-4 mb-6">
                         <TextInput
-                            className="bg-card rounded-lg mb-4 px-4 py-3 text-text-primary border border-border focus:border-primary"
+                            className="bg-card rounded-lg px-4 py-3 text-text-primary border border-border focus:border-primary"
                             placeholder="Email"
                             placeholderTextColor="#888"
                             autoCapitalize="none"

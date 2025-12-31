@@ -33,6 +33,7 @@ const Create = () => {
     // Recording state
     const [isRecording, setIsRecording] = useState(false);
     const [recordedUri, setRecordedUri] = useState(null);
+    const [recordedDuration, setRecordedDuration] = useState(0); // Store duration in seconds
     const [isAIEnabled, setIsAIEnabled] = useState(false);
     const [audioInitialized, setAudioInitialized] = useState(false);
 
@@ -85,16 +86,33 @@ const Create = () => {
 
     const handleRecordingStop = async (uri) => {
         setIsRecording(false);
-        setRecordedUri(uri);
-        setCurrentStep("review");
 
-        if (mode === "quick-record") {
-            // For quick record, auto-save with timestamp
-            const timestamp = new Date().toLocaleString();
-            setTitle(`Quick Recording - ${timestamp}`);
+        if (uri) {
+            // Get recording duration from AudioService before stopping
+            const status = AudioService.getRecordingStatus();
+            const duration = status.duration || 0; // Duration in seconds
+
+            setRecordedUri(uri);
+            setRecordedDuration(duration);
+            setCurrentStep("review");
+
+            if (mode === "quick-record") {
+                // For quick record, auto-save with timestamp
+                const timestamp = new Date().toLocaleString();
+                setTitle(`Quick Recording - ${timestamp}`);
+            }
+
+            showToast("Recording completed", "success");
+        } else {
+            // URI is null - recording may have failed
+            Logger.error("Recording stopped but URI is null");
+            showToast(
+                "Recording failed - no file was saved. Please try again.",
+                "error"
+            );
+            // Stay on recording step so user can try again
+            // Don't change currentStep
         }
-
-        showToast("Recording completed", "success");
     };
 
     const handleRecordingPause = () => {
@@ -122,42 +140,61 @@ const Create = () => {
         try {
             setIsUploading(true);
 
-            // Save recording locally first
-            const filename = title
-                ? `${title.replace(/[^a-zA-Z0-9]/g, "_")}.${
-                      Platform.OS === "ios" ? "m4a" : "mp3"
-                  }`
-                : null;
-            const savedUri = await AudioService.saveRecording(filename);
+            // Validate title
+            if (!title || title.trim() === "") {
+                showToast("Please enter a podcast title", "error");
+                setIsUploading(false);
+                return;
+            }
 
-            // Prepare metadata
+            // Prepare filename from title
+            const filename = `${title.replace(/[^a-zA-Z0-9]/g, "_")}.${
+                Platform.OS === "ios" ? "m4a" : "m4a"
+            }`;
+
+            // Prepare metadata - use backend field names (snake_case)
             const podcastData = {
-                title: title || "Untitled Podcast",
-                description: description || "",
+                title: title.trim(),
+                description: description.trim() || "",
                 category,
-                isPublic,
-                recordedAt: new Date().toISOString(),
-                duration: AudioService.getRecordingStatus().duration,
-                aiEnhanced: isAIEnabled,
-                platform: Platform.OS,
+                is_public: isPublic, // Backend expects snake_case
+                duration: recordedDuration, // Duration in seconds
+                // audio_url will be added after upload
             };
 
-            // Upload audio then create podcast with returned URL
+            Logger.log("📤 Uploading audio file:", {
+                uri: recordedUri,
+                filename,
+                duration: recordedDuration,
+            });
+
+            // Upload audio file - recording is already saved at recordedUri
             const uploadData = {
-                uri: savedUri,
-                type: Platform.OS === "ios" ? "audio/mp4" : "audio/mpeg",
-                name:
-                    filename ||
-                    `podcast_${Date.now()}.${
-                        Platform.OS === "ios" ? "m4a" : "mp3"
-                    }`,
+                uri: recordedUri, // Use the URI from stopRecording directly
+                type: Platform.OS === "ios" ? "audio/mp4" : "audio/mp4", // Android also uses m4a
+                name: filename,
             };
+
             const uploadRes = await apiService.uploadAudio(uploadData);
 
-            await apiService.createPodcast({
-                ...podcastData,
+            Logger.log("✅ Audio uploaded, creating podcast:", {
                 audio_url: uploadRes.audio_url,
+                podcastData,
             });
+
+            // Create podcast with uploaded audio URL
+            const finalPodcastData = {
+                ...podcastData,
+                audio_url: uploadRes.audio_url, // Add audio URL from upload response
+            };
+
+            Logger.log("📝 Creating podcast with data:", finalPodcastData);
+
+            const createdPodcast = await apiService.createPodcast(
+                finalPodcastData
+            );
+
+            Logger.log("✅ Podcast created successfully:", createdPodcast);
 
             showToast("Podcast saved successfully!", "success");
 
@@ -169,7 +206,18 @@ const Create = () => {
             }
         } catch (error) {
             Logger.error("Save failed:", error);
-            showToast("Failed to save podcast. Please try again.", "error");
+            const errorMessage =
+                error.response?.data?.detail ||
+                error.message ||
+                "Failed to save podcast. Please try again.";
+            showToast(errorMessage, "error");
+
+            // Check if it's an auth error
+            if (error.status === 401) {
+                Logger.warn("Authentication error - session may have expired");
+                // Session expired - logout will be handled by apiService
+                // User will be redirected to login automatically
+            }
         } finally {
             setIsUploading(false);
         }
@@ -333,13 +381,17 @@ const Create = () => {
                 </Text>
                 <Text className="text-text-secondary">
                     Duration:{" "}
-                    {AudioService.formatTime(
-                        AudioService.getRecordingStatus().duration * 1000
-                    )}
+                    {(() => {
+                        const mins = Math.floor(recordedDuration / 60);
+                        const secs = recordedDuration % 60;
+                        return `${mins.toString().padStart(2, "0")}:${secs
+                            .toString()
+                            .padStart(2, "0")}`;
+                    })()}
                 </Text>
                 <Text className="text-text-secondary">
                     Format:{" "}
-                    {Platform.OS === "ios" ? "M4A (iOS)" : "MP3 (Android)"}
+                    {Platform.OS === "ios" ? "M4A (iOS)" : "M4A (Android)"}
                 </Text>
                 {isAIEnabled && (
                     <Text className="text-text-secondary">
