@@ -124,20 +124,27 @@ const RecordingControls = ({
                 setIsRecording(false);
                 setIsPaused(false);
                 setDuration(0);
-                
+
                 if (uri) {
-                    Logger.log("✅ Recording stopped successfully with URI:", uri);
-                    onRecordingStop && onRecordingStop(uri);
+                    Logger.log(
+                        "✅ Recording stopped successfully with URI:",
+                        uri
+                    );
                 } else {
-                    Logger.warn("⚠️ Recording stopped but URI is null - file may not be saved");
-                    // Still notify parent that recording stopped (even without URI)
-                    // Parent can handle the error case
+                    Logger.warn(
+                        "⚠️ Recording stopped but URI is null - file may not be saved"
+                    );
+                    // Show alert to inform user about the issue
                     Alert.alert(
                         "Recording Warning",
                         "Recording stopped but file may not be saved. Please try again.",
                         [{ text: "OK" }]
                     );
                 }
+
+                // Always notify parent that recording stopped (even when URI is null)
+                // Parent component (create.js) has logic to handle both success and error cases
+                onRecordingStop && onRecordingStop(uri);
             }
         } catch (error) {
             Logger.error("💥 Recording error in handleRecordPress:", error);

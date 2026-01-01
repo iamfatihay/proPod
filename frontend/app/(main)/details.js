@@ -49,6 +49,8 @@ const Details = () => {
         volume,
         setVolume,
         seek,
+        error: audioError,
+        clearError,
     } = useAudioStore();
 
     // Local state
@@ -67,6 +69,14 @@ const Details = () => {
     const [isLiking, setIsLiking] = useState(false);
     const [isBookmarking, setIsBookmarking] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Watch for audio playback errors and show toast
+    useEffect(() => {
+        if (audioError) {
+            showToast(audioError, "error");
+            clearError(); // Clear error after showing
+        }
+    }, [audioError, clearError, showToast]);
 
     useEffect(() => {
         loadPodcastDetails();
@@ -167,6 +177,12 @@ const Details = () => {
         // Prevent multiple clicks - use audio store's isLoading
         if (isAudioLoading) return;
 
+        // Validate podcast has audio
+        if (!podcast.audio_url) {
+            showToast("Audio not available", "error");
+            return;
+        }
+
         const track = {
             id: podcast.id,
             uri: podcast.audio_url,
@@ -178,39 +194,34 @@ const Details = () => {
             description: podcast.description,
         };
 
-        try {
-            if (currentTrack?.id === podcast.id) {
-                // Same track - toggle play/pause (non-blocking)
-                if (isPlaying) {
-                    pause();
-                } else {
-                    play();
-                }
+        // Non-blocking audio operations - errors handled via audioError state
+        if (currentTrack?.id === podcast.id) {
+            // Same track - toggle play/pause
+            if (isPlaying) {
+                pause();
             } else {
-                // New track - start playing (non-blocking)
-                play(track);
-
-                // Set queue with related podcasts
-                const queue = [
-                    track,
-                    ...relatedPodcasts
-                        .filter((p) => p.audio_url)
-                        .map((p) => ({
-                            id: p.id,
-                            uri: p.audio_url,
-                            title: p.title,
-                            artist: p.owner?.name || "Unknown Artist",
-                            duration: (p.duration || 0) * 1000,
-                            artwork: p.thumbnail_url,
-                        })),
-                ];
-
-                setQueue(queue, 0);
+                play();
             }
-        } catch (error) {
-            const errorMessage =
-                error.message || "Failed to start playback. Please try again.";
-            showToast(errorMessage, "error");
+        } else {
+            // New track - start playing
+            play(track);
+
+            // Set queue with related podcasts
+            const queue = [
+                track,
+                ...relatedPodcasts
+                    .filter((p) => p.audio_url)
+                    .map((p) => ({
+                        id: p.id,
+                        uri: p.audio_url,
+                        title: p.title,
+                        artist: p.owner?.name || "Unknown Artist",
+                        duration: (p.duration || 0) * 1000,
+                        artwork: p.thumbnail_url,
+                    })),
+            ];
+
+            setQueue(queue, 0);
         }
     }, [
         podcast,
@@ -728,9 +739,14 @@ const Details = () => {
                             onPause={() => pause()}
                             onSeek={(positionMillis) => seek(positionMillis)}
                             onSkipForward={() => {
+                                const maxDuration =
+                                    duration ||
+                                    (podcast.duration
+                                        ? podcast.duration * 1000
+                                        : 0);
                                 const newPos = Math.min(
                                     position + 15000,
-                                    duration || podcast.duration * 1000
+                                    maxDuration
                                 );
                                 seek(newPos); // Non-blocking
                             }}

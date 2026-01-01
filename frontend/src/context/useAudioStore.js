@@ -428,7 +428,10 @@ const useAudioStore = create(
 
         seek: (positionMillis) => {
             // Make completely non-blocking - optimistic update first
-            const { sound } = get();
+            const { sound, position: previousPosition } = get();
+
+            // Capture previous position BEFORE optimistic update for rollback
+            const originalPosition = previousPosition;
 
             // Immediate optimistic update for UI responsiveness
             set({ position: positionMillis });
@@ -440,10 +443,9 @@ const useAudioStore = create(
                         sound.seekTo(positionMillis / 1000); // Convert to seconds
                     } catch (error) {
                         Logger.error("Seek failed:", error);
-                        // Revert position on error
-                        const currentState = get();
+                        // Revert to original position captured before optimistic update
                         set({
-                            position: currentState.position, // Revert to actual position
+                            position: originalPosition,
                             error: error.message,
                         });
                     }

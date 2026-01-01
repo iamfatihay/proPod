@@ -97,6 +97,8 @@ export default function HomeScreen() {
         showMiniPlayer,
         toggleMiniPlayer,
         lastPlayedAt,
+        error: audioError,
+        clearError,
     } = useAudioStore();
 
     const [podcasts, setPodcasts] = useState([]);
@@ -106,6 +108,14 @@ export default function HomeScreen() {
     const [error, setError] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [refreshing, setRefreshing] = useState(false);
+
+    // Watch for audio playback errors and show toast
+    useEffect(() => {
+        if (audioError) {
+            showToast(audioError, "error");
+            clearError(); // Clear error after showing
+        }
+    }, [audioError, clearError, showToast]);
 
     const load = useCallback(async () => {
         try {
@@ -155,46 +165,41 @@ export default function HomeScreen() {
 
     // Optimized play functionality - immediate UI response
     const handlePlayPodcast = useCallback(
-        async (podcast) => {
+        (podcast) => {
             // Validate podcast has audio
             if (!podcast.audio_url) {
                 showToast("Audio not available", "error");
                 return;
             }
 
-            try {
-                // Create track object
-                const track = {
-                    id: podcast.id,
-                    uri: podcast.audio_url,
-                    title: podcast.title,
-                    artist: podcast.owner?.name || "Unknown Artist",
-                    duration: (podcast.duration || 0) * 1000, // Convert to milliseconds
-                    artwork: podcast.thumbnail_url,
-                    category: podcast.category,
-                    description: podcast.description,
-                };
+            // Create track object
+            const track = {
+                id: podcast.id,
+                uri: podcast.audio_url,
+                title: podcast.title,
+                artist: podcast.owner?.name || "Unknown Artist",
+                duration: (podcast.duration || 0) * 1000, // Convert to milliseconds
+                artwork: podcast.thumbnail_url,
+                category: podcast.category,
+                description: podcast.description,
+            };
 
-                // Same track - toggle play/pause
-                if (currentTrack?.id === podcast.id) {
-                    if (isPlaying) {
-                        pause(); // Don't await - immediate response
-                    } else {
-                        play(); // Don't await - immediate response
-                    }
+            // Non-blocking audio operations - errors handled via audioError state
+            // Same track - toggle play/pause
+            if (currentTrack?.id === podcast.id) {
+                if (isPlaying) {
+                    pause();
                 } else {
-                    // New track - start playing (non-blocking)
-                    play(track);
-
-                    // Show mini player if not visible
-                    if (!showMiniPlayer) {
-                        toggleMiniPlayer(true);
-                    }
+                    play();
                 }
-            } catch (error) {
-                const errorMessage =
-                    error.message || "Playback failed. Please try again.";
-                showToast(errorMessage, "error");
+            } else {
+                // New track - start playing
+                play(track);
+
+                // Show mini player if not visible
+                if (!showMiniPlayer) {
+                    toggleMiniPlayer(true);
+                }
             }
         },
         [
