@@ -1,16 +1,12 @@
 import { Stack, useRouter, useSegments } from "expo-router";
-import { cssInterop } from "react-native-css-interop";
 import useAuthStore from "../src/context/useAuthStore";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PaperProvider } from "react-native-paper";
 import { ToastProvider } from "../src/components/Toast";
 import { View, ActivityIndicator } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import apiService from "../src/services/api/apiService";
-
-cssInterop(Stack, {
-    className: "style",
-});
 
 export default function Layout() {
     const { user, isInitializing } = useAuthStore();
@@ -44,11 +40,6 @@ export default function Layout() {
         const inAuthGroup = segments[0] === "(auth)";
         const inMainGroup = segments[0] === "(main)";
 
-        // Prevent navigation before the router is ready.
-        if (segments.length === 0) {
-            return;
-        }
-
         if (user && inAuthGroup) {
             // User is signed in but is in the auth group (e.g., login, register).
             // Redirect to the main home screen.
@@ -58,7 +49,7 @@ export default function Layout() {
             // Redirect to the sign-in screen.
             router.replace("/");
         }
-    }, [user, segments, isInitializing]);
+    }, [user, segments, isInitializing, router]);
 
     // Show loading screen while initializing auth
     if (isInitializing) {
@@ -77,12 +68,14 @@ export default function Layout() {
     }
 
     return (
-        <ToastProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-                <PaperProvider>
-                    <Stack screenOptions={{ headerShown: false }} />
-                </PaperProvider>
-            </GestureHandlerRootView>
-        </ToastProvider>
+        <SafeAreaProvider>
+            <ToastProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                    <PaperProvider>
+                        <Stack screenOptions={{ headerShown: false }} />
+                    </PaperProvider>
+                </GestureHandlerRootView>
+            </ToastProvider>
+        </SafeAreaProvider>
     );
 }

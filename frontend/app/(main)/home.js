@@ -97,6 +97,8 @@ export default function HomeScreen() {
         showMiniPlayer,
         toggleMiniPlayer,
         lastPlayedAt,
+        error: audioError,
+        clearError,
     } = useAudioStore();
 
     const [podcasts, setPodcasts] = useState([]);
@@ -106,6 +108,14 @@ export default function HomeScreen() {
     const [error, setError] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [refreshing, setRefreshing] = useState(false);
+
+    // Watch for audio playback errors and show toast
+    useEffect(() => {
+        if (audioError) {
+            showToast(audioError, "error");
+            clearError(); // Clear error after showing
+        }
+    }, [audioError, clearError, showToast]);
 
     const load = useCallback(async () => {
         try {
@@ -153,60 +163,55 @@ export default function HomeScreen() {
         // based on the user's authentication state.
     };
 
-    // Modern play functionality with demo audio
-    const handlePlayPodcast = async (podcast) => {
-        try {
-            Logger.log("🎵 Playing podcast:", podcast.title);
-            // Create track with real audio URL if available, otherwise demo
+    // Optimized play functionality - immediate UI response
+    const handlePlayPodcast = useCallback(
+        (podcast) => {
+            // Validate podcast has audio
+            if (!podcast.audio_url) {
+                showToast("Audio not available", "error");
+                return;
+            }
+
+            // Create track object
             const track = {
                 id: podcast.id,
-                uri:
-                    podcast.audio_url ||
-                    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", // Use real audio or demo
+                uri: podcast.audio_url,
                 title: podcast.title,
                 artist: podcast.owner?.name || "Unknown Artist",
-                duration: podcast.duration || 180000, // 3 minutes demo
+                duration: (podcast.duration || 0) * 1000, // Convert to milliseconds
                 artwork: podcast.thumbnail_url,
                 category: podcast.category,
                 description: podcast.description,
             };
 
-            Logger.log("🎵 Track created:", track);
-
+            // Non-blocking audio operations - errors handled via audioError state
+            // Same track - toggle play/pause
             if (currentTrack?.id === podcast.id) {
-                // Same track - toggle play/pause
                 if (isPlaying) {
-                    await pause();
-                    Logger.log("⏸️ Paused");
+                    pause();
                 } else {
-                    await play();
-                    Logger.log("▶️ Resumed");
+                    play();
                 }
             } else {
                 // New track - start playing
-                await play(track);
-                Logger.log("🎵 Started new track");
+                play(track);
 
-                // Show mini player
+                // Show mini player if not visible
                 if (!showMiniPlayer) {
                     toggleMiniPlayer(true);
-                    Logger.log("📱 MiniPlayer enabled");
                 }
             }
-
-            showToast(
-                `${
-                    isPlaying && currentTrack?.id === podcast.id
-                        ? "Paused"
-                        : "Playing"
-                }: ${podcast.title}`,
-                "success"
-            );
-        } catch (error) {
-            Logger.error("❌ Play failed:", error);
-            showToast("Playback failed. Please try again.", "error");
-        }
-    };
+        },
+        [
+            currentTrack?.id,
+            isPlaying,
+            play,
+            pause,
+            showMiniPlayer,
+            toggleMiniPlayer,
+            showToast,
+        ]
+    );
 
     // Quick action handler
     const handleQuickAction = (actionId) => {
@@ -214,7 +219,16 @@ export default function HomeScreen() {
         switch (actionId) {
             case "record":
             case "quick-record":
-                router.push("/(main)/create");
+                // Navigate to create page with appropriate mode
+                router.push({
+                    pathname: "/(main)/create",
+                    params: {
+                        mode:
+                            actionId === "quick-record"
+                                ? "quick-record"
+                                : "full-create",
+                    },
+                });
                 break;
             case "analytics":
                 showToast("Analytics coming soon! 📊", "info");

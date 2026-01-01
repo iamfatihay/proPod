@@ -1,5 +1,5 @@
 import React from "react";
-import { TouchableOpacity, View, Text, Platform } from "react-native";
+import { TouchableOpacity, View, Text, Platform, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -129,7 +129,7 @@ const GradientCard = ({
                     </View>
                 )}
 
-                {/* Center - Waveform Icon */}
+                {/* Center - Thumbnail or Waveform Icon */}
                 <View
                     style={{
                         flex: 1,
@@ -137,24 +137,47 @@ const GradientCard = ({
                         alignItems: "center",
                     }}
                 >
-                    <View
-                        style={{
-                            width: 55,
-                            height: 55,
-                            borderRadius: 35,
-                            backgroundColor: "rgba(255, 255, 255, 0.2)",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            borderWidth: 2,
-                            borderColor: "rgba(255, 255, 255, 0.3)",
-                        }}
-                    >
-                        <MaterialCommunityIcons
-                            name="waveform"
-                            size={32}
-                            color="white"
-                        />
-                    </View>
+                    {podcast?.thumbnail_url ? (
+                        <View
+                            style={{
+                                width: 120,
+                                height: 120,
+                                borderRadius: 16,
+                                overflow: "hidden",
+                                backgroundColor: "rgba(255, 255, 255, 0.1)",
+                                borderWidth: 2,
+                                borderColor: "rgba(255, 255, 255, 0.3)",
+                            }}
+                        >
+                            <Image
+                                source={{ uri: podcast.thumbnail_url }}
+                                style={{
+                                    width: "100%",
+                                    height: "100%",
+                                }}
+                                resizeMode="cover"
+                            />
+                        </View>
+                    ) : (
+                        <View
+                            style={{
+                                width: 55,
+                                height: 55,
+                                borderRadius: 35,
+                                backgroundColor: "rgba(255, 255, 255, 0.2)",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                borderWidth: 2,
+                                borderColor: "rgba(255, 255, 255, 0.3)",
+                            }}
+                        >
+                            <MaterialCommunityIcons
+                                name="waveform"
+                                size={32}
+                                color="white"
+                            />
+                        </View>
+                    )}
                 </View>
 
                 {/* Bottom Section - Content */}

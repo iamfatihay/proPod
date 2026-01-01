@@ -10,34 +10,57 @@ import {
     PanResponder,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import { AudioPlayer as ExpoAudioPlayer, setAudioModeAsync } from "expo-audio";
 import Logger from "../../utils/logger";
 import WaveformVisualizer from "./WaveformVisualizer";
 
 const { width: screenWidth } = Dimensions.get("window");
 
+/**
+ * ModernAudioPlayer - Controlled component that works with useAudioStore
+ *
+ * Props:
+ * - uri: Audio file URI (for reference, actual playback controlled by parent)
+ * - title: Track title
+ * - artist: Track artist
+ * - duration: Total duration in milliseconds
+ * - isPlaying: Whether audio is currently playing (controlled by parent)
+ * - currentPosition: Current playback position in milliseconds (controlled by parent)
+ * - onPlay: Callback when play is requested
+ * - onPause: Callback when pause is requested
+ * - onSeek: Callback when seek is requested (position in milliseconds)
+ * - onSkipForward: Callback for skip forward
+ * - onSkipBackward: Callback for skip backward
+ * - playbackRate: Current playback rate (controlled by parent)
+ * - onPlaybackRateChange: Callback when playback rate changes
+ * - volume: Current volume (controlled by parent)
+ * - onVolumeChange: Callback when volume changes
+ * - showProgress: Whether to show progress bar
+ * - showControls: Whether to show controls
+ * - compact: Whether to show compact version
+ * - style: Additional style
+ */
 const ModernAudioPlayer = ({
     uri,
     title = "Unknown Track",
     artist = "Unknown Artist",
     duration = 0,
-    autoPlay = false,
-    onPlayStateChange,
-    onProgressChange,
+    isPlaying = false,
+    currentPosition = 0,
+    onPlay,
+    onPause,
+    onSeek,
+    onSkipForward,
+    onSkipBackward,
+    playbackRate = 1.0,
+    onPlaybackRateChange,
+    volume = 1.0,
+    onVolumeChange,
     style,
     compact = false,
     showProgress = true,
     showControls = true,
 }) => {
-    // Playback state
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [currentPosition, setCurrentPosition] = useState(0);
-    const [totalDuration, setTotalDuration] = useState(duration);
-    const [playbackRate, setPlaybackRate] = useState(1.0);
-    const [volume, setVolume] = useState(1.0);
-
-    // Animation values (avoiding native driver conflicts)
+    // Animation values
     const [playButtonScale] = useState(new Animated.Value(1));
     const progressAnimation = useRef(new Animated.Value(0)).current;
     const volumeAnimation = useRef(new Animated.Value(1)).current;
@@ -45,46 +68,59 @@ const ModernAudioPlayer = ({
     // Progress bar interaction
     const [isDragging, setIsDragging] = useState(false);
     const [tempPosition, setTempPosition] = useState(0);
-    const [audioData, setAudioData] = useState(null); // For real waveform visualization
+    const lastUpdateTimeRef = useRef(0); // For throttling drag updates
 
     // Generate simulated audio data for waveform visualization
     const generateSimulatedAudioData = () => {
-        const dataLength = 1000; // Simulate 1000 audio samples
+        const dataLength = 1000;
         const audioData = [];
-
         for (let i = 0; i < dataLength; i++) {
-            // Generate a sine wave with some variation
-            const frequency = 440 + Math.sin(i * 0.01) * 100; // Varying frequency
+            const frequency = 440 + Math.sin(i * 0.01) * 100;
             const amplitude =
                 Math.sin(i * frequency * 0.01) * (0.5 + Math.random() * 0.5);
             audioData.push(amplitude);
         }
-
         return audioData;
     };
 
-    // Demo implementation - replace with expo-audio when available
+    const [audioData] = useState(generateSimulatedAudioData());
+
+    // Update progress animation when position changes (only if not dragging)
+    // Use refs to avoid unnecessary re-renders and prevent infinite loops
+    const prevPositionRef = useRef(currentPosition);
+    const prevDurationRef = useRef(duration);
+
     useEffect(() => {
-        if (autoPlay) {
-            handlePlay();
+        // Only update if position or duration actually changed (avoid unnecessary animations)
+        const positionChanged =
+            Math.abs(prevPositionRef.current - currentPosition) > 50; // 50ms threshold
+        const durationChanged = prevDurationRef.current !== duration;
+
+        if (
+            !isDragging &&
+            duration > 0 &&
+            (positionChanged || durationChanged)
+        ) {
+            prevPositionRef.current = currentPosition;
+            prevDurationRef.current = duration;
+
+            const progress = currentPosition / duration;
+            Animated.timing(progressAnimation, {
+                toValue: Math.max(0, Math.min(1, progress)),
+                duration: 100,
+                useNativeDriver: false,
+            }).start();
         }
-    }, [autoPlay]);
+    }, [currentPosition, duration, isDragging]);
 
     const handlePlay = async () => {
         try {
-            Logger.log("🎵 ModernAudioPlayer: Starting playback (demo mode)");
-
-            // Generate simulated audio data for waveform visualization
-            if (!isPlaying) {
-                setAudioData(generateSimulatedAudioData());
-            }
-
             // Animate play button
             Animated.sequence([
                 Animated.timing(playButtonScale, {
                     toValue: 0.9,
                     duration: 100,
-                    useNativeDriver: false, // Avoid conflicts
+                    useNativeDriver: false,
                 }),
                 Animated.timing(playButtonScale, {
                     toValue: 1,
@@ -93,12 +129,8 @@ const ModernAudioPlayer = ({
                 }),
             ]).start();
 
-            setIsPlaying(!isPlaying);
-            onPlayStateChange && onPlayStateChange(!isPlaying);
-
-            // Demo progress simulation (no real audio for now)
-            if (!isPlaying) {
-                startProgressSimulation();
+            if (onPlay) {
+                await onPlay();
             }
         } catch (error) {
             Logger.error("❌ ModernAudioPlayer playback failed:", error);
@@ -106,64 +138,50 @@ const ModernAudioPlayer = ({
         }
     };
 
-    const startProgressSimulation = () => {
-        // Demo progress for testing
-        const interval = setInterval(() => {
-            setCurrentPosition((prev) => {
-                const newPos = prev + 1000; // 1 second
-                if (newPos >= totalDuration) {
-                    clearInterval(interval);
-                    setIsPlaying(false);
-                    setCurrentPosition(0);
-                    return 0;
-                }
-
-                // Update progress animation smoothly
-                const progress = newPos / totalDuration;
-                Animated.timing(progressAnimation, {
-                    toValue: progress,
-                    duration: 100,
-                    useNativeDriver: false,
-                }).start();
-
-                return newPos;
-            });
-        }, 1000);
-
-        return () => clearInterval(interval);
-    };
-
-    const handleSeek = async (position) => {
-        if (totalDuration === 0) return;
-
+    const handlePause = async () => {
         try {
-            const seekPosition = Math.max(0, Math.min(position, totalDuration));
-            setCurrentPosition(seekPosition);
-
-            const progress = seekPosition / totalDuration;
-            Animated.timing(progressAnimation, {
-                toValue: progress,
-                duration: 200,
-                useNativeDriver: false,
-            }).start();
+            if (onPause) {
+                await onPause();
+            }
         } catch (error) {
-            Logger.error("Seek failed:", error);
+            Logger.error("❌ ModernAudioPlayer pause failed:", error);
         }
     };
 
-    const handleSkip = async (direction) => {
-        const skipAmount = 15000; // 15 seconds
-        const newPosition =
-            direction === "forward"
-                ? currentPosition + skipAmount
-                : currentPosition - skipAmount;
+    const handleSeek = (position) => {
+        // Make non-blocking - remove await
+        if (duration === 0 || !onSeek) return;
 
-        await handleSeek(newPosition);
+        const seekPosition = Math.max(0, Math.min(position, duration));
+        // Don't await - let it run asynchronously
+        onSeek(seekPosition);
     };
 
-    const handleSpeedChange = async (rate) => {
-        setPlaybackRate(rate);
-        // In real implementation, update audio playback rate
+    const handleSkip = (direction) => {
+        // Make non-blocking - remove await
+        if (direction === "forward" && onSkipForward) {
+            onSkipForward(); // Don't await
+        } else if (direction === "backward" && onSkipBackward) {
+            onSkipBackward(); // Don't await
+        }
+    };
+
+    const handleSpeedChange = () => {
+        // Make non-blocking - remove await
+        if (!onPlaybackRateChange) return;
+
+        const rates = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+        const currentIndex = rates.indexOf(playbackRate);
+        const nextRate = rates[(currentIndex + 1) % rates.length];
+        onPlaybackRateChange(nextRate); // Don't await
+    };
+
+    const handleVolumeToggle = () => {
+        // Make non-blocking - remove await
+        if (!onVolumeChange) return;
+
+        const newVolume = volume > 0.5 ? 0.5 : 1.0;
+        onVolumeChange(newVolume); // Don't await
     };
 
     const formatTime = (milliseconds) => {
@@ -183,23 +201,32 @@ const ModernAudioPlayer = ({
         onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: (evt) => {
             setIsDragging(true);
+            lastUpdateTimeRef.current = Date.now(); // Reset throttle timer
             const progressWidth = getProgressBarWidth();
             const touchX = evt.nativeEvent.locationX;
             const progress = Math.max(0, Math.min(1, touchX / progressWidth));
-            const position = progress * totalDuration;
+            const position = progress * duration;
             setTempPosition(position);
         },
         onPanResponderMove: (evt) => {
             const progressWidth = getProgressBarWidth();
             const touchX = evt.nativeEvent.locationX;
             const progress = Math.max(0, Math.min(1, touchX / progressWidth));
-            const position = progress * totalDuration;
-            setTempPosition(position);
+            const position = progress * duration;
+            
+            // Throttle state updates during drag - only update every 50ms
+            // This prevents UI blocking from too many state updates
+            const now = Date.now();
+            if (now - lastUpdateTimeRef.current > 50) {
+                setTempPosition(position);
+                lastUpdateTimeRef.current = now;
+            }
 
+            // Animation can run more frequently (it's optimized, non-blocking)
             Animated.timing(progressAnimation, {
                 toValue: progress,
-                duration: 50,
-                useNativeDriver: false,
+                duration: 0, // Instant for smooth drag
+                useNativeDriver: false, // Can't use native driver for width animations
             }).start();
         },
         onPanResponderRelease: () => {
@@ -211,15 +238,16 @@ const ModernAudioPlayer = ({
     if (compact) {
         return (
             <View
-                className={`flex-row items-center bg-panel rounded-lg p-3 ${style}`}
+                className={`flex-row items-center bg-panel rounded-lg p-3 ${
+                    style || ""
+                }`}
             >
                 {/* Play/Pause Button */}
                 <Animated.View
                     style={{ transform: [{ scale: playButtonScale }] }}
                 >
                     <TouchableOpacity
-                        onPress={handlePlay}
-                        disabled={isLoading}
+                        onPress={isPlaying ? handlePause : handlePlay}
                         className="mr-3"
                         accessible={true}
                         accessibilityRole="button"
@@ -253,7 +281,9 @@ const ModernAudioPlayer = ({
                 {showProgress && (
                     <View className="items-center">
                         <Text className="text-text-secondary text-xs">
-                            {formatTime(currentPosition)}
+                            {formatTime(
+                                isDragging ? tempPosition : currentPosition
+                            )}
                         </Text>
                     </View>
                 )}
@@ -262,7 +292,7 @@ const ModernAudioPlayer = ({
     }
 
     return (
-        <View className={`bg-panel rounded-lg p-4 ${style}`}>
+        <View className={`bg-panel rounded-lg p-4 ${style || ""}`}>
             {/* Track Info */}
             <View className="items-center mb-4">
                 <Text
@@ -306,24 +336,26 @@ const ModernAudioPlayer = ({
                             )}
                         </Text>
                         <Text className="text-text-secondary text-xs">
-                            {formatTime(totalDuration)}
+                            {formatTime(duration)}
                         </Text>
                     </View>
                 </View>
             )}
 
             {/* Waveform Visualizer */}
-            <View className="mb-4">
-                <WaveformVisualizer
-                    isActive={isPlaying}
-                    audioData={audioData}
-                    useRealData={!!audioData}
-                    barCount={25}
-                    barColor="#D32F2F"
-                    minHeight={4}
-                    maxHeight={30}
-                />
-            </View>
+            {isPlaying && (
+                <View className="mb-4">
+                    <WaveformVisualizer
+                        isActive={isPlaying}
+                        audioData={audioData}
+                        useRealData={false}
+                        barCount={25}
+                        barColor="#D32F2F"
+                        minHeight={4}
+                        maxHeight={30}
+                    />
+                </View>
+            )}
 
             {/* Main Controls */}
             {showControls && (
@@ -331,7 +363,6 @@ const ModernAudioPlayer = ({
                     {/* Skip Backward */}
                     <TouchableOpacity
                         onPress={() => handleSkip("backward")}
-                        disabled={isLoading}
                         accessible={true}
                         accessibilityRole="button"
                         accessibilityLabel="Skip backward 15 seconds"
@@ -348,8 +379,7 @@ const ModernAudioPlayer = ({
                         style={{ transform: [{ scale: playButtonScale }] }}
                     >
                         <TouchableOpacity
-                            onPress={handlePlay}
-                            disabled={isLoading}
+                            onPress={isPlaying ? handlePause : handlePlay}
                             style={{
                                 width: 64,
                                 height: 64,
@@ -357,7 +387,6 @@ const ModernAudioPlayer = ({
                                 backgroundColor: "#D32F2F",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                // Cross-platform shadow
                                 ...(Platform.OS === "ios"
                                     ? {
                                           shadowColor: "#000",
@@ -384,7 +413,6 @@ const ModernAudioPlayer = ({
                     {/* Skip Forward */}
                     <TouchableOpacity
                         onPress={() => handleSkip("forward")}
-                        disabled={isLoading}
                         accessible={true}
                         accessibilityRole="button"
                         accessibilityLabel="Skip forward 15 seconds"
@@ -403,13 +431,7 @@ const ModernAudioPlayer = ({
                 <View className="flex-row items-center justify-center space-x-6">
                     {/* Playback Speed */}
                     <TouchableOpacity
-                        onPress={() => {
-                            const rates = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
-                            const currentIndex = rates.indexOf(playbackRate);
-                            const nextRate =
-                                rates[(currentIndex + 1) % rates.length];
-                            handleSpeedChange(nextRate);
-                        }}
+                        onPress={handleSpeedChange}
                         className="px-3 py-1 bg-card rounded-full"
                         accessible={true}
                         accessibilityRole="button"
@@ -423,10 +445,7 @@ const ModernAudioPlayer = ({
                     {/* Volume Control */}
                     <Animated.View style={{ opacity: volumeAnimation }}>
                         <TouchableOpacity
-                            onPress={() => {
-                                const newVolume = volume === 1.0 ? 0.5 : 1.0;
-                                setVolume(newVolume);
-                            }}
+                            onPress={handleVolumeToggle}
                             accessible={true}
                             accessibilityRole="button"
                             accessibilityLabel={`Volume ${Math.round(

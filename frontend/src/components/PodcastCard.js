@@ -1,4 +1,4 @@
-import { TouchableOpacity, View, Text, Platform } from "react-native";
+import { TouchableOpacity, View, Text, Platform, Image } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Surface } from "react-native-paper";
 import React, { useMemo } from "react";
@@ -71,12 +71,23 @@ const PodcastCard = React.memo(function PodcastCard({
                 testID={`podcast-card-${podcast.id}`}
             >
                 {/* Thumbnail/Icon - Improved size and visual */}
-                <View className="w-14 h-14 bg-primary/10 rounded-xl items-center justify-center mr-4 border border-primary/20">
-                    <MaterialCommunityIcons
-                        name="waveform"
-                        size={28}
-                        color="#D32F2F"
-                    />
+                <View className="w-14 h-14 bg-primary/10 rounded-xl items-center justify-center mr-4 border border-primary/20 overflow-hidden">
+                    {podcast.thumbnail_url ? (
+                        <Image
+                            source={{ uri: podcast.thumbnail_url }}
+                            style={{
+                                width: "100%",
+                                height: "100%",
+                            }}
+                            resizeMode="cover"
+                        />
+                    ) : (
+                        <MaterialCommunityIcons
+                            name="waveform"
+                            size={28}
+                            color="#D32F2F"
+                        />
+                    )}
                     {podcast.ai_enhanced && (
                         <View className="absolute -top-1 -right-1 w-5 h-5 bg-success rounded-full items-center justify-center">
                             <MaterialCommunityIcons

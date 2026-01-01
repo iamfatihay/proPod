@@ -9,7 +9,7 @@ export default ({ config }) => ({
     orientation: "portrait",
     icon: "./assets/Volo-logo.png",
     userInterfaceStyle: "dark",
-    newArchEnabled: true,
+    newArchEnabled: false,
     splash: {
         image: "./assets/Volo-logo.png",
         resizeMode: "contain",
@@ -72,6 +72,7 @@ export default ({ config }) => ({
         "expo-router",
         "expo-font",
         "expo-image-picker",
+        "expo-asset",
         [
             "expo-audio",
             {

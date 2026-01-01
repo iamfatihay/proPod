@@ -6,8 +6,15 @@ ProPod is a cross-platform (Android, iOS, Web) mobile application for creating, 
 
 ---
 
-## 🆕 Recent Updates (2025-01-19)
+## 🆕 Recent Updates
 
+### Audio Performance Optimizations (Latest)
+-   **Non-blocking audio operations** - Optimized play, pause, seek, and playback rate controls with optimistic updates
+-   **UI performance improvements** - Added throttling for status updates and PanResponder operations to prevent UI blocking
+-   **Audio system refactoring** - Complete rewrite of useAudioStore with improved state management and error handling
+-   **Component updates** - Added thumbnail image support to PodcastCard and GradientCard components
+
+### Previous Updates (2025-01-19)
 -   **Fixed Schema vs Model inconsistencies** - Added missing fields to User, PodcastLike, PodcastBookmark models
 -   **Alembic Migration system** - Installed and configured Alembic for database migration management
 -   **Resolved Pydantic validation errors** - Completely fixed validation errors in login endpoint
@@ -27,7 +34,7 @@ ProPod is a cross-platform (Android, iOS, Web) mobile application for creating, 
 -   **NativeWind**: Tailwind CSS for React Native styling
 -   **React Native Paper**: UI components
 -   **Zustand**: Simple global state management
--   **expo-av**: Audio recording/playback
+-   **expo-audio**: Audio recording/playback (SDK 53+ compatible)
 -   **expo-file-system**: File management
 -   **expo-secure-store**: Secure token storage (authentication)
 -   **expo-auth-session**: Google OAuth integration
@@ -92,10 +99,16 @@ proPod/
 │   ├── alembic/      # Database migrations
 │   └── tests/        # Test files
 └── docs/             # Detailed documentation
-    ├── DEVELOPMENT_NOTES.md
-    ├── API_DOCUMENTATION.md
-    ├── AI_INTEGRATION_GUIDE.md
-    └── TEST_DOCUMENTATION.md
+    ├── README.md                         # Documentation index
+    ├── QUICK_START.md                    # Quick start guide
+    ├── DEVELOPMENT_NOTES.md              # Development guidelines
+    ├── API_DOCUMENTATION.md              # API reference
+    ├── AI_INTEGRATION_GUIDE.md           # AI features guide
+    ├── TEST_DOCUMENTATION.md             # Testing guide
+    ├── CROSS_PLATFORM_TESTING_GUIDE.md   # Cross-platform testing
+    ├── HOME_REDESIGN.md                  # Home screen redesign docs
+    ├── HOME_SCREEN_UPDATE.md             # Home screen update notes
+    └── IMPLEMENTATION_SUMMARY.md         # Implementation summary
 ```
 
 ---

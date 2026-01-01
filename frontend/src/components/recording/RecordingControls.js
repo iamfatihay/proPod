@@ -118,15 +118,33 @@ const RecordingControls = ({
                 const uri = await AudioService.stopRecording();
                 Logger.log("🎵 AudioService.stopRecording result URI:", uri);
 
+                // Always update UI state, even if URI is null
+                // This prevents UI from getting stuck
+                Logger.log("🔄 Updating UI state (stopped recording)...");
+                setIsRecording(false);
+                setIsPaused(false);
+                setDuration(0);
+
                 if (uri) {
-                    Logger.log("✅ Recording stopped, updating UI state...");
-                    setIsRecording(false);
-                    setIsPaused(false);
-                    setDuration(0);
-                    onRecordingStop && onRecordingStop(uri);
+                    Logger.log(
+                        "✅ Recording stopped successfully with URI:",
+                        uri
+                    );
                 } else {
-                    Logger.warn("❌ Failed to stop recording or get URI");
+                    Logger.warn(
+                        "⚠️ Recording stopped but URI is null - file may not be saved"
+                    );
+                    // Show alert to inform user about the issue
+                    Alert.alert(
+                        "Recording Warning",
+                        "Recording stopped but file may not be saved. Please try again.",
+                        [{ text: "OK" }]
+                    );
                 }
+
+                // Always notify parent that recording stopped (even when URI is null)
+                // Parent component (create.js) has logic to handle both success and error cases
+                onRecordingStop && onRecordingStop(uri);
             }
         } catch (error) {
             Logger.error("💥 Recording error in handleRecordPress:", error);

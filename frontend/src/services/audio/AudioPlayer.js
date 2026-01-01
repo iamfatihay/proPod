@@ -1,4 +1,4 @@
-import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
+import { AudioPlayer as ExpoAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { Platform } from "react-native";
 import Logger from "../../utils/logger";
 
@@ -53,16 +53,19 @@ class AudioPlayer {
             // Initialize playback mode
             await this.initializePlayback();
 
-            // Create new audio player instance with expo-audio
-            this.sound = createAudioPlayer(uri);
+            // Create new audio player instance with expo-audio (no parameters)
+            this.sound = new ExpoAudioPlayer();
+            
+            // Replace/load the audio source
+            await this.sound.replace(uri);
 
             // Set playback options
-            this.sound.playbackRate = this.playbackRate;
+            this.sound.rate = this.playbackRate;
             this.sound.loop = false;
             this.sound.volume = 1.0;
 
             this.currentTrack = { uri, ...trackInfo };
-            // Note: duration will be available after the audio starts loading
+            // Duration will be available after loading
             this.duration = 0;
             this.currentPosition = 0;
             this.isLoading = false;
@@ -100,7 +103,8 @@ class AudioPlayer {
             Logger.log("Playback started");
             return true;
         } catch (error) {
-            Logger.error("Failed to start playback:", error);
+            Logger.error("Playback failed:", error);
+            this.isPlaying = false;
             throw error;
         }
     }
@@ -124,7 +128,7 @@ class AudioPlayer {
             Logger.log("Playback paused");
             return true;
         } catch (error) {
-            Logger.error("Failed to pause playback:", error);
+            Logger.error("Failed to pause:", error);
             throw error;
         }
     }
@@ -135,44 +139,48 @@ class AudioPlayer {
      */
     async stop() {
         try {
-            this._stopPositionTimer();
-
             if (this.sound) {
-                await this.sound.pause();
-                await this.sound.release();
+                await this.sound.stop();
+                await this.sound.unload();
                 this.sound = null;
             }
 
             this.isPlaying = false;
             this.isPaused = false;
             this.currentPosition = 0;
-            this.currentTrack = null;
 
+            this._stopPositionTimer();
             Logger.log("Playback stopped");
             return true;
         } catch (error) {
-            Logger.error("Failed to stop playback:", error);
-            throw error;
+            Logger.error("Failed to stop:", error);
+            // Reset state even on error
+            this.sound = null;
+            this.isPlaying = false;
+            this.isPaused = false;
+            this.currentPosition = 0;
+            this._stopPositionTimer();
+            return false;
         }
     }
 
     /**
-     * Seek to specific position
-     * @param {number} positionMs - Position in milliseconds
+     * Seek to position in audio
+     * @param {number} position - Position in milliseconds
      * @returns {Promise<boolean>}
      */
-    async seekTo(positionMs) {
+    async seekTo(position) {
         try {
             if (!this.sound) {
                 Logger.warn("No audio loaded");
                 return false;
             }
 
-            const positionSeconds = positionMs / 1000; // expo-audio uses seconds
-            this.sound.seekTo(positionSeconds);
-            this.currentPosition = positionMs;
+            // expo-audio uses currentTime in seconds
+            this.sound.currentTime = position / 1000;
+            this.currentPosition = position;
 
-            Logger.log("Seeked to:", positionMs);
+            Logger.log("Seeked to:", position);
             return true;
         } catch (error) {
             Logger.error("Failed to seek:", error);
@@ -181,61 +189,45 @@ class AudioPlayer {
     }
 
     /**
-     * Set playback rate/speed
+     * Set playback rate (speed)
      * @param {number} rate - Playback rate (0.5 to 2.0)
      * @returns {Promise<boolean>}
      */
-    async setPlaybackRate(rate) {
+    async setRate(rate) {
         try {
             if (!this.sound) {
                 Logger.warn("No audio loaded");
                 return false;
             }
 
-            const clampedRate = Math.max(0.5, Math.min(2.0, rate));
-            this.sound.playbackRate = clampedRate;
-            this.playbackRate = clampedRate;
+            this.sound.rate = rate;
+            this.playbackRate = rate;
 
-            Logger.log("Playback rate set to:", clampedRate);
+            Logger.log("Playback rate set to:", rate);
             return true;
         } catch (error) {
-            Logger.error("Failed to set playback rate:", error);
+            Logger.error("Failed to set rate:", error);
             throw error;
         }
     }
 
     /**
-     * Skip forward by specified seconds
-     * @param {number} seconds - Seconds to skip forward
+     * Set volume
+     * @param {number} volume - Volume (0.0 to 1.0)
      * @returns {Promise<boolean>}
      */
-    async skipForward(seconds = 15) {
+    async setVolume(volume) {
         try {
-            const newPosition = Math.min(
-                this.currentPosition + seconds * 1000,
-                this.duration
-            );
-            return await this.seekTo(newPosition);
-        } catch (error) {
-            Logger.error("Failed to skip forward:", error);
-            throw error;
-        }
-    }
+            if (!this.sound) {
+                Logger.warn("No audio loaded");
+                return false;
+            }
 
-    /**
-     * Skip backward by specified seconds
-     * @param {number} seconds - Seconds to skip backward
-     * @returns {Promise<boolean>}
-     */
-    async skipBackward(seconds = 15) {
-        try {
-            const newPosition = Math.max(
-                this.currentPosition - seconds * 1000,
-                0
-            );
-            return await this.seekTo(newPosition);
+            this.sound.volume = volume;
+            Logger.log("Volume set to:", volume);
+            return true;
         } catch (error) {
-            Logger.error("Failed to skip backward:", error);
+            Logger.error("Failed to set volume:", error);
             throw error;
         }
     }
@@ -244,81 +236,46 @@ class AudioPlayer {
      * Get current playback status
      * @returns {Object}
      */
-    getPlaybackStatus() {
+    getStatus() {
         return {
             isPlaying: this.isPlaying,
             isPaused: this.isPaused,
             isLoading: this.isLoading,
-            currentPosition: this.currentPosition,
+            position: this.currentPosition,
             duration: this.duration,
-            currentTrack: this.currentTrack,
-            playbackRate: this.playbackRate,
-            progress:
-                this.duration > 0 ? this.currentPosition / this.duration : 0,
+            rate: this.playbackRate,
+            track: this.currentTrack,
         };
     }
 
     /**
-     * Set position update callback
-     * @param {Function} callback - Called with current position in ms
+     * Register callback for position updates
+     * @param {Function} callback
      */
     setPositionUpdateCallback(callback) {
         this.onPositionUpdate = callback;
     }
 
     /**
-     * Set playback status update callback
-     * @param {Function} callback - Called with playback status changes
+     * Register callback for playback status updates
+     * @param {Function} callback
      */
-    setPlaybackStatusCallback(callback) {
+    setStatusUpdateCallback(callback) {
         this.onPlaybackStatusUpdate = callback;
     }
 
     /**
-     * Format time in mm:ss format
-     * @param {number} timeMs - Time in milliseconds
-     * @returns {string}
+     * Clean up resources
+     * @returns {Promise<void>}
      */
-    formatTime(timeMs) {
-        const totalSeconds = Math.floor(timeMs / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-    }
-
-    /**
-     * Handle playback status updates from expo-audio
-     * @private
-     */
-    _onPlaybackStatusUpdate(status) {
-        // expo-audio provides status updates with currentTime, duration, isPlaying
-        if (status && this.sound) {
-            this.currentPosition =
-                (status.currentTime || this.sound.currentTime || 0) * 1000; // Convert to ms
-            this.duration =
-                (status.duration || this.sound.duration || 0) * 1000; // Convert to ms
-            this.isPlaying =
-                status.isPlaying !== undefined
-                    ? status.isPlaying
-                    : this.isPlaying;
-
-            // Check if playback finished
-            if (
-                status.didJustFinish ||
-                (this.sound.currentTime >= this.sound.duration &&
-                    this.sound.duration > 0)
-            ) {
-                this.isPlaying = false;
-                this.isPaused = false;
-                this.currentPosition = 0;
-                this._stopPositionTimer();
-                Logger.log("Playback finished");
-            }
-        }
-
-        // Call external callback if set
-        if (this.onPlaybackStatusUpdate) {
-            this.onPlaybackStatusUpdate(this.getPlaybackStatus());
+    async cleanup() {
+        try {
+            await this.stop();
+            this.onPositionUpdate = null;
+            this.onPlaybackStatusUpdate = null;
+            Logger.log("AudioPlayer cleanup completed");
+        } catch (error) {
+            Logger.error("Failed to cleanup audio player:", error);
         }
     }
 
@@ -328,12 +285,32 @@ class AudioPlayer {
      */
     _startPositionTimer() {
         this._stopPositionTimer();
+        this.positionUpdateTimer = setInterval(async () => {
+            if (this.sound && this.isPlaying) {
+                try {
+                    // Get current time from sound instance
+                    const currentTime = this.sound.currentTime || 0;
+                    this.currentPosition = currentTime * 1000; // Convert to ms
 
-        this.positionUpdateTimer = setInterval(() => {
-            if (this.isPlaying && this.onPositionUpdate) {
-                this.onPositionUpdate(this.currentPosition);
+                    // Notify callback if registered
+                    if (this.onPositionUpdate) {
+                        this.onPositionUpdate(this.currentPosition);
+                    }
+
+                    // Check if playback finished
+                    if (this.duration > 0 && this.currentPosition >= this.duration) {
+                        await this.stop();
+                        if (this.onPlaybackStatusUpdate) {
+                            this.onPlaybackStatusUpdate({
+                                didJustFinish: true,
+                            });
+                        }
+                    }
+                } catch (error) {
+                    Logger.error("Position update error:", error);
+                }
             }
-        }, 1000);
+        }, 100); // Update every 100ms
     }
 
     /**
@@ -344,20 +321,6 @@ class AudioPlayer {
         if (this.positionUpdateTimer) {
             clearInterval(this.positionUpdateTimer);
             this.positionUpdateTimer = null;
-        }
-    }
-
-    /**
-     * Cleanup resources
-     */
-    async cleanup() {
-        try {
-            await this.stop();
-            this._stopPositionTimer();
-            this.onPositionUpdate = null;
-            this.onPlaybackStatusUpdate = null;
-        } catch (error) {
-            Logger.error("Failed to cleanup player:", error);
         }
     }
 }
