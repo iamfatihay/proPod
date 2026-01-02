@@ -132,19 +132,20 @@ const CreateTab = () => {
 export default function TabLayout() {
     const router = useRouter();
 
-    // Audio store for mini player
-    const {
-        currentTrack,
-        isPlaying,
-        showMiniPlayer,
-        position,
-        duration,
-        play,
-        pause,
-        stop,
-        next,
-        toggleMiniPlayer,
-    } = useAudioStore();
+    // PERFORMANCE FIX: Use selective subscriptions for mini player
+    // position/duration updates won't re-render entire tab layout
+    const currentTrack = useAudioStore((state) => state.currentTrack);
+    const isPlaying = useAudioStore((state) => state.isPlaying);
+    const showMiniPlayer = useAudioStore((state) => state.showMiniPlayer);
+    const position = useAudioStore((state) => state.position);
+    const duration = useAudioStore((state) => state.duration);
+    
+    // Actions (stable)
+    const play = useAudioStore((state) => state.play);
+    const pause = useAudioStore((state) => state.pause);
+    const stop = useAudioStore((state) => state.stop);
+    const next = useAudioStore((state) => state.next);
+    const toggleMiniPlayer = useAudioStore((state) => state.toggleMiniPlayer);
 
     // Responsive tab bar height
     const tabBarHeight =

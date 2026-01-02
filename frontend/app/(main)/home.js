@@ -87,19 +87,19 @@ export default function HomeScreen() {
     const { showToast } = useToast();
     const { viewMode } = useViewModeStore();
 
-    // Audio store
-    const {
-        currentTrack,
-        isPlaying,
-        play,
-        pause,
-        setQueue,
-        showMiniPlayer,
-        toggleMiniPlayer,
-        lastPlayedAt,
-        error: audioError,
-        clearError,
-    } = useAudioStore();
+    // PERFORMANCE FIX: Use selective subscriptions to prevent unnecessary re-renders
+    // Only subscribe to values that affect THIS component's UI
+    const currentTrack = useAudioStore((state) => state.currentTrack);
+    const isPlaying = useAudioStore((state) => state.isPlaying);
+    const showMiniPlayer = useAudioStore((state) => state.showMiniPlayer);
+    const audioError = useAudioStore((state) => state.error);
+    
+    // Actions (stable, don't cause re-renders)
+    const play = useAudioStore((state) => state.play);
+    const pause = useAudioStore((state) => state.pause);
+    const setQueue = useAudioStore((state) => state.setQueue);
+    const toggleMiniPlayer = useAudioStore((state) => state.toggleMiniPlayer);
+    const clearError = useAudioStore((state) => state.clearError);
 
     const [podcasts, setPodcasts] = useState([]);
     const [userPodcasts, setUserPodcasts] = useState([]);

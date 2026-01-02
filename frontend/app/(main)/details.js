@@ -31,27 +31,32 @@ const Details = () => {
     const params = useLocalSearchParams();
     const { showToast } = useToast();
 
-    // Audio store
-    const {
-        currentTrack,
-        isPlaying,
-        isLoading: isAudioLoading, // Renamed to avoid confusion with local isLoading
-        play,
-        pause,
-        setQueue,
-        addToQueue,
-        showMiniPlayer,
-        toggleMiniPlayer,
-        position,
-        duration,
-        playbackRate,
-        setPlaybackRate,
-        volume,
-        setVolume,
-        seek,
-        error: audioError,
-        clearError,
-    } = useAudioStore();
+    // PERFORMANCE FIX: Use selective subscriptions to prevent unnecessary re-renders
+    // Only subscribe to values that affect THIS component's UI
+    // position/duration updates DON'T need to re-render the whole page
+
+    // Critical state for play button and player visibility
+    const currentTrack = useAudioStore((state) => state.currentTrack);
+    const isPlaying = useAudioStore((state) => state.isPlaying);
+    const isAudioLoading = useAudioStore((state) => state.isLoading);
+    const showMiniPlayer = useAudioStore((state) => state.showMiniPlayer);
+    const audioError = useAudioStore((state) => state.error);
+
+    // CRITICAL: DON'T subscribe to position/duration/playbackRate/volume here!
+    // They change frequently (position: 10x/second) and cause unnecessary re-renders
+    // ModernAudioPlayer will subscribe to them directly
+    // We only pass the store actions to ModernAudioPlayer
+
+    // Actions (these are stable, don't cause re-renders)
+    const play = useAudioStore((state) => state.play);
+    const pause = useAudioStore((state) => state.pause);
+    const setQueue = useAudioStore((state) => state.setQueue);
+    const addToQueue = useAudioStore((state) => state.addToQueue);
+    const toggleMiniPlayer = useAudioStore((state) => state.toggleMiniPlayer);
+    const setPlaybackRate = useAudioStore((state) => state.setPlaybackRate);
+    const setVolume = useAudioStore((state) => state.setVolume);
+    const seek = useAudioStore((state) => state.seek);
+    const clearError = useAudioStore((state) => state.clearError);
 
     // Local state
     const [podcast, setPodcast] = useState(null);
@@ -152,7 +157,16 @@ const Details = () => {
     };
 
     useEffect(() => {
-        Animated.loop(
+        // PERFORMANCE: Only run pulse animation when NOT playing
+        // Stop animation when audio is playing to save CPU
+        if (currentTrack?.id === podcast?.id && isPlaying) {
+            // Audio is playing, stop pulse animation
+            pulse.setValue(1);
+            return;
+        }
+
+        // Start pulse animation only when not playing
+        const animation = Animated.loop(
             Animated.sequence([
                 Animated.timing(pulse, {
                     toValue: 1.06,
@@ -165,8 +179,14 @@ const Details = () => {
                     useNativeDriver: true,
                 }),
             ])
-        ).start();
-    }, []);
+        );
+        animation.start();
+
+        // Cleanup: stop animation when component unmounts or effect re-runs
+        return () => {
+            animation.stop();
+        };
+    }, [currentTrack?.id, podcast?.id, isPlaying, pulse]);
 
     const handlePlay = useCallback(() => {
         if (!podcast?.audio_url) {
@@ -176,12 +196,6 @@ const Details = () => {
 
         // Prevent multiple clicks - use audio store's isLoading
         if (isAudioLoading) return;
-
-        // Validate podcast has audio
-        if (!podcast.audio_url) {
-            showToast("Audio not available", "error");
-            return;
-        }
 
         const track = {
             id: podcast.id,
@@ -203,28 +217,43 @@ const Details = () => {
                 play();
             }
         } else {
-            // New track - start playing
+            // New track - start playing immediately
             play(track);
 
-            // Set queue with related podcasts
-            const queue = [
-                track,
-                ...relatedPodcasts
-                    .filter((p) => p.audio_url)
-                    .map((p) => ({
-                        id: p.id,
-                        uri: p.audio_url,
-                        title: p.title,
-                        artist: p.owner?.name || "Unknown Artist",
-                        duration: (p.duration || 0) * 1000,
-                        artwork: p.thumbnail_url,
-                    })),
-            ];
-
-            setQueue(queue, 0);
+            // PERFORMANCE: Set queue lazily in the background (non-blocking)
+            // This prevents UI freezing while building the queue
+            requestAnimationFrame(() => {
+                // Only build queue if we have related podcasts
+                if (relatedPodcasts.length > 0) {
+                    const queue = [
+                        track,
+                        ...relatedPodcasts
+                            .filter((p) => p.audio_url)
+                            .map((p) => ({
+                                id: p.id,
+                                uri: p.audio_url,
+                                title: p.title,
+                                artist: p.owner?.name || "Unknown Artist",
+                                duration: (p.duration || 0) * 1000,
+                                artwork: p.thumbnail_url,
+                            })),
+                    ];
+                    setQueue(queue, 0);
+                } else {
+                    // Just current track in queue
+                    setQueue([track], 0);
+                }
+            });
         }
     }, [
-        podcast,
+        podcast?.id,
+        podcast?.audio_url,
+        podcast?.title,
+        podcast?.owner?.name,
+        podcast?.duration,
+        podcast?.thumbnail_url,
+        podcast?.category,
+        podcast?.description,
         currentTrack?.id,
         isPlaying,
         isAudioLoading,
@@ -234,6 +263,26 @@ const Details = () => {
         setQueue,
         showToast,
     ]);
+
+    // PERFORMANCE: Memoize skip handlers to prevent ModernAudioPlayer re-renders
+    // CRITICAL FIX: Remove position/duration from dependencies
+    // These callbacks should be stable references that internally fetch current values
+    const handleSkipForward = useCallback(() => {
+        // Fetch fresh position/duration from store inside the callback
+        const currentPos = useAudioStore.getState().position;
+        const currentDur =
+            useAudioStore.getState().duration ||
+            (podcast?.duration ? podcast.duration * 1000 : 0);
+        const newPos = Math.min(currentPos + 15000, currentDur);
+        seek(newPos);
+    }, [podcast?.duration, seek]); // Only depend on podcast duration (rarely changes) and seek (stable)
+
+    const handleSkipBackward = useCallback(() => {
+        // Fetch fresh position from store inside the callback
+        const currentPos = useAudioStore.getState().position;
+        const newPos = Math.max(currentPos - 15000, 0);
+        seek(newPos);
+    }, [seek]); // Only depend on seek (stable reference)
 
     const handleLike = async () => {
         if (isLiking) return; // Prevent multiple clicks
@@ -732,31 +781,13 @@ const Details = () => {
                             uri={podcast.audio_url}
                             title={podcast.title}
                             artist={podcast.owner?.name || "Unknown Artist"}
-                            duration={duration || podcast.duration * 1000 || 0}
                             isPlaying={isPlaying}
-                            currentPosition={position}
-                            onPlay={() => play()}
-                            onPause={() => pause()}
-                            onSeek={(positionMillis) => seek(positionMillis)}
-                            onSkipForward={() => {
-                                const maxDuration =
-                                    duration ||
-                                    (podcast.duration
-                                        ? podcast.duration * 1000
-                                        : 0);
-                                const newPos = Math.min(
-                                    position + 15000,
-                                    maxDuration
-                                );
-                                seek(newPos); // Non-blocking
-                            }}
-                            onSkipBackward={() => {
-                                const newPos = Math.max(position - 15000, 0);
-                                seek(newPos); // Non-blocking
-                            }}
-                            playbackRate={playbackRate}
+                            onPlay={play}
+                            onPause={pause}
+                            onSeek={seek}
+                            onSkipForward={handleSkipForward}
+                            onSkipBackward={handleSkipBackward}
                             onPlaybackRateChange={setPlaybackRate}
-                            volume={volume}
                             onVolumeChange={setVolume}
                             showProgress={true}
                             showControls={true}
