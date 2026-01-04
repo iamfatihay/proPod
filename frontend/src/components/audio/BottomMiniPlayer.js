@@ -11,6 +11,7 @@ import {
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import useAudioStore from "../../context/useAudioStore";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -20,19 +21,24 @@ const { width: screenWidth } = Dimensions.get("window");
  * - Tap to expand to full player
  * - Smooth animations
  * - Progress indicator
+ * 
+ * PERFORMANCE: Subscribes to position/duration internally to avoid
+ * re-rendering parent components on frequent updates (10x/sec)
  */
 const BottomMiniPlayer = ({
     isVisible = false,
     track = null,
     isPlaying = false,
-    position = 0,
-    duration = 0,
     onPlayPause,
     onNext,
     onClose,
     onExpand,
 }) => {
     const router = useRouter();
+
+    // Subscribe to fast-changing state only in this component
+    const position = useAudioStore((state) => state.position);
+    const duration = useAudioStore((state) => state.duration);
     const insets = useSafeAreaInsets();
     const [slideAnim] = useState(new Animated.Value(100));
     const [progressAnim] = useState(new Animated.Value(0));
@@ -87,14 +93,14 @@ const BottomMiniPlayer = ({
                 // Shadow for elevation
                 ...(Platform.OS === "ios"
                     ? {
-                          shadowColor: "#000",
-                          shadowOffset: { width: 0, height: -4 },
-                          shadowOpacity: 0.3,
-                          shadowRadius: 8,
-                      }
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: -4 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 8,
+                    }
                     : {
-                          elevation: 16,
-                      }),
+                        elevation: 16,
+                    }),
             }}
         >
             {/* Progress Bar */}

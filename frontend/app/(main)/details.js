@@ -8,7 +8,6 @@ import {
     Platform,
     Dimensions,
     Share,
-    Animated,
     StatusBar,
     Image,
     ActivityIndicator,
@@ -52,7 +51,6 @@ const Details = () => {
     const pause = useAudioStore((state) => state.pause);
     const setQueue = useAudioStore((state) => state.setQueue);
     const addToQueue = useAudioStore((state) => state.addToQueue);
-    const toggleMiniPlayer = useAudioStore((state) => state.toggleMiniPlayer);
     const setPlaybackRate = useAudioStore((state) => state.setPlaybackRate);
     const setVolume = useAudioStore((state) => state.setVolume);
     const seek = useAudioStore((state) => state.seek);
@@ -66,7 +64,6 @@ const Details = () => {
     const [relatedPodcasts, setRelatedPodcasts] = useState([]);
     const [isOwner, setIsOwner] = useState(false);
     const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
-    const [pulse] = useState(new Animated.Value(1));
 
     // Loading states for actions
     // Note: isPlayingLoading removed - using isAudioLoading from useAudioStore instead
@@ -95,12 +92,12 @@ const Details = () => {
                 if (
                     prevPodcast.title !== params.updatedTitle ||
                     prevPodcast.description !==
-                        (params.updatedDescription ||
-                            prevPodcast.description) ||
+                    (params.updatedDescription ||
+                        prevPodcast.description) ||
                     prevPodcast.category !==
-                        (params.updatedCategory || prevPodcast.category) ||
+                    (params.updatedCategory || prevPodcast.category) ||
                     prevPodcast.is_public !==
-                        (params.updatedIsPublic === "true")
+                    (params.updatedIsPublic === "true")
                 ) {
                     return {
                         ...prevPodcast,
@@ -156,38 +153,6 @@ const Details = () => {
         }
     };
 
-    useEffect(() => {
-        // PERFORMANCE: Only run pulse animation when NOT playing
-        // Stop animation when audio is playing to save CPU
-        if (currentTrack?.id === podcast?.id && isPlaying) {
-            // Audio is playing, stop pulse animation
-            pulse.setValue(1);
-            return;
-        }
-
-        // Start pulse animation only when not playing
-        const animation = Animated.loop(
-            Animated.sequence([
-                Animated.timing(pulse, {
-                    toValue: 1.06,
-                    duration: 1200,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(pulse, {
-                    toValue: 1,
-                    duration: 1200,
-                    useNativeDriver: true,
-                }),
-            ])
-        );
-        animation.start();
-
-        // Cleanup: stop animation when component unmounts or effect re-runs
-        return () => {
-            animation.stop();
-        };
-    }, [currentTrack?.id, podcast?.id, isPlaying, pulse]);
-
     const handlePlay = useCallback(() => {
         if (!podcast?.audio_url) {
             showToast("Audio not available", "error");
@@ -223,25 +188,32 @@ const Details = () => {
             // PERFORMANCE: Set queue lazily in the background (non-blocking)
             // This prevents UI freezing while building the queue
             requestAnimationFrame(() => {
-                // Only build queue if we have related podcasts
-                if (relatedPodcasts.length > 0) {
-                    const queue = [
-                        track,
-                        ...relatedPodcasts
-                            .filter((p) => p.audio_url)
-                            .map((p) => ({
-                                id: p.id,
-                                uri: p.audio_url,
-                                title: p.title,
-                                artist: p.owner?.name || "Unknown Artist",
-                                duration: (p.duration || 0) * 1000,
-                                artwork: p.thumbnail_url,
-                            })),
-                    ];
-                    setQueue(queue, 0);
-                } else {
-                    // Just current track in queue
+                try {
+                    // Only build queue if we have related podcasts
+                    if (relatedPodcasts.length > 0) {
+                        const queue = [
+                            track,
+                            ...relatedPodcasts
+                                .filter((p) => p.audio_url)
+                                .map((p) => ({
+                                    id: p.id,
+                                    uri: p.audio_url,
+                                    title: p.title,
+                                    artist: p.owner?.name || "Unknown Artist",
+                                    duration: (p.duration || 0) * 1000,
+                                    artwork: p.thumbnail_url,
+                                })),
+                        ];
+                        setQueue(queue, 0);
+                    } else {
+                        // Just current track in queue
+                        setQueue([track], 0);
+                    }
+                } catch (error) {
+                    // Ensure we still have at least the current track in the queue
+                    Logger.error("Failed to build audio queue from related podcasts", error);
                     setQueue([track], 0);
+                    showToast("Playing current episode only", "warning");
                 }
             });
         }
@@ -269,13 +241,11 @@ const Details = () => {
     // These callbacks should be stable references that internally fetch current values
     const handleSkipForward = useCallback(() => {
         // Fetch fresh position/duration from store inside the callback
-        const currentPos = useAudioStore.getState().position;
-        const currentDur =
-            useAudioStore.getState().duration ||
-            (podcast?.duration ? podcast.duration * 1000 : 0);
+        const { position: currentPos, duration: storeDuration } = useAudioStore.getState();
+        const currentDur = storeDuration || 0;
         const newPos = Math.min(currentPos + 15000, currentDur);
         seek(newPos);
-    }, [podcast?.duration, seek]); // Only depend on podcast duration (rarely changes) and seek (stable)
+    }, [seek]); // Only depend on seek (stable reference)
 
     const handleSkipBackward = useCallback(() => {
         // Fetch fresh position from store inside the callback
@@ -573,38 +543,36 @@ const Details = () => {
                 {/* Podcast Header */}
                 <View className="px-6 py-6">
                     {/* Podcast Artwork / Thumbnail */}
-                    <Animated.View style={{ transform: [{ scale: pulse }] }}>
-                        <View
-                            className="rounded-2xl mb-6 items-center justify-center overflow-hidden"
-                            style={{
-                                width: screenWidth - 48,
-                                height: screenWidth - 48,
-                                maxHeight: 300,
-                                backgroundColor: "#0f0f10",
-                                borderWidth: 1,
-                                borderColor: "#1f1f22",
-                            }}
-                        >
-                            {podcast.thumbnail_url ? (
-                                <Image
-                                    source={{ uri: podcast.thumbnail_url }}
-                                    className="w-full h-full"
-                                    resizeMode="cover"
+                    <View
+                        className="rounded-2xl mb-6 items-center justify-center overflow-hidden"
+                        style={{
+                            width: screenWidth - 48,
+                            height: screenWidth - 48,
+                            maxHeight: 300,
+                            backgroundColor: "#0f0f10",
+                            borderWidth: 1,
+                            borderColor: "#1f1f22",
+                        }}
+                    >
+                        {podcast.thumbnail_url ? (
+                            <Image
+                                source={{ uri: podcast.thumbnail_url }}
+                                className="w-full h-full"
+                                resizeMode="cover"
+                            />
+                        ) : (
+                            <>
+                                <MaterialCommunityIcons
+                                    name="music-note"
+                                    size={74}
+                                    color="#D32F2F"
                                 />
-                            ) : (
-                                <>
-                                    <MaterialCommunityIcons
-                                        name="music-note"
-                                        size={74}
-                                        color="#D32F2F"
-                                    />
-                                    <Text className="text-text-secondary mt-2">
-                                        {podcast.title}
-                                    </Text>
-                                </>
-                            )}
-                        </View>
-                    </Animated.View>
+                                <Text className="text-text-secondary mt-2">
+                                    {podcast.title}
+                                </Text>
+                            </>
+                        )}
+                    </View>
 
                     {/* Title and Info */}
                     <Text className="text-text-primary text-2xl font-bold mb-2">
@@ -644,9 +612,8 @@ const Details = () => {
                     <View className="flex-row items-center mb-6 gap-3">
                         <TouchableOpacity
                             onPress={handleLike}
-                            className={`flex-row items-center px-5 py-3 rounded-xl ${
-                                isLiked ? "bg-primary" : "bg-panel"
-                            }`}
+                            className={`flex-row items-center px-5 py-3 rounded-xl ${isLiked ? "bg-primary" : "bg-panel"
+                                }`}
                             activeOpacity={0.7}
                             disabled={isLiking}
                             hitSlop={{
@@ -669,11 +636,10 @@ const Details = () => {
                                 />
                             )}
                             <Text
-                                className={`ml-2 font-medium ${
-                                    isLiked
-                                        ? "text-white"
-                                        : "text-text-secondary"
-                                }`}
+                                className={`ml-2 font-medium ${isLiked
+                                    ? "text-white"
+                                    : "text-text-secondary"
+                                    }`}
                             >
                                 Like
                             </Text>
@@ -681,9 +647,8 @@ const Details = () => {
 
                         <TouchableOpacity
                             onPress={handleBookmark}
-                            className={`flex-row items-center px-5 py-3 rounded-xl ${
-                                isBookmarked ? "bg-warning" : "bg-panel"
-                            }`}
+                            className={`flex-row items-center px-5 py-3 rounded-xl ${isBookmarked ? "bg-warning" : "bg-panel"
+                                }`}
                             activeOpacity={0.7}
                             disabled={isBookmarking}
                             hitSlop={{
@@ -710,11 +675,10 @@ const Details = () => {
                                 />
                             )}
                             <Text
-                                className={`ml-2 font-medium ${
-                                    isBookmarked
-                                        ? "text-white"
-                                        : "text-text-secondary"
-                                }`}
+                                className={`ml-2 font-medium ${isBookmarked
+                                    ? "text-white"
+                                    : "text-text-secondary"
+                                    }`}
                             >
                                 Save
                             </Text>
@@ -819,17 +783,16 @@ const Details = () => {
                                 />
                             )}
                             <Text
-                                className={`ml-3 text-lg font-semibold ${
-                                    podcast.audio_url && !isAudioLoading
-                                        ? "text-text-primary"
-                                        : "text-text-secondary"
-                                }`}
+                                className={`ml-3 text-lg font-semibold ${podcast.audio_url && !isAudioLoading
+                                    ? "text-text-primary"
+                                    : "text-text-secondary"
+                                    }`}
                             >
                                 {isAudioLoading
                                     ? "Loading..."
                                     : podcast.audio_url
-                                    ? "Play"
-                                    : "Audio not available"}
+                                        ? "Play"
+                                        : "Audio not available"}
                             </Text>
                         </TouchableOpacity>
                     </View>

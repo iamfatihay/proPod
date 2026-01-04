@@ -16,6 +16,7 @@ const useAudioStore = create(
         playbackRate: 1.0,
         sound: null,
         isLoadingTimeout: null, // Safety timeout for isLoading
+        seekTimeoutId: null, // Timeout ID for seek completion
         isSeeking: false, // CRITICAL: Flag to prevent isPlaying override during seek
 
         // Queue Management
@@ -177,14 +178,6 @@ const useAudioStore = create(
             // Continue with async operations immediately (no setTimeout wrapper)
             (async () => {
                 try {
-                    if (__DEV__) {
-                        Logger.log("🎵 [PLAY] Called:", {
-                            hasTrack: !!track,
-                            trackId: track?.id,
-                            currentTrackId: state.currentTrack?.id,
-                        });
-                    }
-
                     // Handle track switching - non-blocking cleanup
                     const currentState = get();
                     if (track && track.id !== currentState.currentTrack?.id) {
@@ -487,7 +480,7 @@ const useAudioStore = create(
 
         seek: (positionMillis) => {
             // PERFORMANCE: Direct execution - optimistic update first
-            const { sound, position: previousPosition } = get();
+            const { sound, position: previousPosition, seekTimeoutId: existingTimeoutId } = get();
 
             // DEBUG: Log seek call
             if (__DEV__) {
@@ -496,6 +489,11 @@ const useAudioStore = create(
                     to: Math.floor(positionMillis / 1000) + "s",
                     hasSound: !!sound,
                 });
+            }
+
+            // CRITICAL: Cancel any existing seek timeout to prevent race condition
+            if (existingTimeoutId) {
+                clearTimeout(existingTimeoutId);
             }
 
             // Capture previous position BEFORE optimistic update for rollback
@@ -510,9 +508,12 @@ const useAudioStore = create(
 
             // Clear seeking flag after SHORT delay (reduced from 1000ms to 300ms)
             // Most seek operations complete in 50-200ms, 300ms is safe buffer
-            const seekTimeoutId = setTimeout(() => {
-                set({ isSeeking: false });
+            const newSeekTimeoutId = setTimeout(() => {
+                set({ isSeeking: false, seekTimeoutId: null });
             }, 300);
+
+            // Store timeout ID in state so it can be cancelled on next seek
+            set({ seekTimeoutId: newSeekTimeoutId });
 
             // Execute seek immediately - it's fast enough on native side
             if (sound) {
@@ -520,12 +521,14 @@ const useAudioStore = create(
                     sound.seekTo(positionMillis / 1000); // Convert to seconds
                 } catch (error) {
                     Logger.error("Seek failed:", error);
-                    clearTimeout(seekTimeoutId); // Clear timeout on error
+                    // Clear timeout on error
+                    clearTimeout(newSeekTimeoutId);
                     // Revert to original position captured before optimistic update
                     set({
                         position: originalPosition,
                         error: error.message,
                         isSeeking: false,
+                        seekTimeoutId: null,
                     });
                 }
             }
@@ -552,12 +555,22 @@ const useAudioStore = create(
         setPlaybackRate: (rate) => {
             // PERFORMANCE: Direct execution - optimistic update first
             const { sound } = get();
-            const clampedRate = Math.max(0.25, Math.min(3.0, rate));
+
+            // CRITICAL: expo-audio officially supports 0.5x to 2.0x (docs confirmed)
+            // Clamping to library's actual supported range, not arbitrary bounds
+            const MIN_RATE = 0.5;  // expo-audio minimum (0.5x = half speed)
+            const MAX_RATE = 2.0;  // expo-audio maximum (2.0x = double speed)
+            const clampedRate = Math.max(MIN_RATE, Math.min(MAX_RATE, rate));
+
+            // Warn user if they requested unsupported rate
+            const wasRateClamped = rate !== clampedRate;
 
             if (__DEV__) {
                 Logger.log("🎵 [STORE] setPlaybackRate called:", {
                     from: get().playbackRate + "x",
-                    to: clampedRate + "x",
+                    requested: rate + "x",
+                    clamped: clampedRate + "x",
+                    wasClamped: wasRateClamped,
                     hasSound: !!sound,
                 });
             }
@@ -589,9 +602,10 @@ const useAudioStore = create(
                         currentRate = sound.playbackRate;
                     }
 
+                    // Check if rate change was successful (tolerance for floating point)
+                    const isSuccess = Math.abs(currentRate - clampedRate) < 0.01;
+
                     if (__DEV__) {
-                        const isSuccess =
-                            Math.abs(currentRate - clampedRate) < 0.01;
                         Logger.log(
                             isSuccess
                                 ? "✅ [STORE] playbackRate set successfully:"
@@ -617,10 +631,34 @@ const useAudioStore = create(
                             );
                         }
                     }
+
+                    // CRITICAL: User-facing feedback for ALL failure cases
+                    if (!isSuccess) {
+                        // Library doesn't support playback rate at all
+                        set({
+                            error: "Playback speed control is not supported on this device",
+                            playbackRate: 1.0, // Revert to normal speed
+                        });
+                    } else if (wasRateClamped) {
+                        // Requested rate was outside supported range
+                        set({
+                            error: `Speed ${rate}x not supported. Using ${clampedRate}x instead (range: ${MIN_RATE}x-${MAX_RATE}x)`,
+                        });
+                    }
                 } catch (error) {
                     Logger.error("❌ [STORE] Rate change failed:", error);
+                    // CRITICAL: Always provide user feedback on exceptions
+                    set({
+                        error: `Failed to change playback speed: ${error.message || "Unknown error"}`,
+                        playbackRate: 1.0, // Safe fallback to normal speed
+                    });
                 }
             } else {
+                // No sound loaded yet - show user-friendly message
+                set({
+                    error: "Please load a podcast first before changing playback speed",
+                });
+
                 if (__DEV__) {
                     Logger.warn(
                         "⚠️ [STORE] No sound instance, rate not applied"
@@ -714,8 +752,8 @@ const useAudioStore = create(
                         status.playing !== undefined
                             ? status.playing
                             : sound.playing !== undefined
-                            ? sound.playing
-                            : false;
+                                ? sound.playing
+                                : false;
 
                     // Clear loading timeout when we get status update
                     const stateForTimeout = get();
@@ -793,7 +831,7 @@ const useAudioStore = create(
                     const fallbackCurrentState = get();
                     const shouldUpdateFallback =
                         Math.abs(fallbackCurrentState.position - currentTime) >
-                            100 || // Reduced from 200ms to 100ms
+                        100 || // Reduced from 200ms to 100ms
                         fallbackCurrentState.duration !== totalDuration ||
                         fallbackCurrentState.isLoading !== !isLoaded ||
                         fallbackCurrentState.isPlaying !== isPlayingStatus;

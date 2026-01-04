@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
     View,
     Text,
@@ -105,7 +105,7 @@ const ModernAudioPlayer = React.memo(
             playDebounceRef.current = true;
             setTimeout(() => {
                 playDebounceRef.current = null;
-            }, 500); // Prevent multiple calls within 500ms
+            }, 200); // Prevent multiple calls within 200ms (reduced from 500ms for better UX)
 
             try {
                 if (onPlay) {
@@ -129,7 +129,7 @@ const ModernAudioPlayer = React.memo(
             pauseDebounceRef.current = true;
             setTimeout(() => {
                 pauseDebounceRef.current = null;
-            }, 500); // Prevent multiple calls within 500ms
+            }, 200); // Prevent multiple calls within 200ms (reduced from 500ms for better UX)
 
             try {
                 if (onPause) {
@@ -206,70 +206,72 @@ const ModernAudioPlayer = React.memo(
         // Progress bar pan responder - Stores the X offset of progress bar for accurate touch calculation
         const progressBarOffsetX = useRef(0);
 
-        // Progress bar pan responder
-        const panResponder = PanResponder.create({
-            onStartShouldSetPanResponder: () => true,
-            onMoveShouldSetPanResponder: () => true,
-            onPanResponderGrant: (evt, gestureState) => {
-                setIsDragging(true);
+        // PERFORMANCE: Memoize PanResponder to prevent recreation on every render
+        // Only recreate when duration changes (which is rare)
+        const panResponder = useMemo(() => {
+            return PanResponder.create({
+                onStartShouldSetPanResponder: () => true,
+                onMoveShouldSetPanResponder: () => true,
+                onPanResponderGrant: (evt, gestureState) => {
+                    setIsDragging(true);
 
-                // CRITICAL FIX: Use pageX (absolute screen position) instead of locationX
-                // locationX is relative to the component and unreliable with padding/margins
-                const absoluteX =
-                    evt.nativeEvent.pageX - progressBarOffsetX.current;
-                const progressWidth = getProgressBarWidth();
-                const progress = Math.max(
-                    0,
-                    Math.min(1, absoluteX / progressWidth)
-                );
-                const position = progress * duration;
+                    // CRITICAL FIX: Use pageX (absolute screen position) instead of locationX
+                    // locationX is relative to the component and unreliable with padding/margins
+                    const absoluteX =
+                        evt.nativeEvent.pageX - progressBarOffsetX.current;
+                    const progressWidth = getProgressBarWidth();
+                    const progress = Math.max(
+                        0,
+                        Math.min(1, absoluteX / progressWidth)
+                    );
+                    const position = progress * duration;
 
-                setTempPosition(position);
-                progressAnimation.setValue(progress);
+                    setTempPosition(position);
+                    progressAnimation.setValue(progress);
 
-                if (__DEV__) {
-                    Logger.log("⏸️ [DRAG START]:", {
-                        pageX: Math.round(evt.nativeEvent.pageX),
-                        offset: Math.round(progressBarOffsetX.current),
-                        progress: Math.round(progress * 100) + "%",
-                        seekTo: Math.round(position / 1000) + "s",
-                    });
-                }
-            },
-            onPanResponderMove: (evt, gestureState) => {
-                // CRITICAL FIX: Use pageX for accurate position tracking
-                const absoluteX =
-                    evt.nativeEvent.pageX - progressBarOffsetX.current;
-                const progressWidth = getProgressBarWidth();
-                const progress = Math.max(
-                    0,
-                    Math.min(1, absoluteX / progressWidth)
-                );
-                const position = progress * duration;
+                    if (__DEV__) {
+                        Logger.log("⏸️ [DRAG START]:", {
+                            pageX: Math.round(evt.nativeEvent.pageX),
+                            offset: Math.round(progressBarOffsetX.current),
+                            progress: Math.round(progress * 100) + "%",
+                            seekTo: Math.round(position / 1000) + "s",
+                        });
+                    }
+                },
+                onPanResponderMove: (evt, gestureState) => {
+                    // CRITICAL FIX: Use pageX for accurate position tracking
+                    const absoluteX =
+                        evt.nativeEvent.pageX - progressBarOffsetX.current;
+                    const progressWidth = getProgressBarWidth();
+                    const progress = Math.max(
+                        0,
+                        Math.min(1, absoluteX / progressWidth)
+                    );
+                    const position = progress * duration;
 
-                // Immediate update - no throttle for smooth dragging
-                setTempPosition(position);
-                progressAnimation.setValue(progress);
-            },
-            onPanResponderRelease: (evt, gestureState) => {
-                setIsDragging(false);
+                    // Immediate update - no throttle for smooth dragging
+                    setTempPosition(position);
+                    progressAnimation.setValue(progress);
+                },
+                onPanResponderRelease: (evt, gestureState) => {
+                    setIsDragging(false);
 
-                if (__DEV__) {
-                    Logger.log("⏸️ [DRAG END]:", {
-                        finalPosition: Math.round(tempPosition / 1000) + "s",
-                    });
-                }
+                    if (__DEV__) {
+                        Logger.log("⏸️ [DRAG END]:", {
+                            finalPosition: Math.round(tempPosition / 1000) + "s",
+                        });
+                    }
 
-                handleSeek(tempPosition);
-            },
-        });
+                    handleSeek(tempPosition);
+                },
+            });
+        }, [duration, progressAnimation, tempPosition]); // Only recreate when duration changes
 
         if (compact) {
             return (
                 <View
-                    className={`flex-row items-center bg-panel rounded-lg p-3 ${
-                        style || ""
-                    }`}
+                    className={`flex-row items-center bg-panel rounded-lg p-3 ${style || ""
+                        }`}
                 >
                     {/* Play/Pause Button */}
                     <TouchableOpacity
@@ -342,20 +344,25 @@ const ModernAudioPlayer = React.memo(
                             style={{ width: getProgressBarWidth() }}
                             onLayout={(event) => {
                                 // CRITICAL: Capture progress bar's absolute X position for accurate touch tracking
-                                event.target.measure(
-                                    (x, y, width, height, pageX, pageY) => {
-                                        progressBarOffsetX.current = pageX;
-                                        if (__DEV__) {
-                                            Logger.log(
-                                                "📍 Progress bar position:",
-                                                {
-                                                    pageX: Math.round(pageX),
-                                                    width: Math.round(width),
-                                                }
-                                            );
+                                // Add null/undefined checks for safety across React Native versions
+                                const target = event && event.target;
+
+                                if (target && typeof target.measure === "function") {
+                                    target.measure(
+                                        (x, y, width, height, pageX, pageY) => {
+                                            progressBarOffsetX.current = pageX;
+                                            if (__DEV__) {
+                                                Logger.log(
+                                                    "📍 Progress bar position:",
+                                                    {
+                                                        pageX: Math.round(pageX),
+                                                        width: Math.round(width),
+                                                    }
+                                                );
+                                            }
                                         }
-                                    }
-                                );
+                                    );
+                                }
                             }}
                             {...panResponder.panHandlers}
                         >
@@ -413,17 +420,17 @@ const ModernAudioPlayer = React.memo(
                                 justifyContent: "center",
                                 ...(Platform.OS === "ios"
                                     ? {
-                                          shadowColor: "#000",
-                                          shadowOffset: {
-                                              width: 0,
-                                              height: 4,
-                                          },
-                                          shadowOpacity: 0.3,
-                                          shadowRadius: 8,
-                                      }
+                                        shadowColor: "#000",
+                                        shadowOffset: {
+                                            width: 0,
+                                            height: 4,
+                                        },
+                                        shadowOpacity: 0.3,
+                                        shadowRadius: 8,
+                                    }
                                     : {
-                                          elevation: 8,
-                                      }),
+                                        elevation: 8,
+                                    }),
                             }}
                             accessible={true}
                             accessibilityRole="button"
@@ -483,8 +490,8 @@ const ModernAudioPlayer = React.memo(
                                         volume > 0.5
                                             ? "volume-high"
                                             : volume > 0
-                                            ? "volume-medium"
-                                            : "volume-off"
+                                                ? "volume-medium"
+                                                : "volume-off"
                                     }
                                     size={24}
                                     color="#888888"
@@ -500,6 +507,26 @@ const ModernAudioPlayer = React.memo(
         // PERFORMANCE: Custom comparison function to prevent unnecessary re-renders
         // CRITICAL: duration, currentPosition, playbackRate, volume are now subscribed internally
         // We only compare props that are passed from parent and affect UI
+
+        // DEV WARNING: Check if callbacks are changing (they shouldn't be!)
+        if (__DEV__) {
+            const callbackProps = [
+                'onPlay', 'onPause', 'onSeek', 'onSkipForward',
+                'onSkipBackward', 'onPlaybackRateChange', 'onVolumeChange'
+            ];
+
+            callbackProps.forEach(prop => {
+                if (prevProps[prop] !== nextProps[prop]) {
+                    Logger.warn(
+                        `⚠️ [ModernAudioPlayer] Callback prop '${prop}' changed!`,
+                        `This indicates the parent is not properly memoizing callbacks with useCallback.`,
+                        `This can cause stale closures and unnecessary re-renders.`,
+                        `Please wrap '${prop}' with useCallback in the parent component.`
+                    );
+                }
+            });
+        }
+
         return (
             prevProps.isPlaying === nextProps.isPlaying &&
             prevProps.title === nextProps.title &&
@@ -508,7 +535,9 @@ const ModernAudioPlayer = React.memo(
             prevProps.showProgress === nextProps.showProgress &&
             prevProps.showControls === nextProps.showControls
             // NOTE: Callback props (onPlay, onPause, etc.) are NOT compared
-            // They should be stable references created with useCallback in parent
+            // REQUIREMENT: Parent MUST wrap these callbacks with useCallback to ensure stable references
+            // If callbacks change, stale closures may occur where callbacks reference old values
+            // We detect callback changes in DEV mode and log warnings above
             // duration, currentPosition, playbackRate, volume are NOT props anymore
             // They are subscribed internally from useAudioStore
         );

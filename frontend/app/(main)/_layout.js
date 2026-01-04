@@ -133,13 +133,11 @@ export default function TabLayout() {
     const router = useRouter();
 
     // PERFORMANCE FIX: Use selective subscriptions for mini player
-    // position/duration updates won't re-render entire tab layout
+    // Avoid subscribing to fast-changing position/duration in tab layout
     const currentTrack = useAudioStore((state) => state.currentTrack);
     const isPlaying = useAudioStore((state) => state.isPlaying);
     const showMiniPlayer = useAudioStore((state) => state.showMiniPlayer);
-    const position = useAudioStore((state) => state.position);
-    const duration = useAudioStore((state) => state.duration);
-    
+
     // Actions (stable)
     const play = useAudioStore((state) => state.play);
     const pause = useAudioStore((state) => state.pause);
@@ -319,8 +317,6 @@ export default function TabLayout() {
                 isVisible={showMiniPlayer}
                 track={currentTrack}
                 isPlaying={isPlaying}
-                position={position}
-                duration={duration}
                 onPlayPause={handleMiniPlayerPlayPause}
                 onNext={next}
                 onClose={handleMiniPlayerClose}
