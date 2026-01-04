@@ -87,19 +87,18 @@ export default function HomeScreen() {
     const { showToast } = useToast();
     const { viewMode } = useViewModeStore();
 
-    // Audio store
-    const {
-        currentTrack,
-        isPlaying,
-        play,
-        pause,
-        setQueue,
-        showMiniPlayer,
-        toggleMiniPlayer,
-        lastPlayedAt,
-        error: audioError,
-        clearError,
-    } = useAudioStore();
+    // PERFORMANCE FIX: Use selective subscriptions to prevent unnecessary re-renders
+    // Only subscribe to values that affect THIS component's UI
+    const currentTrack = useAudioStore((state) => state.currentTrack);
+    const isPlaying = useAudioStore((state) => state.isPlaying);
+    const showMiniPlayer = useAudioStore((state) => state.showMiniPlayer);
+    const audioError = useAudioStore((state) => state.error);
+
+    // Actions (stable, don't cause re-renders)
+    const play = useAudioStore((state) => state.play);
+    const pause = useAudioStore((state) => state.pause);
+    const toggleMiniPlayer = useAudioStore((state) => state.toggleMiniPlayer);
+    const clearError = useAudioStore((state) => state.clearError);
 
     const [podcasts, setPodcasts] = useState([]);
     const [userPodcasts, setUserPodcasts] = useState([]);
@@ -358,11 +357,10 @@ export default function HomeScreen() {
                             <TouchableOpacity
                                 key={category.id}
                                 onPress={() => setSelectedCategory(category.id)}
-                                className={`flex-row items-center px-4 py-2 rounded-full mr-3 ${
-                                    selectedCategory === category.id
+                                className={`flex-row items-center px-4 py-2 rounded-full mr-3 ${selectedCategory === category.id
                                         ? "bg-primary"
                                         : "bg-panel"
-                                }`}
+                                    }`}
                                 activeOpacity={0.7}
                             >
                                 <Ionicons
@@ -375,11 +373,10 @@ export default function HomeScreen() {
                                     }
                                 />
                                 <Text
-                                    className={`ml-2 font-medium ${
-                                        selectedCategory === category.id
+                                    className={`ml-2 font-medium ${selectedCategory === category.id
                                             ? "text-white"
                                             : "text-text-secondary"
-                                    }`}
+                                        }`}
                                 >
                                     {category.label}
                                 </Text>
@@ -538,18 +535,18 @@ export default function HomeScreen() {
                                             style={{
                                                 ...(Platform.OS === "ios"
                                                     ? {
-                                                          shadowColor:
-                                                              colors.primary,
-                                                          shadowOffset: {
-                                                              width: 0,
-                                                              height: 4,
-                                                          },
-                                                          shadowOpacity: 0.3,
-                                                          shadowRadius: 8,
-                                                      }
+                                                        shadowColor:
+                                                            colors.primary,
+                                                        shadowOffset: {
+                                                            width: 0,
+                                                            height: 4,
+                                                        },
+                                                        shadowOpacity: 0.3,
+                                                        shadowRadius: 8,
+                                                    }
                                                     : {
-                                                          elevation: 8,
-                                                      }),
+                                                        elevation: 8,
+                                                    }),
                                             }}
                                         >
                                             <MaterialCommunityIcons
@@ -679,7 +676,7 @@ export default function HomeScreen() {
                                     <MaterialCommunityIcons
                                         name={
                                             currentTrack?.id === podcast.id &&
-                                            isPlaying
+                                                isPlaying
                                                 ? "pause-circle"
                                                 : "play-circle"
                                         }
