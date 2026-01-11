@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     View,
     Text,
@@ -10,7 +10,7 @@ import {
     Linking,
     ActivityIndicator,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import RecordingControls from "../../src/components/recording/RecordingControls";
@@ -53,16 +53,39 @@ const Create = () => {
     const [permissionModalVisible, setPermissionModalVisible] = useState(false);
     const [discardConfirmVisible, setDiscardConfirmVisible] = useState(false);
 
-    useEffect(() => {
-        initializeAudio();
+    // Reset state when screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            // Reset all state to initial values
+            setIsRecording(false);
+            setRecordedUri(null);
+            setRecordedDuration(0);
+            setIsAIEnabled(false);
+            setTitle("");
+            setDescription("");
+            setCategory("General");
+            setIsPublic(false);
+            setIsUploading(false);
+            setCurrentStep(mode === "quick-record" ? "recording" : "setup");
+            setPermissionModalVisible(false);
+            setDiscardConfirmVisible(false);
 
-        // Auto-start recording for quick-record mode
-        if (mode === "quick-record") {
-            setTimeout(() => {
-                handleRecordingStart();
-            }, 500);
-        }
-    }, []);
+            // Initialize audio
+            initializeAudio();
+
+            // Auto-start recording for quick-record mode
+            if (mode === "quick-record") {
+                setTimeout(() => {
+                    handleRecordingStart();
+                }, 500);
+            }
+
+            // Cleanup when screen loses focus
+            return () => {
+                // Optional: cleanup any ongoing recordings if needed
+            };
+        }, [mode])
+    );
 
     const initializeAudio = async () => {
         try {
@@ -137,6 +160,12 @@ const Create = () => {
             return;
         }
 
+        // Prevent double submission
+        if (isUploading) {
+            Logger.warn("Upload already in progress, ignoring duplicate save attempt");
+            return;
+        }
+
         try {
             setIsUploading(true);
 
@@ -198,11 +227,12 @@ const Create = () => {
 
             showToast("Podcast saved successfully!", "success");
 
-            // Navigate back or to podcast list
+            // Navigate to library and reset create page state
+            // Use replace to prevent going back to review screen
             if (mode === "quick-record") {
-                router.back();
+                router.replace("/(main)/home");
             } else {
-                router.push("/(main)/library");
+                router.replace("/(main)/library");
             }
         } catch (error) {
             Logger.error("Save failed:", error);
