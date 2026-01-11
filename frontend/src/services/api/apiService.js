@@ -15,9 +15,31 @@ import Logger from "../../utils/logger";
 import { retryWithBackoff } from "../../utils/networkUtils";
 
 // API Configuration
-const API_BASE_URL =
-    Constants.expoConfig?.extra?.apiBaseUrl || "http://192.168.178.27:8000";
-Logger.log("🌐 API Base URL:", API_BASE_URL);
+// Auto-detect API URL based on environment
+const getApiBaseUrl = () => {
+    // 1. Check for explicit environment variable (production)
+    const envUrl = Constants.expoConfig?.extra?.apiBaseUrl;
+    if (envUrl) {
+        Logger.log("🌐 Using configured API URL:", envUrl);
+        return envUrl;
+    }
+
+    // 2. Auto-detect from Expo's debugger host (development)
+    const debuggerHost = Constants.expoConfig?.hostUri?.split(':')[0];
+    if (debuggerHost) {
+        const autoUrl = `http://${debuggerHost}:8000`;
+        Logger.log("🌐 Auto-detected API URL:", autoUrl);
+        return autoUrl;
+    }
+
+    // 3. Fallback to localhost (shouldn't happen in normal dev)
+    const fallbackUrl = "http://localhost:8000";
+    Logger.warn("⚠️ Using fallback API URL:", fallbackUrl);
+    return fallbackUrl;
+};
+
+const API_BASE_URL = getApiBaseUrl();
+Logger.log("✅ Final API Base URL:", API_BASE_URL);
 
 // Network timeout configuration (iOS can handle longer timeouts)
 const NETWORK_TIMEOUT = Platform.OS === "ios" ? 30000 : 25000;

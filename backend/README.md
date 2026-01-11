@@ -4,6 +4,16 @@ FastAPI-based backend service. See the main README.md in the project root for co
 
 ## Quick Start
 
+**Linux/WSL:**
+```bash
+cd backend
+source venv/bin/activate
+pip install -r requirements.txt
+python -m app.init_db
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Windows PowerShell:**
 ```bash
 cd backend
 .\venv\Scripts\Activate.ps1

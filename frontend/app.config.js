@@ -54,9 +54,10 @@ export default ({ config }) => ({
         favicon: "./assets/Volo-logo.png",
     },
     extra: {
-        // IMPORTANT: Set API_BASE_URL in .env file
-        // This fallback is only used if .env is missing (shouldn't happen in production)
-        apiBaseUrl: process.env.API_BASE_URL || "http://192.168.178.27:8000",
+        // API Configuration
+        // Development: Leave empty for auto-detection
+        // Production: Set in .env or environment variables
+        apiBaseUrl: process.env.API_BASE_URL || process.env.EXPO_PUBLIC_API_URL || "",
         eas: {
             projectId: "6760a9ac-697b-4e25-9f44-0d0ecc8edbbb",
         },

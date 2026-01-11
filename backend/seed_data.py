@@ -98,7 +98,7 @@ SAMPLE_PODCASTS = [
 DEMO_USER = {
     "email": "demo@volo.com",
     "name": "Demo User",
-    "password": "demo123456",  # This will be hashed
+    "password": "demo123",  # This will be hashed
 }
 
 
