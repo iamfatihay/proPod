@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import React, { useEffect, useState, useCallback } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import useAuthStore from "../../src/context/useAuthStore";
 import useAudioStore from "../../src/context/useAudioStore";
 import useViewModeStore from "../../src/context/useViewModeStore";
@@ -83,6 +83,7 @@ const activities = [
 
 export default function HomeScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams();
     const { user, logout } = useAuthStore();
     const { showToast } = useToast();
     const { viewMode } = useViewModeStore();
@@ -148,6 +149,24 @@ export default function HomeScreen() {
             setLoading(false);
         })();
     }, [load]);
+
+    // Reload when params.refresh changes (after delete/create)
+    useEffect(() => {
+        if (params.refresh) {
+            (async () => {
+                await load();
+            })();
+        }
+    }, [params.refresh, load]);
+
+    // Reload when screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            (async () => {
+                await load();
+            })();
+        }, [load])
+    );
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);

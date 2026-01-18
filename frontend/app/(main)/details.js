@@ -356,20 +356,32 @@ const Details = () => {
     };
 
     const handleDelete = () => {
+        Logger.log("🗑️ Delete button pressed, showing confirmation modal");
         setDeleteConfirmVisible(true);
     };
 
     const confirmDelete = async () => {
+        Logger.log("🗑️ Confirm delete pressed", { podcastId: podcast.id, isDeleting });
         setDeleteConfirmVisible(false);
-        if (isDeleting) return; // Prevent multiple clicks
+        if (isDeleting) {
+            Logger.warn("🗑️ Delete already in progress, ignoring");
+            return; // Prevent multiple clicks
+        }
 
         try {
             setIsDeleting(true);
+            Logger.log("🗑️ Calling deletePodcast API...", { podcastId: podcast.id });
             await apiService.deletePodcast(podcast.id);
+            Logger.log("🗑️ Delete successful!");
             showToast("Podcast deleted", "success");
-            router.back();
+            
+            // Navigate to library with refresh flag
+            router.replace({
+                pathname: "/(main)/library",
+                params: { refresh: Date.now().toString() }
+            });
         } catch (error) {
-            Logger.error("Delete failed:", error);
+            Logger.error("🗑️ Delete failed:", error);
             const errorMessage = error.message || "Failed to delete podcast";
             showToast(errorMessage, "error");
 

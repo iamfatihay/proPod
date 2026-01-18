@@ -9,11 +9,12 @@ import {
 import React, { useEffect, useState, useCallback } from "react";
 import apiService from "../../src/services/api/apiService";
 import PodcastCard from "../../src/components/PodcastCard";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const Library = () => {
     const router = useRouter();
+    const params = useLocalSearchParams();
     const [tab, setTab] = useState("mine"); // mine | likes | bookmarks
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -37,6 +38,7 @@ const Library = () => {
         }
     }, [tab]);
 
+    // Reload when tab changes
     useEffect(() => {
         (async () => {
             setLoading(true);
@@ -44,6 +46,26 @@ const Library = () => {
             setLoading(false);
         })();
     }, [load]);
+
+    // Reload when params.refresh changes (after delete/create)
+    useEffect(() => {
+        if (params.refresh) {
+            (async () => {
+                setLoading(true);
+                await load();
+                setLoading(false);
+            })();
+        }
+    }, [params.refresh, load]);
+
+    // Reload when screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            (async () => {
+                await load();
+            })();
+        }, [load])
+    );
 
     const insets = useSafeAreaInsets();
 

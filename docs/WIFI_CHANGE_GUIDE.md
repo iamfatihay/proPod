@@ -1,100 +1,104 @@
 # WiFi Değiştiğinde Yapılacaklar
 
-## 🔄 Hızlı Rehber (5 Dakika)
+## ⚡ Hızlı Rehber (2 Dakika)
 
-### 1️⃣ Yeni IP'leri Öğren
+### 1️⃣ Yeni Windows IP'yi Öğren
 
-**WSL Terminal:**
-```bash
-# WSL IP
-ip addr show eth0 | grep "inet " | awk '{print $2}' | cut -d/ -f1
-# Örnek: 172.20.131.67
-```
-
-**Windows PowerShell:**
 ```powershell
-# Windows IP
+# Windows PowerShell
 ipconfig | findstr "IPv4"
 # Örnek: 192.168.2.121
 ```
 
-### 2️⃣ Port Forwarding Güncelle
+### 2️⃣ Backend .env Güncelle
 
-**Windows PowerShell (Admin olarak aç):**
+```bash
+cd ~/proPod/backend
+nano .env
+```
 
-```powershell
-# Eski kuralları sil
-netsh interface portproxy delete v4tov4 listenport=8000 listenaddress=0.0.0.0
-netsh interface portproxy delete v4tov4 listenport=8081 listenaddress=0.0.0.0
-
-# Yeni WSL IP ile ekle (WSL IP değişirse - nadiren olur)
-netsh interface portproxy add v4tov4 listenport=8000 listenaddress=0.0.0.0 connectport=8000 connectaddress=<YENİ_WSL_IP>
-netsh interface portproxy add v4tov4 listenport=8081 listenaddress=0.0.0.0 connectport=8081 connectaddress=<YENİ_WSL_IP>
-
-# Kontrol et
-netsh interface portproxy show all
+**Değiştir:**
+```
+BASE_URL=http://192.168.2.121:8000
 ```
 
 ### 3️⃣ Frontend .env Güncelle
 
-**WSL Terminal:**
 ```bash
 cd ~/proPod/frontend
 nano .env
-
-# Değiştir:
-API_BASE_URL=http://<YENİ_WINDOWS_IP>:8000
-EXPO_PUBLIC_API_URL=http://<YENİ_WINDOWS_IP>:8000
 ```
 
-### 4️⃣ Test Et
+**Değiştir (4 satır):**
+```
+API_BASE_URL=http://192.168.2.121:8000
+EXPO_PUBLIC_API_URL=http://192.168.2.121:8000
+REACT_NATIVE_PACKAGER_HOSTNAME=192.168.2.121
+EXPO_DEVTOOLS_LISTEN_ADDRESS=192.168.2.121
+```
+
+### 4️⃣ Başlat
 
 ```bash
-# Backend test
-curl http://<YENİ_WINDOWS_IP>:8000/docs
+# Backend
+cd ~/proPod/backend
+source venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --reload
 
-# Eğer çalışıyorsa:
-# Backend + Frontend başlat
-# QR scan et
-# HAZIR! ✅
+# Frontend (yeni terminal)
+cd ~/proPod/frontend
+npm run start:dev
+
+# Telefonda QR tara → Çalışır! ✅
 ```
 
 ---
 
 ## 📝 Notlar
 
-- **Windows IP** her WiFi değişiminde değişir (192.168.x.x formatı)
-- **WSL IP** nadiren değişir (genelde 172.20.x.x sabit kalır)
-- Port forwarding **kalıcıdır** (Windows restart sonrası bile kalır)
-- Firewall kuralları **bir kez eklenir**, tekrar eklemeye gerek yok
+- **Windows IP** her WiFi'de değişir → .env güncellenir
+- **Port forwarding** kalıcıdır → Güncelleme gereksiz
+- **WSL IP** nadiren değişir → Aşağıya bak
 
 ---
 
 ## 🐛 Sorun Giderme
 
-### Telefon "Failed to connect" diyor:
+### Backend'e bağlanamıyor:
 
 ```bash
-# 1. Backend çalışıyor mu?
+# Backend çalışıyor mu?
 pgrep -f uvicorn
 
-# 2. Port forwarding doğru mu?
-netsh interface portproxy show all  # Windows'ta
+# Backend'e erişiliyor mu?
+curl -I http://192.168.2.121:8000/docs  # 200 OK gelmeli
 
-# 3. Firewall açık mı?
-# Windows Güvenlik → Güvenlik Duvarı → 8000 ve 8081 portları açık mı?
-
-# 4. Test et
-curl http://<WINDOWS_IP>:8000/docs  # WSL'den
+# .env doğru mu?
+cat frontend/.env | grep API_BASE_URL
 ```
 
-### Metro bundler bağlanamıyor:
+### Port forwarding kontrol:
+
+```powershell
+# Windows PowerShell
+netsh interface portproxy show all
+# 8000 ve 8081 görünmeli
+```
+
+### WSL IP değiştiyse (nadir):
 
 ```bash
-# Expo'yu yeniden başlat
-cd ~/proPod/frontend
-pkill -f "expo"
-npm run start:dev
+# WSL IP öğren
+ip addr show eth0 | grep "inet "
+# Örnek: 172.20.131.67
+```
 
-# Yeni QR scan et
+```powershell
+# Windows PowerShell (Admin)
+# Port forwarding güncelle
+netsh interface portproxy delete v4tov4 listenport=8000 listenaddress=0.0.0.0
+netsh interface portproxy delete v4tov4 listenport=8081 listenaddress=0.0.0.0
+
+netsh interface portproxy add v4tov4 listenport=8000 listenaddress=0.0.0.0 connectport=8000 connectaddress=172.20.131.67
+netsh interface portproxy add v4tov4 listenport=8081 listenaddress=0.0.0.0 connectport=8081 connectaddress=172.20.131.67
 ```

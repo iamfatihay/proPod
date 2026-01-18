@@ -230,9 +230,15 @@ const Create = () => {
             // Navigate to library and reset create page state
             // Use replace to prevent going back to review screen
             if (mode === "quick-record") {
-                router.replace("/(main)/home");
+                router.replace({
+                    pathname: "/(main)/home",
+                    params: { refresh: Date.now().toString() }
+                });
             } else {
-                router.replace("/(main)/library");
+                router.replace({
+                    pathname: "/(main)/library",
+                    params: { refresh: Date.now().toString() }
+                });
             }
         } catch (error) {
             Logger.error("Save failed:", error);
