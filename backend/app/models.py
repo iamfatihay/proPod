@@ -1,8 +1,17 @@
 """Database models using SQLAlchemy ORM."""
 import datetime
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Index, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Index, JSON, Enum as SQLEnum
 from sqlalchemy.orm import relationship
+from enum import Enum
 from .database import Base
+
+
+class UserRole(str, Enum):
+    """User role enumeration for RBAC (Role-Based Access Control)."""
+    USER = "user"  # Normal user - can manage own content
+    MODERATOR = "moderator"  # Can moderate content, handle reports
+    ADMIN = "admin"  # Can manage users and most platform features
+    SUPER_ADMIN = "super_admin"  # Full access - application owner
 
 
 class User(Base):
@@ -16,6 +25,7 @@ class User(Base):
         hashed_password: Bcrypt hashed password
         provider: Authentication provider (local/google)
         photo_url: URL to user's profile photo
+        role: User role (user/moderator/admin/super_admin)
         is_active: Whether the user account is active
         created_at: Account creation timestamp
         updated_at: Last update timestamp
@@ -30,6 +40,7 @@ class User(Base):
     hashed_password = Column(String, nullable=True)  # Nullable for OAuth users
     provider = Column(String, default="local")
     photo_url = Column(String, nullable=True)
+    role = Column(SQLEnum(UserRole), default=UserRole.USER, nullable=False, index=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), 
@@ -87,25 +98,15 @@ class Podcast(Base):
     category = Column(String, default="General")
     is_public = Column(Boolean, default=True)
     ai_enhanced = Column(Boolean, default=False)
-    play_count = Column(Integer, default=0)
-    like_count = Column(Integer, default=0)
-    bookmark_count = Column(Integer, default=0)
-    
-    # AI-related fields
-    transcription_text = Column(Text, nullable=True)
-    transcription_language = Column(String, nullable=True)
-    transcription_confidence = Column(String, nullable=True)
-    ai_keywords = Column(Text, nullable=True)
-    ai_summary = Column(Text, nullable=True)
-    ai_sentiment = Column(String, nullable=True)
-    ai_categories = Column(Text, nullable=True)
-    ai_processing_status = Column(String, default="pending")
-    ai_processing_date = Column(DateTime, nullable=True)
-    ai_quality_score = Column(String, nullable=True)
     
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), 
                        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
+    
+    # Soft delete fields
+    is_deleted = Column(Boolean, default=False, index=True)
+    deleted_at = Column(DateTime, nullable=True)
+    
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
     # Relationships
@@ -114,12 +115,13 @@ class Podcast(Base):
     bookmarks = relationship("PodcastBookmark", back_populates="podcast", cascade="all, delete-orphan")
     listening_history = relationship("ListeningHistory", back_populates="podcast", cascade="all, delete-orphan")
     comments = relationship("PodcastComment", back_populates="podcast", cascade="all, delete-orphan")
+    ai_data = relationship("PodcastAIData", back_populates="podcast", uselist=False, cascade="all, delete-orphan")
+    stats = relationship("PodcastStats", back_populates="podcast", uselist=False, cascade="all, delete-orphan")
 
     # Indexes for performance
     __table_args__ = (
         Index('idx_podcast_category_public', 'category', 'is_public'),
         Index('idx_podcast_owner_created', 'owner_id', 'created_at'),
-        Index('idx_podcast_play_count', 'play_count'),
     )
 
 
@@ -211,4 +213,75 @@ class PodcastComment(Base):
         Index('idx_podcast_comments_podcast_active', 'podcast_id', 'is_active'),
         Index('idx_podcast_comments_user', 'user_id'),
         Index('idx_podcast_comments_timestamp', 'timestamp'),
+    )
+
+
+class PodcastAIData(Base):
+    """
+    AI-generated data for podcasts (ONE-TO-ONE relationship).
+    
+    Separated for performance - most podcasts don't have AI processing,
+    and when fetching podcast lists, this heavy data is not needed.
+    Only loaded when specifically requested via JOIN or separate query.
+    """
+    __tablename__ = "podcast_ai_data"
+
+    id = Column(Integer, primary_key=True, index=True)
+    podcast_id = Column(Integer, ForeignKey("podcasts.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    
+    # Transcription
+    transcription_text = Column(Text, nullable=True)
+    transcription_language = Column(String, nullable=True)
+    transcription_confidence = Column(String, nullable=True)
+    
+    # AI Analysis
+    keywords = Column(Text, nullable=True)  # JSON string
+    summary = Column(Text, nullable=True)
+    sentiment = Column(String, nullable=True)
+    categories = Column(Text, nullable=True)  # JSON string
+    quality_score = Column(String, nullable=True)
+    
+    # Processing metadata
+    processing_status = Column(String, default="pending")  # pending, processing, completed, failed
+    processing_date = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), 
+                       onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
+    
+    # Relationship
+    podcast = relationship("Podcast", back_populates="ai_data")
+
+    __table_args__ = (
+        Index('idx_ai_data_status', 'processing_status'),
+    )
+
+
+class PodcastStats(Base):
+    """
+    Denormalized statistics cache for podcasts (ONE-TO-ONE relationship).
+    
+    These are calculated values that would otherwise require expensive
+    COUNT queries. Updated via triggers or scheduled jobs.
+    Dramatically speeds up home feed and search results.
+    """
+    __tablename__ = "podcast_stats"
+
+    id = Column(Integer, primary_key=True, index=True)
+    podcast_id = Column(Integer, ForeignKey("podcasts.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    
+    # Cached counts
+    play_count = Column(Integer, default=0, index=True)
+    like_count = Column(Integer, default=0, index=True)
+    bookmark_count = Column(Integer, default=0, index=True)
+    comment_count = Column(Integer, default=0)
+    
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), 
+                       onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
+    
+    # Relationship
+    podcast = relationship("Podcast", back_populates="stats")
+
+    __table_args__ = (
+        Index('idx_stats_play_count', 'play_count'),
+        Index('idx_stats_like_count', 'like_count'),
     )

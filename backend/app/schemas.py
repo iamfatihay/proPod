@@ -3,9 +3,20 @@ from __future__ import annotations
 from pydantic import BaseModel, EmailStr, Field
 import datetime
 from typing import Optional, List, TYPE_CHECKING
+from enum import Enum
 
 if TYPE_CHECKING:
     from .models import User
+
+
+# ==================== Enums ====================
+
+class UserRoleSchema(str, Enum):
+    """User role schema for API responses."""
+    USER = "user"
+    MODERATOR = "moderator"
+    ADMIN = "admin"
+    SUPER_ADMIN = "super_admin"
 
 
 # ==================== User Schemas ====================
@@ -43,6 +54,7 @@ class User(UserBase):
     id: int
     provider: str = "local"
     photo_url: Optional[str] = None
+    role: UserRoleSchema = UserRoleSchema.USER
     is_active: bool = True
     created_at: datetime.datetime
     updated_at: datetime.datetime
@@ -136,11 +148,11 @@ class Podcast(PodcastBase):
     thumbnail_url: Optional[str] = None
     duration: int
     ai_enhanced: bool
-    play_count: int
-    like_count: int
-    bookmark_count: int
+    play_count: int = 0  # From stats relationship
+    like_count: int = 0  # From stats relationship
+    bookmark_count: int = 0  # From stats relationship
 
-    # AI-related fields
+    # AI-related fields (from ai_data relationship)
     transcription_text: Optional[str] = None
     transcription_language: Optional[str] = None
     transcription_confidence: Optional[str] = None

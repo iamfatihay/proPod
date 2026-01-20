@@ -99,6 +99,7 @@ DEMO_USER = {
     "email": "demo@volo.com",
     "name": "Demo User",
     "password": "demo123",  # This will be hashed
+    "role": "super_admin"  # Make demo user super admin for testing
 }
 
 
@@ -108,11 +109,12 @@ def create_demo_user(db: Session) -> models.User:
         models.User.email == DEMO_USER["email"]).first()
 
     if not user:
-        print(f"Creating demo user: {DEMO_USER['email']}")
+        print(f"Creating demo user: {DEMO_USER['email']} (role: {DEMO_USER['role']})")
         user = models.User(
             email=DEMO_USER["email"],
             name=DEMO_USER["name"],
             hashed_password=get_password_hash(DEMO_USER["password"]),
+            role=models.UserRole.SUPER_ADMIN,  # Super admin role
             is_active=True,
         )
         db.add(user)

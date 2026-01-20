@@ -13,6 +13,56 @@ from . import models, schemas
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
+# ==================== Helper Functions ====================
+
+def enrich_podcast_with_stats(podcast: models.Podcast) -> models.Podcast:
+    """
+    Enrich podcast object with stats and AI data for serialization.
+    Maps relationship data to direct attributes for Pydantic schema compatibility.
+    
+    Args:
+        podcast: Podcast model object with loaded relationships
+        
+    Returns:
+        models.Podcast: Same object with added attributes
+    """
+    # Map stats relationship to direct attributes
+    if podcast.stats:
+        podcast.play_count = podcast.stats.play_count
+        podcast.like_count = podcast.stats.like_count
+        podcast.bookmark_count = podcast.stats.bookmark_count
+    else:
+        podcast.play_count = 0
+        podcast.like_count = 0
+        podcast.bookmark_count = 0
+    
+    # Map AI data relationship to direct attributes
+    if podcast.ai_data:
+        podcast.transcription_text = podcast.ai_data.transcription_text
+        podcast.transcription_language = podcast.ai_data.transcription_language
+        podcast.transcription_confidence = podcast.ai_data.transcription_confidence
+        podcast.ai_keywords = podcast.ai_data.keywords
+        podcast.ai_summary = podcast.ai_data.summary
+        podcast.ai_sentiment = podcast.ai_data.sentiment
+        podcast.ai_categories = podcast.ai_data.categories
+        podcast.ai_processing_status = podcast.ai_data.processing_status
+        podcast.ai_processing_date = podcast.ai_data.processing_date
+        podcast.ai_quality_score = podcast.ai_data.quality_score
+    else:
+        podcast.transcription_text = None
+        podcast.transcription_language = None
+        podcast.transcription_confidence = None
+        podcast.ai_keywords = None
+        podcast.ai_summary = None
+        podcast.ai_sentiment = None
+        podcast.ai_categories = None
+        podcast.ai_processing_status = "pending"
+        podcast.ai_processing_date = None
+        podcast.ai_quality_score = None
+    
+    return podcast
+
+
 # ==================== User CRUD Operations ====================
 
 def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
@@ -218,12 +268,27 @@ def create_podcast(db: Session, podcast: schemas.PodcastCreate, owner_id: int) -
     """
     db_podcast = models.Podcast(**podcast.dict(), owner_id=owner_id)
     db.add(db_podcast)
+    db.flush()  # Get the podcast ID without committing
+    
+    # Create stats entry
+    db_stats = models.PodcastStats(
+        podcast_id=db_podcast.id,
+        play_count=0,
+        like_count=0,
+        bookmark_count=0,
+        comment_count=0
+    )
+    db.add(db_stats)
+    
     db.commit()
     db.refresh(db_podcast)
+    
+    # Enrich with stats for serialization
+    enrich_podcast_with_stats(db_podcast)
+    
     return db_podcast
 
-
-def get_podcast(db: Session, podcast_id: int, increment_play_count: bool = True) -> Optional[models.Podcast]:
+def get_podcast(db: Session, podcast_id: int, increment_play_count: bool = True, include_deleted: bool = False) -> Optional[models.Podcast]:
     """
     Get podcast by ID with optional play count increment.
     
@@ -231,22 +296,32 @@ def get_podcast(db: Session, podcast_id: int, increment_play_count: bool = True)
         db: Database session
         podcast_id: Podcast ID
         increment_play_count: Whether to increment play count (default: True)
+        include_deleted: Whether to include soft-deleted podcasts (default: False, admin only)
         
     Returns:
         Optional[models.Podcast]: Podcast object if found, None otherwise
     """
     query = db.query(models.Podcast).options(
-        joinedload(models.Podcast.owner)
+        joinedload(models.Podcast.owner),
+        joinedload(models.Podcast.stats),
+        joinedload(models.Podcast.ai_data)
     ).filter(models.Podcast.id == podcast_id)
+    
+    # Exclude soft-deleted podcasts unless explicitly requested
+    if not include_deleted:
+        query = query.filter(models.Podcast.is_deleted == False)
     
     podcast = query.first()
     if not podcast:
         return None
     
     # Increment play count if requested
-    if increment_play_count:
-        podcast.play_count += 1
+    if increment_play_count and podcast.stats:
+        podcast.stats.play_count += 1
         db.commit()
+    
+    # Enrich podcast with stats and AI data for serialization
+    enrich_podcast_with_stats(podcast)
     
     return podcast
 
@@ -276,8 +351,13 @@ def get_podcasts(
         Tuple[List[models.Podcast], int]: List of podcasts and total count
     """
     query = db.query(models.Podcast).options(
-        joinedload(models.Podcast.owner)
+        joinedload(models.Podcast.owner),
+        joinedload(models.Podcast.stats),
+        joinedload(models.Podcast.ai_data)
     )
+    
+    # Always exclude soft-deleted podcasts for public queries
+    query = query.filter(models.Podcast.is_deleted == False)
     
     # Apply filters
     if is_public:
@@ -303,6 +383,10 @@ def get_podcasts(
     
     total = query.count()
     podcasts = query.offset(skip).limit(limit).all()
+    
+    # Enrich podcasts with stats and AI data
+    for podcast in podcasts:
+        enrich_podcast_with_stats(podcast)
     
     return (podcasts, total)
 
@@ -332,6 +416,9 @@ def search_podcasts(
     search_query = db.query(models.Podcast).options(
         joinedload(models.Podcast.owner)
     )
+    
+    # Exclude soft-deleted podcasts
+    search_query = search_query.filter(models.Podcast.is_deleted == False)
     
     # Apply public filter
     if is_public:
@@ -382,11 +469,46 @@ def update_podcast(db: Session, podcast: models.Podcast, podcast_update: schemas
 
 def delete_podcast(db: Session, podcast: models.Podcast) -> bool:
     """
-    Delete a podcast.
+    Soft delete a podcast (marks as deleted but keeps in database).
     
     Args:
         db: Database session
         podcast: Podcast object to delete
+        
+    Returns:
+        bool: True if deletion successful
+    """
+    import datetime
+    podcast.is_deleted = True
+    podcast.deleted_at = datetime.datetime.now(datetime.timezone.utc)
+    db.commit()
+    return True
+
+
+def restore_podcast(db: Session, podcast: models.Podcast) -> bool:
+    """
+    Restore a soft-deleted podcast (admin only).
+    
+    Args:
+        db: Database session
+        podcast: Podcast object to restore
+        
+    Returns:
+        bool: True if restoration successful
+    """
+    podcast.is_deleted = False
+    podcast.deleted_at = None
+    db.commit()
+    return True
+
+
+def hard_delete_podcast(db: Session, podcast: models.Podcast) -> bool:
+    """
+    Permanently delete a podcast from database (admin only, irreversible).
+    
+    Args:
+        db: Database session
+        podcast: Podcast object to permanently delete
         
     Returns:
         bool: True if deletion successful
@@ -463,10 +585,10 @@ def like_podcast(db: Session, user_id: int, podcast_id: int) -> models.PodcastLi
     like = models.PodcastLike(user_id=user_id, podcast_id=podcast_id)
     db.add(like)
     
-    # Update podcast like count
-    podcast = db.query(models.Podcast).filter(models.Podcast.id == podcast_id).first()
-    if podcast:
-        podcast.like_count += 1
+    # Update stats like count
+    stats = db.query(models.PodcastStats).filter(models.PodcastStats.podcast_id == podcast_id).first()
+    if stats:
+        stats.like_count += 1
     
     db.commit()
     db.refresh(like)
@@ -502,10 +624,10 @@ def unlike_podcast(db: Session, user_id: int, podcast_id: int) -> bool:
     # Remove like
     db.delete(like)
     
-    # Update podcast like count
-    podcast = db.query(models.Podcast).filter(models.Podcast.id == podcast_id).first()
-    if podcast and podcast.like_count > 0:
-        podcast.like_count -= 1
+    # Update stats like count
+    stats = db.query(models.PodcastStats).filter(models.PodcastStats.podcast_id == podcast_id).first()
+    if stats and stats.like_count > 0:
+        stats.like_count -= 1
     
     db.commit()
     return True
@@ -542,10 +664,10 @@ def bookmark_podcast(db: Session, user_id: int, podcast_id: int) -> models.Podca
     bookmark = models.PodcastBookmark(user_id=user_id, podcast_id=podcast_id)
     db.add(bookmark)
     
-    # Update podcast bookmark count
-    podcast = db.query(models.Podcast).filter(models.Podcast.id == podcast_id).first()
-    if podcast:
-        podcast.bookmark_count += 1
+    # Update stats bookmark count
+    stats = db.query(models.PodcastStats).filter(models.PodcastStats.podcast_id == podcast_id).first()
+    if stats:
+        stats.bookmark_count += 1
     
     db.commit()
     db.refresh(bookmark)
@@ -581,10 +703,10 @@ def remove_bookmark(db: Session, user_id: int, podcast_id: int) -> bool:
     # Remove bookmark
     db.delete(bookmark)
     
-    # Update podcast bookmark count
-    podcast = db.query(models.Podcast).filter(models.Podcast.id == podcast_id).first()
-    if podcast and podcast.bookmark_count > 0:
-        podcast.bookmark_count -= 1
+    # Update stats bookmark count
+    stats = db.query(models.PodcastStats).filter(models.PodcastStats.podcast_id == podcast_id).first()
+    if stats and stats.bookmark_count > 0:
+        stats.bookmark_count -= 1
     
     db.commit()
     return True
@@ -604,12 +726,21 @@ def get_user_likes(db: Session, user_id: int, skip: int = 0, limit: int = 20) ->
         List[models.Podcast]: List of liked podcasts
     """
     likes = db.query(models.PodcastLike).options(
-        joinedload(models.PodcastLike.podcast).joinedload(models.Podcast.owner)
+        joinedload(models.PodcastLike.podcast)
+            .joinedload(models.Podcast.owner),
+        joinedload(models.PodcastLike.podcast)
+            .joinedload(models.Podcast.stats),
+        joinedload(models.PodcastLike.podcast)
+            .joinedload(models.Podcast.ai_data)
     ).filter(
         models.PodcastLike.user_id == user_id
     ).order_by(desc(models.PodcastLike.created_at)).offset(skip).limit(limit).all()
     
-    return [like.podcast for like in likes]
+    podcasts = [like.podcast for like in likes]
+    for podcast in podcasts:
+        enrich_podcast_with_stats(podcast)
+    
+    return podcasts
 
 
 def get_user_bookmarks(db: Session, user_id: int, skip: int = 0, limit: int = 20) -> List[models.Podcast]:
@@ -626,12 +757,21 @@ def get_user_bookmarks(db: Session, user_id: int, skip: int = 0, limit: int = 20
         List[models.Podcast]: List of bookmarked podcasts
     """
     bookmarks = db.query(models.PodcastBookmark).options(
-        joinedload(models.PodcastBookmark.podcast).joinedload(models.Podcast.owner)
+        joinedload(models.PodcastBookmark.podcast)
+            .joinedload(models.Podcast.owner),
+        joinedload(models.PodcastBookmark.podcast)
+            .joinedload(models.Podcast.stats),
+        joinedload(models.PodcastBookmark.podcast)
+            .joinedload(models.Podcast.ai_data)
     ).filter(
         models.PodcastBookmark.user_id == user_id
     ).order_by(desc(models.PodcastBookmark.created_at)).offset(skip).limit(limit).all()
     
-    return [bookmark.podcast for bookmark in bookmarks]
+    podcasts = [bookmark.podcast for bookmark in bookmarks]
+    for podcast in podcasts:
+        enrich_podcast_with_stats(podcast)
+    
+    return podcasts
 
 
 # ==================== Listening History CRUD Operations ====================
@@ -907,6 +1047,7 @@ def get_recommended_podcasts(db: Session, user_id: int, limit: int = 10):
     recommended = db.query(models.Podcast).options(
         joinedload(models.Podcast.owner)
     ).filter(
+        models.Podcast.is_deleted == False,
         models.Podcast.category.in_([cat[0] for cat in liked_categories]),
         models.Podcast.is_public == True,
         ~models.Podcast.id.in_(user_podcast_ids)

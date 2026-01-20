@@ -9,10 +9,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 import os
 
-from app.routers import users, podcasts, ai
+from app.routers import users, podcasts, ai, admin as admin_router
+from app.admin import setup_admin
 
 # Load environment variables
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
@@ -23,6 +25,12 @@ app = FastAPI(
     title="ProPod API",
     description="Podcast creation and management API with AI features",
     version="1.0.0"
+)
+
+# Add session middleware for admin auth (BEFORE other middlewares)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("ADMIN_SECRET_KEY", "your-secret-key-change-in-production")
 )
 
 # Configure CORS middleware
@@ -38,6 +46,10 @@ app.add_middleware(
 app.include_router(users.router)
 app.include_router(podcasts.router)
 app.include_router(ai.router)
+app.include_router(admin_router.router)
+
+# Setup admin panel (accessible at /admin)
+admin_panel = setup_admin(app)
 
 
 @app.exception_handler(RequestValidationError)
