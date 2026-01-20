@@ -124,6 +124,7 @@ const Library = () => {
                             />
                         )}
                         showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ paddingBottom: 100 }}
                     />
                 )}
             </View>

@@ -445,6 +445,7 @@ export default function Profile() {
             <ScrollView
                 contentContainerStyle={{
                     flexGrow: 1,
+                    paddingBottom: 100,
                     paddingTop:
                         Platform.OS === "android"
                             ? StatusBar.currentHeight
