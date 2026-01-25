@@ -40,6 +40,14 @@ class Settings(BaseSettings):
         default="http://localhost:8000",
         description="Base URL for the API (used for generating links)"
     )
+    
+    # AI Service Configuration
+    OPENAI_API_KEY: str = Field(default="", description="OpenAI API key for Whisper and GPT")
+    ASSEMBLYAI_API_KEY: str = Field(default="", description="AssemblyAI API key for transcription")
+    AI_TRANSCRIPTION_MODEL: str = Field(default="whisper-1", description="OpenAI transcription model")
+    AI_ANALYSIS_MODEL: str = Field(default="gpt-4-turbo-preview", description="OpenAI model for content analysis")
+    AI_MAX_AUDIO_SIZE_MB: int = Field(default=200, description="Maximum audio file size for AI processing in MB")
+    AI_TIMEOUT_SECONDS: int = Field(default=300, description="Timeout for AI processing in seconds")
 
     model_config = ConfigDict(
         env_file=os.path.join(os.path.dirname(__file__), '..', '.env'),

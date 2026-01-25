@@ -1,487 +1,515 @@
-import os
-import asyncio
+"""
+Content Analysis Service using OpenAI GPT-4.
+
+This module analyzes podcast transcriptions to extract:
+- Keywords
+- Summaries  
+- Sentiment
+- Categories
+- Quality scores
+"""
+
 import logging
-import re
-import string
-from typing import Optional, Dict, Any, List, Tuple
-from collections import Counter
-import math
+import json
+from typing import List, Dict, Any, Optional
+from dataclasses import dataclass
+from enum import Enum
+
+from openai import AsyncOpenAI, OpenAIError
+
+from app.config import settings
+
 
 logger = logging.getLogger(__name__)
 
+
+class SentimentType(str, Enum):
+    """Sentiment classification types."""
+    
+    POSITIVE = "positive"
+    NEUTRAL = "neutral"
+    NEGATIVE = "negative"
+    MIXED = "mixed"
+
+
+@dataclass
+class AnalysisResult:
+    """
+    Result of content analysis.
+    
+    Attributes:
+        keywords: List of extracted keywords
+        summary: Content summary (3-5 sentences)
+        sentiment: Detected sentiment
+        categories: Suggested categories
+        quality_score: Quality score (0-10)
+        metadata: Additional analysis data
+    """
+    
+    keywords: List[str]
+    summary: str
+    sentiment: SentimentType
+    categories: List[str]
+    quality_score: float
+    metadata: Dict[str, Any]
+
+
+class ContentAnalysisError(Exception):
+    """Base exception for content analysis errors."""
+    pass
+
+
 class ContentAnalyzer:
     """
-    Content analysis service for podcast transcriptions.
-    Provides category suggestions, keyword extraction, summaries, and sentiment analysis.
+    Service for analyzing podcast content using GPT-4.
+    
+    Provides intelligent content analysis including keyword extraction,
+    summarization, sentiment analysis, and quality scoring.
+    
+    Example:
+        analyzer = ContentAnalyzer()
+        result = await analyzer.analyze_content(transcription)
+        print(f"Summary: {result.summary}")
+        print(f"Keywords: {', '.join(result.keywords)}")
     """
     
-    def __init__(self):
-        self.is_initialized = False
-        self.stop_words = self._get_stop_words()
-        self.categories = self._get_predefined_categories()
-        self.category_keywords = self._get_category_keywords()
-        
-    async def initialize(self) -> bool:
-        """Initialize content analyzer"""
-        try:
-            logger.info("Content analyzer initialized successfully")
-            self.is_initialized = True
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize content analyzer: {e}")
-            return False
+    # Predefined podcast categories
+    PREDEFINED_CATEGORIES = [
+        "Technology", "Business", "Education", "Science", 
+        "Health & Fitness", "News & Politics", "Comedy",
+        "True Crime", "History", "Arts", "Sports",
+        "Music", "Society & Culture", "Religion & Spirituality",
+        "Government", "Entertainment", "Gaming", "Fashion & Beauty",
+        "Finance", "Self-Improvement", "Travel", "Food"
+    ]
     
-    async def analyze_content(
-        self, 
-        text: str, 
-        options: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+    def __init__(self):
+        """Initialize content analyzer with OpenAI client."""
+        self.openai_client: Optional[AsyncOpenAI] = None
+        
+        # Initialize OpenAI client if API key is available
+        if settings.OPENAI_API_KEY:
+            self.openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+            logger.info("OpenAI GPT-4 client initialized for content analysis")
+        else:
+            logger.warning("OpenAI API key not configured for content analysis")
+    
+    async def extract_keywords(
+        self,
+        text: str,
+        count: int = 10
+    ) -> List[str]:
         """
-        Perform complete content analysis on text
+        Extract relevant keywords from text using GPT-4.
         
         Args:
-            text: Input text to analyze
-            options: Analysis options
+            text: Input text
+            count: Number of keywords to extract
             
         Returns:
-            Dictionary with analysis results
+            List of keywords
         """
-        if not self.is_initialized:
-            await self.initialize()
-            
-        # Default options
-        default_options = {
-            "extract_keywords": True,
-            "suggest_categories": True,
-            "generate_summary": True,
-            "analyze_sentiment": True,
-            "keyword_count": 10,
-            "summary_sentences": 3
-        }
-        
-        if options:
-            default_options.update(options)
-        options = default_options
-        
-        results = {
-            "success": False,
-            "text_stats": {},
-            "keywords": [],
-            "categories": [],
-            "summary": "",
-            "sentiment": {},
-            "topics": [],
-            "readability": {},
-            "errors": []
-        }
+        if not self.openai_client:
+            raise ContentAnalysisError("OpenAI client not initialized")
         
         try:
-            if not text or not text.strip():
-                raise ValueError("Text is empty or invalid")
+            prompt = f"""
+            Extract the {count} most important keywords from this podcast transcription.
+            Focus on main topics, concepts, and themes.
+            Return only a JSON array of keywords, nothing else.
             
-            logger.info(f"Starting content analysis for text length: {len(text)}")
+            Transcription:
+            {text[:3000]}  # Limit to save tokens
+            """
             
-            # Basic text statistics
-            results["text_stats"] = await self._calculate_text_stats(text)
+            response = await self.openai_client.chat.completions.create(
+                model=settings.AI_ANALYSIS_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a keyword extraction expert."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=200
+            )
             
-            # Keyword extraction
-            if options["extract_keywords"]:
-                results["keywords"] = await self._extract_keywords(
-                    text, 
-                    options["keyword_count"]
-                )
+            # Parse JSON response
+            content = response.choices[0].message.content.strip()
+            keywords = json.loads(content)
             
-            # Category suggestion
-            if options["suggest_categories"]:
-                results["categories"] = await self._suggest_categories(text)
+            logger.info(f"Extracted {len(keywords)} keywords")
+            return keywords[:count]
             
-            # Summary generation
-            if options["generate_summary"]:
-                results["summary"] = await self._generate_summary(
-                    text, 
-                    options["summary_sentences"]
-                )
+        except json.JSONDecodeError:
+            # Fallback: split by commas
+            logger.warning("Failed to parse JSON, using fallback keyword extraction")
+            return [k.strip() for k in content.split(",")[:count]]
+        except Exception as e:
+            logger.error(f"Keyword extraction failed: {e}")
+            return []
+    
+    async def generate_summary(
+        self,
+        text: str,
+        length: str = "medium"
+    ) -> str:
+        """
+        Generate content summary using GPT-4.
+        
+        Args:
+            text: Input text
+            length: Summary length ('short', 'medium', 'long')
             
-            # Sentiment analysis
-            if options["analyze_sentiment"]:
-                results["sentiment"] = await self._analyze_sentiment(text)
+        Returns:
+            Summary text
+        """
+        if not self.openai_client:
+            raise ContentAnalysisError("OpenAI client not initialized")
+        
+        # Define length constraints
+        length_map = {
+            "short": "2-3 sentences",
+            "medium": "3-5 sentences",
+            "long": "5-7 sentences"
+        }
+        
+        length_constraint = length_map.get(length, "3-5 sentences")
+        
+        try:
+            prompt = f"""
+            Summarize this podcast transcription in {length_constraint}.
+            Make it engaging and highlight the main points.
             
-            # Topic modeling (simple)
-            results["topics"] = await self._extract_topics(text)
+            Transcription:
+            {text[:4000]}  # Limit to save tokens
+            """
             
-            # Readability analysis
-            results["readability"] = await self._analyze_readability(text)
+            response = await self.openai_client.chat.completions.create(
+                model=settings.AI_ANALYSIS_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a podcast content summarizer."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.5,
+                max_tokens=300
+            )
             
-            results["success"] = True
-            logger.info("Content analysis completed successfully")
+            summary = response.choices[0].message.content.strip()
+            logger.info(f"Generated {length} summary ({len(summary)} chars)")
+            
+            return summary
             
         except Exception as e:
-            logger.error(f"Content analysis failed: {e}")
-            results["errors"].append(str(e))
-            
-        return results
+            logger.error(f"Summary generation failed: {e}")
+            return "Summary generation failed."
     
-    async def _calculate_text_stats(self, text: str) -> Dict[str, Any]:
-        """Calculate basic text statistics"""
-        sentences = self._split_sentences(text)
-        words = self._extract_words(text)
+    async def detect_sentiment(self, text: str) -> SentimentType:
+        """
+        Detect sentiment of content using GPT-4.
         
-        # Character stats
-        char_count = len(text)
-        char_count_no_spaces = len(text.replace(' ', ''))
-        
-        # Word stats
-        word_count = len(words)
-        unique_words = len(set(word.lower() for word in words))
-        avg_word_length = sum(len(word) for word in words) / max(word_count, 1)
-        
-        # Sentence stats
-        sentence_count = len(sentences)
-        avg_sentence_length = word_count / max(sentence_count, 1)
-        
-        # Reading time estimation (average 200 WPM)
-        reading_time_minutes = word_count / 200
-        
-        return {
-            "character_count": char_count,
-            "character_count_no_spaces": char_count_no_spaces,
-            "word_count": word_count,
-            "unique_words": unique_words,
-            "sentence_count": sentence_count,
-            "paragraph_count": len([p for p in text.split('\n\n') if p.strip()]),
-            "avg_word_length": round(avg_word_length, 2),
-            "avg_sentence_length": round(avg_sentence_length, 2),
-            "lexical_diversity": round(unique_words / max(word_count, 1), 4),
-            "reading_time_minutes": round(reading_time_minutes, 1)
-        }
-    
-    async def _extract_keywords(self, text: str, count: int) -> List[Dict[str, Any]]:
-        """Extract keywords using TF-IDF-like scoring"""
-        words = self._extract_words(text.lower())
-        
-        # Filter out stop words and short words
-        filtered_words = [
-            word for word in words 
-            if word not in self.stop_words and len(word) > 2
-        ]
-        
-        if not filtered_words:
-            return []
-        
-        # Calculate word frequencies
-        word_freq = Counter(filtered_words)
-        total_words = len(filtered_words)
-        
-        # Calculate TF-IDF-like scores
-        keywords_with_scores = []
-        for word, freq in word_freq.most_common():
-            tf = freq / total_words
-            # Simple IDF approximation (real IDF would need document corpus)
-            idf = math.log(total_words / freq)
-            score = tf * idf
+        Args:
+            text: Input text
             
-            keywords_with_scores.append({
-                "word": word,
-                "frequency": freq,
-                "tf_score": round(tf, 6),
-                "score": round(score, 6)
-            })
+        Returns:
+            SentimentType
+        """
+        if not self.openai_client:
+            raise ContentAnalysisError("OpenAI client not initialized")
         
-        # Sort by score and return top keywords
-        keywords_with_scores.sort(key=lambda x: x["score"], reverse=True)
-        return keywords_with_scores[:count]
-    
-    async def _suggest_categories(self, text: str) -> List[Dict[str, Any]]:
-        """Suggest categories based on keyword matching"""
-        text_lower = text.lower()
-        words = set(self._extract_words(text_lower))
-        
-        category_scores = {}
-        
-        for category, keywords in self.category_keywords.items():
-            score = 0
-            matched_keywords = []
+        try:
+            prompt = f"""
+            Analyze the overall sentiment of this podcast transcription.
+            Respond with ONLY ONE WORD: positive, negative, neutral, or mixed.
             
-            for keyword in keywords:
-                if keyword in text_lower:
-                    # Exact phrase match gets higher score
-                    score += 2
-                    matched_keywords.append(keyword)
-                elif keyword in words:
-                    # Word match gets normal score
-                    score += 1
-                    matched_keywords.append(keyword)
+            Transcription:
+            {text[:2000]}  # Limit to save tokens
+            """
             
-            if score > 0:
-                category_scores[category] = {
-                    "category": category,
-                    "score": score,
-                    "confidence": min(score / 10, 1.0),  # Normalize to 0-1
-                    "matched_keywords": matched_keywords
-                }
-        
-        # Sort by score and return top categories
-        suggested_categories = list(category_scores.values())
-        suggested_categories.sort(key=lambda x: x["score"], reverse=True)
-        
-        return suggested_categories[:5]  # Return top 5 categories
-    
-    async def _generate_summary(self, text: str, sentence_count: int) -> str:
-        """Generate extractive summary by selecting top sentences"""
-        sentences = self._split_sentences(text)
-        
-        if len(sentences) <= sentence_count:
-            return text.strip()
-        
-        # Score sentences based on keyword density
-        keywords = await self._extract_keywords(text, 20)
-        keyword_set = {kw["word"] for kw in keywords}
-        
-        sentence_scores = []
-        for i, sentence in enumerate(sentences):
-            sentence_words = set(self._extract_words(sentence.lower()))
-            keyword_overlap = len(sentence_words.intersection(keyword_set))
-            word_count = len(sentence_words)
+            response = await self.openai_client.chat.completions.create(
+                model=settings.AI_ANALYSIS_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a sentiment analysis expert."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=10
+            )
             
-            # Score based on keyword density and position (earlier = better)
-            score = keyword_overlap / max(word_count, 1)
-            position_bonus = 1.0 / (i + 1)  # Earlier sentences get bonus
-            final_score = score + (position_bonus * 0.1)
+            sentiment_str = response.choices[0].message.content.strip().lower()
             
-            sentence_scores.append((sentence, final_score))
-        
-        # Select top sentences
-        sentence_scores.sort(key=lambda x: x[1], reverse=True)
-        top_sentences = [sent[0] for sent in sentence_scores[:sentence_count]]
-        
-        # Reorder sentences by original position
-        summary_sentences = []
-        for sentence in sentences:
-            if sentence in top_sentences:
-                summary_sentences.append(sentence)
-        
-        return " ".join(summary_sentences).strip()
-    
-    async def _analyze_sentiment(self, text: str) -> Dict[str, Any]:
-        """Simple rule-based sentiment analysis"""
-        # Define sentiment word lists (simplified)
-        positive_words = {
-            'good', 'great', 'excellent', 'amazing', 'wonderful', 'fantastic',
-            'love', 'like', 'enjoy', 'happy', 'pleased', 'satisfied', 'awesome',
-            'brilliant', 'perfect', 'beautiful', 'incredible', 'outstanding'
-        }
-        
-        negative_words = {
-            'bad', 'terrible', 'awful', 'horrible', 'hate', 'dislike', 'angry',
-            'sad', 'disappointed', 'frustrated', 'annoying', 'wrong', 'problem',
-            'issue', 'difficult', 'hard', 'impossible', 'fail', 'failure'
-        }
-        
-        words = self._extract_words(text.lower())
-        
-        positive_count = sum(1 for word in words if word in positive_words)
-        negative_count = sum(1 for word in words if word in negative_words)
-        neutral_count = len(words) - positive_count - negative_count
-        
-        total_sentiment_words = positive_count + negative_count
-        
-        if total_sentiment_words == 0:
-            sentiment_label = "neutral"
-            confidence = 0.5
-        else:
-            sentiment_ratio = (positive_count - negative_count) / total_sentiment_words
-            
-            if sentiment_ratio > 0.1:
-                sentiment_label = "positive"
-                confidence = min(0.5 + sentiment_ratio, 1.0)
-            elif sentiment_ratio < -0.1:
-                sentiment_label = "negative"
-                confidence = min(0.5 + abs(sentiment_ratio), 1.0)
-            else:
-                sentiment_label = "neutral"
-                confidence = 0.5
-        
-        return {
-            "label": sentiment_label,
-            "confidence": round(confidence, 3),
-            "scores": {
-                "positive": round(positive_count / max(len(words), 1), 4),
-                "negative": round(negative_count / max(len(words), 1), 4),
-                "neutral": round(neutral_count / max(len(words), 1), 4)
-            },
-            "word_counts": {
-                "positive": positive_count,
-                "negative": negative_count,
-                "neutral": neutral_count
+            # Map to enum
+            sentiment_map = {
+                "positive": SentimentType.POSITIVE,
+                "negative": SentimentType.NEGATIVE,
+                "neutral": SentimentType.NEUTRAL,
+                "mixed": SentimentType.MIXED
             }
-        }
-    
-    async def _extract_topics(self, text: str) -> List[Dict[str, Any]]:
-        """Simple topic extraction based on keyword clustering"""
-        keywords = await self._extract_keywords(text, 15)
-        
-        if not keywords:
-            return []
-        
-        # Group keywords into topics (simplified approach)
-        # In a real implementation, you'd use more sophisticated clustering
-        topics = []
-        
-        # Technology topic
-        tech_words = [kw for kw in keywords if any(tech in kw["word"] for tech in 
-                     ['tech', 'digital', 'computer', 'software', 'app', 'web', 'data'])]
-        if tech_words:
-            topics.append({
-                "topic": "Technology",
-                "keywords": [kw["word"] for kw in tech_words[:5]],
-                "relevance": sum(kw["score"] for kw in tech_words) / len(tech_words)
-            })
-        
-        # Business topic
-        business_words = [kw for kw in keywords if any(biz in kw["word"] for biz in 
-                         ['business', 'market', 'company', 'money', 'profit', 'sales'])]
-        if business_words:
-            topics.append({
-                "topic": "Business",
-                "keywords": [kw["word"] for kw in business_words[:5]],
-                "relevance": sum(kw["score"] for kw in business_words) / len(business_words)
-            })
-        
-        # If no specific topics found, create a general topic
-        if not topics:
-            top_keywords = keywords[:5]
-            topics.append({
-                "topic": "General",
-                "keywords": [kw["word"] for kw in top_keywords],
-                "relevance": sum(kw["score"] for kw in top_keywords) / len(top_keywords)
-            })
-        
-        return topics
-    
-    async def _analyze_readability(self, text: str) -> Dict[str, Any]:
-        """Simple readability analysis"""
-        sentences = self._split_sentences(text)
-        words = self._extract_words(text)
-        
-        if not sentences or not words:
-            return {"score": 0, "level": "unknown"}
-        
-        avg_sentence_length = len(words) / len(sentences)
-        avg_word_length = sum(len(word) for word in words) / len(words)
-        
-        # Simple readability score (0-100, higher = easier)
-        # Based on simplified Flesch formula
-        score = 206.835 - (1.015 * avg_sentence_length) - (84.6 * (avg_word_length / 100))
-        score = max(0, min(100, score))
-        
-        # Determine reading level
-        if score >= 90:
-            level = "very_easy"
-        elif score >= 80:
-            level = "easy"
-        elif score >= 70:
-            level = "fairly_easy"
-        elif score >= 60:
-            level = "standard"
-        elif score >= 50:
-            level = "fairly_difficult"
-        elif score >= 30:
-            level = "difficult"
-        else:
-            level = "very_difficult"
-        
-        return {
-            "score": round(score, 1),
-            "level": level,
-            "avg_sentence_length": round(avg_sentence_length, 1),
-            "avg_word_length": round(avg_word_length, 2)
-        }
-    
-    def _split_sentences(self, text: str) -> List[str]:
-        """Split text into sentences"""
-        # Simple sentence splitting
-        sentences = re.split(r'[.!?]+', text)
-        return [s.strip() for s in sentences if s.strip()]
-    
-    def _extract_words(self, text: str) -> List[str]:
-        """Extract words from text"""
-        # Remove punctuation and split
-        translator = str.maketrans('', '', string.punctuation)
-        text = text.translate(translator)
-        words = text.split()
-        return [word for word in words if word.strip()]
-    
-    def _get_stop_words(self) -> set:
-        """Get stop words for Turkish and English"""
-        stop_words = {
-            # English stop words
-            'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 
-            'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 
-            'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should',
-            'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'i',
-            'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them',
             
-            # Turkish stop words
-            'bir', 'bu', 'şu', 've', 'veya', 'ya', 'da', 'de', 'den', 'dan', 'ile',
-            'için', 'gibi', 'kadar', 'daha', 'en', 'çok', 'az', 'var', 'yok', 'olan',
-            'oldu', 'olur', 'olarak', 'ben', 'sen', 'o', 'biz', 'siz', 'onlar'
-        }
-        return stop_words
+            sentiment = sentiment_map.get(sentiment_str, SentimentType.NEUTRAL)
+            logger.info(f"Detected sentiment: {sentiment.value}")
+            
+            return sentiment
+            
+        except Exception as e:
+            logger.error(f"Sentiment detection failed: {e}")
+            return SentimentType.NEUTRAL
     
-    def _get_predefined_categories(self) -> List[str]:
-        """Get predefined podcast categories"""
-        return [
-            "Technology", "Business", "Science", "Health", "Education", "Entertainment",
-            "News", "Sports", "Music", "Arts", "History", "Politics", "Travel",
-            "Food", "Lifestyle", "Self-Help", "Comedy", "True Crime", "Documentary"
-        ]
-    
-    def _get_category_keywords(self) -> Dict[str, List[str]]:
-        """Get keywords for each category"""
-        return {
-            "Technology": [
-                "teknoloji", "bilgisayar", "yazılım", "uygulama", "internet", "dijital",
-                "ai", "yapay zeka", "robot", "veri", "algorithm", "programming", "code"
-            ],
-            "Business": [
-                "iş", "şirket", "pazarlama", "satış", "para", "ekonomi", "girişim",
-                "startup", "yatırım", "finans", "business", "marketing", "profit"
-            ],
-            "Science": [
-                "bilim", "araştırma", "deney", "fizik", "kimya", "biyoloji", "matematik",
-                "science", "research", "study", "discovery", "theory"
-            ],
-            "Health": [
-                "sağlık", "doktor", "hastalık", "tedavi", "tıp", "egzersiz", "beslenme",
-                "health", "medical", "fitness", "nutrition", "wellness"
-            ],
-            "Education": [
-                "eğitim", "öğrenme", "ders", "öğretmen", "okul", "üniversite", "kurs",
-                "education", "learning", "teaching", "student", "knowledge"
-            ],
-            "Entertainment": [
-                "eğlence", "film", "dizi", "oyun", "müzik", "sanat", "kültür",
-                "entertainment", "movie", "game", "show", "fun"
-            ],
-            "Sports": [
-                "spor", "futbol", "basketbol", "voleybol", "tenis", "yüzme", "koşu",
-                "sports", "football", "basketball", "tennis", "running", "fitness"
-            ],
-            "News": [
-                "haber", "gündem", "politika", "dünya", "ülke", "olay", "gelişme",
-                "news", "politics", "world", "current", "events", "breaking"
+    async def suggest_categories(
+        self,
+        text: str,
+        keywords: List[str]
+    ) -> List[str]:
+        """
+        Suggest relevant categories using GPT-4.
+        
+        Args:
+            text: Input text
+            keywords: Extracted keywords for context
+            
+        Returns:
+            List of suggested categories
+        """
+        if not self.openai_client:
+            raise ContentAnalysisError("OpenAI client not initialized")
+        
+        try:
+            categories_str = ", ".join(self.PREDEFINED_CATEGORIES)
+            keywords_str = ", ".join(keywords)
+            
+            prompt = f"""
+            Suggest 1-3 most relevant categories for this podcast from the list below.
+            Return ONLY a JSON array of category names, nothing else.
+            
+            Available categories:
+            {categories_str}
+            
+            Keywords: {keywords_str}
+            
+            Transcription excerpt:
+            {text[:2000]}
+            """
+            
+            response = await self.openai_client.chat.completions.create(
+                model=settings.AI_ANALYSIS_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a podcast categorization expert."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=100
+            )
+            
+            # Parse JSON response
+            content = response.choices[0].message.content.strip()
+            categories = json.loads(content)
+            
+            # Validate categories
+            valid_categories = [
+                cat for cat in categories 
+                if cat in self.PREDEFINED_CATEGORIES
             ]
-        }
+            
+            logger.info(f"Suggested {len(valid_categories)} categories")
+            return valid_categories[:3]
+            
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse categories JSON")
+            return ["Technology"]  # Default fallback
+        except Exception as e:
+            logger.error(f"Category suggestion failed: {e}")
+            return []
     
-    def get_status(self) -> Dict[str, Any]:
-        """Get content analyzer status"""
-        return {
-            "is_initialized": self.is_initialized,
-            "categories_count": len(self.categories),
-            "stop_words_count": len(self.stop_words),
-            "supported_features": [
-                "keyword_extraction", "category_suggestion", "summary_generation",
-                "sentiment_analysis", "topic_modeling", "readability_analysis"
-            ]
-        } 
+    async def calculate_quality_score(
+        self,
+        text: str,
+        metadata: Dict[str, Any]
+    ) -> float:
+        """
+        Calculate content quality score (0-10).
+        
+        Uses GPT-4 to evaluate:
+        - Content clarity
+        - Information value
+        - Audio quality (from metadata)
+        - Engagement level
+        
+        Args:
+            text: Transcription text
+            metadata: Additional metadata (duration, word_count, confidence, etc.)
+            
+        Returns:
+            Quality score (0-10)
+        """
+        if not self.openai_client:
+            # Fallback to basic scoring
+            return self._calculate_basic_quality_score(text, metadata)
+        
+        try:
+            word_count = metadata.get("word_count", 0)
+            duration = metadata.get("duration", 0)
+            confidence = metadata.get("confidence", 0.0)
+            
+            prompt = f"""
+            Rate the quality of this podcast transcription on a scale of 0-10.
+            Consider: clarity, information value, engagement, structure.
+            
+            Metadata:
+            - Word count: {word_count}
+            - Duration: {duration}s
+            - Transcription confidence: {confidence:.2f}
+            
+            Transcription excerpt:
+            {text[:3000]}
+            
+            Respond with ONLY a number between 0-10.
+            """
+            
+            response = await self.openai_client.chat.completions.create(
+                model=settings.AI_ANALYSIS_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a content quality evaluator."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=10
+            )
+            
+            score_str = response.choices[0].message.content.strip()
+            
+            # Parse score
+            try:
+                score = float(score_str)
+                # Clamp to 0-10 range
+                score = max(0.0, min(10.0, score))
+            except ValueError:
+                logger.warning(f"Failed to parse quality score: {score_str}")
+                score = self._calculate_basic_quality_score(text, metadata)
+            
+            logger.info(f"Calculated quality score: {score:.1f}/10")
+            return score
+            
+        except Exception as e:
+            logger.error(f"Quality score calculation failed: {e}")
+            return self._calculate_basic_quality_score(text, metadata)
+    
+    def _calculate_basic_quality_score(
+        self,
+        text: str,
+        metadata: Dict[str, Any]
+    ) -> float:
+        """
+        Fallback quality scoring without AI.
+        
+        Args:
+            text: Transcription text
+            metadata: Metadata dict
+            
+        Returns:
+            Quality score (0-10)
+        """
+        score = 5.0  # Base score
+        
+        # Word count factor
+        word_count = metadata.get("word_count", 0)
+        if word_count > 500:
+            score += 1.0
+        if word_count > 1000:
+            score += 1.0
+        
+        # Confidence factor
+        confidence = metadata.get("confidence", 0.0)
+        score += confidence * 2.0
+        
+        # Duration factor
+        duration = metadata.get("duration", 0)
+        if duration > 300:  # > 5 minutes
+            score += 1.0
+        
+        # Clamp to 0-10
+        return max(0.0, min(10.0, score))
+    
+    async def analyze_content(
+        self,
+        text: str,
+        options: Optional[Dict[str, Any]] = None
+    ) -> AnalysisResult:
+        """
+        Perform comprehensive content analysis.
+        
+        Args:
+            text: Transcription text
+            options: Analysis options (keyword_count, summary_length, etc.)
+            
+        Returns:
+            AnalysisResult with all analysis data
+        """
+        if not self.openai_client:
+            raise ContentAnalysisError("OpenAI client not initialized")
+        
+        options = options or {}
+        keyword_count = options.get("keyword_count", 10)
+        summary_length = options.get("summary_length", "medium")
+        
+        try:
+            logger.info("Starting comprehensive content analysis")
+            
+            # Extract keywords (most important first)
+            keywords = await self.extract_keywords(text, keyword_count)
+            
+            # Generate summary
+            summary = await self.generate_summary(text, summary_length)
+            
+            # Detect sentiment
+            sentiment = await self.detect_sentiment(text)
+            
+            # Suggest categories
+            categories = await self.suggest_categories(text, keywords)
+            
+            # Calculate quality score
+            metadata = {
+                "word_count": len(text.split()),
+                "confidence": options.get("confidence", 0.95),
+                "duration": options.get("duration", 0)
+            }
+            quality_score = await self.calculate_quality_score(text, metadata)
+            
+            result = AnalysisResult(
+                keywords=keywords,
+                summary=summary,
+                sentiment=sentiment,
+                categories=categories,
+                quality_score=quality_score,
+                metadata={
+                    "text_length": len(text),
+                    "word_count": metadata["word_count"],
+                    "analysis_model": settings.AI_ANALYSIS_MODEL
+                }
+            )
+            
+            logger.info(
+                f"Content analysis completed: {len(keywords)} keywords, "
+                f"score: {quality_score:.1f}/10"
+            )
+            
+            return result
+            
+        except Exception as e:
+            error_msg = f"Content analysis failed: {str(e)}"
+            logger.error(error_msg)
+            raise ContentAnalysisError(error_msg) from e
+
+
+# Singleton instance
+_content_analyzer: Optional[ContentAnalyzer] = None
+
+
+def get_content_analyzer() -> ContentAnalyzer:
+    """
+    Get singleton content analyzer instance.
+    
+    Returns:
+        ContentAnalyzer instance
+    """
+    global _content_analyzer
+    if _content_analyzer is None:
+        _content_analyzer = ContentAnalyzer()
+    return _content_analyzer
