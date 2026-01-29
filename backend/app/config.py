@@ -42,10 +42,25 @@ class Settings(BaseSettings):
     )
     
     # AI Service Configuration
-    OPENAI_API_KEY: str = Field(default="", description="OpenAI API key for Whisper and GPT")
-    ASSEMBLYAI_API_KEY: str = Field(default="", description="AssemblyAI API key for transcription")
+    AI_PROVIDER: Literal["local", "openai", "hybrid"] = Field(
+        default="local",
+        description="AI provider: 'local' (free Whisper), 'openai' (paid API), 'hybrid' (both, user-based)"
+    )
+    OPENAI_API_KEY: str = Field(default="", description="OpenAI API key for Whisper and GPT (required for openai/hybrid)")
+    ASSEMBLYAI_API_KEY: str = Field(default="", description="AssemblyAI API key for transcription (optional fallback)")
+    
+    # OpenAI Configuration (used when AI_PROVIDER is 'openai' or 'hybrid')
     AI_TRANSCRIPTION_MODEL: str = Field(default="whisper-1", description="OpenAI transcription model")
-    AI_ANALYSIS_MODEL: str = Field(default="gpt-4-turbo-preview", description="OpenAI model for content analysis")
+    AI_ANALYSIS_MODEL: str = Field(default="gpt-4-turbo", description="OpenAI model for content analysis")
+    
+    # Local Whisper Configuration (used when AI_PROVIDER is 'local' or 'hybrid')
+    WHISPER_MODEL_SIZE: Literal["tiny", "base", "small", "medium", "large"] = Field(
+        default="base",
+        description="Local Whisper model size: tiny (fast), base (balanced), medium/large (accurate)"
+    )
+    WHISPER_DEVICE: str = Field(default="cpu", description="Device for Whisper: 'cpu', 'cuda', or 'mps'")
+    
+    # General AI Settings
     AI_MAX_AUDIO_SIZE_MB: int = Field(default=200, description="Maximum audio file size for AI processing in MB")
     AI_TIMEOUT_SECONDS: int = Field(default=300, description="Timeout for AI processing in seconds")
 

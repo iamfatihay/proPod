@@ -18,6 +18,7 @@ from openai import AsyncOpenAI, OpenAIError
 from pydub import AudioSegment
 
 from app.config import settings
+from app.services.local_whisper_service import get_local_whisper_service
 
 
 logger = logging.getLogger(__name__)
@@ -342,17 +343,24 @@ class TranscriptionService:
         self,
         file_path: str,
         language: str = "auto",
-        provider: Optional[TranscriptionProvider] = None
+        provider: Optional[TranscriptionProvider] = None,
+        user_is_premium: bool = False
     ) -> TranscriptionResult:
         """
-        Transcribe audio file with automatic fallback.
+        Transcribe audio file with provider selection based on config.
         
-        Tries OpenAI first, falls back to AssemblyAI if it fails.
+        Provider Selection Logic:
+        - AI_PROVIDER="local": Always use local Whisper (FREE)
+        - AI_PROVIDER="openai": Always use OpenAI API (PAID)
+        - AI_PROVIDER="hybrid": 
+            - Premium users → OpenAI API (best quality)
+            - Free users → Local Whisper (free but slower)
         
         Args:
             file_path: Path to audio file
             language: Language code or 'auto' for detection
-            provider: Specific provider to use, or None for auto-selection
+            provider: Override provider selection (for testing)
+            user_is_premium: Whether user has premium subscription (used in hybrid mode)
             
         Returns:
             TranscriptionResult
@@ -364,20 +372,61 @@ class TranscriptionService:
         # Validate audio file first
         self.validate_audio_file(file_path)
         
-        # If specific provider requested
+        # Determine which provider to use
+        ai_provider = settings.AI_PROVIDER
+        
+        # Provider override (for explicit requests or testing)
         if provider == TranscriptionProvider.OPENAI:
             return await self.transcribe_with_openai(file_path, language)
         elif provider == TranscriptionProvider.ASSEMBLYAI:
             return await self.transcribe_with_assemblyai(file_path, language)
         
-        # Try OpenAI first
+        # LOCAL mode: Always use local Whisper (development default)
+        if ai_provider == "local":
+            logger.info("🆓 Using LOCAL Whisper (FREE, no API costs)")
+            return await self._transcribe_with_local_whisper(file_path, language)
+        
+        # OPENAI mode: Always use OpenAI API
+        elif ai_provider == "openai":
+            logger.info("💰 Using OpenAI API (PAID)")
+            if not self.openai_client:
+                raise TranscriptionError("OpenAI API key not configured")
+            return await self.transcribe_with_openai(file_path, language)
+        
+        # HYBRID mode: Choose based on user subscription
+        elif ai_provider == "hybrid":
+            if user_is_premium:
+                logger.info("⭐ Premium user → Using OpenAI API (best quality)")
+                if self.openai_client:
+                    try:
+                        return await self.transcribe_with_openai(file_path, language)
+                    except TranscriptionError as e:
+                        logger.warning(f"OpenAI failed, falling back to local: {e}")
+                        return await self._transcribe_with_local_whisper(file_path, language)
+                else:
+                    logger.warning("OpenAI not configured, using local Whisper")
+                    return await self._transcribe_with_local_whisper(file_path, language)
+            else:
+                logger.info("🆓 Free user → Using LOCAL Whisper")
+                return await self._transcribe_with_local_whisper(file_path, language)
+        
+        # Fallback: try any available provider
+        logger.warning(f"Unknown AI_PROVIDER '{ai_provider}', trying available providers")
+        
+        # Try local Whisper first (free)
+        try:
+            return await self._transcribe_with_local_whisper(file_path, language)
+        except Exception as e:
+            logger.warning(f"Local Whisper failed: {e}")
+        
+        # Try OpenAI
         if self.openai_client:
             try:
                 return await self.transcribe_with_openai(file_path, language)
             except TranscriptionError as e:
-                logger.warning(f"OpenAI failed, trying AssemblyAI: {e}")
+                logger.warning(f"OpenAI failed: {e}")
         
-        # Fallback to AssemblyAI
+        # Try AssemblyAI
         if self.assemblyai_api_key:
             try:
                 return await self.transcribe_with_assemblyai(file_path, language)
@@ -385,11 +434,55 @@ class TranscriptionService:
                 logger.error(f"AssemblyAI also failed: {e}")
                 raise
         
-        # No providers available
+        # No providers available or all failed
         raise TranscriptionError(
-            "No transcription providers configured. "
-            "Set OPENAI_API_KEY or ASSEMBLYAI_API_KEY in .env"
+            "All transcription providers failed. Check configuration and logs."
         )
+    
+    async def _transcribe_with_local_whisper(
+        self,
+        file_path: str,
+        language: str = "auto"
+    ) -> TranscriptionResult:
+        """
+        Transcribe audio using local Whisper model (FREE).
+        
+        Args:
+            file_path: Path to audio file
+            language: Language code or 'auto' for detection
+            
+        Returns:
+            TranscriptionResult
+        """
+        try:
+            local_service = get_local_whisper_service()
+            
+            # Call local Whisper
+            result = await local_service.transcribe(
+                audio_path=file_path,
+                language=None if language == "auto" else language
+            )
+            
+            # Convert to TranscriptionResult format
+            return TranscriptionResult(
+                text=result["text"],
+                language=result["language"],
+                confidence=0.90,  # Local Whisper is reliable
+                duration=result["duration"],
+                provider=TranscriptionProvider.OPENAI,  # Keep as OPENAI for compatibility
+                word_count=result["word_count"],
+                metadata={
+                    "model": f"whisper-{settings.WHISPER_MODEL_SIZE}",
+                    "device": settings.WHISPER_DEVICE,
+                    "processing_time": result["processing_time"],
+                    "provider_type": "local_free"
+                }
+            )
+            
+        except Exception as e:
+            error_msg = f"Local Whisper transcription failed: {str(e)}"
+            logger.error(error_msg)
+            raise TranscriptionError(error_msg) from e
 
 
 # Singleton instance

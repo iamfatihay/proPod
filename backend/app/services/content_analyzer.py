@@ -18,6 +18,7 @@ from enum import Enum
 from openai import AsyncOpenAI, OpenAIError
 
 from app.config import settings
+from app.services.local_analyzer_service import get_local_analyzer_service
 
 
 logger = logging.getLogger(__name__)
@@ -430,29 +431,83 @@ class ContentAnalyzer:
     async def analyze_content(
         self,
         text: str,
-        options: Optional[Dict[str, Any]] = None
+        options: Optional[Dict[str, Any]] = None,
+        user_is_premium: bool = False
     ) -> AnalysisResult:
         """
         Perform comprehensive content analysis.
         
+        Provider Selection Logic:
+        - AI_PROVIDER="local": Always use local analyzer (FREE, basic quality)
+        - AI_PROVIDER="openai": Always use GPT-4 (PAID, best quality)
+        - AI_PROVIDER="hybrid": 
+            - Premium users → GPT-4 (best quality)
+            - Free users → Local analyzer (basic quality)
+        
         Args:
             text: Transcription text
             options: Analysis options (keyword_count, summary_length, etc.)
+            user_is_premium: Whether user has premium subscription
             
         Returns:
             AnalysisResult with all analysis data
         """
-        if not self.openai_client:
-            raise ContentAnalysisError("OpenAI client not initialized")
-        
         options = options or {}
         keyword_count = options.get("keyword_count", 10)
         summary_length = options.get("summary_length", "medium")
         
+        # Determine which provider to use
+        ai_provider = settings.AI_PROVIDER
+        
+        # LOCAL mode: Always use local analyzer (development default)
+        if ai_provider == "local":
+            logger.info("🆓 Using LOCAL analyzer (FREE, basic features)")
+            return await self._analyze_with_local(text, options)
+        
+        # OPENAI mode: Always use GPT-4
+        elif ai_provider == "openai":
+            logger.info("💰 Using GPT-4 analyzer (PAID, best quality)")
+            if not self.openai_client:
+                raise ContentAnalysisError("OpenAI API key not configured")
+            return await self._analyze_with_openai(text, options)
+        
+        # HYBRID mode: Choose based on user subscription
+        elif ai_provider == "hybrid":
+            if user_is_premium:
+                logger.info("⭐ Premium user → Using GPT-4 (best quality)")
+                if self.openai_client:
+                    try:
+                        return await self._analyze_with_openai(text, options)
+                    except ContentAnalysisError as e:
+                        logger.warning(f"GPT-4 failed, falling back to local: {e}")
+                        return await self._analyze_with_local(text, options)
+                else:
+                    logger.warning("OpenAI not configured, using local analyzer")
+                    return await self._analyze_with_local(text, options)
+            else:
+                logger.info("🆓 Free user → Using LOCAL analyzer")
+                return await self._analyze_with_local(text, options)
+        
+        # Fallback: try local first (free)
+        logger.warning(f"Unknown AI_PROVIDER '{ai_provider}', using local analyzer")
+        return await self._analyze_with_local(text, options)
+    
+    async def _analyze_with_openai(
+        self,
+        text: str,
+        options: Dict[str, Any]
+    ) -> AnalysisResult:
+        """Analyze content using OpenAI GPT-4 (PAID, best quality)."""
+        if not self.openai_client:
+            raise ContentAnalysisError("OpenAI client not initialized")
+        
+        keyword_count = options.get("keyword_count", 10)
+        summary_length = options.get("summary_length", "medium")
+        
         try:
-            logger.info("Starting comprehensive content analysis")
+            logger.info("Starting GPT-4 content analysis")
             
-            # Extract keywords (most important first)
+            # Extract keywords
             keywords = await self.extract_keywords(text, keyword_count)
             
             # Generate summary
@@ -481,19 +536,51 @@ class ContentAnalyzer:
                 metadata={
                     "text_length": len(text),
                     "word_count": metadata["word_count"],
-                    "analysis_model": settings.AI_ANALYSIS_MODEL
+                    "analysis_model": settings.AI_ANALYSIS_MODEL,
+                    "provider_type": "openai_gpt4"
                 }
             )
             
             logger.info(
-                f"Content analysis completed: {len(keywords)} keywords, "
+                f"GPT-4 analysis completed: {len(keywords)} keywords, "
                 f"score: {quality_score:.1f}/10"
             )
             
             return result
             
         except Exception as e:
-            error_msg = f"Content analysis failed: {str(e)}"
+            error_msg = f"GPT-4 analysis failed: {str(e)}"
+            logger.error(error_msg)
+            raise ContentAnalysisError(error_msg) from e
+    
+    async def _analyze_with_local(
+        self,
+        text: str,
+        options: Dict[str, Any]
+    ) -> AnalysisResult:
+        """Analyze content using local analyzer (FREE, basic quality)."""
+        try:
+            local_service = get_local_analyzer_service()
+            
+            # Call local analyzer
+            result = await local_service.analyze_content(
+                text=text,
+                title=options.get("title", ""),
+                language=options.get("language", "en")
+            )
+            
+            # Convert to AnalysisResult format
+            return AnalysisResult(
+                keywords=result["keywords"],
+                summary=result["summary"],
+                sentiment=SentimentType(result["sentiment"]),
+                categories=result["categories"],
+                quality_score=result["quality_score"],
+                metadata=result["metadata"]
+            )
+            
+        except Exception as e:
+            error_msg = f"Local analysis failed: {str(e)}"
             logger.error(error_msg)
             raise ContentAnalysisError(error_msg) from e
 
