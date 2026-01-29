@@ -9,7 +9,7 @@ import os
 
 from .. import schemas, crud, models, auth, config
 from ..database import get_db
-from ..services.ai_service import ai_service
+from ..services.ai_service import get_ai_service
 
 router = APIRouter(prefix="/podcasts", tags=["podcasts"])
 
@@ -143,6 +143,7 @@ async def process_podcast_with_ai(
             }
 
             # Process with AI
+            ai_service = get_ai_service()
             ai_results = await ai_service.process_podcast_audio(podcast.audio_url, options)
 
             # Update podcast with AI results
