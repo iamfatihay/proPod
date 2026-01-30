@@ -34,6 +34,63 @@ router = APIRouter(prefix="/ai", tags=["AI Processing"])
 BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
+def estimate_processing_time(
+    duration_seconds: int,
+    provider: str,
+    device: str,
+    user_is_premium: bool = False
+) -> int:
+    """
+    Estimate AI processing time based on audio duration and provider configuration.
+    
+    Processing speed multipliers (relative to audio duration):
+    - OpenAI API: ~2x realtime (10min audio = ~20s processing)
+    - Local GPU: ~5x realtime (10min audio = ~50s processing)
+    - Local CPU: ~30x realtime (10min audio = ~5min processing)
+    
+    Args:
+        duration_seconds: Audio duration in seconds
+        provider: AI provider mode (local/openai/hybrid)
+        device: Whisper device (cpu/cuda/mps)
+        user_is_premium: Whether user has premium subscription (for hybrid mode)
+    
+    Returns:
+        Estimated processing time in seconds
+    """
+    if not duration_seconds or duration_seconds == 0:
+        return 60  # Fallback if duration unknown
+    
+    # Determine actual provider for hybrid mode
+    actual_provider = provider
+    if provider == "hybrid":
+        actual_provider = "openai" if user_is_premium else "local"
+    
+    # Calculate transcription time based on provider
+    if actual_provider == "openai":
+        # OpenAI is fast: ~2x realtime
+        transcription_time = duration_seconds * 2
+    elif actual_provider == "local":
+        if "cuda" in device.lower() or "mps" in device.lower():
+            # GPU is medium: ~5x realtime
+            transcription_time = duration_seconds * 5
+        else:
+            # CPU is slow: ~30x realtime
+            transcription_time = duration_seconds * 30
+    else:
+        transcription_time = 60  # Fallback
+    
+    # Add analysis overhead
+    if actual_provider == "openai":
+        analysis_time = 15  # GPT-4 analysis takes ~10-20s
+    else:
+        analysis_time = 5   # Local analysis is instant
+    
+    total_estimate = transcription_time + analysis_time
+    
+    # Clamp to reasonable range (30s to 1 hour)
+    return int(max(30, min(total_estimate, 3600)))
+
+
 @router.post(
     "/process-podcast/{podcast_id}",
     response_model=Dict[str, Any],
@@ -152,6 +209,14 @@ async def process_podcast(
     # Add to background tasks
     background_tasks.add_task(process_in_background)
     
+    # Calculate realistic processing time estimate
+    estimated_time = estimate_processing_time(
+        duration_seconds=podcast.duration or 0,
+        provider=settings.AI_PROVIDER,
+        device=settings.WHISPER_DEVICE,
+        user_is_premium=current_user.is_premium
+    )
+    
     # Return immediate response
     return {
         "message": "AI processing started",
@@ -161,7 +226,7 @@ async def process_podcast(
             "transcription": "pending" if enable_transcription else "skipped",
             "analysis": "pending" if enable_analysis else "skipped"
         },
-        "estimated_time_seconds": 60,  # Rough estimate
+        "estimated_time_seconds": estimated_time,
         "language": language
     }
 
