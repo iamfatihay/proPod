@@ -98,6 +98,11 @@ class TranscriptionService:
     # Maximum file size (from config)
     MAX_FILE_SIZE_MB = settings.AI_MAX_AUDIO_SIZE_MB
     
+    # Estimated confidence scores (providers don't return actual confidence metrics)
+    # These are arbitrary estimates based on general reliability expectations
+    OPENAI_ESTIMATED_CONFIDENCE = 0.95  # OpenAI Whisper is highly accurate
+    LOCAL_WHISPER_ESTIMATED_CONFIDENCE = 0.90  # Local Whisper slightly lower estimate
+    
     def __init__(self):
         """Initialize transcription service with API clients."""
         self.openai_client: Optional[AsyncOpenAI] = None
@@ -214,7 +219,7 @@ class TranscriptionService:
             result = TranscriptionResult(
                 text=response.text,
                 language=detected_language,
-                confidence=0.95,  # OpenAI doesn't provide confidence, use default
+                confidence=self.OPENAI_ESTIMATED_CONFIDENCE,  # Estimated (API doesn't provide actual confidence)
                 duration=duration,
                 provider=TranscriptionProvider.OPENAI,
                 word_count=word_count,
@@ -471,7 +476,7 @@ class TranscriptionService:
             return TranscriptionResult(
                 text=result["text"],
                 language=result["language"],
-                confidence=0.90,  # Local Whisper is reliable
+                confidence=self.LOCAL_WHISPER_ESTIMATED_CONFIDENCE,  # Estimated (not measured)
                 duration=result["duration"],
                 provider=TranscriptionProvider.OPENAI,  # Keep as OPENAI for compatibility
                 word_count=result["word_count"],
