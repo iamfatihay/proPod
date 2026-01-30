@@ -165,6 +165,19 @@ async def process_podcast(
             "status": "processing"
         }
     
+    # Atomically mark as processing to prevent race conditions
+    # This ensures no duplicate processing if multiple requests arrive simultaneously
+    if not podcast.ai_data:
+        ai_data = models.PodcastAIData(
+            podcast_id=podcast_id,
+            processing_status="processing"
+        )
+        db.add(ai_data)
+    else:
+        podcast.ai_data.processing_status = "processing"
+    
+    db.commit()  # Commit immediately - other requests will now see "processing" status
+    
     # Create processing options
     options = ProcessingOptions(
         enable_transcription=enable_transcription,

@@ -165,18 +165,10 @@ class AIService:
             if not podcast:
                 raise ValueError(f"Podcast #{podcast_id} not found")
             
-            # Ensure podcast_ai_data exists
+            # Status is already set to "processing" by the endpoint (atomic operation)
+            # No need to set it here again - just verify ai_data exists
             if not podcast.ai_data:
-                ai_data = models.PodcastAIData(
-                    podcast_id=podcast_id,
-                    processing_status="processing"
-                )
-                db.add(ai_data)
-                db.commit()
-                db.refresh(podcast)
-            else:
-                podcast.ai_data.processing_status = "processing"
-                db.commit()
+                raise ValueError(f"AI data not initialized for podcast #{podcast_id}")
             
             # Stage 1: Transcription
             transcription_result = None
