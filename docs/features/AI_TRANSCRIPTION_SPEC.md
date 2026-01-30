@@ -259,15 +259,25 @@ export const aiService = {
 ## 📊 Success Metrics
 
 ### Technical Metrics
-- Transcription accuracy: >90%
-- Processing time: <30s for 10min audio
+- Transcription accuracy: >90% (all modes)
+- Processing time (10min audio):
+  - **OpenAI mode**: <30s (API-based, fast)
+  - **Local GPU mode**: <2min (hardware-dependent)
+  - **Local CPU mode**: <10min (development only, acceptable for background tasks)
 - API error rate: <1%
 - Test coverage: >80%
 
 ### User Metrics
 - AI feature adoption: >50% of uploads
-- Time saved per podcast: ~10 minutes
+- Time saved per podcast: ~10 minutes (with AI suggestions)
 - User satisfaction: Survey after 1 week
+
+### Performance by Mode
+| Mode | Speed | Cost | Quality | Use Case |
+|------|-------|------|---------|----------|
+| OpenAI | ⚡⚡⚡ | 💰💰 | ⭐⭐⭐ | Production/Premium |
+| Local GPU | ⚡⚡ | Free | ⭐⭐ | Self-hosted production |
+| Local CPU | ⚡ | Free | ⭐⭐ | Development/Testing |
 
 ## 📝 API Documentation
 
