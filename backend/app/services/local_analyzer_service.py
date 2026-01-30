@@ -105,6 +105,13 @@ class LocalAnalyzerService:
         
         TODO: Can be enhanced with TF-IDF or KeyBERT (still free).
         """
+        # Limit text length to prevent memory issues with very long transcriptions
+        # For FREE tier, processing first ~5000 words is sufficient
+        MAX_CHARS = 30000  # ~5000 words
+        if len(text) > MAX_CHARS:
+            text = text[:MAX_CHARS]
+            logger.debug(f"Text truncated to {MAX_CHARS} chars for keyword extraction")
+        
         # Simple approach: find most common words (excluding common words)
         stop_words = {
             'the', 'is', 'at', 'which', 'on', 'a', 'an', 'and', 'or', 
@@ -139,6 +146,11 @@ class LocalAnalyzerService:
         
         TODO: Can be enhanced with extractive summarization (still free).
         """
+        # Limit text length for processing efficiency
+        MAX_CHARS = 10000  # First ~1500 words for summary
+        if len(text) > MAX_CHARS:
+            text = text[:MAX_CHARS]
+        
         # Split into sentences (simple approach)
         sentences = []
         current = ""
