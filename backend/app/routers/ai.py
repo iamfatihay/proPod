@@ -14,6 +14,7 @@ from typing import Optional, Dict, Any
 import os
 import json
 import logging
+from pathlib import Path
 
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
@@ -28,10 +29,6 @@ from app.services.ai_service import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai", tags=["AI Processing"])
-
-
-# Get backend root directory (where manage.py or main.py lives)
-BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def estimate_processing_time(
@@ -151,13 +148,10 @@ async def process_podcast(
     
     # Construct audio file path using config-driven approach
     # podcast.audio_url format: "/media/audio/filename.mp3"
-    audio_path = os.path.join(
-        BACKEND_ROOT,
-        podcast.audio_url.lstrip("/")
-    )
-    audio_path = os.path.abspath(audio_path)
+    audio_path = settings.BACKEND_ROOT / podcast.audio_url.lstrip("/")
+    audio_path = audio_path.resolve()
     
-    if not os.path.exists(audio_path):
+    if not audio_path.exists():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Audio file not found: {podcast.audio_url}"
@@ -189,7 +183,7 @@ async def process_podcast(
             logger.info(f"Background processing started for podcast #{podcast_id}")
             result = await ai_service.process_podcast_full(
                 podcast_id=podcast_id,
-                audio_path=audio_path,
+                audio_path=str(audio_path),  # Convert Path to string
                 db=task_db,
                 options=options
             )
@@ -391,13 +385,10 @@ async def reprocess_podcast(
         )
     
     # Construct audio path using config-driven approach
-    audio_path = os.path.join(
-        BACKEND_ROOT,
-        podcast.audio_url.lstrip("/")
-    )
-    audio_path = os.path.abspath(audio_path)
+    audio_path = settings.BACKEND_ROOT / podcast.audio_url.lstrip("/")
+    audio_path = audio_path.resolve()
     
-    if not os.path.exists(audio_path):
+    if not audio_path.exists():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Audio file not found: {podcast.audio_url}"
@@ -421,7 +412,7 @@ async def reprocess_podcast(
             logger.info(f"Background reprocessing started for podcast #{podcast_id}")
             result = await ai_service.reprocess_podcast(
                 podcast_id=podcast_id,
-                audio_path=audio_path,
+                audio_path=str(audio_path),  # Convert Path to string
                 db=task_db,
                 options=options
             )

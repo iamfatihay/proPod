@@ -3,10 +3,19 @@ from pydantic_settings import BaseSettings
 from pydantic import ConfigDict, Field, field_validator
 import os
 from typing import Literal
+from pathlib import Path
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
+    
+    # Path Configuration
+    # Backend root directory (where main.py/manage.py lives)
+    # Calculated from config.py location: config.py → app/ → backend/
+    BACKEND_ROOT: Path = Field(
+        default_factory=lambda: Path(__file__).resolve().parent.parent,
+        description="Backend root directory path"
+    )
     
     # Environment
     ENV: Literal["dev", "prod"] = Field(default="dev", description="Application environment")
