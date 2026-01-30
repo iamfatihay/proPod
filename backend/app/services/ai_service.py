@@ -118,6 +118,17 @@ class AIService:
         self.content_analyzer = get_content_analyzer()
         logger.info("AI Service Coordinator initialized")
     
+    @staticmethod
+    def _serialize_to_json(data: Optional[list]) -> Optional[str]:
+        """Serialize list to JSON string with error handling."""
+        if not data:
+            return None
+        try:
+            return json.dumps(data)
+        except (TypeError, ValueError) as e:
+            logger.warning(f"JSON serialization failed: {e}")
+            return None
+    
     async def process_podcast_full(
         self,
         podcast_id: int,
@@ -232,10 +243,10 @@ class AIService:
                     result.analysis = analysis_result
                     
                     # Save analysis to database (serialize lists to JSON strings)
-                    podcast.ai_data.keywords = json.dumps(analysis_result.keywords) if analysis_result.keywords else None
+                    podcast.ai_data.keywords = self._serialize_to_json(analysis_result.keywords)
                     podcast.ai_data.summary = analysis_result.summary
                     podcast.ai_data.sentiment = analysis_result.sentiment.value
-                    podcast.ai_data.categories = json.dumps(analysis_result.categories) if analysis_result.categories else None
+                    podcast.ai_data.categories = self._serialize_to_json(analysis_result.categories)
                     podcast.ai_data.quality_score = analysis_result.quality_score
                     db.commit()
                     

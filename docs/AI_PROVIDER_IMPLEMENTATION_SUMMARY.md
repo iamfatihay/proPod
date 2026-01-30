@@ -32,7 +32,7 @@ WHISPER_DEVICE=cpu
 AI_PROVIDER: Literal["local", "openai", "hybrid"] = "local"
 WHISPER_MODEL_SIZE: Literal["tiny", "base", "small", "medium", "large"] = "base"
 WHISPER_DEVICE: str = "cpu"  # cpu, cuda, mps
-AI_ANALYSIS_MODEL: str = "gpt-4-turbo"  # Fixed from gpt-4-turbo-preview
+AI_ANALYSIS_MODEL: str = "gpt-4-turbo"  # Stable GPT-4 Turbo for content analysis
 ```
 
 ### 2. Local Services (FREE)
@@ -137,7 +137,7 @@ db.commit()
 1. `backend/app/config.py`
    - Added `AI_PROVIDER` with local/openai/hybrid options
    - Added `WHISPER_MODEL_SIZE` and `WHISPER_DEVICE`
-   - Fixed model name: `gpt-4-turbo-preview` → `gpt-4-turbo`
+   - Configured `AI_ANALYSIS_MODEL` for GPT-4 Turbo
 
 2. `backend/app/models.py`
    - Added `is_premium` field to User model
