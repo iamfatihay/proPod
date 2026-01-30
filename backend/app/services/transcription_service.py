@@ -49,6 +49,10 @@ class TranscriptionResult:
         text: Transcribed text content
         language: Detected language code (e.g., 'en', 'tr')
         confidence: Confidence score (0.0 to 1.0)
+                   Note: May be estimated for providers that don't return actual confidence
+                   - OpenAI Whisper: ~0.95 (estimated, generally highly reliable)
+                   - Local Whisper: ~0.90 (estimated, reliable)
+                   - AssemblyAI: actual confidence score from API
         duration: Audio duration in seconds
         provider: Service provider used
         word_count: Number of words in transcription

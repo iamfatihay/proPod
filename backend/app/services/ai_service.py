@@ -9,6 +9,7 @@ This module coordinates all AI operations for podcast processing:
 """
 
 import logging
+import json
 from datetime import datetime
 from typing import Optional, Dict, Any
 from dataclasses import dataclass, asdict
@@ -238,11 +239,11 @@ class AIService:
                     
                     result.analysis = analysis_result
                     
-                    # Save analysis to database
-                    podcast.ai_data.keywords = analysis_result.keywords
+                    # Save analysis to database (serialize lists to JSON strings)
+                    podcast.ai_data.keywords = json.dumps(analysis_result.keywords) if analysis_result.keywords else None
                     podcast.ai_data.summary = analysis_result.summary
                     podcast.ai_data.sentiment = analysis_result.sentiment.value
-                    podcast.ai_data.categories = analysis_result.categories
+                    podcast.ai_data.categories = json.dumps(analysis_result.categories) if analysis_result.categories else None
                     podcast.ai_data.quality_score = analysis_result.quality_score
                     db.commit()
                     

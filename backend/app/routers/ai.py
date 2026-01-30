@@ -12,11 +12,13 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
 import os
+import json
 import logging
 
 from app.database import get_db
 from app.auth import get_current_user
 from app import models, schemas
+from app.config import settings
 from app.services.ai_service import (
     get_ai_service,
     ProcessingOptions,
@@ -26,6 +28,10 @@ from app.services.ai_service import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai", tags=["AI Processing"])
+
+
+# Get backend root directory (where manage.py or main.py lives)
+BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 @router.post(
@@ -86,13 +92,13 @@ async def process_podcast(
             detail="Podcast has no audio file"
         )
     
-    # Construct audio file path
-    # Assuming audio_url is like "/media/audio/filename.mp3"
+    # Construct audio file path using config-driven approach
+    # podcast.audio_url format: "/media/audio/filename.mp3"
     audio_path = os.path.join(
-        os.path.dirname(__file__), "..", "..", 
+        BACKEND_ROOT,
         podcast.audio_url.lstrip("/")
     )
-    audio_path = os.path.normpath(audio_path)
+    audio_path = os.path.abspath(audio_path)
     
     if not os.path.exists(audio_path):
         raise HTTPException(
@@ -247,10 +253,10 @@ async def get_ai_results(
             "word_count": len(ai_data.transcription_text.split()) if ai_data.transcription_text else 0
         },
         "analysis": {
-            "keywords": ai_data.keywords or [],
+            "keywords": json.loads(ai_data.keywords) if ai_data.keywords else [],
             "summary": ai_data.summary,
             "sentiment": ai_data.sentiment,
-            "categories": ai_data.categories or [],
+            "categories": json.loads(ai_data.categories) if ai_data.categories else [],
             "quality_score": ai_data.quality_score
         },
         "metadata": {
@@ -314,12 +320,12 @@ async def reprocess_podcast(
             detail="Podcast has no audio file"
         )
     
-    # Construct audio path
+    # Construct audio path using config-driven approach
     audio_path = os.path.join(
-        os.path.dirname(__file__), "..", "..", 
+        BACKEND_ROOT,
         podcast.audio_url.lstrip("/")
     )
-    audio_path = os.path.normpath(audio_path)
+    audio_path = os.path.abspath(audio_path)
     
     if not os.path.exists(audio_path):
         raise HTTPException(

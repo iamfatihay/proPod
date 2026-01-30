@@ -41,6 +41,12 @@ class Settings(BaseSettings):
         description="Base URL for the API (used for generating links)"
     )
     
+    # Media Configuration
+    MEDIA_ROOT: str = Field(
+        default="media",
+        description="Root directory for media files (relative to backend root)"
+    )
+    
     # AI Service Configuration
     AI_PROVIDER: Literal["local", "openai", "hybrid"] = Field(
         default="local",
