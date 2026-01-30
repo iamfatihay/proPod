@@ -15,7 +15,7 @@ import os
 import json
 import logging
 
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.auth import get_current_user
 from app import models, schemas
 from app.config import settings
@@ -126,12 +126,14 @@ async def process_podcast(
     
     async def process_in_background():
         """Background task for AI processing."""
+        # Create new session for background task (request session will be closed)
+        task_db = SessionLocal()
         try:
             logger.info(f"Background processing started for podcast #{podcast_id}")
             result = await ai_service.process_podcast_full(
                 podcast_id=podcast_id,
                 audio_path=audio_path,
-                db=db,
+                db=task_db,
                 options=options
             )
             logger.info(
@@ -143,6 +145,9 @@ async def process_podcast(
                 f"Background processing failed for podcast #{podcast_id}: {e}",
                 exc_info=True
             )
+            task_db.rollback()
+        finally:
+            task_db.close()
     
     # Add to background tasks
     background_tasks.add_task(process_in_background)
@@ -345,12 +350,14 @@ async def reprocess_podcast(
     
     async def reprocess_in_background():
         """Background task for reprocessing."""
+        # Create new session for background task (request session will be closed)
+        task_db = SessionLocal()
         try:
             logger.info(f"Background reprocessing started for podcast #{podcast_id}")
             result = await ai_service.reprocess_podcast(
                 podcast_id=podcast_id,
                 audio_path=audio_path,
-                db=db,
+                db=task_db,
                 options=options
             )
             logger.info(
@@ -362,6 +369,9 @@ async def reprocess_podcast(
                 f"Background reprocessing failed for podcast #{podcast_id}: {e}",
                 exc_info=True
             )
+            task_db.rollback()
+        finally:
+            task_db.close()
     
     # Add to background tasks
     background_tasks.add_task(reprocess_in_background)
