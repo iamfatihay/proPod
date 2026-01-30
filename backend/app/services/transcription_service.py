@@ -29,6 +29,7 @@ class TranscriptionProvider(str, Enum):
     
     OPENAI = "openai"
     ASSEMBLYAI = "assemblyai"
+    LOCAL = "local"
 
 
 class ProcessingStatus(str, Enum):
@@ -478,7 +479,7 @@ class TranscriptionService:
                 language=result["language"],
                 confidence=self.LOCAL_WHISPER_ESTIMATED_CONFIDENCE,  # Estimated (not measured)
                 duration=result["duration"],
-                provider=TranscriptionProvider.OPENAI,  # Keep as OPENAI for compatibility
+                provider=TranscriptionProvider.LOCAL,
                 word_count=result["word_count"],
                 metadata={
                     "model": f"whisper-{settings.WHISPER_MODEL_SIZE}",

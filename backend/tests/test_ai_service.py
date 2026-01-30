@@ -100,7 +100,7 @@ class TestTranscriptionService:
         assert isinstance(result, TranscriptionResult)
         assert result.text == "This is a test transcription."
         assert result.language == "en"
-        assert result.provider == TranscriptionProvider.OPENAI
+        assert result.provider == TranscriptionProvider.OPENAI  # Actual OpenAI API
         assert result.word_count == 5  # Correct count
         assert result.duration == 120.0
     
