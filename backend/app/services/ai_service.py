@@ -12,7 +12,7 @@ import logging
 import json
 from datetime import datetime
 from typing import Optional, Dict, Any
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from enum import Enum
 
 from sqlalchemy.orm import Session
@@ -25,9 +25,7 @@ from app.services.transcription_service import (
 )
 from app.services.content_analyzer import (
     get_content_analyzer,
-    AnalysisResult,
-    ContentAnalysisError,
-    SentimentType
+    AnalysisResult
 )
 from app import models
 

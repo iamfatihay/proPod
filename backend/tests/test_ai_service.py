@@ -10,9 +10,7 @@ Tests cover:
 """
 
 import pytest
-import os
-from unittest.mock import Mock, patch, AsyncMock, MagicMock
-from dataclasses import asdict
+from unittest.mock import Mock, patch, AsyncMock
 
 from app.services.transcription_service import (
     TranscriptionService,
@@ -24,8 +22,7 @@ from app.services.transcription_service import (
 from app.services.content_analyzer import (
     ContentAnalyzer,
     AnalysisResult,
-    SentimentType,
-    ContentAnalysisError
+    SentimentType
 )
 from app.services.ai_service import (
     AIService,

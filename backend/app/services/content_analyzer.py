@@ -95,6 +95,34 @@ class ContentAnalyzer:
         else:
             logger.warning("OpenAI API key not configured for content analysis")
     
+    def _sanitize_text(self, text: str, max_length: int = 50000) -> str:
+        """
+        Sanitize input text for AI processing.
+        
+        Args:
+            text: Input text to sanitize
+            max_length: Maximum allowed length (~8000 words)
+            
+        Returns:
+            Sanitized text safe for AI processing
+        """
+        if not text:
+            return ""
+        
+        # Length validation
+        if len(text) > max_length:
+            logger.warning(f"Text truncated from {len(text)} to {max_length} chars")
+            text = text[:max_length]
+        
+        # Remove null bytes and non-printable control characters
+        # Keep printable chars and whitespace (spaces, tabs, newlines)
+        text = ''.join(
+            char for char in text 
+            if char.isprintable() or char.isspace()
+        )
+        
+        return text.strip()
+    
     async def extract_keywords(
         self,
         text: str,
@@ -109,9 +137,18 @@ class ContentAnalyzer:
             
         Returns:
             List of keywords
+            
+        Raises:
+            ContentAnalysisError: If OpenAI client not initialized
         """
         if not self.openai_client:
             raise ContentAnalysisError("OpenAI client not initialized")
+        
+        # Sanitize input
+        text = self._sanitize_text(text, max_length=30000)
+        if not text:
+            logger.warning("Empty text after sanitization")
+            return []
         
         try:
             prompt = f"""
@@ -140,13 +177,20 @@ class ContentAnalyzer:
             logger.info(f"Extracted {len(keywords)} keywords")
             return keywords[:count]
             
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             # Fallback: split by commas
-            logger.warning("Failed to parse JSON, using fallback keyword extraction")
-            return [k.strip() for k in content.split(",")[:count]]
-        except Exception as e:
-            logger.error(f"Keyword extraction failed: {e}")
+            logger.warning(f"Failed to parse JSON ({e}), using fallback keyword extraction")
+            # Ensure 'content' is defined before using it
+            content = response.choices[0].message.content.strip() if response else ""
+            if content:
+                return [k.strip() for k in content.split(",")[:count]]
             return []
+        except OpenAIError as e:
+            logger.error(f"OpenAI API error during keyword extraction: {e}")
+            raise ContentAnalysisError(f"Keyword extraction failed: {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error in keyword extraction: {e}")
+            raise ContentAnalysisError(f"Keyword extraction failed: {e}") from e
     
     async def generate_summary(
         self,
@@ -162,9 +206,18 @@ class ContentAnalyzer:
             
         Returns:
             Summary text
+            
+        Raises:
+            ContentAnalysisError: If OpenAI client not initialized or API error
         """
         if not self.openai_client:
             raise ContentAnalysisError("OpenAI client not initialized")
+        
+        # Sanitize input
+        text = self._sanitize_text(text, max_length=40000)
+        if not text:
+            logger.warning("Empty text after sanitization")
+            raise ContentAnalysisError("Cannot generate summary from empty text")
         
         # Define length constraints
         length_map = {
@@ -199,9 +252,12 @@ class ContentAnalyzer:
             
             return summary
             
+        except OpenAIError as e:
+            logger.error(f"OpenAI API error during summary generation: {e}")
+            raise ContentAnalysisError(f"Summary generation failed: {e}") from e
         except Exception as e:
-            logger.error(f"Summary generation failed: {e}")
-            return "Summary generation failed."
+            logger.error(f"Unexpected error in summary generation: {e}")
+            raise ContentAnalysisError(f"Summary generation failed: {e}") from e
     
     async def detect_sentiment(self, text: str) -> SentimentType:
         """
@@ -212,9 +268,18 @@ class ContentAnalyzer:
             
         Returns:
             SentimentType
+            
+        Raises:
+            ContentAnalysisError: If OpenAI client not initialized or API error
         """
         if not self.openai_client:
             raise ContentAnalysisError("OpenAI client not initialized")
+        
+        # Sanitize input
+        text = self._sanitize_text(text, max_length=20000)
+        if not text:
+            logger.warning("Empty text after sanitization, returning neutral sentiment")
+            return SentimentType.NEUTRAL
         
         try:
             prompt = f"""
@@ -250,9 +315,12 @@ class ContentAnalyzer:
             
             return sentiment
             
+        except OpenAIError as e:
+            logger.error(f"OpenAI API error during sentiment detection: {e}")
+            raise ContentAnalysisError(f"Sentiment detection failed: {e}") from e
         except Exception as e:
-            logger.error(f"Sentiment detection failed: {e}")
-            return SentimentType.NEUTRAL
+            logger.error(f"Unexpected error in sentiment detection: {e}")
+            raise ContentAnalysisError(f"Sentiment detection failed: {e}") from e
     
     async def suggest_categories(
         self,
@@ -268,13 +336,22 @@ class ContentAnalyzer:
             
         Returns:
             List of suggested categories
+            
+        Raises:
+            ContentAnalysisError: If OpenAI client not initialized or API error
         """
         if not self.openai_client:
             raise ContentAnalysisError("OpenAI client not initialized")
         
+        # Sanitize input
+        text = self._sanitize_text(text, max_length=20000)
+        if not text:
+            logger.warning("Empty text after sanitization, using default category")
+            return ["Technology"]
+        
         try:
             categories_str = ", ".join(self.PREDEFINED_CATEGORIES)
-            keywords_str = ", ".join(keywords)
+            keywords_str = ", ".join(keywords[:10])  # Limit keywords
             
             prompt = f"""
             Suggest 1-3 most relevant categories for this podcast from the list below.
@@ -310,14 +387,17 @@ class ContentAnalyzer:
             ]
             
             logger.info(f"Suggested {len(valid_categories)} categories")
-            return valid_categories[:3]
+            return valid_categories[:3] if valid_categories else ["Technology"]
             
-        except json.JSONDecodeError:
-            logger.warning("Failed to parse categories JSON")
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse categories JSON ({e})")
             return ["Technology"]  # Default fallback
+        except OpenAIError as e:
+            logger.error(f"OpenAI API error during category suggestion: {e}")
+            raise ContentAnalysisError(f"Category suggestion failed: {e}") from e
         except Exception as e:
-            logger.error(f"Category suggestion failed: {e}")
-            return []
+            logger.error(f"Unexpected error in category suggestion: {e}")
+            raise ContentAnalysisError(f"Category suggestion failed: {e}") from e
     
     async def calculate_quality_score(
         self,

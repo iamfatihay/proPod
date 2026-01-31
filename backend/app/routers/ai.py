@@ -11,10 +11,11 @@ Provides endpoints for:
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
-import os
 import json
 import logging
 from pathlib import Path
+from datetime import datetime, timedelta
+from collections import defaultdict
 
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
@@ -22,13 +23,68 @@ from app import models, schemas
 from app.config import settings
 from app.services.ai_service import (
     get_ai_service,
-    ProcessingOptions,
-    ProcessingStage
+    ProcessingOptions
 )
 
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai", tags=["AI Processing"])
+
+
+# Rate limiting cache (in-memory, per-user request tracking)
+_rate_limit_cache: Dict[int, list] = defaultdict(list)
+MAX_REQUESTS_PER_HOUR = 20  # Free users
+MAX_REQUESTS_PER_HOUR_PREMIUM = 100  # Premium users
+
+
+def check_rate_limit(user: models.User):
+    """
+    Check if user has exceeded rate limit for AI processing.
+    
+    Rate limits:
+    - Free users: 20 requests per hour
+    - Premium users: 100 requests per hour
+    
+    Args:
+        user: User making the request
+        
+    Raises:
+        HTTPException: If rate limit exceeded (429 status)
+    """
+    now = datetime.utcnow()
+    hour_ago = now - timedelta(hours=1)
+    
+    # Clean old requests (remove entries older than 1 hour)
+    _rate_limit_cache[user.id] = [
+        req_time for req_time in _rate_limit_cache[user.id]
+        if req_time > hour_ago
+    ]
+    
+    # Determine limit based on premium status
+    limit = MAX_REQUESTS_PER_HOUR_PREMIUM if user.is_premium else MAX_REQUESTS_PER_HOUR
+    
+    # Check if limit exceeded
+    if len(_rate_limit_cache[user.id]) >= limit:
+        logger.warning(
+            f"Rate limit exceeded for user {user.id} ({user.username}): "
+            f"{len(_rate_limit_cache[user.id])}/{limit} requests in last hour"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "error": "Rate limit exceeded",
+                "message": f"Maximum {limit} AI processing requests per hour allowed",
+                "retry_after_seconds": 3600,
+                "is_premium": user.is_premium
+            }
+        )
+    
+    # Add current request timestamp
+    _rate_limit_cache[user.id].append(now)
+    logger.debug(
+        f"Rate limit check passed for user {user.id}: "
+        f"{len(_rate_limit_cache[user.id])}/{limit} requests"
+    )
 
 
 def estimate_processing_time(
@@ -112,15 +168,31 @@ async def process_podcast(
     - Quality scoring
     - Category suggestions
     
-    **Parameters:**
-    - **podcast_id**: ID of the podcast to process
-    - **enable_transcription**: Enable audio transcription (default: true)
-    - **enable_analysis**: Enable content analysis (default: true)
-    - **language**: Language code ('auto', 'en', 'tr', etc.)
+    **Rate Limits:**
+    - Free users: 20 requests per hour
+    - Premium users: 100 requests per hour
     
-    **Returns:**
-    Processing task details and estimated time.
+    Args:
+        podcast_id: ID of the podcast to process
+        background_tasks: FastAPI background tasks handler
+        enable_transcription: Enable audio transcription
+        enable_analysis: Enable content analysis
+        language: Audio language for transcription (auto, en, tr, etc.)
+        current_user: Authenticated user from JWT
+        db: Database session
+    
+    Returns:
+        Processing status with estimated completion time
+    
+    Raises:
+        HTTPException 404: If podcast not found
+        HTTPException 403: If user doesn't own the podcast
+        HTTPException 400: If audio file is missing
+        HTTPException 429: If rate limit exceeded
     """
+    # Rate limiting check
+    check_rate_limit(current_user)
+    
     # Get podcast from database
     podcast = db.query(models.Podcast).filter(
         models.Podcast.id == podcast_id
@@ -377,6 +449,10 @@ async def reprocess_podcast(
     
     **Warning:** This will clear existing AI data.
     
+    **Rate Limits:**
+    - Free users: 20 requests per hour
+    - Premium users: 100 requests per hour
+    
     **Parameters:**
     - **podcast_id**: ID of the podcast to reprocess
     - **enable_transcription**: Enable audio transcription
@@ -385,7 +461,15 @@ async def reprocess_podcast(
     
     **Returns:**
     Reprocessing task details.
+    
+    **Raises:**
+    - 404: Podcast not found
+    - 403: Permission denied
+    - 429: Rate limit exceeded
     """
+    # Rate limiting check
+    check_rate_limit(current_user)
+    
     # Get podcast from database
     podcast = db.query(models.Podcast).filter(
         models.Podcast.id == podcast_id
