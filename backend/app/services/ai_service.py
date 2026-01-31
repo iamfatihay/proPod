@@ -269,6 +269,7 @@ class AIService:
             
             podcast.ai_data.processing_status = "completed"
             podcast.ai_data.processing_date = result.completed_at
+            podcast.ai_data.processing_time_seconds = result.processing_time  # Save processing time
             podcast.ai_enhanced = True  # Mark podcast as AI enhanced
             db.commit()
             
