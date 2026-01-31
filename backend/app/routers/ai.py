@@ -146,10 +146,24 @@ async def process_podcast(
             detail="Podcast has no audio file"
         )
     
-    # Construct audio file path using config-driven approach
-    # podcast.audio_url format: "/media/audio/filename.mp3"
-    audio_path = settings.BACKEND_ROOT / podcast.audio_url.lstrip("/")
-    audio_path = audio_path.resolve()
+    # Construct audio file path with security validation
+    # Prevent path traversal attacks by ensuring resolved path stays within BACKEND_ROOT
+    try:
+        audio_path = settings.BACKEND_ROOT / podcast.audio_url.lstrip("/")
+        audio_path = audio_path.resolve()
+        
+        # Security check: ensure path stays within allowed directory
+        if not str(audio_path).startswith(str(settings.BACKEND_ROOT.resolve())):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid audio file path"
+            )
+    except (ValueError, OSError) as e:
+        logger.error(f"Path resolution error for {podcast.audio_url}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid audio file path"
+        )
     
     if not audio_path.exists():
         raise HTTPException(
@@ -397,9 +411,24 @@ async def reprocess_podcast(
             detail="Podcast has no audio file"
         )
     
-    # Construct audio path using config-driven approach
-    audio_path = settings.BACKEND_ROOT / podcast.audio_url.lstrip("/")
-    audio_path = audio_path.resolve()
+    # Construct audio path with security validation
+    # Prevent path traversal attacks by ensuring resolved path stays within BACKEND_ROOT
+    try:
+        audio_path = settings.BACKEND_ROOT / podcast.audio_url.lstrip("/")
+        audio_path = audio_path.resolve()
+        
+        # Security check: ensure path stays within allowed directory
+        if not str(audio_path).startswith(str(settings.BACKEND_ROOT.resolve())):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid audio file path"
+            )
+    except (ValueError, OSError) as e:
+        logger.error(f"Path resolution error for {podcast.audio_url}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid audio file path"
+        )
     
     if not audio_path.exists():
         raise HTTPException(

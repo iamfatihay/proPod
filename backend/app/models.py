@@ -234,14 +234,14 @@ class PodcastAIData(Base):
     # Transcription
     transcription_text = Column(Text, nullable=True)
     transcription_language = Column(String, nullable=True)
-    transcription_confidence = Column(String, nullable=True)
+    transcription_confidence = Column(Float, nullable=True)  # Fixed: Was String, should be Float
     
     # AI Analysis
     keywords = Column(Text, nullable=True)  # JSON string
     summary = Column(Text, nullable=True)
     sentiment = Column(String, nullable=True)
     categories = Column(Text, nullable=True)  # JSON string
-    quality_score = Column(String, nullable=True)
+    quality_score = Column(Float, nullable=True)  # Fixed: Was String, should be Float
     
     # Processing metadata
     processing_status = Column(String, default="pending")  # pending, processing, completed, failed

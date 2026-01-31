@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 import httpx
+import aiofiles
 from openai import AsyncOpenAI, OpenAIError
 from pydub import AudioSegment
 
@@ -30,15 +31,6 @@ class TranscriptionProvider(str, Enum):
     OPENAI = "openai"
     ASSEMBLYAI = "assemblyai"
     LOCAL = "local"
-
-
-class ProcessingStatus(str, Enum):
-    """Transcription processing status states."""
-    
-    PENDING = "pending"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
 
 
 @dataclass
@@ -164,14 +156,21 @@ class TranscriptionService:
             file_path: Path to audio file
             
         Returns:
-            Duration in seconds
+            Duration in seconds, or 0.0 if duration cannot be determined
+            
+        Note:
+            Returns 0.0 on error to allow processing to continue.
+            Errors are logged at WARNING level for visibility.
         """
         try:
             audio = AudioSegment.from_file(file_path)
             duration = len(audio) / 1000.0  # Convert ms to seconds
             return duration
         except Exception as e:
-            logger.error(f"Failed to get audio duration: {e}")
+            logger.warning(
+                f"Failed to get audio duration for {file_path}: {e}. "
+                f"Defaulting to 0.0 seconds."
+            )
             return 0.0
     
     async def transcribe_with_openai(
@@ -198,12 +197,14 @@ class TranscriptionService:
         try:
             logger.info(f"Starting OpenAI Whisper transcription: {file_path}")
             
-            # Open audio file
-            with open(file_path, "rb") as audio_file:
-                # Call Whisper API
+            # Open audio file asynchronously to avoid blocking event loop
+            async with aiofiles.open(file_path, "rb") as audio_file:
+                file_content = await audio_file.read()
+                
+                # Call Whisper API (sync operation with pre-loaded content)
                 response = await self.openai_client.audio.transcriptions.create(
                     model=settings.AI_TRANSCRIPTION_MODEL,
-                    file=audio_file,
+                    file=(Path(file_path).name, file_content),
                     language=None if language == "auto" else language,
                     response_format="verbose_json"
                 )
@@ -274,12 +275,14 @@ class TranscriptionService:
             base_url = "https://api.assemblyai.com/v2"
             
             async with httpx.AsyncClient(timeout=settings.AI_TIMEOUT_SECONDS) as client:
-                # Upload audio file
-                with open(file_path, "rb") as audio_file:
+                # Upload audio file asynchronously
+                async with aiofiles.open(file_path, "rb") as audio_file:
+                    file_content = await audio_file.read()
+                    
                     upload_response = await client.post(
                         f"{base_url}/upload",
                         headers=headers,
-                        files={"file": audio_file}
+                        files={"file": (Path(file_path).name, file_content)}
                     )
                     upload_response.raise_for_status()
                     audio_url = upload_response.json()["upload_url"]
@@ -298,8 +301,23 @@ class TranscriptionService:
                 transcript_response.raise_for_status()
                 transcript_id = transcript_response.json()["id"]
                 
-                # Poll for completion
+                # Poll for completion with timeout protection
+                max_polling_attempts = 200  # 200 * 3s = 10 minutes max
+                polling_attempts = 0
+                start_time = asyncio.get_event_loop().time()
+                max_wait_time = 600  # 10 minutes timeout
+                
                 while True:
+                    polling_attempts += 1
+                    elapsed_time = asyncio.get_event_loop().time() - start_time
+                    
+                    # Timeout protection
+                    if polling_attempts > max_polling_attempts or elapsed_time > max_wait_time:
+                        raise TranscriptionError(
+                            f"AssemblyAI transcription timeout after {elapsed_time:.0f}s "
+                            f"({polling_attempts} attempts)"
+                        )
+                    
                     status_response = await client.get(
                         f"{base_url}/transcript/{transcript_id}",
                         headers=headers
