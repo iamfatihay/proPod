@@ -14,9 +14,12 @@ Complete REST API reference including:
 
 ## 🔗 Quick Links
 
-- **Backend API:** `http://192.168.178.44:8000`
-- **API Docs (Swagger):** `http://192.168.178.44:8000/docs`
-- **ReDoc:** `http://192.168.178.44:8000/redoc`
+- **Backend API:** `http://YOUR_BACKEND_IP:8000`
+- **API Docs (Swagger):** `http://YOUR_BACKEND_IP:8000/docs`
+- **ReDoc:** `http://YOUR_BACKEND_IP:8000/redoc`
+
+> **Note:** Replace `YOUR_BACKEND_IP` with your actual backend server IP address.
+> For local development, use `http://localhost:8000` or your LAN IP (e.g., `192.168.x.x`).
 
 ## 📝 Request Examples
 

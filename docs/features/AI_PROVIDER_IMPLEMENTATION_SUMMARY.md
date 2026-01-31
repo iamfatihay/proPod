@@ -23,7 +23,8 @@ WHISPER_MODEL_SIZE=base
 WHISPER_DEVICE=cpu
 ```
 
-**Current State:** Backend running on http://192.168.178.44:8000 with LOCAL mode (FREE)
+> **Configuration Note:** Backend should be configured with appropriate environment variables.  
+> Default setting is LOCAL mode (FREE) for development. See [Quick Start Guide](../guides/QUICK_START.md) for setup.
 
 ## 🏗️ Architecture Components
 
@@ -166,7 +167,7 @@ db.commit()
 
 Backend server status:
 ```
-✅ Server running: http://192.168.178.44:8000
+✅ Server running: http://YOUR_BACKEND_IP:8000
 ✅ AI endpoints available: /ai/health, /ai/process, etc.
 ✅ Configuration loaded: AI_PROVIDER=local
 ✅ No import errors
@@ -274,5 +275,5 @@ You now have a **production-ready, flexible AI system** that:
 ---
 
 **Last Updated:** January 29, 2026  
-**Backend Status:** ✅ Running on http://192.168.178.44:8000  
+**Backend Status:** ✅ Running on http://YOUR_BACKEND_IP:8000  
 **AI Provider:** LOCAL (FREE)

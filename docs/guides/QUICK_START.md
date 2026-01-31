@@ -17,8 +17,13 @@ npm install  # Yeni package'lar zaten yüklendi
 ### Adım 2: Backend Başlat (Terminal 1)
 ```bash
 cd backend
-# Eğer çalışmıyorsa:
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# Virtual environment'ı aktif et (gerekirse)
+source venv/bin/activate  # Linux/Mac
+# veya
+.\venv\Scripts\activate  # Windows PowerShell
+
+# Backend'i başlat
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Adım 3: Frontend Başlat (Terminal 2)

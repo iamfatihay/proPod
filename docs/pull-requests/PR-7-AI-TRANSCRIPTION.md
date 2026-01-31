@@ -71,11 +71,6 @@ backend/app/config.py            - Added AI settings
 backend/app/services/__init__.py - Export get_ai_service()
 ```
 
-### Backup Files (not tracked)
-```
-backend/app/services/*.old.py    - Old implementations backed up
-```
-
 ## 🧪 Testing
 
 ### Unit Tests
@@ -91,8 +86,8 @@ backend/app/services/*.old.py    - Old implementations backed up
 ### Run Tests
 ```bash
 cd backend
-source venv/bin/activate
-python -m pytest tests/test_ai_service.py -v
+# Activate virtual environment first (see Quick Start guide)
+pytest tests/test_ai_service.py -v
 ```
 
 ### Expected Output
@@ -160,7 +155,7 @@ curl -X POST "http://localhost:8000/ai/process-podcast/1" \
 ### 2. Check Status
 
 ```bash
-curl "http://localhost:8000/ai/status/1" \
+curl "http://YOUR_BACKEND_IP:8000/ai/status/1" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -179,7 +174,7 @@ curl "http://localhost:8000/ai/status/1" \
 ### 3. Get Results
 
 ```bash
-curl "http://localhost:8000/ai/results/1" \
+curl "http://YOUR_BACKEND_IP:8000/ai/results/1" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
