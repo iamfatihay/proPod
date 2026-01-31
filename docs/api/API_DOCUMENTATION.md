@@ -1,14 +1,19 @@
-# Volo Podcast API Documentation
+# ProPod API Documentation
 
 ## Overview
 
-The Volo Podcast API provides comprehensive endpoints for podcast management, user interactions, and content discovery. All endpoints use JSON for request/response bodies and JWT tokens for authentication.
+The ProPod API provides comprehensive endpoints for podcast management, user interactions, and content discovery. All endpoints use JSON for request/response bodies and JWT tokens for authentication.
 
 ## Base URL
 
 ```
-http://localhost:8000
+http://YOUR_BACKEND_IP:8000
 ```
+
+> **Important:** Replace `YOUR_BACKEND_IP` with your actual backend server address:
+> - Local development: `localhost` or `127.0.0.1`
+> - LAN testing (mobile): Your computer's local IP (e.g., `192.168.1.100`)
+> - Production: Your production domain or IP
 
 ## Authentication
 
@@ -113,8 +118,8 @@ Content-Type: application/json
     "play_count": 0,
     "like_count": 0,
     "bookmark_count": 0,
-    "created_at": "2024-01-15T10:30:00Z",
-    "updated_at": "2024-01-15T10:30:00Z",
+    "created_at": "2026-01-31T10:30:00Z",
+    "updated_at": "2026-01-31T10:30:00Z",
     "owner_id": 123,
     "owner": {
         "id": 123,
@@ -146,8 +151,8 @@ Retrieve a specific podcast by ID. Increments play count.
     "play_count": 142,
     "like_count": 23,
     "bookmark_count": 8,
-    "created_at": "2024-01-15T10:30:00Z",
-    "updated_at": "2024-01-15T10:30:00Z",
+    "created_at": "2026-01-31T10:30:00Z",
+    "updated_at": "2026-01-31T10:30:00Z",
     "owner_id": 123,
     "owner": {
         "id": 123,
@@ -378,7 +383,7 @@ Authorization: Bearer <token>
     "id": 1,
     "user_id": 123,
     "podcast_id": 456,
-    "created_at": "2024-01-15T10:30:00Z"
+    "created_at": "2026-01-31T10:30:00Z"
 }
 ```
 
@@ -421,7 +426,7 @@ Authorization: Bearer <token>
     "id": 1,
     "user_id": 123,
     "podcast_id": 456,
-    "created_at": "2024-01-15T10:30:00Z"
+    "created_at": "2026-01-31T10:30:00Z"
 }
 ```
 
@@ -470,8 +475,8 @@ Authorization: Bearer <token>
         "position": 1200,
         "completed": false,
         "listen_time": 1200,
-        "created_at": "2024-01-15T10:30:00Z",
-        "updated_at": "2024-01-15T10:35:00Z"
+        "created_at": "2026-01-31T10:30:00Z",
+        "updated_at": "2026-01-31T10:35:00Z"
     }
 }
 ```
@@ -513,8 +518,8 @@ Content-Type: application/json
     "position": 1800,
     "completed": true,
     "listen_time": 1800,
-    "created_at": "2024-01-15T10:30:00Z",
-    "updated_at": "2024-01-15T10:35:00Z"
+    "created_at": "2026-01-31T10:30:00Z",
+    "updated_at": "2026-01-31T10:35:00Z"
 }
 ```
 
@@ -555,8 +560,8 @@ Content-Type: application/json
     "content": "Great episode! Really enjoyed the discussion about AI.",
     "timestamp": 1200,
     "is_active": true,
-    "created_at": "2024-01-15T10:30:00Z",
-    "updated_at": "2024-01-15T10:30:00Z",
+    "created_at": "2026-01-31T10:30:00Z",
+    "updated_at": "2026-01-31T10:30:00Z",
     "user": {
         "id": 123,
         "name": "John Doe",
@@ -587,7 +592,7 @@ Get comments for a podcast.
         "content": "Great episode!",
         "timestamp": 1200,
         "is_active": true,
-        "created_at": "2024-01-15T10:30:00Z",
+        "created_at": "2026-01-31T10:30:00Z",
         "user": {
             "id": 123,
             "name": "John Doe"
@@ -813,8 +818,8 @@ Authorization: Bearer <token>
         "position": 1800,
         "completed": true,
         "listen_time": 1800,
-        "created_at": "2024-01-15T10:30:00Z",
-        "updated_at": "2024-01-15T10:35:00Z",
+        "created_at": "2026-01-31T10:30:00Z",
+        "updated_at": "2026-01-31T10:35:00Z",
         "podcast": {
             "id": 456,
             "title": "Listened Podcast",
@@ -893,7 +898,7 @@ For real-time features like live comments and listening parties:
 
 ```javascript
 // Connect to WebSocket
-const ws = new WebSocket("ws://localhost:8000/ws");
+const ws = new WebSocket("ws://YOUR_BACKEND_IP:8000/ws");
 
 // Listen for real-time comments
 ws.onmessage = (event) => {

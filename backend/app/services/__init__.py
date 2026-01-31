@@ -9,6 +9,6 @@ This package contains all external service integrations including:
 """
 
 from .email_service import email_service
-from .ai_service import ai_service
+from .ai_service import get_ai_service
 
-__all__ = ['email_service', 'ai_service'] 
+__all__ = ['email_service', 'get_ai_service'] 

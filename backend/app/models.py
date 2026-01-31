@@ -27,6 +27,7 @@ class User(Base):
         photo_url: URL to user's profile photo
         role: User role (user/moderator/admin/super_admin)
         is_active: Whether the user account is active
+        is_premium: Whether user has premium subscription (for AI features)
         created_at: Account creation timestamp
         updated_at: Last update timestamp
         reset_token: Password reset token
@@ -42,6 +43,7 @@ class User(Base):
     photo_url = Column(String, nullable=True)
     role = Column(SQLEnum(UserRole), default=UserRole.USER, nullable=False, index=True)
     is_active = Column(Boolean, default=True)
+    is_premium = Column(Boolean, default=False)  # Premium subscription for AI features
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), 
                        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
@@ -232,14 +234,14 @@ class PodcastAIData(Base):
     # Transcription
     transcription_text = Column(Text, nullable=True)
     transcription_language = Column(String, nullable=True)
-    transcription_confidence = Column(String, nullable=True)
+    transcription_confidence = Column(Float, nullable=True)  # Fixed: Was String, should be Float
     
     # AI Analysis
     keywords = Column(Text, nullable=True)  # JSON string
     summary = Column(Text, nullable=True)
     sentiment = Column(String, nullable=True)
     categories = Column(Text, nullable=True)  # JSON string
-    quality_score = Column(String, nullable=True)
+    quality_score = Column(Float, nullable=True)  # Fixed: Was String, should be Float
     
     # Processing metadata
     processing_status = Column(String, default="pending")  # pending, processing, completed, failed

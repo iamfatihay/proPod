@@ -1,8 +1,8 @@
-# Volo AI Integration Guide
+# ProPod AI Integration Guide
 
 ## Overview
 
-Volo podcast app now includes comprehensive AI-powered features that enhance the podcast creation and management experience. This integration provides automatic audio enhancement, speech-to-text transcription, and intelligent content analysis.
+ProPod podcast app now includes comprehensive AI-powered features that enhance the podcast creation and management experience. This integration provides automatic audio enhancement, speech-to-text transcription, and intelligent content analysis.
 
 ## Features
 
@@ -38,19 +38,26 @@ Volo podcast app now includes comprehensive AI-powered features that enhance the
 #### 1. AI Service Coordinator (`ai_service.py`)
 
 ```python
-from app.services.ai_service import ai_service
+from app.services.ai_service import get_ai_service, ProcessingOptions
 
-# Process complete podcast with all AI features
-results = await ai_service.process_podcast_audio(
-    audio_file_path="path/to/audio.mp3",
-    options={
-        "enhance_audio": True,
-        "transcribe": True,
-        "analyze_content": True,
-        "language": "auto"
-    }
+# Get AI service instance
+ai_service = get_ai_service()
+
+# Process podcast with AI
+options = ProcessingOptions(
+    enable_transcription=True,
+    enable_analysis=True,
+    language="auto"
+)
+
+results = await ai_service.process_podcast(
+    podcast=podcast_obj,
+    db=db_session,
+    options=options
 )
 ```
+
+> **Note:** The AI service uses singleton pattern. Always use `get_ai_service()` to get the instance.
 
 #### 2. Audio Processor (`audio_processor.py`)
 
@@ -72,25 +79,38 @@ results = await ai_service.process_podcast_audio(
 
 ### API Endpoints
 
-#### AI Processing Endpoints
+#### Current AI Processing Endpoints (✅ Active)
 
 ```
-GET    /ai/status                    # Get AI services status
-POST   /ai/initialize               # Initialize AI services
-POST   /ai/process-audio            # Full AI processing pipeline
-POST   /ai/enhance-audio            # Audio enhancement only
-POST   /ai/transcribe              # Transcription only
-POST   /ai/analyze-text            # Text analysis only
-GET    /ai/supported-languages     # Get supported languages
-POST   /ai/detect-language         # Detect audio language
-POST   /ai/generate-subtitles      # Generate subtitle files
+POST   /ai/process-podcast/{id}     # Start AI processing for a podcast
+GET    /ai/status/{id}              # Check processing status
+GET    /ai/results/{id}             # Get AI analysis results
+POST   /ai/reprocess/{id}           # Reprocess with new settings
+GET    /ai/health                   # Check AI service health (authenticated)
 ```
 
-#### Podcast AI Integration
+> **Note:** All endpoints require authentication. See [API Documentation](../api/API_DOCUMENTATION.md) for detailed usage.
 
+#### Legacy Endpoints (⚠️ Deprecated)
+
+The following endpoints were part of initial design but are no longer in use:
+- `/ai/initialize` - No longer needed (auto-initialization)
+- `/ai/process-audio` - Replaced by `/ai/process-podcast/{id}`
+- `/ai/enhance-audio` - Integrated into main pipeline
+- `/ai/transcribe` - Integrated into main pipeline
+- `/ai/analyze-text` - Integrated into main pipeline
+- `/ai/supported-languages` - Built into service
+- `/ai/detect-language` - Built into service  
+- `/ai/generate-subtitles` - Future feature
+
+#### Podcast Integration
+
+**Current Implementation:**
 ```
-POST   /podcasts/{id}/process-ai   # Process podcast with AI
+POST   /podcasts/{id}/ai/process    # Process podcast with AI (alternative route)
 ```
+
+> **Recommended:** Use `/ai/process-podcast/{id}` for consistency with other AI endpoints.
 
 ### Database Schema
 
@@ -337,10 +357,10 @@ logging.basicConfig(level=logging.INFO)
 
 ```bash
 # Check AI service status
-curl http://localhost:8000/ai/status
+curl http://YOUR_BACKEND_IP:8000/ai/status
 
 # Test AI initialization
-curl -X POST http://localhost:8000/ai/initialize
+curl -X POST http://YOUR_BACKEND_IP:8000/ai/initialize
 ```
 
 ### Common Issues

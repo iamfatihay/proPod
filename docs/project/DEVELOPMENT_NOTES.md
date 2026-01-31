@@ -38,7 +38,9 @@ python -c "from app.database import SessionLocal; from app.models import Podcast
 
 ```bash
 # Virtual environment'ı aktif et
-.\venv\Scripts\Activate.ps1
+source venv/bin/activate  # Linux/Mac
+# veya
+.\venv\Scripts\activate  # Windows PowerShell
 
 # Migration oluştur
 alembic revision --autogenerate -m "Migration açıklaması"
