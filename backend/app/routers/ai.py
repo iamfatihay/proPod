@@ -458,9 +458,13 @@ async def reprocess_podcast(
     summary="Check AI service health",
     description="Check if AI services are configured and available."
 )
-async def check_ai_health():
+async def check_ai_health(
+    current_user: models.User = Depends(get_current_user)
+):
     """
     Check AI service configuration and availability.
+    
+    **Requires authentication** to prevent exposing system configuration.
     
     **Returns:**
     - Service availability status
@@ -469,23 +473,32 @@ async def check_ai_health():
     """
     from app.config import settings
     
-    return {
-        "status": "healthy",
-        "services": {
-            "transcription": {
-                "openai": bool(settings.OPENAI_API_KEY),
-                "assemblyai": bool(settings.ASSEMBLYAI_API_KEY)
+    # Only admins/moderators can see detailed configuration
+    if current_user.role in ["MODERATOR", "ADMIN", "SUPER_ADMIN"]:
+        return {
+            "status": "healthy",
+            "services": {
+                "transcription": {
+                    "openai": bool(settings.OPENAI_API_KEY),
+                    "assemblyai": bool(settings.ASSEMBLYAI_API_KEY)
+                },
+                "analysis": {
+                    "openai_gpt4": bool(settings.OPENAI_API_KEY)
+                }
             },
-            "analysis": {
-                "openai_gpt4": bool(settings.OPENAI_API_KEY)
-            }
-        },
-        "models": {
-            "transcription": settings.AI_TRANSCRIPTION_MODEL,
-            "analysis": settings.AI_ANALYSIS_MODEL
-        },
-        "limits": {
-            "max_audio_size_mb": settings.AI_MAX_AUDIO_SIZE_MB,
-            "timeout_seconds": settings.AI_TIMEOUT_SECONDS
+            "models": {
+                "transcription": settings.AI_TRANSCRIPTION_MODEL,
+                "analysis": settings.AI_ANALYSIS_MODEL
+            },
+            "limits": {
+                "max_audio_size_mb": settings.AI_MAX_AUDIO_SIZE_MB,
+                "timeout_seconds": settings.AI_TIMEOUT_SECONDS
+            },
+            "provider": settings.AI_PROVIDER
         }
-    }
+    else:
+        # Regular users get minimal info
+        return {
+            "status": "healthy",
+            "available": True
+        }
