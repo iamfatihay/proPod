@@ -627,6 +627,10 @@ class ApiService {
         return this.request(`/podcasts/${podcastId}/interactions`);
     }
 
+    async getPodcastAIData(podcastId) {
+        return this.request(`/podcasts/${podcastId}/ai-data`);
+    }
+
     // Listening History methods
     async updateListeningHistory(podcastId, historyData) {
         return this.request(`/podcasts/${podcastId}/history`, {
@@ -780,6 +784,12 @@ class ApiService {
             method: "POST",
             body: formData,
             headers: {}, // Remove Content-Type to let browser set multipart boundary
+        });
+    }
+
+    async processAudio(podcastId) {
+        return this.request(`/ai/process-podcast/${podcastId}`, {
+            method: "POST",
         });
     }
 

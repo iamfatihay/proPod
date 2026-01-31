@@ -433,6 +433,53 @@ def get_podcast_interactions(
     )
 
 
+@router.get("/{podcast_id}/ai-data", response_model=schemas.PodcastAIDataResponse)
+def get_podcast_ai_data(
+    podcast_id: int = Path(..., description="The ID of the podcast"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """Get AI analysis data for a podcast"""
+    # Check if podcast exists
+    podcast = crud.get_podcast(db=db, podcast_id=podcast_id)
+    if not podcast:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Podcast not found"
+        )
+    
+    # Get AI data
+    ai_data = db.query(models.PodcastAIData).filter(
+        models.PodcastAIData.podcast_id == podcast_id
+    ).first()
+    
+    if not ai_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="AI data not found for this podcast"
+        )
+    
+    # Parse JSON fields
+    keywords = json.loads(ai_data.keywords) if ai_data.keywords else []
+    categories = json.loads(ai_data.categories) if ai_data.categories else []
+    
+    return schemas.PodcastAIDataResponse(
+        id=ai_data.id,
+        podcast_id=ai_data.podcast_id,
+        transcription_text=ai_data.transcription_text,
+        transcription_language=ai_data.transcription_language,
+        transcription_confidence=ai_data.transcription_confidence,
+        keywords=keywords,
+        summary=ai_data.summary,
+        sentiment=ai_data.sentiment,
+        categories=categories,
+        quality_score=ai_data.quality_score,
+        processing_time_seconds=ai_data.processing_time_seconds,
+        created_at=ai_data.created_at,
+        updated_at=ai_data.updated_at
+    )
+
+
 # Listening History
 @router.post("/{podcast_id}/history", response_model=schemas.ListeningHistory)
 def update_listening_history(

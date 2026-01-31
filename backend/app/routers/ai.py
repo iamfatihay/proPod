@@ -205,7 +205,7 @@ async def process_podcast(
         )
     
     # Check permission (owner, moderator, or admin)
-    if podcast.creator_id != current_user.id and current_user.role not in ["MODERATOR", "ADMIN", "SUPER_ADMIN"]:
+    if podcast.owner_id != current_user.id and current_user.role not in ["MODERATOR", "ADMIN", "SUPER_ADMIN"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to process this podcast"
@@ -218,10 +218,18 @@ async def process_podcast(
             detail="Podcast has no audio file"
         )
     
+    # Extract path from audio_url (handle both full URL and relative path)
+    audio_url = podcast.audio_url
+    if audio_url.startswith("http://") or audio_url.startswith("https://"):
+        # Extract path from full URL (e.g., "http://192.168.178.44:8000/media/audio/file.m4a" -> "media/audio/file.m4a")
+        from urllib.parse import urlparse
+        parsed_url = urlparse(audio_url)
+        audio_url = parsed_url.path.lstrip("/")
+    
     # Construct audio file path with security validation
     # Prevent path traversal attacks by ensuring resolved path stays within BACKEND_ROOT
     try:
-        audio_path = settings.BACKEND_ROOT / podcast.audio_url.lstrip("/")
+        audio_path = settings.BACKEND_ROOT / audio_url.lstrip("/")
         audio_path = audio_path.resolve()
         
         # Security check: ensure path stays within allowed directory

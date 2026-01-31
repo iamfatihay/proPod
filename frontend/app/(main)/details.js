@@ -71,6 +71,9 @@ const Details = () => {
     const [isLiking, setIsLiking] = useState(false);
     const [isBookmarking, setIsBookmarking] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isProcessingAI, setIsProcessingAI] = useState(false);
+    const [showFullTranscription, setShowFullTranscription] = useState(false);
+    const [aiData, setAiData] = useState(null);
 
     // Watch for audio playback errors and show toast
     useEffect(() => {
@@ -145,6 +148,17 @@ const Details = () => {
             const related = await apiService.getRelatedPodcasts(params.id);
             // Normalize related podcasts URLs
             setRelatedPodcasts(normalizePodcasts(related));
+
+            // Load AI data if podcast is AI enhanced
+            if (podcastData.ai_enhanced) {
+                try {
+                    const aiDataResponse = await apiService.getPodcastAIData(params.id);
+                    setAiData(aiDataResponse);
+                } catch (error) {
+                    Logger.warn("Failed to load AI data:", error);
+                    // Don't show error to user, AI data is optional
+                }
+            }
         } catch (error) {
             Logger.error("Failed to load podcast details:", error);
             showToast("Failed to load podcast details", "error");
@@ -346,6 +360,33 @@ const Details = () => {
 
         addToQueue(track);
         showToast("Added to queue", "success");
+    };
+
+    const handleProcessAI = async () => {
+        try {
+            setIsProcessingAI(true);
+            showToast("AI processing started...", "info");
+
+            const result = await apiService.processAudio(podcast.id);
+            
+            // Update podcast with AI data
+            setPodcast((prev) => ({
+                ...prev,
+                ai_enhanced: true,
+                ai_processing_status: result.status,
+            }));
+
+            showToast("AI processing completed successfully!", "success");
+            
+            // Reload details to get full AI data
+            await loadPodcastDetails();
+        } catch (error) {
+            Logger.error("AI processing failed:", error);
+            const errorMsg = error.response?.data?.detail || "Failed to process with AI";
+            showToast(errorMsg, "error");
+        } finally {
+            setIsProcessingAI(false);
+        }
     };
 
     const handleEdit = () => {
@@ -620,8 +661,45 @@ const Details = () => {
                         )}
                     </View>
 
-                    {/* Action Buttons - Improved spacing and layout */}
-                    <View className="flex-row items-center mb-6 gap-3">
+                    {/* Action Buttons - Horizontal Scrollable with AI Process as primary CTA */}
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        className="mb-6"
+                        contentContainerStyle={{ gap: 12, paddingRight: 24 }}
+                    >
+                        {/* AI Process Button - PRIMARY CTA (only show if owner and not already processed) */}
+                        {isOwner && !podcast.ai_enhanced && (
+                            <TouchableOpacity
+                                onPress={handleProcessAI}
+                                className="flex-row items-center px-6 py-3 rounded-xl bg-success border-2 border-success shadow-lg"
+                                activeOpacity={0.7}
+                                disabled={isProcessingAI}
+                                hitSlop={{
+                                    top: 10,
+                                    bottom: 10,
+                                    left: 10,
+                                    right: 10,
+                                }}
+                            >
+                                {isProcessingAI ? (
+                                    <ActivityIndicator
+                                        size="small"
+                                        color="white"
+                                    />
+                                ) : (
+                                    <MaterialCommunityIcons
+                                        name="robot-outline"
+                                        size={24}
+                                        color="white"
+                                    />
+                                )}
+                                <Text className="text-white ml-2 font-bold text-base">
+                                    Process with AI
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
                         <TouchableOpacity
                             onPress={handleLike}
                             className={`flex-row items-center px-5 py-3 rounded-xl ${isLiked ? "bg-primary" : "bg-panel"
@@ -717,10 +795,11 @@ const Details = () => {
                             </Text>
                         </TouchableOpacity>
 
+                        {/* Delete Button - Only for owner */}
                         {isOwner && (
                             <TouchableOpacity
                                 onPress={handleDelete}
-                                className="flex-row items-center px-5 py-3 rounded-xl bg-error/20"
+                                className="flex-row items-center px-5 py-3 rounded-xl bg-error/20 border border-error/30"
                                 activeOpacity={0.7}
                                 disabled={isDeleting}
                                 hitSlop={{
@@ -747,7 +826,7 @@ const Details = () => {
                                 </Text>
                             </TouchableOpacity>
                         )}
-                    </View>
+                    </ScrollView>
                 </View>
 
                 {/* Audio Player - Show full player when this track is playing */}
@@ -820,6 +899,183 @@ const Details = () => {
                             <Text className="text-text-secondary leading-6">
                                 {podcast.description}
                             </Text>
+                        </View>
+                    </View>
+                )}
+
+                {/* AI Insights - Show if podcast is AI enhanced */}
+                {podcast.ai_enhanced && aiData && (
+                    <View className="px-6 mb-6">
+                        <View className="flex-row items-center mb-4">
+                            <MaterialCommunityIcons
+                                name="robot-excited-outline"
+                                size={24}
+                                color="#10B981"
+                            />
+                            <Text className="text-text-primary text-lg font-semibold ml-2">
+                                AI Insights
+                            </Text>
+                            <View className="ml-2 px-2 py-1 rounded-full bg-success/20 border border-success/30">
+                                <Text className="text-success text-xs font-medium">
+                                    Powered by AI
+                                </Text>
+                            </View>
+                        </View>
+
+                        {/* Transcription */}
+                        {aiData.transcription_text && (
+                            <View className="bg-card rounded-xl p-4 border border-border mb-4">
+                                <View className="flex-row items-center mb-3">
+                                    <MaterialCommunityIcons
+                                        name="text"
+                                        size={20}
+                                        color="#10B981"
+                                    />
+                                    <Text className="text-text-primary font-semibold ml-2">
+                                        Transcription
+                                    </Text>
+                                    {aiData.transcription_confidence && (
+                                        <View className="ml-auto flex-row items-center">
+                                            <MaterialCommunityIcons
+                                                name="check-circle"
+                                                size={16}
+                                                color="#10B981"
+                                            />
+                                            <Text className="text-success text-xs ml-1">
+                                                {Math.round(aiData.transcription_confidence * 100)}% accurate
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+                                <Text
+                                    className="text-text-secondary leading-6"
+                                    numberOfLines={showFullTranscription ? undefined : 4}
+                                >
+                                    {aiData.transcription_text}
+                                </Text>
+                                {aiData.transcription_text.length > 150 && (
+                                    <TouchableOpacity
+                                        onPress={() => setShowFullTranscription(!showFullTranscription)}
+                                        className="mt-2"
+                                    >
+                                        <Text className="text-primary font-medium">
+                                            {showFullTranscription ? "Show Less" : "Show More"}
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        )}
+
+                        {/* Keywords */}
+                        {aiData.keywords && aiData.keywords.length > 0 && (
+                            <View className="bg-card rounded-xl p-4 border border-border mb-4">
+                                <View className="flex-row items-center mb-3">
+                                    <MaterialCommunityIcons
+                                        name="key-variant"
+                                        size={20}
+                                        color="#F59E0B"
+                                    />
+                                    <Text className="text-text-primary font-semibold ml-2">
+                                        Keywords
+                                    </Text>
+                                </View>
+                                <View className="flex-row flex-wrap gap-2">
+                                    {aiData.keywords.map((keyword, index) => (
+                                        <View
+                                            key={index}
+                                            className="px-3 py-1.5 rounded-full bg-warning/20 border border-warning/30"
+                                        >
+                                            <Text className="text-warning text-sm font-medium">
+                                                {keyword}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </View>
+                        )}
+
+                        {/* Summary, Sentiment, Categories Row */}
+                        <View className="flex-row gap-4 mb-4">
+                            {/* Summary */}
+                            {aiData.summary && (
+                                <View className="flex-1 bg-card rounded-xl p-4 border border-border">
+                                    <View className="flex-row items-center mb-2">
+                                        <MaterialCommunityIcons
+                                            name="file-document-outline"
+                                            size={18}
+                                            color="#3B82F6"
+                                        />
+                                        <Text className="text-text-primary font-semibold text-sm ml-2">
+                                            Summary
+                                        </Text>
+                                    </View>
+                                    <Text className="text-text-secondary text-sm leading-5">
+                                        {aiData.summary}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Sentiment & Quality Score Row */}
+                        <View className="flex-row gap-4">
+                            {/* Sentiment */}
+                            {aiData.sentiment && (
+                                <View className="flex-1 bg-card rounded-xl p-4 border border-border">
+                                    <View className="flex-row items-center mb-2">
+                                        <MaterialCommunityIcons
+                                            name="emoticon-outline"
+                                            size={18}
+                                            color={
+                                                aiData.sentiment === 'positive'
+                                                    ? '#10B981'
+                                                    : aiData.sentiment === 'negative'
+                                                        ? '#EF4444'
+                                                        : '#888888'
+                                            }
+                                        />
+                                        <Text className="text-text-primary font-semibold text-sm ml-2">
+                                            Sentiment
+                                        </Text>
+                                    </View>
+                                    <Text
+                                        className={`text-sm font-medium capitalize ${aiData.sentiment === 'positive'
+                                                ? 'text-success'
+                                                : aiData.sentiment === 'negative'
+                                                    ? 'text-error'
+                                                    : 'text-text-secondary'
+                                            }`}
+                                    >
+                                        {aiData.sentiment === 'positive' && '😊 '}
+                                        {aiData.sentiment === 'negative' && '😔 '}
+                                        {aiData.sentiment === 'neutral' && '😐 '}
+                                        {aiData.sentiment}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {/* Quality Score */}
+                            {aiData.quality_score !== null && aiData.quality_score !== undefined && (
+                                <View className="flex-1 bg-card rounded-xl p-4 border border-border">
+                                    <View className="flex-row items-center mb-2">
+                                        <MaterialCommunityIcons
+                                            name="star-circle-outline"
+                                            size={18}
+                                            color="#F59E0B"
+                                        />
+                                        <Text className="text-text-primary font-semibold text-sm ml-2">
+                                            Quality
+                                        </Text>
+                                    </View>
+                                    <View className="flex-row items-center">
+                                        <Text className="text-warning text-lg font-bold">
+                                            {(aiData.quality_score * 100).toFixed(0)}
+                                        </Text>
+                                        <Text className="text-text-secondary text-sm ml-1">
+                                            /100
+                                        </Text>
+                                    </View>
+                                </View>
+                            )}
                         </View>
                     </View>
                 )}
