@@ -35,6 +35,9 @@ const TabIcon = ({ icon, color, focused, badge }) => {
                         borderWidth: 2,
                         borderColor: "#000000",
                     }}
+                    accessible={true}
+                    accessibilityLabel={`${badge} unread notification${badge > 1 ? 's' : ''}`}
+                    accessibilityRole="text"
                 >
                     <Text
                         style={{
@@ -42,6 +45,7 @@ const TabIcon = ({ icon, color, focused, badge }) => {
                             fontSize: 10,
                             fontWeight: "700",
                         }}
+                        importantForAccessibility="no"
                     >
                         {badge > 99 ? "99+" : badge}
                     </Text>

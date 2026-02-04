@@ -448,6 +448,13 @@ def get_podcast_ai_data(
             detail="Podcast not found"
         )
     
+    # Check permissions: podcast must be public OR user must be the owner
+    if not podcast.is_public and podcast.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view AI data for this podcast"
+        )
+    
     # Get AI data
     ai_data = db.query(models.PodcastAIData).filter(
         models.PodcastAIData.podcast_id == podcast_id

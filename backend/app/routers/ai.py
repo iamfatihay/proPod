@@ -11,6 +11,7 @@ Provides endpoints for:
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
+from urllib.parse import urlparse
 import json
 import logging
 from pathlib import Path
@@ -222,7 +223,6 @@ async def process_podcast(
     audio_url = podcast.audio_url
     if audio_url.startswith("http://") or audio_url.startswith("https://"):
         # Extract path from full URL (e.g., "http://192.168.178.44:8000/media/audio/file.m4a" -> "media/audio/file.m4a")
-        from urllib.parse import urlparse
         parsed_url = urlparse(audio_url)
         audio_url = parsed_url.path.lstrip("/")
     

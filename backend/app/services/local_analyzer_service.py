@@ -279,7 +279,18 @@ class LocalAnalyzerService:
         # Good sentence length indicates well-structured content
         # Count sentence boundaries more accurately (punctuation + space + capital)
         sentence_boundaries = re.findall(r'[.!?]+\s+[A-Z]', text)
-        sentence_count = len(sentence_boundaries) + 1  # +1 for last sentence
+        boundary_count = len(sentence_boundaries)
+        
+        # Calculate sentence count with edge case handling
+        if boundary_count > 0:
+            # +1 to account for the last sentence after the final boundary
+            sentence_count = boundary_count + 1
+        elif word_count > 5:
+            # No boundaries found but has meaningful content - treat as 1 sentence
+            sentence_count = 1
+        else:
+            # Very short or empty content - no structure score
+            sentence_count = 0
         
         if sentence_count > 0:
             avg_sentence_length = word_count / sentence_count

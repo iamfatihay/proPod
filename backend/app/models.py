@@ -1,6 +1,6 @@
 """Database models using SQLAlchemy ORM."""
 import datetime
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Index, JSON, Enum as SQLEnum, Float
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Index, Enum as SQLEnum, Float
 from sqlalchemy.orm import relationship
 from enum import Enum
 from .database import Base

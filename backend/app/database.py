@@ -1,5 +1,5 @@
 """Database configuration and session management."""
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import Pool
@@ -23,7 +23,18 @@ def str_to_bool(value: str) -> bool:
 
 DATABASE_ECHO = str_to_bool(os.getenv("DATABASE_ECHO", "false"))
 
+# Determine if using PostgreSQL
+is_postgresql = DATABASE_URL.startswith("postgresql://") or DATABASE_URL.startswith("postgresql+")
+
+# PostgreSQL-specific connection arguments
+postgresql_connect_args = {
+    "connect_timeout": 10,  # Connection timeout in seconds
+    "options": "-c timezone=utc"  # Set timezone to UTC
+}
+
 # PostgreSQL engine with optimized connection pooling
+# Note: This configuration is optimized for PostgreSQL. For other databases,
+# adjust pool settings and remove PostgreSQL-specific connect_args.
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,  # Verify connections before using
@@ -32,10 +43,7 @@ engine = create_engine(
     max_overflow=20,  # Extra connections when pool is full (total max: 30)
     pool_recycle=3600,  # Recycle connections after 1 hour (prevent stale connections)
     pool_timeout=30,  # Wait 30s for available connection
-    connect_args={
-        "connect_timeout": 10,  # Connection timeout in seconds
-        "options": "-c timezone=utc"  # Set timezone to UTC
-    }
+    connect_args=postgresql_connect_args if is_postgresql else {}
 )
 
 # Connection pool event listeners for debugging (optional)
@@ -67,18 +75,21 @@ def get_db() -> Generator[Session, None, None]:
         @router.get("/example")
         def example_endpoint(db: Session = Depends(get_db)):
             # Use db here
-            pass
+            db.commit()  # Explicitly commit when needed
     
     Features:
-    - Auto-commit on success
-    - Auto-rollback on error
+    - Caller controls when to commit or rollback
+    - Auto-rollback on uncaught exceptions
     - Always closes connection (returns to pool)
     - Thread-safe
+    
+    Note: Route handlers should call db.commit() explicitly when they want
+    to persist changes. This prevents partial commits if an exception occurs
+    after the dependency yields but before the route completes.
     """
     db = SessionLocal()
     try:
         yield db
-        db.commit()  # Auto-commit on success
     except Exception as e:
         db.rollback()  # Rollback on error
         logger.error(f"Database error: {str(e)}")
@@ -94,11 +105,13 @@ def get_db_context():
     Usage:
         with get_db_context() as db:
             user = db.query(User).first()
+            db.commit()  # Explicitly commit when needed
+    
+    Note: Caller should call db.commit() explicitly to persist changes.
     """
     db = SessionLocal()
     try:
         yield db
-        db.commit()
     except Exception as e:
         db.rollback()
         logger.error(f"Database error: {str(e)}")
@@ -115,7 +128,7 @@ def check_database_connection() -> bool:
     """
     try:
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))  # Use text() for raw SQL - SQLAlchemy best practice
         db.close()
         return True
     except Exception as e:
