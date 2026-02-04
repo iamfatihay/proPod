@@ -116,14 +116,27 @@ This documentation contains improvements that can be made after the audio player
 
 ### 9. **Accessibility Improvements**
 
+-   [x] Safe vibration handling (platform check + try-catch) ✅ Feb 2026
+-   [ ] User settings for haptic feedback (enable/disable toggle)
+-   [ ] AsyncStorage preference persistence
 -   [ ] VoiceOver/TalkBack optimization
 -   [ ] Keyboard navigation support
 -   [ ] High contrast mode support
 -   [ ] Font size scaling
+-   [ ] Screen reader friendly labels
+-   [ ] WCAG 2.1 compliance audit
 
-**Priority:** Low (but important!)  
-**Estimated Time:** 2-3 hours  
-**Benefit:** Accessibility for all users
+**Priority:** Medium (haptic settings), Low (others)  
+**Estimated Time:** 1-2 hours (haptic settings), 4-6 hours (full accessibility)  
+**Benefit:** Accessibility for users with disabilities, WCAG compliance
+
+**Next Steps for Haptic Feedback:**
+1. Add "Enable Vibration" toggle in Settings page
+2. Store preference in AsyncStorage (`@user_preferences/haptic_feedback`)
+3. Check preference before calling `Vibration.vibrate()`
+4. Provide visual/audio alternatives for feedback
+
+**Current Status:** Basic safety implemented (platform check + error handling)
 
 ---
 
