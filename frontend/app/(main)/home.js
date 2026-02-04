@@ -17,6 +17,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import useAuthStore from "../../src/context/useAuthStore";
 import useAudioStore from "../../src/context/useAudioStore";
 import useViewModeStore from "../../src/context/useViewModeStore";
+import useNotificationStore from "../../src/context/useNotificationStore";
 import PodcastCard from "../../src/components/PodcastCard";
 import GradientCard from "../../src/components/GradientCard";
 import ModeToggle from "../../src/components/ModeToggle";
@@ -95,6 +96,11 @@ export default function HomeScreen() {
     const showMiniPlayer = useAudioStore((state) => state.showMiniPlayer);
     const audioError = useAudioStore((state) => state.error);
 
+    // Notification store
+    const unreadCount = useNotificationStore((state) => state.unreadCount);
+    const isLoaded = useNotificationStore((state) => state.isLoaded);
+    const loadFromStorage = useNotificationStore((state) => state.loadFromStorage); // Stable action
+
     // Actions (stable, don't cause re-renders)
     const play = useAudioStore((state) => state.play);
     const pause = useAudioStore((state) => state.pause);
@@ -108,6 +114,14 @@ export default function HomeScreen() {
     const [error, setError] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [refreshing, setRefreshing] = useState(false);
+
+    // Load notifications from storage on mount
+    // Note: loadFromStorage is a stable Zustand action, safe in dependency array
+    useEffect(() => {
+        if (!isLoaded) {
+            loadFromStorage();
+        }
+    }, [isLoaded, loadFromStorage]);
 
     // Watch for audio playback errors and show toast
     useEffect(() => {
@@ -251,6 +265,9 @@ export default function HomeScreen() {
             case "analytics":
                 showToast("Analytics coming soon! 📊", "info");
                 break;
+            case "notifications":
+                router.push("/(main)/notifications");
+                break;
             case "bookmarks":
                 router.push("/(main)/library");
                 break;
@@ -362,6 +379,7 @@ export default function HomeScreen() {
                             notifications={{
                                 comments: 3,
                                 analytics: 0,
+                                notifications: unreadCount,
                             }}
                         />
                     </View>

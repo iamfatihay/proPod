@@ -67,9 +67,9 @@ const ACTION_SETS = {
             color: "#F59E0B",
         },
         {
-            id: "schedule",
-            icon: "calendar-clock",
-            label: "Schedule",
+            id: "notifications",
+            icon: "bell-outline",
+            label: "Alerts",
             color: "#8B5CF6",
         },
     ],
