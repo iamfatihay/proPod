@@ -11,6 +11,8 @@ import {
     StatusBar,
     Image,
     ActivityIndicator,
+    Vibration,
+    Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -21,6 +23,7 @@ import { useToast } from "../../src/components/Toast";
 import { Stack } from "expo-router";
 import Logger from "../../src/utils/logger";
 import ConfirmationModal from "../../src/components/ConfirmationModal";
+import InfoModal from "../../src/components/InfoModal";
 import { normalizePodcast, normalizePodcasts } from "../../src/utils/urlHelper";
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -74,6 +77,7 @@ const Details = () => {
     const [isProcessingAI, setIsProcessingAI] = useState(false);
     const [showFullTranscription, setShowFullTranscription] = useState(false);
     const [aiData, setAiData] = useState(null);
+    const [showQualityInfo, setShowQualityInfo] = useState(false);
 
     // Watch for audio playback errors and show toast
     useEffect(() => {
@@ -365,7 +369,7 @@ const Details = () => {
     const handleProcessAI = async () => {
         try {
             setIsProcessingAI(true);
-            showToast("AI processing started...", "info");
+            showToast("🤖 AI processing started...", "info");
 
             const result = await apiService.processAudio(podcast.id);
             
@@ -376,7 +380,18 @@ const Details = () => {
                 ai_processing_status: result.status,
             }));
 
-            showToast("AI processing completed successfully!", "success");
+            // Success notification with vibration
+            Vibration.vibrate([0, 200, 100, 200]); // Pattern: wait 0ms, vibrate 200ms, wait 100ms, vibrate 200ms
+            showToast("✨ AI processing completed! Check AI Insights below.", "success");
+            
+            // Alert for more visibility (user can be anywhere in the app)
+            setTimeout(() => {
+                Alert.alert(
+                    "🎉 AI Processing Complete!",
+                    "Your podcast has been analyzed. Check the AI Insights section for transcription, keywords, summary, and quality score.",
+                    [{ text: "View Insights", style: "default" }]
+                );
+            }, 500);
             
             // Reload details to get full AI data
             await loadPodcastDetails();
@@ -384,6 +399,7 @@ const Details = () => {
             Logger.error("AI processing failed:", error);
             const errorMsg = error.response?.data?.detail || "Failed to process with AI";
             showToast(errorMsg, "error");
+            Vibration.vibrate(500); // Error vibration
         } finally {
             setIsProcessingAI(false);
         }
@@ -512,6 +528,20 @@ const Details = () => {
                 cancelText="Cancel"
                 destructive={true}
                 icon="trash"
+            />
+
+            {/* AI Quality Info Modal */}
+            <InfoModal
+                visible={showQualityInfo}
+                onClose={() => setShowQualityInfo(false)}
+                title="AI Processing Quality"
+                message={`Quality depends on:\n\n🎤 Audio Quality\n• Clear speech, no background noise\n• Good microphone quality\n\n🗣️ Speech Clarity\n• Clear pronunciation\n• Moderate speaking pace\n\n📝 Content Length\n• Longer content = better analysis\n• More context for keywords\n\n${aiData?.quality_score && aiData.quality_score < 0.6 
+                    ? '⚠️ Low quality. Try:\n• Better microphone\n• Quiet environment\n• Clear pronunciation'
+                    : aiData?.quality_score && aiData.quality_score >= 0.6 && aiData.quality_score < 0.8
+                    ? '✅ Good quality! For better results:\n• Use external microphone\n• Reduce background noise'
+                    : '🌟 Excellent quality!'
+                }`}
+                icon="information-outline"
             />
 
             <Stack.Screen
@@ -672,7 +702,7 @@ const Details = () => {
                         {isOwner && !podcast.ai_enhanced && (
                             <TouchableOpacity
                                 onPress={handleProcessAI}
-                                className="flex-row items-center px-6 py-3 rounded-xl bg-success border-2 border-success shadow-lg"
+                                className="flex-row items-center px-5 py-1 rounded-xl bg-success border-2 border-success shadow-lg"
                                 activeOpacity={0.7}
                                 disabled={isProcessingAI}
                                 hitSlop={{
@@ -690,11 +720,11 @@ const Details = () => {
                                 ) : (
                                     <MaterialCommunityIcons
                                         name="robot-outline"
-                                        size={24}
+                                        size={20}
                                         color="white"
                                     />
                                 )}
-                                <Text className="text-white ml-2 font-bold text-base">
+                                <Text className="text-white ml-2 font-bold text-sm">
                                     Process with AI
                                 </Text>
                             </TouchableOpacity>
@@ -702,7 +732,7 @@ const Details = () => {
 
                         <TouchableOpacity
                             onPress={handleLike}
-                            className={`flex-row items-center px-5 py-3 rounded-xl ${isLiked ? "bg-primary" : "bg-panel"
+                            className={`flex-row items-center px-4 py-1 rounded-xl ${isLiked ? "bg-primary" : "bg-panel"
                                 }`}
                             activeOpacity={0.7}
                             disabled={isLiking}
@@ -721,12 +751,12 @@ const Details = () => {
                             ) : (
                                 <MaterialCommunityIcons
                                     name={isLiked ? "heart" : "heart-outline"}
-                                    size={22}
+                                    size={18}
                                     color={isLiked ? "white" : "#888888"}
                                 />
                             )}
                             <Text
-                                className={`ml-2 font-medium ${isLiked
+                                className={`ml-1.5 text-sm font-medium ${isLiked
                                     ? "text-white"
                                     : "text-text-secondary"
                                     }`}
@@ -737,7 +767,7 @@ const Details = () => {
 
                         <TouchableOpacity
                             onPress={handleBookmark}
-                            className={`flex-row items-center px-5 py-3 rounded-xl ${isBookmarked ? "bg-warning" : "bg-panel"
+                            className={`flex-row items-center px-4 py-1 rounded-xl ${isBookmarked ? "bg-warning" : "bg-panel"
                                 }`}
                             activeOpacity={0.7}
                             disabled={isBookmarking}
@@ -760,12 +790,12 @@ const Details = () => {
                                             ? "bookmark"
                                             : "bookmark-outline"
                                     }
-                                    size={22}
+                                    size={18}
                                     color={isBookmarked ? "white" : "#888888"}
                                 />
                             )}
                             <Text
-                                className={`ml-2 font-medium ${isBookmarked
+                                className={`ml-1.5 text-sm font-medium ${isBookmarked
                                     ? "text-white"
                                     : "text-text-secondary"
                                     }`}
@@ -776,7 +806,7 @@ const Details = () => {
 
                         <TouchableOpacity
                             onPress={handleAddToQueue}
-                            className="flex-row items-center px-5 py-3 rounded-xl bg-panel"
+                            className="flex-row items-center px-4 py-1 rounded-xl bg-panel"
                             activeOpacity={0.7}
                             hitSlop={{
                                 top: 10,
@@ -787,10 +817,10 @@ const Details = () => {
                         >
                             <MaterialCommunityIcons
                                 name="playlist-plus"
-                                size={22}
+                                size={18}
                                 color="#888888"
                             />
-                            <Text className="text-text-secondary ml-2 font-medium">
+                            <Text className="text-text-secondary ml-1.5 text-sm font-medium">
                                 Queue
                             </Text>
                         </TouchableOpacity>
@@ -799,7 +829,7 @@ const Details = () => {
                         {isOwner && (
                             <TouchableOpacity
                                 onPress={handleDelete}
-                                className="flex-row items-center px-5 py-3 rounded-xl bg-error/20 border border-error/30"
+                                className="flex-row items-center px-4 py-1 rounded-xl bg-error/20 border border-error/30"
                                 activeOpacity={0.7}
                                 disabled={isDeleting}
                                 hitSlop={{
@@ -817,11 +847,11 @@ const Details = () => {
                                 ) : (
                                     <MaterialCommunityIcons
                                         name="delete-outline"
-                                        size={22}
+                                        size={18}
                                         color="#EF4444"
                                     />
                                 )}
-                                <Text className="text-error ml-2 font-medium">
+                                <Text className="text-error ml-1.5 text-sm font-medium">
                                     Delete
                                 </Text>
                             </TouchableOpacity>
@@ -920,6 +950,17 @@ const Details = () => {
                                     Powered by AI
                                 </Text>
                             </View>
+                            <TouchableOpacity
+                                onPress={() => setShowQualityInfo(true)}
+                                className="ml-auto p-2"
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <MaterialCommunityIcons
+                                    name="information-outline"
+                                    size={22}
+                                    color="#888888"
+                                />
+                            </TouchableOpacity>
                         </View>
 
                         {/* Transcription */}

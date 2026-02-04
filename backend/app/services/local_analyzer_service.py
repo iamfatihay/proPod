@@ -259,11 +259,11 @@ class LocalAnalyzerService:
         # Keyword diversity bonus
         keyword_score = min(len(keywords) * 0.2, 2.0)
         
-        # Final score
-        quality = min(length_score + keyword_score, 10.0)
+        # Final score (normalize to 0-1 range for consistency)
+        quality = min(length_score + keyword_score, 10.0) / 10.0
         
-        logger.info(f"✅ Quality score: {quality:.1f}/10")
-        return round(quality, 1)
+        logger.info(f"✅ Quality score: {quality:.2f} ({quality*100:.0f}/100)")
+        return round(quality, 2)
 
 
 # Singleton instance
