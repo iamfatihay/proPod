@@ -19,27 +19,36 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Upgrade schema - SQLite compatible version."""
-    # SQLite doesn't support ALTER COLUMN, so we need to recreate the table
-    with op.batch_alter_table('podcast_ai_data', schema=None) as batch_op:
-        batch_op.alter_column('transcription_confidence',
-                   existing_type=sa.VARCHAR(),
-                   type_=sa.Float(),
-                   existing_nullable=True)
-        batch_op.alter_column('quality_score',
-                   existing_type=sa.VARCHAR(),
-                   type_=sa.Float(),
-                   existing_nullable=True)
+    """Upgrade schema: change confidence and quality score to Float."""
+    op.alter_column(
+        'podcast_ai_data',
+        'transcription_confidence',
+        existing_type=sa.VARCHAR(),
+        type_=sa.Float(),
+        existing_nullable=True,
+    )
+    op.alter_column(
+        'podcast_ai_data',
+        'quality_score',
+        existing_type=sa.VARCHAR(),
+        type_=sa.Float(),
+        existing_nullable=True,
+    )
 
 
 def downgrade() -> None:
-    """Downgrade schema - SQLite compatible version."""
-    with op.batch_alter_table('podcast_ai_data', schema=None) as batch_op:
-        batch_op.alter_column('quality_score',
-                   existing_type=sa.Float(),
-                   type_=sa.VARCHAR(),
-                   existing_nullable=True)
-        batch_op.alter_column('transcription_confidence',
-                   existing_type=sa.Float(),
-                   type_=sa.VARCHAR(),
-                   existing_nullable=True)
+    """Downgrade schema: revert confidence and quality score to VARCHAR."""
+    op.alter_column(
+        'podcast_ai_data',
+        'quality_score',
+        existing_type=sa.Float(),
+        type_=sa.VARCHAR(),
+        existing_nullable=True,
+    )
+    op.alter_column(
+        'podcast_ai_data',
+        'transcription_confidence',
+        existing_type=sa.Float(),
+        type_=sa.VARCHAR(),
+        existing_nullable=True,
+    )
