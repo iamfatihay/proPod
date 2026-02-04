@@ -12,12 +12,12 @@ import {
     Image,
     ActivityIndicator,
     Vibration,
-    Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import ModernAudioPlayer from "../../src/components/audio/ModernAudioPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
+import useNotificationStore from "../../src/context/useNotificationStore";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
 import { Stack } from "expo-router";
@@ -25,6 +25,7 @@ import Logger from "../../src/utils/logger";
 import ConfirmationModal from "../../src/components/ConfirmationModal";
 import InfoModal from "../../src/components/InfoModal";
 import { normalizePodcast, normalizePodcasts } from "../../src/utils/urlHelper";
+import { getQualityMessage } from "../../src/utils/qualityHelpers";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -43,6 +44,9 @@ const Details = () => {
     const isAudioLoading = useAudioStore((state) => state.isLoading);
     const showMiniPlayer = useAudioStore((state) => state.showMiniPlayer);
     const audioError = useAudioStore((state) => state.error);
+
+    // Notification store
+    const addNotification = useNotificationStore((state) => state.addNotification);
 
     // CRITICAL: DON'T subscribe to position/duration/playbackRate/volume here!
     // They change frequently (position: 10x/second) and cause unnecessary re-renders
@@ -380,18 +384,32 @@ const Details = () => {
                 ai_processing_status: result.status,
             }));
 
-            // Success notification with vibration
-            Vibration.vibrate([0, 200, 100, 200]); // Pattern: wait 0ms, vibrate 200ms, wait 100ms, vibrate 200ms
+            // Success notification with optional vibration (accessibility-friendly)
+            try {
+                if (Platform.OS !== 'web' && Vibration) {
+                    Vibration.vibrate([0, 200, 100, 200]);
+                }
+            } catch (error) {
+                // Silently fail if vibration not supported
+                Logger.debug("Vibration not supported:", error);
+            }
             showToast("✨ AI processing completed! Check AI Insights below.", "success");
             
-            // Alert for more visibility (user can be anywhere in the app)
-            setTimeout(() => {
-                Alert.alert(
-                    "🎉 AI Processing Complete!",
-                    "Your podcast has been analyzed. Check the AI Insights section for transcription, keywords, summary, and quality score.",
-                    [{ text: "View Insights", style: "default" }]
-                );
-            }, 500);
+            // Add notification for visibility (works even if user navigates away)
+            addNotification({
+                type: 'ai_complete',
+                title: '🎉 AI Processing Complete!',
+                message: `"${podcast.title}" has been analyzed. Check AI Insights for transcription, keywords, summary, and quality score.`,
+                action: {
+                    type: 'navigate',
+                    screen: 'details',
+                    params: { id: podcast.id },
+                },
+                data: {
+                    podcast_id: podcast.id,
+                    podcast_title: podcast.title,
+                },
+            });
             
             // Reload details to get full AI data
             await loadPodcastDetails();
@@ -399,7 +417,15 @@ const Details = () => {
             Logger.error("AI processing failed:", error);
             const errorMsg = error.response?.data?.detail || "Failed to process with AI";
             showToast(errorMsg, "error");
-            Vibration.vibrate(500); // Error vibration
+            
+            // Optional error vibration
+            try {
+                if (Platform.OS !== 'web' && Vibration) {
+                    Vibration.vibrate(500);
+                }
+            } catch (vibError) {
+                Logger.debug("Vibration not supported:", vibError);
+            }
         } finally {
             setIsProcessingAI(false);
         }
@@ -535,12 +561,7 @@ const Details = () => {
                 visible={showQualityInfo}
                 onClose={() => setShowQualityInfo(false)}
                 title="AI Processing Quality"
-                message={`Quality depends on:\n\n🎤 Audio Quality\n• Clear speech, no background noise\n• Good microphone quality\n\n🗣️ Speech Clarity\n• Clear pronunciation\n• Moderate speaking pace\n\n📝 Content Length\n• Longer content = better analysis\n• More context for keywords\n\n${aiData?.quality_score && aiData.quality_score < 0.6 
-                    ? '⚠️ Low quality. Try:\n• Better microphone\n• Quiet environment\n• Clear pronunciation'
-                    : aiData?.quality_score && aiData.quality_score >= 0.6 && aiData.quality_score < 0.8
-                    ? '✅ Good quality! For better results:\n• Use external microphone\n• Reduce background noise'
-                    : '🌟 Excellent quality!'
-                }`}
+                message={getQualityMessage(aiData?.quality_score)}
                 icon="information-outline"
             />
 
