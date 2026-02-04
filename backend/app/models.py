@@ -1,6 +1,6 @@
 """Database models using SQLAlchemy ORM."""
 import datetime
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Index, JSON, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Index, Enum as SQLEnum, Float
 from sqlalchemy.orm import relationship
 from enum import Enum
 from .database import Base
@@ -246,6 +246,7 @@ class PodcastAIData(Base):
     # Processing metadata
     processing_status = Column(String, default="pending")  # pending, processing, completed, failed
     processing_date = Column(DateTime, nullable=True)
+    processing_time_seconds = Column(Float, nullable=True)  # Total processing time in seconds
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), 
                        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))

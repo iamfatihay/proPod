@@ -11,17 +11,21 @@ import {
     StatusBar,
     Image,
     ActivityIndicator,
+    Vibration,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import ModernAudioPlayer from "../../src/components/audio/ModernAudioPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
+import useNotificationStore from "../../src/context/useNotificationStore";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
 import { Stack } from "expo-router";
 import Logger from "../../src/utils/logger";
 import ConfirmationModal from "../../src/components/ConfirmationModal";
+import InfoModal from "../../src/components/InfoModal";
 import { normalizePodcast, normalizePodcasts } from "../../src/utils/urlHelper";
+import { getQualityMessage } from "../../src/utils/qualityHelpers";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -40,6 +44,9 @@ const Details = () => {
     const isAudioLoading = useAudioStore((state) => state.isLoading);
     const showMiniPlayer = useAudioStore((state) => state.showMiniPlayer);
     const audioError = useAudioStore((state) => state.error);
+
+    // Notification store
+    const addNotification = useNotificationStore((state) => state.addNotification);
 
     // CRITICAL: DON'T subscribe to position/duration/playbackRate/volume here!
     // They change frequently (position: 10x/second) and cause unnecessary re-renders
@@ -71,6 +78,10 @@ const Details = () => {
     const [isLiking, setIsLiking] = useState(false);
     const [isBookmarking, setIsBookmarking] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isProcessingAI, setIsProcessingAI] = useState(false);
+    const [showFullTranscription, setShowFullTranscription] = useState(false);
+    const [aiData, setAiData] = useState(null);
+    const [showQualityInfo, setShowQualityInfo] = useState(false);
 
     // Watch for audio playback errors and show toast
     useEffect(() => {
@@ -145,6 +156,17 @@ const Details = () => {
             const related = await apiService.getRelatedPodcasts(params.id);
             // Normalize related podcasts URLs
             setRelatedPodcasts(normalizePodcasts(related));
+
+            // Load AI data if podcast is AI enhanced
+            if (podcastData.ai_enhanced) {
+                try {
+                    const aiDataResponse = await apiService.getPodcastAIData(params.id);
+                    setAiData(aiDataResponse);
+                } catch (error) {
+                    Logger.warn("Failed to load AI data:", error);
+                    // Don't show error to user, AI data is optional
+                }
+            }
         } catch (error) {
             Logger.error("Failed to load podcast details:", error);
             showToast("Failed to load podcast details", "error");
@@ -348,6 +370,67 @@ const Details = () => {
         showToast("Added to queue", "success");
     };
 
+    const handleProcessAI = async () => {
+        try {
+            setIsProcessingAI(true);
+            showToast("🤖 AI processing started...", "info");
+
+            const result = await apiService.processAudio(podcast.id);
+            
+            // Update podcast with AI data
+            setPodcast((prev) => ({
+                ...prev,
+                ai_enhanced: true,
+                ai_processing_status: result.status,
+            }));
+
+            // Success notification with optional vibration (accessibility-friendly)
+            try {
+                if (Platform.OS !== 'web' && Vibration) {
+                    Vibration.vibrate([0, 200, 100, 200]);
+                }
+            } catch (error) {
+                // Silently fail if vibration not supported
+                Logger.debug("Vibration not supported:", error);
+            }
+            showToast("✨ AI processing completed! Check AI Insights below.", "success");
+            
+            // Add notification for visibility (works even if user navigates away)
+            addNotification({
+                type: 'ai_complete',
+                title: '🎉 AI Processing Complete!',
+                message: `"${podcast.title}" has been analyzed. Check AI Insights for transcription, keywords, summary, and quality score.`,
+                action: {
+                    type: 'navigate',
+                    screen: 'details',
+                    params: { id: podcast.id },
+                },
+                data: {
+                    podcast_id: podcast.id,
+                    podcast_title: podcast.title,
+                },
+            });
+            
+            // Reload details to get full AI data
+            await loadPodcastDetails();
+        } catch (error) {
+            Logger.error("AI processing failed:", error);
+            const errorMsg = error.response?.data?.detail || "Failed to process with AI";
+            showToast(errorMsg, "error");
+            
+            // Optional error vibration
+            try {
+                if (Platform.OS !== 'web' && Vibration) {
+                    Vibration.vibrate(500);
+                }
+            } catch (vibError) {
+                Logger.debug("Vibration not supported:", vibError);
+            }
+        } finally {
+            setIsProcessingAI(false);
+        }
+    };
+
     const handleEdit = () => {
         router.push({
             pathname: "/(main)/edit-podcast",
@@ -471,6 +554,15 @@ const Details = () => {
                 cancelText="Cancel"
                 destructive={true}
                 icon="trash"
+            />
+
+            {/* AI Quality Info Modal */}
+            <InfoModal
+                visible={showQualityInfo}
+                onClose={() => setShowQualityInfo(false)}
+                title="AI Processing Quality"
+                message={getQualityMessage(aiData?.quality_score)}
+                icon="information-outline"
             />
 
             <Stack.Screen
@@ -620,11 +712,48 @@ const Details = () => {
                         )}
                     </View>
 
-                    {/* Action Buttons - Improved spacing and layout */}
-                    <View className="flex-row items-center mb-6 gap-3">
+                    {/* Action Buttons - Horizontal Scrollable with AI Process as primary CTA */}
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        className="mb-6"
+                        contentContainerStyle={{ gap: 12, paddingRight: 24 }}
+                    >
+                        {/* AI Process Button - PRIMARY CTA (only show if owner and not already processed) */}
+                        {isOwner && !podcast.ai_enhanced && (
+                            <TouchableOpacity
+                                onPress={handleProcessAI}
+                                className="flex-row items-center px-5 py-1 rounded-xl bg-success border-2 border-success shadow-lg"
+                                activeOpacity={0.7}
+                                disabled={isProcessingAI}
+                                hitSlop={{
+                                    top: 10,
+                                    bottom: 10,
+                                    left: 10,
+                                    right: 10,
+                                }}
+                            >
+                                {isProcessingAI ? (
+                                    <ActivityIndicator
+                                        size="small"
+                                        color="white"
+                                    />
+                                ) : (
+                                    <MaterialCommunityIcons
+                                        name="robot-outline"
+                                        size={20}
+                                        color="white"
+                                    />
+                                )}
+                                <Text className="text-white ml-2 font-bold text-sm">
+                                    Process with AI
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
                         <TouchableOpacity
                             onPress={handleLike}
-                            className={`flex-row items-center px-5 py-3 rounded-xl ${isLiked ? "bg-primary" : "bg-panel"
+                            className={`flex-row items-center px-4 py-1 rounded-xl ${isLiked ? "bg-primary" : "bg-panel"
                                 }`}
                             activeOpacity={0.7}
                             disabled={isLiking}
@@ -643,12 +772,12 @@ const Details = () => {
                             ) : (
                                 <MaterialCommunityIcons
                                     name={isLiked ? "heart" : "heart-outline"}
-                                    size={22}
+                                    size={18}
                                     color={isLiked ? "white" : "#888888"}
                                 />
                             )}
                             <Text
-                                className={`ml-2 font-medium ${isLiked
+                                className={`ml-1.5 text-sm font-medium ${isLiked
                                     ? "text-white"
                                     : "text-text-secondary"
                                     }`}
@@ -659,7 +788,7 @@ const Details = () => {
 
                         <TouchableOpacity
                             onPress={handleBookmark}
-                            className={`flex-row items-center px-5 py-3 rounded-xl ${isBookmarked ? "bg-warning" : "bg-panel"
+                            className={`flex-row items-center px-4 py-1 rounded-xl ${isBookmarked ? "bg-warning" : "bg-panel"
                                 }`}
                             activeOpacity={0.7}
                             disabled={isBookmarking}
@@ -682,12 +811,12 @@ const Details = () => {
                                             ? "bookmark"
                                             : "bookmark-outline"
                                     }
-                                    size={22}
+                                    size={18}
                                     color={isBookmarked ? "white" : "#888888"}
                                 />
                             )}
                             <Text
-                                className={`ml-2 font-medium ${isBookmarked
+                                className={`ml-1.5 text-sm font-medium ${isBookmarked
                                     ? "text-white"
                                     : "text-text-secondary"
                                     }`}
@@ -698,7 +827,7 @@ const Details = () => {
 
                         <TouchableOpacity
                             onPress={handleAddToQueue}
-                            className="flex-row items-center px-5 py-3 rounded-xl bg-panel"
+                            className="flex-row items-center px-4 py-1 rounded-xl bg-panel"
                             activeOpacity={0.7}
                             hitSlop={{
                                 top: 10,
@@ -709,18 +838,19 @@ const Details = () => {
                         >
                             <MaterialCommunityIcons
                                 name="playlist-plus"
-                                size={22}
+                                size={18}
                                 color="#888888"
                             />
-                            <Text className="text-text-secondary ml-2 font-medium">
+                            <Text className="text-text-secondary ml-1.5 text-sm font-medium">
                                 Queue
                             </Text>
                         </TouchableOpacity>
 
+                        {/* Delete Button - Only for owner */}
                         {isOwner && (
                             <TouchableOpacity
                                 onPress={handleDelete}
-                                className="flex-row items-center px-5 py-3 rounded-xl bg-error/20"
+                                className="flex-row items-center px-4 py-1 rounded-xl bg-error/20 border border-error/30"
                                 activeOpacity={0.7}
                                 disabled={isDeleting}
                                 hitSlop={{
@@ -738,16 +868,16 @@ const Details = () => {
                                 ) : (
                                     <MaterialCommunityIcons
                                         name="delete-outline"
-                                        size={22}
+                                        size={18}
                                         color="#EF4444"
                                     />
                                 )}
-                                <Text className="text-error ml-2 font-medium">
+                                <Text className="text-error ml-1.5 text-sm font-medium">
                                     Delete
                                 </Text>
                             </TouchableOpacity>
                         )}
-                    </View>
+                    </ScrollView>
                 </View>
 
                 {/* Audio Player - Show full player when this track is playing */}
@@ -820,6 +950,194 @@ const Details = () => {
                             <Text className="text-text-secondary leading-6">
                                 {podcast.description}
                             </Text>
+                        </View>
+                    </View>
+                )}
+
+                {/* AI Insights - Show if podcast is AI enhanced */}
+                {podcast.ai_enhanced && aiData && (
+                    <View className="px-6 mb-6">
+                        <View className="flex-row items-center mb-4">
+                            <MaterialCommunityIcons
+                                name="robot-excited-outline"
+                                size={24}
+                                color="#10B981"
+                            />
+                            <Text className="text-text-primary text-lg font-semibold ml-2">
+                                AI Insights
+                            </Text>
+                            <View className="ml-2 px-2 py-1 rounded-full bg-success/20 border border-success/30">
+                                <Text className="text-success text-xs font-medium">
+                                    Powered by AI
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                onPress={() => setShowQualityInfo(true)}
+                                className="ml-auto p-2"
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <MaterialCommunityIcons
+                                    name="information-outline"
+                                    size={22}
+                                    color="#888888"
+                                />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Transcription */}
+                        {aiData.transcription_text && (
+                            <View className="bg-card rounded-xl p-4 border border-border mb-4">
+                                <View className="flex-row items-center mb-3">
+                                    <MaterialCommunityIcons
+                                        name="text"
+                                        size={20}
+                                        color="#10B981"
+                                    />
+                                    <Text className="text-text-primary font-semibold ml-2">
+                                        Transcription
+                                    </Text>
+                                    {aiData.transcription_confidence && (
+                                        <View className="ml-auto flex-row items-center">
+                                            <MaterialCommunityIcons
+                                                name="check-circle"
+                                                size={16}
+                                                color="#10B981"
+                                            />
+                                            <Text className="text-success text-xs ml-1">
+                                                {Math.round(aiData.transcription_confidence * 100)}% accurate
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+                                <Text
+                                    className="text-text-secondary leading-6"
+                                    numberOfLines={showFullTranscription ? undefined : 4}
+                                >
+                                    {aiData.transcription_text}
+                                </Text>
+                                {aiData.transcription_text.length > 150 && (
+                                    <TouchableOpacity
+                                        onPress={() => setShowFullTranscription(!showFullTranscription)}
+                                        className="mt-2"
+                                    >
+                                        <Text className="text-primary font-medium">
+                                            {showFullTranscription ? "Show Less" : "Show More"}
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        )}
+
+                        {/* Keywords */}
+                        {aiData.keywords && aiData.keywords.length > 0 && (
+                            <View className="bg-card rounded-xl p-4 border border-border mb-4">
+                                <View className="flex-row items-center mb-3">
+                                    <MaterialCommunityIcons
+                                        name="key-variant"
+                                        size={20}
+                                        color="#F59E0B"
+                                    />
+                                    <Text className="text-text-primary font-semibold ml-2">
+                                        Keywords
+                                    </Text>
+                                </View>
+                                <View className="flex-row flex-wrap gap-2">
+                                    {aiData.keywords.map((keyword, index) => (
+                                        <View
+                                            key={index}
+                                            className="px-3 py-1.5 rounded-full bg-warning/20 border border-warning/30"
+                                        >
+                                            <Text className="text-warning text-sm font-medium">
+                                                {keyword}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </View>
+                        )}
+
+                        {/* Summary, Sentiment, Categories Row */}
+                        <View className="flex-row gap-4 mb-4">
+                            {/* Summary */}
+                            {aiData.summary && (
+                                <View className="flex-1 bg-card rounded-xl p-4 border border-border">
+                                    <View className="flex-row items-center mb-2">
+                                        <MaterialCommunityIcons
+                                            name="file-document-outline"
+                                            size={18}
+                                            color="#3B82F6"
+                                        />
+                                        <Text className="text-text-primary font-semibold text-sm ml-2">
+                                            Summary
+                                        </Text>
+                                    </View>
+                                    <Text className="text-text-secondary text-sm leading-5">
+                                        {aiData.summary}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Sentiment & Quality Score Row */}
+                        <View className="flex-row gap-4">
+                            {/* Sentiment */}
+                            {aiData.sentiment && (
+                                <View className="flex-1 bg-card rounded-xl p-4 border border-border">
+                                    <View className="flex-row items-center mb-2">
+                                        <MaterialCommunityIcons
+                                            name="emoticon-outline"
+                                            size={18}
+                                            color={
+                                                aiData.sentiment === 'positive'
+                                                    ? '#10B981'
+                                                    : aiData.sentiment === 'negative'
+                                                        ? '#EF4444'
+                                                        : '#888888'
+                                            }
+                                        />
+                                        <Text className="text-text-primary font-semibold text-sm ml-2">
+                                            Sentiment
+                                        </Text>
+                                    </View>
+                                    <Text
+                                        className={`text-sm font-medium capitalize ${aiData.sentiment === 'positive'
+                                                ? 'text-success'
+                                                : aiData.sentiment === 'negative'
+                                                    ? 'text-error'
+                                                    : 'text-text-secondary'
+                                            }`}
+                                    >
+                                        {aiData.sentiment === 'positive' && '😊 '}
+                                        {aiData.sentiment === 'negative' && '😔 '}
+                                        {aiData.sentiment === 'neutral' && '😐 '}
+                                        {aiData.sentiment}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {/* Quality Score */}
+                            {aiData.quality_score !== null && aiData.quality_score !== undefined && (
+                                <View className="flex-1 bg-card rounded-xl p-4 border border-border">
+                                    <View className="flex-row items-center mb-2">
+                                        <MaterialCommunityIcons
+                                            name="star-circle-outline"
+                                            size={18}
+                                            color="#F59E0B"
+                                        />
+                                        <Text className="text-text-primary font-semibold text-sm ml-2">
+                                            Quality
+                                        </Text>
+                                    </View>
+                                    <View className="flex-row items-center">
+                                        <Text className="text-warning text-lg font-bold">
+                                            {(aiData.quality_score * 100).toFixed(0)}
+                                        </Text>
+                                        <Text className="text-text-secondary text-sm ml-1">
+                                            /100
+                                        </Text>
+                                    </View>
+                                </View>
+                            )}
                         </View>
                     </View>
                 )}

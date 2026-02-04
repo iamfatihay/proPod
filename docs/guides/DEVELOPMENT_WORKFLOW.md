@@ -514,5 +514,157 @@ jobs:
 
 ---
 
+## 🎨 UI/UX Guidelines
+
+### Notification Strategy
+
+**RULE: Never use `Alert.alert()` for async operations or success messages**
+
+❌ **DON'T:**
+```javascript
+// BAD: Alert creates race conditions with navigation
+setTimeout(() => {
+    Alert.alert("Success!", "Operation completed", [{ text: "OK" }]);
+}, 500);
+```
+
+✅ **DO:**
+```javascript
+// GOOD: Use notification store for persistent notifications
+addNotification({
+    type: 'success',
+    title: 'Success!',
+    message: 'Operation completed',
+    action: { type: 'navigate', screen: 'details', params: { id: 123 } }
+});
+```
+
+### When to Use Each Method
+
+| Use Case | Method | Example |
+|----------|--------|---------|
+| **Critical Permissions** | `Alert.alert()` | Microphone access denied |
+| **System Errors** | `Alert.alert()` | Audio playback failed |
+| **Platform Limitations** | `Alert.alert()` | Android pause not supported |
+| **Async Completions** | `Notification Store` | AI processing complete |
+| **User Actions** | `Notification Store` | New comment, like, follow |
+| **Success Messages** | `Toast` | Podcast saved successfully |
+| **Quick Feedback** | `Toast` | Item added to queue |
+
+### Alert.alert() - Acceptable Use Cases
+
+✅ **Permissions (Blocking User Flow)**
+```javascript
+Alert.alert(
+    "Microphone Access Required",
+    "Please enable microphone permissions in Settings.",
+    [
+        { text: "Cancel", style: "cancel" },
+        { text: "Open Settings", onPress: openSettings }
+    ]
+);
+```
+
+✅ **Critical Errors (User Must Acknowledge)**
+```javascript
+Alert.alert(
+    "Playback Error",
+    "Failed to load audio. Please check your connection.",
+    [{ text: "OK" }]
+);
+```
+
+✅ **Destructive Actions (Confirmation)**
+```javascript
+Alert.alert(
+    "Delete Podcast",
+    "This action cannot be undone.",
+    [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: handleDelete }
+    ]
+);
+```
+
+### Notification Store - Primary Use Cases
+
+✅ **Async Operation Completion**
+```javascript
+// AI processing, file uploads, background tasks
+addNotification({
+    type: 'ai_complete',
+    title: '🎉 AI Processing Complete',
+    message: `"${podcast.title}" has been analyzed`,
+    action: { type: 'navigate', screen: 'details', params: { id } }
+});
+```
+
+✅ **User Interactions**
+```javascript
+// Comments, likes, follows, mentions
+addNotification({
+    type: 'comment',
+    title: 'New Comment',
+    message: `${user.name} commented on your podcast`,
+    action: { type: 'navigate', screen: 'details', params: { id } }
+});
+```
+
+✅ **System Updates**
+```javascript
+// App updates, new features, maintenance
+addNotification({
+    type: 'system',
+    title: 'New Feature Available',
+    message: 'Check out our new AI transcription feature!'
+});
+```
+
+### Toast - Quick Feedback
+
+✅ **Non-Critical Success**
+```javascript
+showToast("✅ Podcast saved successfully", "success");
+```
+
+✅ **Info Messages**
+```javascript
+showToast("📊 Analytics coming soon!", "info");
+```
+
+✅ **Quick Errors**
+```javascript
+showToast("❌ Failed to load podcasts", "error");
+```
+
+### Implementation Checklist
+
+Before adding any user-facing message, ask:
+
+- [ ] Is this blocking user flow? → Use `Alert.alert()`
+- [ ] Is this an async result? → Use `Notification Store`
+- [ ] Should user be able to review later? → Use `Notification Store`
+- [ ] Does it need an action button? → Use `Notification Store`
+- [ ] Is it just quick feedback? → Use `Toast`
+- [ ] Could user navigate away? → Use `Notification Store`
+
+### Migration Path
+
+When you find `Alert.alert()` in code:
+
+1. **Check the context** - Is it for permissions/errors?
+2. **If async/success** - Replace with `addNotification()`
+3. **If quick feedback** - Replace with `showToast()`
+4. **If critical** - Keep `Alert.alert()` but document why
+
+### Current Alert.alert() Usage (Approved)
+
+✅ **AudioPermissions.js** - Permission denied (blocks recording)
+✅ **AudioPlayer.js** - Playback error (critical failure)
+✅ **RecordingControls.js** - Android pause limitation (platform constraint)
+✅ **ModernAudioPlayer.js** - Playback control error (critical failure)
+
+---
+
 **Ready to start first feature branch?** 🚀
 Let's create `feature/ai-transcription` and begin!

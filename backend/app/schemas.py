@@ -155,14 +155,14 @@ class Podcast(PodcastBase):
     # AI-related fields (from ai_data relationship)
     transcription_text: Optional[str] = None
     transcription_language: Optional[str] = None
-    transcription_confidence: Optional[str] = None
+    transcription_confidence: Optional[float] = None
     ai_keywords: Optional[str] = None
     ai_summary: Optional[str] = None
     ai_sentiment: Optional[str] = None
     ai_categories: Optional[str] = None
     ai_processing_status: str = "pending"
     ai_processing_date: Optional[datetime.datetime] = None
-    ai_quality_score: Optional[str] = None
+    ai_quality_score: Optional[float] = None
 
     created_at: datetime.datetime
     updated_at: datetime.datetime
@@ -328,6 +328,27 @@ class AudioUploadResponse(BaseModel):
     file_size: int
     content_type: str
     filename: str
+
+
+# AI Data Response Schema
+class PodcastAIDataResponse(BaseModel):
+    id: int
+    podcast_id: int
+    transcription_text: Optional[str] = None
+    transcription_language: Optional[str] = None
+    transcription_confidence: Optional[float] = None
+    keywords: List[str] = []
+    summary: Optional[str] = None
+    sentiment: Optional[str] = None
+    categories: List[str] = []
+    quality_score: Optional[float] = None
+    processing_time_seconds: Optional[float] = None
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+
+    class Config:
+        from_attributes = True
+
 
 # Success Message Schema
 

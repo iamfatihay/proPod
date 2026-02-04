@@ -11,13 +11,46 @@ import {
 } from "react-native";
 import BottomMiniPlayer from "../../src/components/audio/BottomMiniPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
+import useNotificationStore from "../../src/context/useNotificationStore";
 
 const { width: screenWidth } = Dimensions.get("window");
 
-const TabIcon = ({ icon, color, focused }) => {
+const TabIcon = ({ icon, color, focused, badge }) => {
     return (
         <View className="items-center justify-center">
             <Ionicons name={icon} size={focused ? 30 : 28} color={color} />
+            {badge > 0 && (
+                <View
+                    style={{
+                        position: "absolute",
+                        top: -4,
+                        right: -10,
+                        backgroundColor: "#EF4444",
+                        borderRadius: 10,
+                        minWidth: 20,
+                        height: 20,
+                        paddingHorizontal: 4,
+                        justifyContent: "center",
+                        alignItems: "center",
+                        borderWidth: 2,
+                        borderColor: "#000000",
+                    }}
+                    accessible={true}
+                    accessibilityLabel={`${badge} unread notification${badge > 1 ? 's' : ''}`}
+                    accessibilityRole="text"
+                >
+                    <Text
+                        style={{
+                            color: "#FFFFFF",
+                            fontSize: 10,
+                            fontWeight: "700",
+                        }}
+                        importantForAccessibility="no"
+                    >
+                        {badge > 99 ? "99+" : badge}
+                    </Text>
+                </View>
+            )}
         </View>
     );
 };
@@ -138,6 +171,9 @@ export default function TabLayout() {
     const isPlaying = useAudioStore((state) => state.isPlaying);
     const showMiniPlayer = useAudioStore((state) => state.showMiniPlayer);
 
+    // Notification count for badge
+    const unreadCount = useNotificationStore((state) => state.unreadCount);
+
     // Actions (stable)
     const play = useAudioStore((state) => state.play);
     const pause = useAudioStore((state) => state.pause);
@@ -241,17 +277,18 @@ export default function TabLayout() {
                     }}
                 />
                 <Tabs.Screen
-                    name="profile"
+                    name="notifications"
                     options={{
                         tabBarIcon: ({ color, focused }) => (
                             <TabIcon
                                 icon={
                                     focused
-                                        ? "person-circle"
-                                        : "person-circle-outline"
+                                        ? "notifications"
+                                        : "notifications-outline"
                                 }
                                 color={color}
                                 focused={focused}
+                                badge={unreadCount}
                             />
                         ),
                     }}
@@ -282,6 +319,12 @@ export default function TabLayout() {
                 />
                 <Tabs.Screen
                     name="settings"
+                    options={{
+                        href: null,
+                    }}
+                />
+                <Tabs.Screen
+                    name="profile"
                     options={{
                         href: null,
                     }}

@@ -8,6 +8,7 @@ Note: For production quality, OpenAI GPT-4 is recommended for premium users.
 """
 
 import logging
+import re
 from typing import List, Dict, Any, Optional
 
 from app.config import settings
@@ -38,6 +39,12 @@ class LocalAnalyzerService:
     
     For production/premium users, use OpenAI GPT-4 for better results.
     """
+    
+    # Quality scoring constants
+    OPTIMAL_SENTENCE_MIN = 10  # words - ideal minimum sentence length
+    OPTIMAL_SENTENCE_MAX = 30  # words - ideal maximum sentence length
+    ACCEPTABLE_SENTENCE_MIN = 8  # words - acceptable minimum
+    ACCEPTABLE_SENTENCE_MAX = 35  # words - acceptable maximum
     
     def __init__(self):
         """Initialize local analyzer."""
@@ -237,33 +244,74 @@ class LocalAnalyzerService:
     
     def _calculate_quality(self, text: str, keywords: List[str]) -> float:
         """
-        Calculate basic quality score (0-10).
+        Calculate quality score (0-1 range) with better granularity.
         
         Factors:
-        - Text length
-        - Keyword diversity
-        - Sentence structure
+        - Text length (normalized 0.0-0.95)
+        - Keyword diversity (up to 0.15)
+        - Sentence structure (up to 0.05)
+        
+        Max score: 1.0 (requires excellent content in all areas)
         """
         word_count = len(text.split())
         
-        # Base score from word count
+        # Normalize length score (0.0 to 0.95) - leaves room for other factors
         if word_count < 100:
-            length_score = 3.0
-        elif word_count < 500:
-            length_score = 5.0
-        elif word_count < 2000:
-            length_score = 7.0
+            length_score = 0.20
+        elif word_count < 300:
+            length_score = 0.40
+        elif word_count < 700:
+            length_score = 0.55
+        elif word_count < 1500:
+            length_score = 0.70
+        elif word_count < 3000:
+            length_score = 0.80
+        elif word_count < 5000:
+            length_score = 0.88
         else:
-            length_score = 8.0
+            length_score = 0.92  # Long content, but still room for improvement
         
-        # Keyword diversity bonus
-        keyword_score = min(len(keywords) * 0.2, 2.0)
+        # Keyword diversity score (0.0 to 0.15)
+        # More keywords = better content analysis
+        keyword_score = min(len(keywords) * 0.015, 0.15)
         
-        # Final score
-        quality = min(length_score + keyword_score, 10.0)
+        # Sentence structure bonus (0.0 to 0.05)
+        # Good sentence length indicates well-structured content
+        # Count sentence boundaries more accurately (punctuation + space + capital)
+        sentence_boundaries = re.findall(r'[.!?]+\s+[A-Z]', text)
+        boundary_count = len(sentence_boundaries)
         
-        logger.info(f"✅ Quality score: {quality:.1f}/10")
-        return round(quality, 1)
+        # Calculate sentence count with edge case handling
+        if boundary_count > 0:
+            # +1 to account for the last sentence after the final boundary
+            sentence_count = boundary_count + 1
+        elif word_count > 5:
+            # No boundaries found but has meaningful content - treat as 1 sentence
+            sentence_count = 1
+        else:
+            # Very short or empty content - no structure score
+            sentence_count = 0
+        
+        if sentence_count > 0:
+            avg_sentence_length = word_count / sentence_count
+            # Check sentence length quality using class constants
+            if self.OPTIMAL_SENTENCE_MIN <= avg_sentence_length <= self.OPTIMAL_SENTENCE_MAX:
+                structure_score = 0.05
+            elif self.ACCEPTABLE_SENTENCE_MIN <= avg_sentence_length <= self.ACCEPTABLE_SENTENCE_MAX:
+                structure_score = 0.03
+            else:
+                structure_score = 0.0
+        else:
+            structure_score = 0.0
+        
+        # Final score (max 1.0 with better distribution)
+        quality = min(length_score + keyword_score + structure_score, 1.0)
+        
+        logger.info(
+            f"✅ Quality: {quality:.2f} ({quality*100:.0f}/100) "
+            f"[length:{length_score:.2f}, keywords:{keyword_score:.2f}, structure:{structure_score:.2f}]"
+        )
+        return round(quality, 2)
 
 
 # Singleton instance
