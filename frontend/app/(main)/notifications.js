@@ -28,35 +28,29 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import useNotificationStore from "../../src/context/useNotificationStore";
 import Logger from "../../src/utils/logger";
+import { COLORS, FONT_SIZES, BORDER_RADIUS, getNotificationColors } from "../../src/constants/theme";
 
-const colors = require("../../tailwind.config").theme.extend.colors;
-
-// Notification type icons and colors
+// Notification type configuration
 const NOTIFICATION_TYPES = {
     ai_complete: {
         icon: "sparkles",
-        color: "#8B5CF6",
-        bgColor: "#8B5CF620",
+        ...getNotificationColors('ai_complete'),
     },
     comment: {
         icon: "chatbubble",
-        color: "#3B82F6",
-        bgColor: "#3B82F620",
+        ...getNotificationColors('comment'),
     },
     like: {
         icon: "heart",
-        color: "#EF4444",
-        bgColor: "#EF444420",
+        ...getNotificationColors('like'),
     },
     follow: {
         icon: "person-add",
-        color: "#10B981",
-        bgColor: "#10B98120",
+        ...getNotificationColors('follow'),
     },
     system: {
         icon: "information-circle",
-        color: "#6B7280",
-        bgColor: "#6B728020",
+        ...getNotificationColors('system'),
     },
 };
 
@@ -84,7 +78,7 @@ const NotificationCard = ({ notification, onPress, onMarkRead }) => {
             activeOpacity={0.7}
             onPress={onPress}
             style={{
-                backgroundColor: isUnread ? type.bgColor : colors.card,
+                backgroundColor: isUnread ? type.bgColor : COLORS.card,
                 borderLeftWidth: isUnread ? 4 : 0,
                 borderLeftColor: isUnread ? type.color : "transparent",
                 marginBottom: 2,
@@ -98,7 +92,7 @@ const NotificationCard = ({ notification, onPress, onMarkRead }) => {
                     style={{
                         width: 48,
                         height: 48,
-                        borderRadius: 24,
+                        borderRadius: BORDER_RADIUS.xl,
                         backgroundColor: type.bgColor,
                         justifyContent: "center",
                         alignItems: "center",
@@ -112,9 +106,9 @@ const NotificationCard = ({ notification, onPress, onMarkRead }) => {
                 <View style={{ flex: 1, paddingRight: 8 }}>
                     <Text
                         style={{
-                            fontSize: 16,
+                            fontSize: FONT_SIZES.md,
                             fontWeight: isUnread ? "700" : "600",
-                            color: colors.text.primary,
+                            color: COLORS.text.primary,
                             marginBottom: 4,
                         }}
                     >
@@ -122,8 +116,8 @@ const NotificationCard = ({ notification, onPress, onMarkRead }) => {
                     </Text>
                     <Text
                         style={{
-                            fontSize: 14,
-                            color: colors.text.secondary,
+                            fontSize: FONT_SIZES.base,
+                            color: COLORS.text.secondary,
                             lineHeight: 20,
                             marginBottom: 8,
                         }}
@@ -132,8 +126,8 @@ const NotificationCard = ({ notification, onPress, onMarkRead }) => {
                     </Text>
                     <Text
                         style={{
-                            fontSize: 12,
-                            color: colors.text.muted,
+                            fontSize: FONT_SIZES.sm,
+                            color: COLORS.text.muted,
                         }}
                     >
                         {getTimeAgo(notification.created_at)}
@@ -146,7 +140,7 @@ const NotificationCard = ({ notification, onPress, onMarkRead }) => {
                         style={{
                             width: 10,
                             height: 10,
-                            borderRadius: 5,
+                            borderRadius: BORDER_RADIUS.xs,
                             backgroundColor: type.color,
                             marginTop: 4,
                         }}
@@ -171,20 +165,20 @@ const EmptyState = () => (
             style={{
                 width: 120,
                 height: 120,
-                borderRadius: 60,
-                backgroundColor: colors.card,
+                borderRadius: BORDER_RADIUS.xxl,
+                backgroundColor: COLORS.card,
                 justifyContent: "center",
                 alignItems: "center",
                 marginBottom: 24,
             }}
         >
-            <Ionicons name="notifications-off-outline" size={56} color={colors.text.muted} />
+            <Ionicons name="notifications-off-outline" size={56} color={COLORS.text.muted} />
         </View>
         <Text
             style={{
-                fontSize: 20,
+                fontSize: FONT_SIZES.lg,
                 fontWeight: "700",
-                color: colors.text.primary,
+                color: COLORS.text.primary,
                 marginBottom: 8,
                 textAlign: "center",
             }}
@@ -193,8 +187,8 @@ const EmptyState = () => (
         </Text>
         <Text
             style={{
-                fontSize: 14,
-                color: colors.text.secondary,
+                fontSize: FONT_SIZES.base,
+                color: COLORS.text.secondary,
                 textAlign: "center",
                 lineHeight: 20,
             }}
@@ -253,7 +247,7 @@ export default function NotificationsScreen() {
         <View
             style={{
                 flex: 1,
-                backgroundColor: colors.background,
+                backgroundColor: COLORS.background,
             }}
         >
             {/* Header */}
@@ -265,15 +259,15 @@ export default function NotificationsScreen() {
                     paddingHorizontal: 20,
                     paddingVertical: 16,
                     borderBottomWidth: 1,
-                    borderBottomColor: colors.border,
+                    borderBottomColor: COLORS.border,
                 }}
             >
                 <View>
                     <Text
                         style={{
-                            fontSize: 24,
+                            fontSize: FONT_SIZES.xl,
                             fontWeight: "700",
-                            color: colors.text.primary,
+                            color: COLORS.text.primary,
                         }}
                     >
                         Notifications
@@ -281,8 +275,8 @@ export default function NotificationsScreen() {
                     {unreadCount > 0 && (
                         <Text
                             style={{
-                                fontSize: 12,
-                                color: colors.text.muted,
+                                fontSize: FONT_SIZES.sm,
+                                color: COLORS.text.muted,
                                 marginTop: 2,
                             }}
                         >
@@ -298,15 +292,15 @@ export default function NotificationsScreen() {
                         style={{
                             paddingHorizontal: 16,
                             paddingVertical: 8,
-                            borderRadius: 20,
-                            backgroundColor: colors.primary + "20",
+                            borderRadius: BORDER_RADIUS.lg,
+                            backgroundColor: COLORS.primary + "20",
                         }}
                     >
                         <Text
                             style={{
-                                fontSize: 14,
+                                fontSize: FONT_SIZES.base,
                                 fontWeight: "600",
-                                color: colors.primary,
+                                color: COLORS.primary,
                             }}
                         >
                             Mark all read
@@ -333,7 +327,7 @@ export default function NotificationsScreen() {
                         <RefreshControl
                             refreshing={refreshing}
                             onRefresh={onRefresh}
-                            tintColor={colors.primary}
+                            tintColor={COLORS.primary}
                         />
                     }
                     contentContainerStyle={{

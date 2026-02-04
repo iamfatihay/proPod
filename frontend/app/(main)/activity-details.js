@@ -9,6 +9,7 @@ import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import React from "react";
 import { Surface } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
+import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS } from "../../src/constants/theme";
 
 const activities = [
     {
@@ -45,7 +46,7 @@ export default function ActivityDetails() {
                     headerStyle: {
                         backgroundColor: "#18181b",
                     },
-                    headerTintColor: "#FFFFFF",
+                    headerTintColor: COLORS.text.primary,
                     headerTitleStyle: {
                         fontWeight: "500",
                     },
@@ -63,7 +64,7 @@ export default function ActivityDetails() {
                             <Ionicons
                                 name="arrow-back"
                                 size={24}
-                                color="#FFFFFF"
+                                color={COLORS.text.primary}
                             />
                         </TouchableOpacity>
                     ),
@@ -83,7 +84,7 @@ export default function ActivityDetails() {
                             : {
                                   elevation: 5,
                               }),
-                        borderRadius: 16,
+                        borderRadius: BORDER_RADIUS.md,
                         padding: 20,
                         backgroundColor: "#18181b",
                     }}

@@ -12,6 +12,7 @@ import {
 import BottomMiniPlayer from "../../src/components/audio/BottomMiniPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
 import useNotificationStore from "../../src/context/useNotificationStore";
+import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS } from "../../src/constants/theme";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -25,15 +26,15 @@ const TabIcon = ({ icon, color, focused, badge }) => {
                         position: "absolute",
                         top: -4,
                         right: -10,
-                        backgroundColor: "#EF4444",
-                        borderRadius: 10,
+                        backgroundColor: COLORS.error,
+                        borderRadius: BORDER_RADIUS.sm,
                         minWidth: 20,
                         height: 20,
                         paddingHorizontal: 4,
                         justifyContent: "center",
                         alignItems: "center",
                         borderWidth: 2,
-                        borderColor: "#000000",
+                        borderColor: COLORS.background,
                     }}
                     accessible={true}
                     accessibilityLabel={`${badge} unread notification${badge > 1 ? 's' : ''}`}
@@ -41,8 +42,8 @@ const TabIcon = ({ icon, color, focused, badge }) => {
                 >
                     <Text
                         style={{
-                            color: "#FFFFFF",
-                            fontSize: 10,
+                            color: COLORS.text.primary,
+                            fontSize: FONT_SIZES.xs,
                             fontWeight: "700",
                         }}
                         importantForAccessibility="no"
@@ -91,11 +92,11 @@ const CreateTab = () => {
                     width: tabSize,
                     height: tabSize,
                     borderRadius: tabSize / 2,
-                    backgroundColor: "#D32F2F",
+                    backgroundColor: COLORS.primary,
                     alignItems: "center",
                     justifyContent: "center",
                     borderWidth: 4,
-                    borderColor: "#000000",
+                    borderColor: COLORS.background,
                     // Android elevation
                     ...(Platform.OS === "android" && {
                         elevation: 8,
@@ -219,12 +220,12 @@ export default function TabLayout() {
                 screenOptions={{
                     headerShown: false,
                     tabBarShowLabel: false,
-                    tabBarActiveTintColor: "#D32F2F", // theme.colors.primary
-                    tabBarInactiveTintColor: "#888888", // theme.colors.text.muted
+                    tabBarActiveTintColor: COLORS.primary,
+                    tabBarInactiveTintColor: COLORS.text.muted,
                     tabBarStyle: {
-                        backgroundColor: "#000000", // theme.colors.background
+                        backgroundColor: COLORS.background,
                         borderTopWidth: 1,
-                        borderTopColor: "#333333", // theme.colors.border
+                        borderTopColor: COLORS.border,
                         height: tabBarHeight,
                         paddingBottom: Platform.OS === "ios" ? 6 : 0,
                         alignItems: "center",
@@ -340,16 +341,16 @@ export default function TabLayout() {
                         left: 10,
                         backgroundColor: "rgba(0,0,0,0.8)",
                         padding: 10,
-                        borderRadius: 5,
+                        borderRadius: BORDER_RADIUS.xs,
                     }}
                 >
-                    <Text style={{ color: "white", fontSize: 12 }}>
+                    <Text style={{ color: "white", fontSize: FONT_SIZES.sm }}>
                         MiniPlayer: {showMiniPlayer ? "VISIBLE" : "HIDDEN"}
                     </Text>
-                    <Text style={{ color: "white", fontSize: 12 }}>
+                    <Text style={{ color: "white", fontSize: FONT_SIZES.sm }}>
                         Track: {currentTrack ? currentTrack.title : "NONE"}
                     </Text>
-                    <Text style={{ color: "white", fontSize: 12 }}>
+                    <Text style={{ color: "white", fontSize: FONT_SIZES.sm }}>
                         Playing: {isPlaying ? "YES" : "NO"}
                     </Text>
                 </View>

@@ -23,6 +23,7 @@ import { Ionicons } from "@expo/vector-icons";
 import SupportModal from "../../src/components/SupportModal";
 import PrivacyModal from "../../src/components/PrivacyModal";
 import InfoModal from "../../src/components/InfoModal";
+import { COLORS } from "../../src/constants/theme";
 
 const APP_VERSION = "1.0.0";
 
@@ -126,9 +127,9 @@ const Settings = () => {
                     title: "Settings",
                     headerShown: true,
                     headerStyle: {
-                        backgroundColor: "#18181b",
+                        backgroundColor: COLORS.card,
                     },
-                    headerTintColor: "#FFFFFF",
+                    headerTintColor: COLORS.text.primary,
                     headerTitleStyle: {
                         fontWeight: "500",
                     },
@@ -146,7 +147,7 @@ const Settings = () => {
                             <Ionicons
                                 name="arrow-back"
                                 size={24}
-                                color="#FFFFFF"
+                                color={COLORS.text.primary}
                             />
                         </TouchableOpacity>
                     ),
@@ -172,8 +173,8 @@ const Settings = () => {
                         <Switch
                             value={notifications}
                             onValueChange={handleNotifications}
-                            thumbColor={notifications ? "#10B981" : "#888888"}
-                            trackColor={{ false: "#444444", true: "#232323" }}
+                            thumbColor={notifications ? COLORS.success : COLORS.text.muted}
+                            trackColor={{ false: COLORS.borderLight, true: COLORS.panel }}
                         />
                     }
                 />

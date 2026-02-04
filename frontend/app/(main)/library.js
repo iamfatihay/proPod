@@ -11,6 +11,7 @@ import apiService from "../../src/services/api/apiService";
 import PodcastCard from "../../src/components/PodcastCard";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { COLORS } from "../../src/constants/theme";
 
 const Library = () => {
     const router = useRouter();
@@ -104,7 +105,7 @@ const Library = () => {
 
                 {loading ? (
                     <View className="py-10 items-center">
-                        <ActivityIndicator color="#D32F2F" />
+                        <ActivityIndicator color={COLORS.primary} />
                     </View>
                 ) : error ? (
                     <Text className="text-text-secondary">{error}</Text>

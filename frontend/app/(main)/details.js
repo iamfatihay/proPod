@@ -27,6 +27,7 @@ import InfoModal from "../../src/components/InfoModal";
 import { normalizePodcast, normalizePodcasts } from "../../src/utils/urlHelper";
 import { getQualityMessage } from "../../src/utils/qualityHelpers";
 
+import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS } from "../../src/constants/theme";
 const { width: screenWidth } = Dimensions.get("window");
 
 const Details = () => {
@@ -500,7 +501,7 @@ const Details = () => {
                     <MaterialCommunityIcons
                         name="loading"
                         size={48}
-                        color="#D32F2F"
+                        color={COLORS.primary}
                     />
                     <Text className="text-text-secondary mt-4">
                         Loading podcast...
@@ -517,7 +518,7 @@ const Details = () => {
                     <MaterialCommunityIcons
                         name="alert-circle"
                         size={48}
-                        color="#EF4444"
+                        color={COLORS.error}
                     />
                     <Text className="text-text-primary text-lg font-semibold mt-4 text-center">
                         Podcast Not Found
@@ -539,7 +540,7 @@ const Details = () => {
         );
     }
 
-    const themeColor = "#FFFFFF";
+    const themeColor = COLORS.text.primary;
 
     return (
         <SafeAreaView className="flex-1 bg-background">
@@ -570,9 +571,9 @@ const Details = () => {
                     title: "Podcast Details",
                     headerShown: true,
                     headerStyle: {
-                        backgroundColor: "#18181b",
+                        backgroundColor: COLORS.card,
                     },
-                    headerTintColor: "#FFFFFF",
+                    headerTintColor: COLORS.text.primary,
                     headerTitleStyle: {
                         fontWeight: "500",
                     },
@@ -590,7 +591,7 @@ const Details = () => {
                             <Ionicons
                                 name="arrow-back"
                                 size={24}
-                                color="#FFFFFF"
+                                color={COLORS.text.primary}
                             />
                         </TouchableOpacity>
                     ),
@@ -609,7 +610,7 @@ const Details = () => {
                                 <Ionicons
                                     name="share-outline"
                                     size={24}
-                                    color="#FFFFFF"
+                                    color={COLORS.text.primary}
                                 />
                             </TouchableOpacity>
                             {isOwner && (
@@ -626,7 +627,7 @@ const Details = () => {
                                     <Ionicons
                                         name="pencil-outline"
                                         size={24}
-                                        color="#FFFFFF"
+                                        color={COLORS.text.primary}
                                     />
                                 </TouchableOpacity>
                             )}
@@ -653,9 +654,9 @@ const Details = () => {
                             width: screenWidth - 48,
                             height: screenWidth - 48,
                             maxHeight: 300,
-                            backgroundColor: "#0f0f10",
+                            backgroundColor: COLORS.background,
                             borderWidth: 1,
-                            borderColor: "#1f1f22",
+                            borderColor: COLORS.border,
                         }}
                     >
                         {podcast.thumbnail_url ? (
@@ -669,7 +670,7 @@ const Details = () => {
                                 <MaterialCommunityIcons
                                     name="music-note"
                                     size={74}
-                                    color="#D32F2F"
+                                    color={COLORS.primary}
                                 />
                                 <Text className="text-text-secondary mt-2">
                                     {podcast.title}
@@ -767,13 +768,13 @@ const Details = () => {
                             {isLiking ? (
                                 <ActivityIndicator
                                     size="small"
-                                    color={isLiked ? "white" : "#888888"}
+                                    color={isLiked ? "white" : COLORS.text.muted}
                                 />
                             ) : (
                                 <MaterialCommunityIcons
                                     name={isLiked ? "heart" : "heart-outline"}
                                     size={18}
-                                    color={isLiked ? "white" : "#888888"}
+                                    color={isLiked ? "white" : COLORS.text.muted}
                                 />
                             )}
                             <Text
@@ -802,7 +803,7 @@ const Details = () => {
                             {isBookmarking ? (
                                 <ActivityIndicator
                                     size="small"
-                                    color={isBookmarked ? "white" : "#888888"}
+                                    color={isBookmarked ? "white" : COLORS.text.muted}
                                 />
                             ) : (
                                 <MaterialCommunityIcons
@@ -812,7 +813,7 @@ const Details = () => {
                                             : "bookmark-outline"
                                     }
                                     size={18}
-                                    color={isBookmarked ? "white" : "#888888"}
+                                    color={isBookmarked ? "white" : COLORS.text.muted}
                                 />
                             )}
                             <Text
@@ -839,7 +840,7 @@ const Details = () => {
                             <MaterialCommunityIcons
                                 name="playlist-plus"
                                 size={18}
-                                color="#888888"
+                                color={COLORS.text.muted}
                             />
                             <Text className="text-text-secondary ml-1.5 text-sm font-medium">
                                 Queue
@@ -863,13 +864,13 @@ const Details = () => {
                                 {isDeleting ? (
                                     <ActivityIndicator
                                         size="small"
-                                        color="#EF4444"
+                                        color={COLORS.error}
                                     />
                                 ) : (
                                     <MaterialCommunityIcons
                                         name="delete-outline"
                                         size={18}
-                                        color="#EF4444"
+                                        color={COLORS.error}
                                     />
                                 )}
                                 <Text className="text-error ml-1.5 text-sm font-medium">
@@ -911,7 +912,7 @@ const Details = () => {
                             {isAudioLoading ? (
                                 <ActivityIndicator
                                     size="small"
-                                    color="#D32F2F"
+                                    color={COLORS.primary}
                                 />
                             ) : (
                                 <MaterialCommunityIcons
@@ -919,8 +920,8 @@ const Details = () => {
                                     size={32}
                                     color={
                                         podcast.audio_url
-                                            ? "#D32F2F"
-                                            : "#888888"
+                                            ? COLORS.primary
+                                            : COLORS.text.muted
                                     }
                                 />
                             )}
@@ -961,7 +962,7 @@ const Details = () => {
                             <MaterialCommunityIcons
                                 name="robot-excited-outline"
                                 size={24}
-                                color="#10B981"
+                                color={COLORS.success}
                             />
                             <Text className="text-text-primary text-lg font-semibold ml-2">
                                 AI Insights
@@ -979,7 +980,7 @@ const Details = () => {
                                 <MaterialCommunityIcons
                                     name="information-outline"
                                     size={22}
-                                    color="#888888"
+                                    color={COLORS.text.muted}
                                 />
                             </TouchableOpacity>
                         </View>
@@ -991,7 +992,7 @@ const Details = () => {
                                     <MaterialCommunityIcons
                                         name="text"
                                         size={20}
-                                        color="#10B981"
+                                        color={COLORS.success}
                                     />
                                     <Text className="text-text-primary font-semibold ml-2">
                                         Transcription
@@ -1001,7 +1002,7 @@ const Details = () => {
                                             <MaterialCommunityIcons
                                                 name="check-circle"
                                                 size={16}
-                                                color="#10B981"
+                                                color={COLORS.success}
                                             />
                                             <Text className="text-success text-xs ml-1">
                                                 {Math.round(aiData.transcription_confidence * 100)}% accurate
@@ -1035,7 +1036,7 @@ const Details = () => {
                                     <MaterialCommunityIcons
                                         name="key-variant"
                                         size={20}
-                                        color="#F59E0B"
+                                        color={COLORS.warning}
                                     />
                                     <Text className="text-text-primary font-semibold ml-2">
                                         Keywords
@@ -1065,7 +1066,7 @@ const Details = () => {
                                         <MaterialCommunityIcons
                                             name="file-document-outline"
                                             size={18}
-                                            color="#3B82F6"
+                                            color={COLORS.info}
                                         />
                                         <Text className="text-text-primary font-semibold text-sm ml-2">
                                             Summary
@@ -1089,10 +1090,10 @@ const Details = () => {
                                             size={18}
                                             color={
                                                 aiData.sentiment === 'positive'
-                                                    ? '#10B981'
+                                                    ? COLORS.success
                                                     : aiData.sentiment === 'negative'
-                                                        ? '#EF4444'
-                                                        : '#888888'
+                                                        ? COLORS.error
+                                                        : COLORS.text.muted
                                             }
                                         />
                                         <Text className="text-text-primary font-semibold text-sm ml-2">
@@ -1122,7 +1123,7 @@ const Details = () => {
                                         <MaterialCommunityIcons
                                             name="star-circle-outline"
                                             size={18}
-                                            color="#F59E0B"
+                                            color={COLORS.warning}
                                         />
                                         <Text className="text-text-primary font-semibold text-sm ml-2">
                                             Quality
@@ -1164,7 +1165,7 @@ const Details = () => {
                                     <MaterialCommunityIcons
                                         name="music-note"
                                         size={24}
-                                        color="#888888"
+                                        color={COLORS.text.muted}
                                     />
                                 </View>
 
@@ -1191,7 +1192,7 @@ const Details = () => {
                                 <MaterialCommunityIcons
                                     name="chevron-right"
                                     size={24}
-                                    color="#888888"
+                                    color={COLORS.text.muted}
                                 />
                             </TouchableOpacity>
                         ))}

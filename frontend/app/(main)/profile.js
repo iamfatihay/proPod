@@ -14,6 +14,7 @@ import {
     StatusBar,
 } from "react-native";
 import React from "react";
+import { COLORS } from "../../src/constants/theme";
 import useAuthStore from "../../src/context/useAuthStore";
 import { useRouter } from "expo-router";
 import Avatar from "../../src/components/Avatar";
@@ -293,7 +294,7 @@ export default function Profile() {
                         className="absolute top-12 right-6 z-10"
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        <Ionicons name="close" size={32} color="#FFFFFF" />
+                        <Ionicons name="close" size={32} color={COLORS.text.primary} />
                     </TouchableOpacity>
 
                     {/* Large avatar preview */}
@@ -345,7 +346,7 @@ export default function Profile() {
                         >
                             {loading ? (
                                 <ActivityIndicator
-                                    color="#FFFFFF"
+                                    color={COLORS.text.primary}
                                     size="small"
                                 />
                             ) : (
