@@ -9,7 +9,7 @@ import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import React from "react";
 import { Surface } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS } from "../../src/constants/theme";
+import { COLORS, BORDER_RADIUS } from "../../src/constants/theme";
 
 const chats = [
     { id: "1", name: "Daniel", message: "Hallo!", time: "2h ago" },
@@ -33,7 +33,7 @@ export default function ChatDetails() {
                     title: "Chat Details",
                     headerShown: true,
                     headerStyle: {
-                        backgroundColor: "#18181b",
+                        backgroundColor: COLORS.card,
                     },
                     headerTintColor: COLORS.text.primary,
                     headerTitleStyle: {
@@ -75,7 +75,7 @@ export default function ChatDetails() {
                               }),
                         borderRadius: BORDER_RADIUS.md,
                         padding: 20,
-                        backgroundColor: "#18181b",
+                        backgroundColor: COLORS.card,
                     }}
                 >
                     {chat ? (

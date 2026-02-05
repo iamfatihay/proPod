@@ -26,8 +26,8 @@ import ConfirmationModal from "../../src/components/ConfirmationModal";
 import InfoModal from "../../src/components/InfoModal";
 import { normalizePodcast, normalizePodcasts } from "../../src/utils/urlHelper";
 import { getQualityMessage } from "../../src/utils/qualityHelpers";
+import { COLORS } from "../../src/constants/theme";
 
-import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS } from "../../src/constants/theme";
 const { width: screenWidth } = Dimensions.get("window");
 
 const Details = () => {
@@ -539,8 +539,6 @@ const Details = () => {
             </SafeAreaView>
         );
     }
-
-    const themeColor = COLORS.text.primary;
 
     return (
         <SafeAreaView className="flex-1 bg-background">

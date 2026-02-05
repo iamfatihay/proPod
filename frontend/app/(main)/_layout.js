@@ -12,7 +12,7 @@ import {
 import BottomMiniPlayer from "../../src/components/audio/BottomMiniPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
 import useNotificationStore from "../../src/context/useNotificationStore";
-import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS } from "../../src/constants/theme";
+import { COLORS, FONT_SIZES, BORDER_RADIUS } from "../../src/constants/theme";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -27,7 +27,7 @@ const TabIcon = ({ icon, color, focused, badge }) => {
                         top: -4,
                         right: -10,
                         backgroundColor: COLORS.error,
-                        borderRadius: BORDER_RADIUS.sm,
+                        borderRadius: 10,
                         minWidth: 20,
                         height: 20,
                         paddingHorizontal: 4,

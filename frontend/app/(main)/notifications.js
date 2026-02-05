@@ -28,7 +28,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import useNotificationStore from "../../src/context/useNotificationStore";
 import Logger from "../../src/utils/logger";
-import { COLORS, FONT_SIZES, BORDER_RADIUS, getNotificationColors } from "../../src/constants/theme";
+import { COLORS, FONT_SIZES, BORDER_RADIUS, addAlpha, getNotificationColors } from "../../src/constants/theme";
 
 // Notification type configuration
 const NOTIFICATION_TYPES = {
@@ -293,7 +293,7 @@ export default function NotificationsScreen() {
                             paddingHorizontal: 16,
                             paddingVertical: 8,
                             borderRadius: BORDER_RADIUS.lg,
-                            backgroundColor: COLORS.primary + "20",
+                            backgroundColor: addAlpha(COLORS.primary, 0.12),
                         }}
                     >
                         <Text

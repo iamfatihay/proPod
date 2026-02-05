@@ -330,7 +330,7 @@ export default function HomeScreen() {
                                 height: 48,
                                 borderRadius: BORDER_RADIUS.xl,
                                 overflow: "hidden",
-                                backgroundColor: COLORS.background.card,
+                                backgroundColor: COLORS.card,
                                 borderWidth: 2,
                                 borderColor: COLORS.primary,
                                 justifyContent: "center",
@@ -427,7 +427,7 @@ export default function HomeScreen() {
                                 <MaterialCommunityIcons
                                     name="robot"
                                     size={24}
-                                    color={COLORS.primary}
+                                    color={COLORS.gradient.blue}
                                 />
                                 <Text className="text-xl font-bold text-text-primary ml-2">
                                     For You
