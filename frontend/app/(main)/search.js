@@ -18,6 +18,7 @@ import SemanticSearchService from "../../src/services/ai/SemanticSearchService";
 import useAudioStore from "../../src/context/useAudioStore";
 import Logger from "../../src/utils/logger";
 import { normalizePodcasts } from "../../src/utils/urlHelper";
+import { COLORS } from "../../src/constants/theme";
 
 const Search = () => {
     const router = useRouter();
@@ -239,7 +240,7 @@ const Search = () => {
             {/* Content */}
             {isSearching ? (
                 <View className="flex-1 items-center justify-center">
-                    <ActivityIndicator size="large" color="#D32F2F" />
+                    <ActivityIndicator size="large" color={COLORS.primary} />
                     <Text className="text-text-secondary mt-3">
                         🤖 AI is analyzing content...
                     </Text>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { COLORS } from "../../src/constants/theme";
 import {
     View,
     Text,
@@ -101,7 +102,7 @@ export default function EditPodcast() {
             {/* Header */}
             <View className="flex-row items-center justify-between px-6 py-4 border-b border-border">
                 <TouchableOpacity onPress={() => router.back()}>
-                    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                    <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
                 </TouchableOpacity>
                 <Text className="text-text-primary font-semibold">
                     Edit Podcast
@@ -111,7 +112,7 @@ export default function EditPodcast() {
 
             {loading ? (
                 <View className="flex-1 items-center justify-center">
-                    <ActivityIndicator color="#D32F2F" />
+                    <ActivityIndicator color={COLORS.primary} />
                 </View>
             ) : (
                 <ScrollView

@@ -28,9 +28,7 @@ import { PodcastCardSkeleton } from "../../src/components/SkeletonLoader";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
 import Logger from "../../src/utils/logger";
-
-// Import design tokens from Tailwind config
-const colors = require("../../tailwind.config").theme.extend.colors;
+import { COLORS, BORDER_RADIUS } from "../../src/constants/theme";
 
 // Removed mock episodes; will fetch from API
 
@@ -330,11 +328,11 @@ export default function HomeScreen() {
                             style={{
                                 width: 48,
                                 height: 48,
-                                borderRadius: 24,
+                                borderRadius: BORDER_RADIUS.xl,
                                 overflow: "hidden",
-                                backgroundColor: colors.card,
+                                backgroundColor: COLORS.card,
                                 borderWidth: 2,
-                                borderColor: colors.primary,
+                                borderColor: COLORS.primary,
                                 justifyContent: "center",
                                 alignItems: "center",
                             }}
@@ -352,7 +350,7 @@ export default function HomeScreen() {
                                 <Ionicons
                                     name="person"
                                     size={24}
-                                    color={colors.text.muted}
+                                    color={COLORS.text.muted}
                                 />
                             )}
                         </TouchableOpacity>
@@ -406,8 +404,8 @@ export default function HomeScreen() {
                                     size={18}
                                     color={
                                         selectedCategory === category.id
-                                            ? colors.text.primary
-                                            : colors.text.muted
+                                            ? COLORS.text.primary
+                                            : COLORS.text.muted
                                     }
                                 />
                                 <Text
@@ -429,7 +427,7 @@ export default function HomeScreen() {
                                 <MaterialCommunityIcons
                                     name="robot"
                                     size={24}
-                                    color={colors.gradient.blue}
+                                    color={COLORS.gradient.blue}
                                 />
                                 <Text className="text-xl font-bold text-text-primary ml-2">
                                     For You
@@ -442,7 +440,7 @@ export default function HomeScreen() {
                                 <Ionicons
                                     name="chevron-forward"
                                     size={16}
-                                    color={colors.primary}
+                                    color={COLORS.primary}
                                 />
                             </TouchableOpacity>
                         </View>
@@ -500,7 +498,7 @@ export default function HomeScreen() {
                                 <Ionicons
                                     name="chevron-forward"
                                     size={16}
-                                    color={colors.primary}
+                                    color={COLORS.primary}
                                 />
                             </TouchableOpacity>
                         )}
@@ -520,7 +518,7 @@ export default function HomeScreen() {
                                     <MaterialCommunityIcons
                                         name="alert-circle-outline"
                                         size={48}
-                                        color={colors.error}
+                                        color={COLORS.error}
                                     />
                                 </View>
                                 <Text className="text-lg text-text-primary font-semibold mb-2 text-center">
@@ -553,7 +551,7 @@ export default function HomeScreen() {
                                             <MaterialCommunityIcons
                                                 name="microphone-variant"
                                                 size={64}
-                                                color={colors.primary}
+                                                color={COLORS.primary}
                                             />
                                         </View>
                                         <Text className="text-headline text-text-primary font-semibold mb-2 text-center">
@@ -574,7 +572,7 @@ export default function HomeScreen() {
                                                 ...(Platform.OS === "ios"
                                                     ? {
                                                         shadowColor:
-                                                            colors.primary,
+                                                            COLORS.primary,
                                                         shadowOffset: {
                                                             width: 0,
                                                             height: 4,
@@ -603,7 +601,7 @@ export default function HomeScreen() {
                                             <MaterialCommunityIcons
                                                 name="compass-outline"
                                                 size={64}
-                                                color={colors.info}
+                                                color={COLORS.info}
                                             />
                                         </View>
                                         <Text className="text-headline text-text-primary font-semibold mb-2 text-center">
@@ -666,7 +664,7 @@ export default function HomeScreen() {
                                 <MaterialCommunityIcons
                                     name="fire"
                                     size={24}
-                                    color={colors.warning}
+                                    color={COLORS.warning}
                                 />
                                 <Text className="text-xl font-bold text-text-primary ml-2">
                                     Trending Now
@@ -700,7 +698,7 @@ export default function HomeScreen() {
                                             <MaterialCommunityIcons
                                                 name="trending-up"
                                                 size={12}
-                                                color={colors.success}
+                                                color={COLORS.success}
                                             />
                                             <Text className="text-xs text-success ml-1">
                                                 +{podcast.play_count || 0} plays
@@ -719,7 +717,7 @@ export default function HomeScreen() {
                                                 : "play-circle"
                                         }
                                         size={40}
-                                        color={colors.primary}
+                                        color={COLORS.primary}
                                     />
                                 </TouchableOpacity>
                             </View>
@@ -745,7 +743,7 @@ export default function HomeScreen() {
                                     <Ionicons
                                         name="chevron-forward"
                                         size={16}
-                                        color={colors.primary}
+                                        color={COLORS.primary}
                                     />
                                 </TouchableOpacity>
                             </View>

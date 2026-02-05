@@ -20,6 +20,7 @@ import { useToast } from "../../src/components/Toast";
 import Logger from "../../src/utils/logger";
 import PermissionModal from "../../src/components/PermissionModal";
 import ConfirmationModal from "../../src/components/ConfirmationModal";
+import { COLORS } from "../../src/constants/theme";
 
 const Create = () => {
     const router = useRouter();
@@ -508,7 +509,7 @@ const Create = () => {
             {/* Header */}
             <View className="flex-row items-center justify-between px-6 py-4 border-b border-border">
                 <TouchableOpacity onPress={() => router.back()}>
-                    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                    <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
                 </TouchableOpacity>
 
                 <Text className="text-text-primary font-semibold">
