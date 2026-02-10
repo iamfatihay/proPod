@@ -24,6 +24,8 @@ module.exports = {
         "^expo-secure-store$": "<rootDir>/src/tests/mocks/expoSecureStore.js",
         "^expo-font$": "<rootDir>/src/tests/mocks/expoFont.js",
         "^expo-file-system$": "<rootDir>/src/tests/mocks/expoFileSystem.js",
+        "^expo-media-library$": "<rootDir>/src/tests/mocks/expoMediaLibrary.js",
+        "^@react-native-async-storage/async-storage$": "<rootDir>/src/tests/mocks/asyncStorage.js",
         "^@expo/vector-icons$": "<rootDir>/src/tests/mocks/vectorIcons.js",
         "^react-native-paper$": "<rootDir>/src/tests/mocks/reactNativePaper.js",
         "^@/(.*)$": "<rootDir>/src/$1",

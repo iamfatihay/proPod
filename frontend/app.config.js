@@ -47,6 +47,7 @@ export default ({ config }) => ({
             "android.permission.READ_EXTERNAL_STORAGE",
             "android.permission.CAMERA",
             "android.permission.READ_MEDIA_IMAGES",
+            "android.permission.POST_NOTIFICATIONS", // For persistent recording notifications
         ],
     },
     web: {

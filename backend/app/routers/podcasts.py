@@ -6,6 +6,7 @@ from pathlib import Path as SysPath
 import json
 import asyncio
 import os
+from pydub import AudioSegment
 
 from .. import schemas, crud, models, auth, config
 from ..database import get_db
@@ -83,6 +84,148 @@ async def upload_podcast_audio(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Audio upload failed: {str(e)}",
+        )
+
+
+@router.post("/merge-upload", response_model=schemas.AudioUploadResponse)
+async def merge_and_upload_audio_segments(
+    files: List[UploadFile] = File(...),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """
+    Merge multiple audio segments and return single audio URL.
+    Used for draft recovery with multiple recording sessions.
+    
+    - Accepts multiple audio files in order
+    - Merges them using pydub/ffmpeg
+    - Returns single audio URL
+    """
+    if not files or len(files) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No audio files provided"
+        )
+    
+    try:
+        # Validate all files
+        allowed_types = {"audio/mpeg", "audio/mp4", "audio/m4a", "audio/aac", "audio/wav", "audio/ogg"}
+        max_size_per_file = 100 * 1024 * 1024  # 100MB per file
+        max_total_size = 300 * 1024 * 1024  # 300MB total across all files
+        
+        temp_files = []
+        total_size = 0
+        
+        # Read and validate all files
+        for idx, file in enumerate(files):
+            if file.content_type not in allowed_types:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"File {idx+1}: Unsupported type {file.content_type}"
+                )
+            
+            contents = await file.read()
+            if len(contents) > max_size_per_file:
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=f"File {idx+1} too large (max {max_size_per_file // (1024*1024)}MB)"
+                )
+            
+            total_size += len(contents)
+            
+            # Check total size limit
+            if total_size > max_total_size:
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=f"Total upload size exceeds {max_total_size // (1024*1024)}MB limit"
+                )
+            
+            temp_files.append((file.filename, contents, file.content_type))
+        
+        # Ensure temp and media directories exist
+        media_dir = SysPath(os.path.dirname(__file__)).parent.parent / "media" / "audio"
+        temp_dir = media_dir / "temp"
+        os.makedirs(media_dir, exist_ok=True)
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        # Save temp files and load as AudioSegments
+        audio_segments = []
+        temp_paths = []
+        
+        for idx, (filename, contents, content_type) in enumerate(temp_files):
+            # Determine format from content_type
+            format_map = {
+                "audio/mpeg": "mp3",
+                "audio/mp4": "mp4",
+                "audio/m4a": "m4a", 
+                "audio/aac": "aac",
+                "audio/wav": "wav",
+                "audio/ogg": "ogg"
+            }
+            audio_format = format_map.get(content_type, "m4a")
+            
+            # Save to temp file
+            temp_path = temp_dir / f"segment_{idx}_{asyncio.get_event_loop().time()}.{audio_format}"
+            temp_paths.append(temp_path)
+            
+            with open(temp_path, "wb") as f:
+                f.write(contents)
+            
+            # Load as AudioSegment
+            try:
+                segment = AudioSegment.from_file(str(temp_path), format=audio_format)
+                audio_segments.append(segment)
+            except Exception as e:
+                # Cleanup temp files on error
+                for p in temp_paths:
+                    if p.exists():
+                        os.remove(p)
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Failed to load audio segment {idx+1}: {str(e)}"
+                )
+        
+        # Merge all segments
+        if len(audio_segments) == 1:
+            merged_audio = audio_segments[0]
+        else:
+            merged_audio = audio_segments[0]
+            for segment in audio_segments[1:]:
+                merged_audio += segment  # Concatenate
+        
+        # Export merged audio
+        output_filename = f"podcast_{current_user.id}_{int(asyncio.get_event_loop().time()*1e9)}.m4a"
+        output_path = media_dir / output_filename
+        
+        merged_audio.export(
+            str(output_path),
+            format="ipod",  # m4a format
+            codec="aac",
+            bitrate="128k"
+        )
+        
+        # Cleanup temp files
+        for temp_path in temp_paths:
+            if temp_path.exists():
+                os.remove(temp_path)
+        
+        # Public URL
+        public_path = f"/media/audio/{output_filename}"
+        settings = config.Settings()
+        full_audio_url = f"{settings.BASE_URL}{public_path}"
+        
+        return schemas.AudioUploadResponse(
+            audio_url=full_audio_url,
+            file_size=os.path.getsize(output_path),
+            content_type="audio/mp4",
+            filename=output_filename
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Audio merge failed: {str(e)}"
         )
 
 

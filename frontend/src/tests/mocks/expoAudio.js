@@ -31,6 +31,10 @@ const setAudioModeAsync = jest.fn().mockResolvedValue(undefined);
 const requestRecordingPermissionsAsync = jest.fn().mockResolvedValue({ status: "granted" });
 const getRecordingPermissionsAsync = jest.fn().mockResolvedValue({ status: "granted" });
 
+// Aliases for compatibility
+const requestPermissionsAsync = requestRecordingPermissionsAsync;
+const getPermissionsAsync = getRecordingPermissionsAsync;
+
 // Enums
 const AndroidAudioEncoder = { AAC: "aac" };
 const AndroidOutputFormat = { MPEG_4: "mpeg4" };
@@ -43,6 +47,8 @@ export {
     setAudioModeAsync,
     requestRecordingPermissionsAsync,
     getRecordingPermissionsAsync,
+    requestPermissionsAsync,
+    getPermissionsAsync,
     AndroidAudioEncoder,
     AndroidOutputFormat,
     IOSOutputFormat,

@@ -20,26 +20,20 @@ const getApiBaseUrl = () => {
     // 1. Check for explicit environment variable (production)
     const envUrl = Constants.expoConfig?.extra?.apiBaseUrl;
     if (envUrl) {
-        Logger.log("🌐 Using configured API URL:", envUrl);
         return envUrl;
     }
 
     // 2. Auto-detect from Expo's debugger host (development)
     const debuggerHost = Constants.expoConfig?.hostUri?.split(':')[0];
     if (debuggerHost) {
-        const autoUrl = `http://${debuggerHost}:8000`;
-        Logger.log("🌐 Auto-detected API URL:", autoUrl);
-        return autoUrl;
+        return `http://${debuggerHost}:8000`;
     }
 
     // 3. Fallback to localhost (shouldn't happen in normal dev)
-    const fallbackUrl = "http://localhost:8000";
-    Logger.warn("⚠️ Using fallback API URL:", fallbackUrl);
-    return fallbackUrl;
+    return "http://localhost:8000";
 };
 
 const API_BASE_URL = getApiBaseUrl();
-Logger.log("✅ Final API Base URL:", API_BASE_URL);
 
 // Network timeout configuration (iOS can handle longer timeouts)
 const NETWORK_TIMEOUT = Platform.OS === "ios" ? 30000 : 25000;
@@ -124,20 +118,29 @@ class ApiService {
      */
     async request(endpoint, options = {}, retry = true) {
         const url = `${this.baseURL}${endpoint}`;
+        
         // Use in-memory token if set, otherwise read from SecureStore
-        const accessToken = this.token || (await getToken("accessToken"));
+        const accessToken = this.token || await getToken("accessToken");
         const refreshToken = await getToken("refreshToken");
+        
+        // Build headers - don't set Content-Type for FormData (it sets its own with boundary)
+        const headers = {
+            "User-Agent":
+                Platform.OS === "ios"
+                    ? "ProPodApp/iOS"
+                    : "ProPodApp/Android",
+            ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+            ...options.headers,
+        };
+
+        // Only add Content-Type if not FormData
+        const isFormData = options.body instanceof FormData;
+        if (!isFormData) {
+            headers["Content-Type"] = "application/json";
+        }
 
         const config = {
-            headers: {
-                "Content-Type": "application/json",
-                "User-Agent":
-                    Platform.OS === "ios"
-                        ? "ProPodApp/iOS"
-                        : "ProPodApp/Android",
-                ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
-                ...options.headers,
-            },
+            headers,
             timeout: NETWORK_TIMEOUT,
             ...options,
         };
@@ -181,9 +184,18 @@ class ApiService {
                     const refreshData = await refreshRes.json();
                     await saveToken("accessToken", refreshData.access_token);
                     this.setToken(refreshData.access_token); // Update in-memory token
-                    // Retry original request with new token (mark as retry to prevent loops)
-                    return this.request(endpoint, { ...options, _isRetry: true }, false);
+                    
+                    // Retry original request with new token by making a fresh request call
+                    // This ensures the new token from this.token is read at the start of request()
+                    const retryOptions = { ...options, _isRetry: true };
+                    // Remove Authorization header if present, so request() reads from this.token
+                    if (retryOptions.headers && retryOptions.headers.Authorization) {
+                        delete retryOptions.headers.Authorization;
+                    }
+                    
+                    return this.request(endpoint, retryOptions, false);
                 } else {
+                    Logger.error('❌ Token refresh failed - refresh token expired');
                     // Refresh token expired, logout user
                     // If refresh token is also expired, handle session expiration
                     await deleteToken("accessToken");
@@ -257,16 +269,17 @@ class ApiService {
      * @param {string} endpoint - API endpoint path
      * @param {Object} options - Fetch options
      * @param {boolean} withRetry - Enable retry logic for network errors
+     * @param {boolean} withTokenRefresh - Enable token refresh on 401 errors (default: true)
      * @returns {Promise<Object>} Response data
      * @throws {Error} Network or HTTP errors
      */
-    async requestWithRetry(endpoint, options = {}, withRetry = true) {
+    async requestWithRetry(endpoint, options = {}, withRetry = true, withTokenRefresh = true) {
         if (!withRetry) {
-            return this.request(endpoint, options);
+            return this.request(endpoint, options, withTokenRefresh);
         }
 
         return retryWithBackoff(
-            () => this.request(endpoint, options),
+            () => this.request(endpoint, options, withTokenRefresh),
             RETRY_CONFIG
         );
     }
@@ -579,19 +592,43 @@ class ApiService {
             name: audioFile.name,
         });
 
-        const accessToken = await getToken("accessToken");
-
-        // Use retry logic for uploads (network issues common on mobile)
+        // IMPORTANT: Don't set Content-Type or headers for FormData
+        // The system will set Content-Type automatically with the correct boundary
+        // Don't pass headers at all - let request() handle Authorization automatically
         return this.requestWithRetry(
             "/podcasts/upload",
             {
                 method: "POST",
-                headers: {
-                    "Content-Type": "multipart/form-data",
-                    ...(accessToken && {
-                        Authorization: `Bearer ${accessToken}`,
-                    }),
-                },
+                body: formData,
+                // headers intentionally omitted - request() will add Authorization automatically
+            },
+            true
+        );
+    }
+
+    async mergeAndUploadAudio(audioFiles) {
+        /**
+         * Merge multiple audio segments and upload as single file
+         * Used for draft recovery with multiple recording sessions
+         * 
+         * @param {Array} audioFiles - Array of {uri, type, name} objects
+         * @returns {Promise<Object>} Upload response with audio_url
+         */
+        const formData = new FormData();
+        
+        // Append all audio files
+        audioFiles.forEach((file) => {
+            formData.append("files", {
+                uri: file.uri,
+                type: file.type,
+                name: file.name,
+            });
+        });
+
+        return this.requestWithRetry(
+            "/podcasts/merge-upload",
+            {
+                method: "POST",
                 body: formData,
             },
             true
@@ -900,20 +937,11 @@ class ApiService {
                 name: fileName,
             };
 
-            Logger.log("📸 Uploading photo:", {
-                uri: fileBlob.uri,
-                type: fileBlob.type,
-                name: fileBlob.name,
-            });
-
             formData.append("file", fileBlob);
 
             // Upload with multipart/form-data
             const accessToken = await getToken("accessToken");
             const url = `${this.baseURL}/users/me/photo`;
-
-            Logger.log("🌐 Upload URL:", url);
-            Logger.log("🔑 Has token:", !!accessToken);
 
             const config = {
                 method: "POST",
@@ -927,9 +955,7 @@ class ApiService {
                 },
             };
 
-            Logger.log("🚀 Sending request...");
             const response = await fetch(url, config);
-            Logger.log("📥 Response status:", response.status);
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -939,8 +965,6 @@ class ApiService {
             }
 
             const data = await response.json();
-            Logger.log("✅ Upload success! User data:", data);
-            Logger.log("🖼️ New photo URL:", data.photo_url);
             return data; // Returns updated user object with new photo_url
         } catch (error) {
             Logger.error("Profile photo upload failed:", error);
