@@ -249,9 +249,15 @@ class TestContentAnalyzer:
         assert "Technology" in categories
     
     @pytest.mark.asyncio
+    @patch("app.services.content_analyzer.settings")
     @patch("app.services.content_analyzer.AsyncOpenAI")
-    async def test_analyze_content_full(self, mock_openai_class, content_analyzer):
+    async def test_analyze_content_full(self, mock_openai_class, mock_settings, content_analyzer):
         """Test full content analysis."""
+        # Force OpenAI provider path
+        mock_settings.AI_PROVIDER = "openai"
+        mock_settings.AI_ANALYSIS_MODEL = "gpt-4"
+        mock_settings.OPENAI_API_KEY = "test-key"
+        
         # Mock OpenAI client with all responses
         mock_client = AsyncMock()
         
@@ -300,19 +306,19 @@ class TestAIService:
         test_file = tmp_path / "test.mp3"
         test_file.write_bytes(b"mock audio data")
         
-        # Mock database objects
-        mock_podcast = Mock(id=1, ai_data=None)
+        # Mock database objects - ai_data must exist (endpoint creates it before calling process)
         mock_ai_data = Mock(
-            processing_status="pending",
+            processing_status="processing",
             transcription_text=None,
             keywords=None,
             summary=None
         )
+        mock_podcast = Mock(id=1, ai_data=mock_ai_data)
         
         mock_db.query.return_value.filter.return_value.first.return_value = mock_podcast
         mock_db.add = Mock()
         mock_db.commit = Mock()
-        mock_db.refresh = Mock(side_effect=lambda obj: setattr(mock_podcast, 'ai_data', mock_ai_data))
+        mock_db.refresh = Mock()
         
         # Mock transcription result
         mock_transcription = TranscriptionResult(
