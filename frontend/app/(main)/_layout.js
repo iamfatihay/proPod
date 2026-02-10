@@ -107,11 +107,15 @@ const CreateTab = () => {
             >
                 <Image
                     source={require("../../assets/Volo-logo.png")}
-                    style={{
-                        width: 53,
-                        height: 53,
-                        tintColor: COLORS.text.primary,
-                    }}
+                    style={[
+                        {
+                            width: 53,
+                            height: 53,
+                        },
+                        Platform.OS === "ios" && {
+                            tintColor: COLORS.text.primary,
+                        },
+                    ]}
                 />
             </View>
             {/* Custom Themed Modal */}
