@@ -8,6 +8,7 @@ import {
     Dimensions,
     Modal,
     Text,
+    Image,
 } from "react-native";
 import BottomMiniPlayer from "../../src/components/audio/BottomMiniPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
@@ -97,13 +98,21 @@ const CreateTab = () => {
                     justifyContent: "center",
                     borderWidth: 4,
                     borderColor: COLORS.background,
+                    overflow: 'hidden',
                     // Android elevation
                     ...(Platform.OS === "android" && {
                         elevation: 8,
                     }),
                 }}
             >
-                <MaterialCommunityIcons name="plus" size={36} color="white" />
+                <Image
+                    source={require("../../assets/Volo-logo.png")}
+                    style={{
+                        width: 53,
+                        height: 53,
+                        tintColor: COLORS.text.primary,
+                    }}
+                />
             </View>
             {/* Custom Themed Modal */}
             <Modal
