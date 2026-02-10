@@ -10,7 +10,7 @@ This module coordinates all AI operations for podcast processing:
 
 import logging
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
 from enum import Enum
@@ -154,7 +154,7 @@ class AIService:
             ProcessingResult with all data
         """
         options = options or ProcessingOptions()
-        started_at = datetime.utcnow()
+        started_at = datetime.now(timezone.utc)
         
         result = ProcessingResult(
             podcast_id=podcast_id,
@@ -262,7 +262,7 @@ class AIService:
             # Mark as completed
             result.status = ProcessingStage.COMPLETED
             result.stage = ProcessingStage.COMPLETED
-            result.completed_at = datetime.utcnow()
+            result.completed_at = datetime.now(timezone.utc)
             result.processing_time = (
                 result.completed_at - result.started_at
             ).total_seconds()

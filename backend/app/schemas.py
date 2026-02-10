@@ -1,6 +1,6 @@
 """Pydantic schemas for request/response validation."""
 from __future__ import annotations
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 import datetime
 from typing import Optional, List, TYPE_CHECKING
 from enum import Enum
@@ -346,8 +346,7 @@ class PodcastAIDataResponse(BaseModel):
     created_at: datetime.datetime
     updated_at: datetime.datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Success Message Schema
