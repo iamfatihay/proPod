@@ -32,7 +32,6 @@ const Create = () => {
 
     // Mode: 'quick-record', 'full-create', 'resume-draft', or 'save-draft'
     const mode = params.mode || "full-create";
-    const draftId = params.draftId;
 
     // Recording state
     const [isRecording, setIsRecording] = useState(false);
@@ -49,9 +48,11 @@ const Create = () => {
     const [category, setCategory] = useState("General");
     const [isPublic, setIsPublic] = useState(false);
 
-    // Update draft metadata when title/description changes
+    // Update draft metadata when title/description changes (only if draft loaded or recording active)
     useEffect(() => {
-        if (title || description) {
+        // Only update metadata if we have a loaded draft or active recording session
+        // Prevents overwriting draft metadata with empty values on initial mount
+        if ((draftLoaded || isRecording || recordedUri) && (title || description)) {
             protectionService.updateMetadata({
                 title: title || 'Untitled Recording',
                 description,
@@ -59,7 +60,7 @@ const Create = () => {
                 is_public: isPublic
             });
         }
-    }, [title, description, category, isPublic]);
+    }, [title, description, category, isPublic, draftLoaded, isRecording, recordedUri]);
 
     // UI state
     const [isUploading, setIsUploading] = useState(false);
@@ -87,7 +88,6 @@ const Create = () => {
                 return;
             }
 
-            // Reset all state to initial values for new recording
             // Reset all state to initial values for new recording
             setIsRecording(false);
             setRecordedUri(null);
