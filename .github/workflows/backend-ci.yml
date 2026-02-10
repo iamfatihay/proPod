@@ -33,26 +33,26 @@ jobs:
           --health-retries 5
 
     steps:
-    - name: Checkout kod
+    - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Python 3.11 kurulum
+    - name: Set up Python 3.11
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
         cache-dependency-path: backend/requirements.txt
 
-    - name: FFmpeg kurulum (audio processing için)
+    - name: Install FFmpeg (for audio processing)
       run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
-    - name: Dependency'leri kur
+    - name: Install dependencies
       working-directory: ./backend
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Test environment ayarla
+    - name: Set up test environment
       working-directory: ./backend
       run: |
         echo "DATABASE_URL=postgresql://test_user:test_password@localhost:5432/test_db" > .env
@@ -60,7 +60,7 @@ jobs:
         echo "OPENAI_API_KEY=test_key" >> .env
         echo "ASSEMBLYAI_API_KEY=test_key" >> .env
 
-    - name: Pytest ile testleri çalıştır
+    - name: Run tests with pytest
       working-directory: ./backend
       run: |
         pytest tests/ -v --tb=short --color=yes
@@ -69,6 +69,6 @@ jobs:
         SECRET_KEY: test_secret_key_for_ci
         PYTHONPATH: ${{ github.workspace }}/backend
 
-    - name: Test sonuçlarını göster
+    - name: Show test results
       if: always()
-      run: echo "Backend testler tamamlandı!"
+      run: echo "Backend tests completed!"
