@@ -31,7 +31,6 @@ class AudioService {
             await new Promise((resolve) => setTimeout(resolve, 100));
 
             this.isInitialized = true;
-            Logger.log("AudioService initialized successfully");
             return true;
         } catch (error) {
             Logger.error("Failed to initialize AudioService:", error);
@@ -63,8 +62,6 @@ class AudioService {
                 startTime: Date.now(),
                 recordingUri: null,
             };
-
-            Logger.log("Recording started successfully");
             return true;
         } catch (error) {
             Logger.error("Failed to start recording:", error);
@@ -96,7 +93,6 @@ class AudioService {
             };
 
             this.activeMode = null;
-            Logger.log("Recording stopped successfully");
             return recordingUri;
         } catch (error) {
             Logger.error("Failed to stop recording:", error);
@@ -119,7 +115,6 @@ class AudioService {
             }
 
             this.recordingState.isPaused = true;
-            Logger.log("Recording paused");
             return true;
         } catch (error) {
             Logger.error("Failed to pause recording:", error);
@@ -141,7 +136,6 @@ class AudioService {
             }
 
             this.recordingState.isPaused = false;
-            Logger.log("Recording resumed");
             return true;
         } catch (error) {
             Logger.error("Failed to resume recording:", error);
@@ -174,8 +168,6 @@ class AudioService {
                 duration: trackInfo.duration || 60000, // Default 1 minute
                 currentUri: uri,
             };
-
-            Logger.log("Audio loaded successfully");
             return true;
         } catch (error) {
             Logger.error("Failed to load audio:", error);
@@ -196,7 +188,6 @@ class AudioService {
 
             this.playbackState.isPlaying = true;
             this.playbackState.isPaused = false;
-            Logger.log("Playback started");
             return true;
         } catch (error) {
             Logger.error("Failed to start playback:", error);
@@ -216,7 +207,6 @@ class AudioService {
 
             this.playbackState.isPlaying = false;
             this.playbackState.isPaused = true;
-            Logger.log("Playback paused");
             return true;
         } catch (error) {
             Logger.error("Failed to pause playback:", error);
@@ -243,7 +233,6 @@ class AudioService {
             };
 
             this.activeMode = null;
-            Logger.log("Playback stopped");
             return true;
         } catch (error) {
             Logger.error("Failed to stop playback:", error);

@@ -245,7 +245,6 @@ export default function HomeScreen() {
 
     // Quick action handler
     const handleQuickAction = (actionId) => {
-        Logger.log("Quick action:", actionId);
         switch (actionId) {
             case "record":
             case "quick-record":

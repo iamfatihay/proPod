@@ -43,8 +43,6 @@ const useNotificationStore = create((set, get) => ({
             ...notification,
         };
 
-        Logger.log('📬 New notification:', newNotification.type);
-
         set((state) => ({
             notifications: [newNotification, ...state.notifications],
             unreadCount: state.unreadCount + 1,
@@ -140,11 +138,8 @@ const useNotificationStore = create((set, get) => ({
                     unreadCount: validNotifications.filter(n => !n.read).length,
                     isLoaded: true,
                 });
-
-                Logger.log(`📬 Loaded ${validNotifications.length} notifications (${parsed.notifications.length - validNotifications.length} expired)`);
             } else {
                 set({ isLoaded: true });
-                Logger.log('📬 No stored notifications');
             }
         } catch (error) {
             Logger.error('Failed to load notifications:', error);
@@ -163,7 +158,6 @@ const useNotificationStore = create((set, get) => ({
                 unreadCount: state.unreadCount,
             };
             await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-            Logger.debug('📬 Notifications saved to storage');
         } catch (error) {
             Logger.error('Failed to save notifications:', error);
         }

@@ -106,17 +106,6 @@ const useAudioStore = create(
             // PERFORMANCE: Direct execution - no setTimeout wrapper!
             const state = get();
 
-            // DEBUG: Log caller to track duplicate calls
-            if (__DEV__) {
-                Logger.log("🎵 [PLAY] Called:", {
-                    hasTrack: !!track,
-                    trackId: track?.id,
-                    currentTrackId: state.currentTrack?.id,
-                    isPlaying: state.isPlaying,
-                    isLoading: state.isLoading,
-                });
-            }
-
             // Clear any existing loading timeout
             if (state.isLoadingTimeout) {
                 clearTimeout(state.isLoadingTimeout);
@@ -150,11 +139,6 @@ const useAudioStore = create(
                 track &&
                 track.id !== state.currentTrack?.id
             ) {
-                if (__DEV__) {
-                    Logger.log(
-                        "🔄 [PLAY] Force switching track, clearing loading state"
-                    );
-                }
                 set({ isLoading: false });
             }
 
@@ -181,10 +165,6 @@ const useAudioStore = create(
                     // Handle track switching - non-blocking cleanup
                     const currentState = get();
                     if (track && track.id !== currentState.currentTrack?.id) {
-                        if (__DEV__) {
-                            Logger.log("🔄 [PLAY] Switching to new track");
-                        }
-
                         // Cleanup old sound asynchronously (don't block UI)
                         const oldSound = currentState.sound;
                         if (oldSound) {
@@ -285,20 +265,6 @@ const useAudioStore = create(
                             if (typeof sound.setPlaybackRate === "function") {
                                 sound.setPlaybackRate(
                                     currentState.playbackRate
-                                );
-                            }
-
-                            if (__DEV__) {
-                                Logger.log(
-                                    "🎵 [PLAY] Initial playbackRate set attempt:",
-                                    {
-                                        desired:
-                                            currentState.playbackRate + "x",
-                                        actual: sound.playbackRate + "x",
-                                        hasSetterMethod:
-                                            typeof sound.setPlaybackRate ===
-                                            "function",
-                                    }
                                 );
                             }
                         } catch (rateError) {
@@ -414,14 +380,6 @@ const useAudioStore = create(
             // PERFORMANCE: Direct execution - no setTimeout!
             const { sound, isPlaying: currentIsPlaying } = get();
 
-            // DEBUG: Log pause call to track duplicates
-            if (__DEV__) {
-                Logger.log("⏸️ [PAUSE] Called:", {
-                    currentlyPlaying: currentIsPlaying,
-                    hasSound: !!sound,
-                });
-            }
-
             // Prevent duplicate calls
             if (!currentIsPlaying) {
                 if (__DEV__) {
@@ -481,15 +439,6 @@ const useAudioStore = create(
         seek: (positionMillis) => {
             // PERFORMANCE: Direct execution - optimistic update first
             const { sound, position: previousPosition, seekTimeoutId: existingTimeoutId } = get();
-
-            // DEBUG: Log seek call
-            if (__DEV__) {
-                Logger.log("⏩ [SEEK] Called:", {
-                    from: Math.floor(previousPosition / 1000) + "s",
-                    to: Math.floor(positionMillis / 1000) + "s",
-                    hasSound: !!sound,
-                });
-            }
 
             // CRITICAL: Cancel any existing seek timeout to prevent race condition
             if (existingTimeoutId) {
@@ -565,16 +514,6 @@ const useAudioStore = create(
             // Warn user if they requested unsupported rate
             const wasRateClamped = rate !== clampedRate;
 
-            if (__DEV__) {
-                Logger.log("🎵 [STORE] setPlaybackRate called:", {
-                    from: get().playbackRate + "x",
-                    requested: rate + "x",
-                    clamped: clampedRate + "x",
-                    wasClamped: wasRateClamped,
-                    hasSound: !!sound,
-                });
-            }
-
             // Immediate optimistic update
             set({ playbackRate: clampedRate });
 
@@ -605,31 +544,14 @@ const useAudioStore = create(
                     // Check if rate change was successful (tolerance for floating point)
                     const isSuccess = Math.abs(currentRate - clampedRate) < 0.01;
 
-                    if (__DEV__) {
-                        Logger.log(
-                            isSuccess
-                                ? "✅ [STORE] playbackRate set successfully:"
-                                : "❌ [STORE] playbackRate NOT SUPPORTED:",
+                    if (__DEV__ && !isSuccess) {
+                        Logger.error(
+                            "❌ expo-audio does NOT support playbackRate!",
                             {
-                                desired: clampedRate + "x",
-                                before: beforeRate + "x",
-                                after: currentRate + "x",
-                                hasSetPlaybackRate:
-                                    typeof sound.setPlaybackRate === "function",
-                                hasSetRate: typeof sound.setRate === "function",
-                                SUCCESS: isSuccess,
+                                recommendation:
+                                    "Use react-native-track-player or expo-av for playback rate support",
                             }
                         );
-
-                        if (!isSuccess) {
-                            Logger.error(
-                                "❌ expo-audio does NOT support playbackRate!",
-                                {
-                                    recommendation:
-                                        "Use react-native-track-player or expo-av for playback rate support",
-                                }
-                            );
-                        }
                     }
 
                     // CRITICAL: User-facing feedback for ALL failure cases
@@ -787,13 +709,8 @@ const useAudioStore = create(
                         const willRepeat = state.repeatMode === "all";
 
                         if (hasNext) {
-                            Logger.log(
-                                "✅ Track finished, moving to next track"
-                            );
                         } else if (willRepeat) {
-                            Logger.log("🔁 Track finished, repeating queue");
                         } else {
-                            Logger.log("⏹️ Track finished, end of queue");
                         }
 
                         // Track finished, move to next (or stop if no next)
@@ -886,44 +803,5 @@ const useAudioStore = create(
         },
     }))
 );
-
-// Subscribe to playback state changes for analytics/logging (dev only)
-if (__DEV__) {
-    useAudioStore.subscribe(
-        (state) => state.isPlaying,
-        (isPlaying, previousIsPlaying) => {
-            const currentState = useAudioStore.getState();
-            const trackTitle = currentState.currentTrack?.title || "Unknown";
-
-            if (isPlaying && !previousIsPlaying) {
-                // Only log if not loading (to avoid false "started" during initial load)
-                if (!currentState.isLoading) {
-                    Logger.log("▶️ Playback started:", trackTitle);
-                }
-            } else if (!isPlaying && previousIsPlaying) {
-                // Check if this is a real pause or just a stop at end
-                // If position is near end, it's probably finished
-                const isNearEnd =
-                    currentState.position > 0 &&
-                    currentState.duration > 0 &&
-                    currentState.duration - currentState.position < 1000;
-
-                // If position is very small (< 500ms), it's probably still loading
-                const isJustStarted = currentState.position < 500;
-
-                if (isNearEnd) {
-                    Logger.log(
-                        "⏹️ Playback stopped (end of track):",
-                        trackTitle
-                    );
-                } else if (isJustStarted || currentState.isLoading) {
-                    Logger.log("⏳ Audio loading:", trackTitle);
-                } else {
-                    Logger.log("⏸️ Playback paused:", trackTitle);
-                }
-            }
-        }
-    );
-}
 
 export default useAudioStore;

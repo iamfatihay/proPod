@@ -70,7 +70,6 @@ const WaveformVisualizer = ({
             }
 
             setProcessedAudioData(processedData);
-            Logger.log("🎵 Processed audio data for waveform visualization");
         } catch (error) {
             Logger.error("Failed to process audio data:", error);
             setProcessedAudioData(null);

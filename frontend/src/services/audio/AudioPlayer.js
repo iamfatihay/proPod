@@ -70,7 +70,6 @@ class AudioPlayer {
             this.currentPosition = 0;
             this.isLoading = false;
 
-            Logger.log("Audio loaded:", trackInfo.title || uri);
             return true;
         } catch (error) {
             this.isLoading = false;
@@ -86,12 +85,10 @@ class AudioPlayer {
     async play() {
         try {
             if (!this.sound) {
-                Logger.warn("No audio loaded");
                 return false;
             }
 
             if (this.isPlaying) {
-                Logger.warn("Already playing");
                 return true;
             }
 
@@ -100,7 +97,6 @@ class AudioPlayer {
             this.isPaused = false;
 
             this._startPositionTimer();
-            Logger.log("Playback started");
             return true;
         } catch (error) {
             Logger.error("Playback failed:", error);
@@ -116,7 +112,6 @@ class AudioPlayer {
     async pause() {
         try {
             if (!this.sound || !this.isPlaying) {
-                Logger.warn("No active playback to pause");
                 return false;
             }
 
@@ -125,7 +120,6 @@ class AudioPlayer {
             this.isPaused = true;
 
             this._stopPositionTimer();
-            Logger.log("Playback paused");
             return true;
         } catch (error) {
             Logger.error("Failed to pause:", error);
@@ -150,7 +144,6 @@ class AudioPlayer {
             this.currentPosition = 0;
 
             this._stopPositionTimer();
-            Logger.log("Playback stopped");
             return true;
         } catch (error) {
             Logger.error("Failed to stop:", error);
@@ -172,7 +165,6 @@ class AudioPlayer {
     async seekTo(position) {
         try {
             if (!this.sound) {
-                Logger.warn("No audio loaded");
                 return false;
             }
 
@@ -180,7 +172,6 @@ class AudioPlayer {
             this.sound.currentTime = position / 1000;
             this.currentPosition = position;
 
-            Logger.log("Seeked to:", position);
             return true;
         } catch (error) {
             Logger.error("Failed to seek:", error);
@@ -196,14 +187,12 @@ class AudioPlayer {
     async setRate(rate) {
         try {
             if (!this.sound) {
-                Logger.warn("No audio loaded");
                 return false;
             }
 
             this.sound.rate = rate;
             this.playbackRate = rate;
 
-            Logger.log("Playback rate set to:", rate);
             return true;
         } catch (error) {
             Logger.error("Failed to set rate:", error);
@@ -219,12 +208,10 @@ class AudioPlayer {
     async setVolume(volume) {
         try {
             if (!this.sound) {
-                Logger.warn("No audio loaded");
                 return false;
             }
 
             this.sound.volume = volume;
-            Logger.log("Volume set to:", volume);
             return true;
         } catch (error) {
             Logger.error("Failed to set volume:", error);
@@ -273,7 +260,6 @@ class AudioPlayer {
             await this.stop();
             this.onPositionUpdate = null;
             this.onPlaybackStatusUpdate = null;
-            Logger.log("AudioPlayer cleanup completed");
         } catch (error) {
             Logger.error("Failed to cleanup audio player:", error);
         }

@@ -215,8 +215,6 @@ export default function NotificationsScreen() {
     }, [loadFromStorage]);
 
     const handleNotificationPress = (notification) => {
-        Logger.log("📬 Notification tapped:", notification.id);
-
         // Mark as read
         if (!notification.read) {
             markAsRead(notification.id);
@@ -240,7 +238,6 @@ export default function NotificationsScreen() {
 
     const handleMarkAllRead = () => {
         markAllAsRead();
-        Logger.log("📬 All notifications marked as read");
     };
 
     return (

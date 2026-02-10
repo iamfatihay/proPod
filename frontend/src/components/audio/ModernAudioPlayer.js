@@ -98,10 +98,6 @@ const ModernAudioPlayer = React.memo(
             // CRITICAL: Debounce to prevent multiple rapid calls
             if (playDebounceRef.current) return;
 
-            if (__DEV__) {
-                Logger.log("▶️ [UI PLAY] Button pressed");
-            }
-
             playDebounceRef.current = true;
             setTimeout(() => {
                 playDebounceRef.current = null;
@@ -121,10 +117,6 @@ const ModernAudioPlayer = React.memo(
         const handlePause = () => {
             // CRITICAL: Debounce to prevent multiple rapid calls
             if (pauseDebounceRef.current) return;
-
-            if (__DEV__) {
-                Logger.log("⏸️ [UI PAUSE] Button pressed");
-            }
 
             pauseDebounceRef.current = true;
             setTimeout(() => {
@@ -174,13 +166,6 @@ const ModernAudioPlayer = React.memo(
             const currentIndex = rates.indexOf(playbackRate);
             const nextRate = rates[(currentIndex + 1) % rates.length];
 
-            if (__DEV__) {
-                Logger.log("🎵 [SPEED] Changing:", {
-                    from: playbackRate + "x",
-                    to: nextRate + "x",
-                });
-            }
-
             onPlaybackRateChange(nextRate);
         };
 
@@ -229,14 +214,6 @@ const ModernAudioPlayer = React.memo(
                     setTempPosition(position);
                     progressAnimation.setValue(progress);
 
-                    if (__DEV__) {
-                        Logger.log("⏸️ [DRAG START]:", {
-                            pageX: Math.round(evt.nativeEvent.pageX),
-                            offset: Math.round(progressBarOffsetX.current),
-                            progress: Math.round(progress * 100) + "%",
-                            seekTo: Math.round(position / 1000) + "s",
-                        });
-                    }
                 },
                 onPanResponderMove: (evt, gestureState) => {
                     // CRITICAL FIX: Use pageX for accurate position tracking
@@ -255,12 +232,6 @@ const ModernAudioPlayer = React.memo(
                 },
                 onPanResponderRelease: (evt, gestureState) => {
                     setIsDragging(false);
-
-                    if (__DEV__) {
-                        Logger.log("⏸️ [DRAG END]:", {
-                            finalPosition: Math.round(tempPosition / 1000) + "s",
-                        });
-                    }
 
                     handleSeek(tempPosition);
                 },
@@ -351,15 +322,6 @@ const ModernAudioPlayer = React.memo(
                                     target.measure(
                                         (x, y, width, height, pageX, pageY) => {
                                             progressBarOffsetX.current = pageX;
-                                            if (__DEV__) {
-                                                Logger.log(
-                                                    "📍 Progress bar position:",
-                                                    {
-                                                        pageX: Math.round(pageX),
-                                                        width: Math.round(width),
-                                                    }
-                                                );
-                                            }
                                         }
                                     );
                                 }

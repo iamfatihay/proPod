@@ -60,19 +60,14 @@ class AudioRecorder {
      */
     async startRecording(options = {}) {
         try {
-            Logger.log("🎵 Starting recording...");
-
             if (this.isRecording) {
-                Logger.warn("❌ Already recording");
                 return false;
             }
 
             // Initialize if not done already
-            Logger.log("🔧 Initializing recording...");
             await this.initializeRecording();
 
             // Create recorder instance for expo-audio 0.4.9
-            Logger.log("📝 Creating recording with HIGH_QUALITY preset...");
             const recordingOptions = {
                 android: {
                     extension: ".m4a",
@@ -104,29 +99,16 @@ class AudioRecorder {
             // filePath is only set when prepareToRecordAsync() is called via setRecordingOptions()
             this.recording = new AudioModule.AudioRecorder(recordingOptions);
 
-            Logger.log("🔍 Recorder created (before prepare):", {
-                recordingExists: !!this.recording,
-                recordingUriProperty: this.recording?.uri,
-            });
-
             // CRITICAL: prepareToRecordAsync MUST be called on Android to:
             // 1. Set filePath (required for URI)
             // 2. Prepare MediaRecorder (required for record() to work - checks isPrepared)
             try {
-                Logger.log(
-                    "🔧 Calling prepareToRecordAsync (required for Android)..."
-                );
                 await this.recording.prepareToRecordAsync(recordingOptions);
-                Logger.log("✅ prepareToRecordAsync completed");
 
                 // After prepareToRecordAsync, filePath should be set, so URI should be available
                 const uriAfterPrepare = this.recording?.uri || null;
                 if (uriAfterPrepare && uriAfterPrepare !== "") {
                     this.recordingUri = uriAfterPrepare;
-                    Logger.log(
-                        "✅ URI after prepareToRecordAsync:",
-                        uriAfterPrepare
-                    );
                 } else {
                     Logger.warn(
                         "⚠️ URI still empty after prepareToRecordAsync:",
@@ -143,13 +125,8 @@ class AudioRecorder {
 
             // Add status update listener to capture URI when recording stops
             this.recordingStatusHandler = (status) => {
-                Logger.log("📹 Recording status update:", status);
                 if (status?.url) {
-                    Logger.log("📹 URI from status update:", status.url);
                     this.recordingUri = status.url;
-                }
-                if (status?.isFinished) {
-                    Logger.log("✅ Recording finished");
                 }
                 if (status?.hasError) {
                     Logger.error("❌ Recording error:", status.error);
@@ -168,7 +145,6 @@ class AudioRecorder {
             const uriAfterRecord = this.recording?.uri || null;
             if (uriAfterRecord && uriAfterRecord !== "" && !this.recordingUri) {
                 this.recordingUri = uriAfterRecord;
-                Logger.log("✅ URI after record():", uriAfterRecord);
             }
 
             // Update state
@@ -176,12 +152,6 @@ class AudioRecorder {
             this.isPaused = false;
             this.recordingStartTime = Date.now();
             this.recordingDuration = 0;
-
-            Logger.log("✅ Recording started successfully:", {
-                isRecording: this.isRecording,
-                isPaused: this.isPaused,
-                startTime: this.recordingStartTime,
-            });
 
             // Start duration timer
             this._startTimer();
@@ -205,14 +175,11 @@ class AudioRecorder {
     async pauseRecording() {
         try {
             if (!this.recording || !this.isRecording || this.isPaused) {
-                Logger.warn("No active recording to pause");
                 return false;
             }
 
             this.recording.pause();
             this.isPaused = true;
-
-            Logger.log("Recording paused");
             return true;
         } catch (error) {
             Logger.error("Failed to pause recording:", error);
@@ -228,14 +195,11 @@ class AudioRecorder {
     async resumeRecording() {
         try {
             if (!this.recording || !this.isRecording || !this.isPaused) {
-                Logger.warn("No paused recording to resume");
                 return false;
             }
 
             this.recording.record();
             this.isPaused = false;
-
-            Logger.log("Recording resumed");
             return true;
         } catch (error) {
             Logger.error("Failed to resume recording:", error);
@@ -251,11 +215,8 @@ class AudioRecorder {
     async stopRecording() {
         try {
             if (!this.recording || !this.isRecording) {
-                Logger.warn("No active recording to stop");
                 return null;
             }
-
-            Logger.log("⏹️ Stopping recording...");
 
             // Clear timer first
             if (this.recordingTimer) {
@@ -273,30 +234,14 @@ class AudioRecorder {
                 uri = this.recordingUri || this.recording?.uri || null;
                 if (uri === "") uri = null;
 
-                Logger.log("🔍 URI before stop():", {
-                    uri,
-                    storedRecordingUri: this.recordingUri,
-                    recordingUriProperty: this.recording?.uri,
-                    hasRecording: !!this.recording,
-                });
-
                 // Call stop() - on Android, this returns a Bundle with status
                 await this.recording.stop();
 
                 // After stop(), try getStatus() to get URI (Android preserves filePath in getAudioRecorderStatus)
                 try {
-                    Logger.log("🔍 Getting status after stop()...");
                     const status = this.recording?.getStatus();
-                    Logger.log(
-                        "📊 Recording status from getStatus() after stop:",
-                        status
-                    );
                     if (status?.url) {
                         uri = status.url;
-                        Logger.log(
-                            "✅ Got URI from getStatus() after stop:",
-                            uri
-                        );
                     }
                 } catch (statusError) {
                     Logger.warn(
@@ -310,10 +255,6 @@ class AudioRecorder {
                     const uriAfterStop = this.recording?.uri || null;
                     if (uriAfterStop && uriAfterStop !== "") {
                         uri = uriAfterStop;
-                        Logger.log(
-                            "✅ Got URI from recording.uri after stop:",
-                            uri
-                        );
                     }
                 }
             } catch (stopError) {
@@ -321,21 +262,11 @@ class AudioRecorder {
                 // Continue to cleanup even if stop() failed
             }
 
-            Logger.log("🔍 Final recording URI:", {
-                uri,
-                hasRecordingInstance: !!this.recording,
-            });
-
             // Validate URI and check file exists
             if (uri) {
                 try {
                     const fileInfo = await FileSystem.getInfoAsync(uri);
                     if (fileInfo.exists) {
-                        Logger.log("✅ Recording saved successfully:", {
-                            uri,
-                            size: fileInfo.size,
-                            duration: this.recordingDuration,
-                        });
                         this.recordingUri = uri; // Store for future reference
                     } else {
                         Logger.warn(
@@ -452,8 +383,6 @@ class AudioRecorder {
             this.recordingUri = null;
             this.recordingDuration = 0;
             this.recordingStartTime = null;
-
-            Logger.log("✅ Recording cleanup completed");
         } catch (error) {
             Logger.error("❌ Failed to cleanup recording:", error);
             // Force reset state even on error
@@ -471,12 +400,10 @@ class AudioRecorder {
     async deleteRecording(uri) {
         try {
             if (!uri) {
-                Logger.warn("No URI provided for deletion");
                 return false;
             }
 
             await FileSystem.deleteAsync(uri, { idempotent: true });
-            Logger.log("Recording deleted:", uri);
             return true;
         } catch (error) {
             Logger.error("Failed to delete recording:", error);
@@ -499,7 +426,6 @@ class AudioRecorder {
                         (Date.now() - this.recordingStartTime) / 1000
                     );
                 }
-                Logger.log("⏱️ Duration updated:", this.recordingDuration);
             }
         }, 1000);
     }
