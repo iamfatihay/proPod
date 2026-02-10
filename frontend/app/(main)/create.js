@@ -88,20 +88,54 @@ const Create = () => {
                 return;
             }
 
-            // Reset all state to initial values for new recording
-            setIsRecording(false);
-            setRecordedUri(null);
-            setRecordedDuration(0);
-            setIsAIEnabled(false);
-            setTitle("");
-            setDescription("");
-            setCategory("General");
-            setIsPublic(false);
-            setIsUploading(false);
-            setCurrentStep(mode === "quick-record" ? "recording" : "setup");
-            setPermissionModalVisible(false);
-            setDiscardConfirmVisible(false);
-            setDraftLoaded(false);
+            // CRITICAL: Check if there's an active recording session before resetting
+            // This prevents state desync when user navigates back during recording
+            const checkActiveSession = async () => {
+                try {
+                    // Check for active recording in AudioService
+                    const recordingStatus = AudioService.getRecordingStatus();
+                    const hasActiveRecording = recordingStatus.isRecording || recordingStatus.activeMode === 'recording';
+                    
+                    // Check for existing draft (protection service may have segments)
+                    const existingDraft = await protectionService.getDraft();
+                    
+                    if (hasActiveRecording || existingDraft) {
+                        // Sync local state with active session instead of resetting
+                        if (existingDraft) {
+                            setRecordedDuration(existingDraft.total_duration || 0);
+                            setTitle(existingDraft.metadata?.title || '');
+                            setDescription(existingDraft.metadata?.description || '');
+                            setCategory(existingDraft.metadata?.category || 'General');
+                            setIsPublic(existingDraft.metadata?.is_public || false);
+                        }
+                        
+                        setIsRecording(hasActiveRecording);
+                        setCurrentStep('recording');
+                        
+                        // Don't reset - we're restoring an active session
+                        return;
+                    }
+                } catch (error) {
+                    Logger.error('Failed to check active session:', error);
+                }
+                
+                // Only reset if no active session exists
+                setIsRecording(false);
+                setRecordedUri(null);
+                setRecordedDuration(0);
+                setIsAIEnabled(false);
+                setTitle("");
+                setDescription("");
+                setCategory("General");
+                setIsPublic(false);
+                setIsUploading(false);
+                setCurrentStep(mode === "quick-record" ? "recording" : "setup");
+                setPermissionModalVisible(false);
+                setDiscardConfirmVisible(false);
+                setDraftLoaded(false);
+            };
+            
+            checkActiveSession();
 
             // Initialize audio
             initializeAudio();
