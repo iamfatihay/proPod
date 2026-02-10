@@ -1,0 +1,55 @@
+name: Frontend CI
+
+on:
+  pull_request:
+    branches: [ master, main, develop ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  push:
+    branches: [ master, main, develop ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout kod
+      uses: actions/checkout@v4
+
+    - name: Node.js 20.x kurulum
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Dependency'leri kur
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Lint kontrolü
+      working-directory: ./frontend
+      run: npm run lint
+      continue-on-error: true
+
+    - name: Jest testlerini çalıştır
+      working-directory: ./frontend
+      run: npm run test:ci
+
+    - name: Test coverage raporu
+      if: always()
+      working-directory: ./frontend
+      run: |
+        if [ -d "coverage" ]; then
+          echo "Coverage raporu oluşturuldu"
+          # Coverage özeti
+          cat coverage/coverage-summary.json || true
+        fi
+
+    - name: Test sonuçlarını göster
+      if: always()
+      run: echo "Frontend testler tamamlandı!"
