@@ -47,6 +47,11 @@ backend/app/*.pyc
 *.key
 *.mobileprovision
 
+# APK/Build outputs (don't commit builds)
+*.apk
+*.aab
+*.ipa
+
 # Metro
 .metro-health-check*
 
