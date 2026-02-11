@@ -1,9 +1,8 @@
 /**
  * Recording Protection Service
- * Provides 3-layer protection for podcast recordings:
- * - Layer 1: Immediate FileSystem save
- * - Layer 2: AsyncStorage metadata backup
- * - Layer 3: Auto-upload to server every 5 minutes
+ * Provides 2-layer protection for podcast recordings:
+ * - Layer 1: Immediate FileSystem permanent storage
+ * - Layer 2: AsyncStorage metadata backup for draft recovery
  */
 
 import * as FileSystem from 'expo-file-system';
@@ -16,7 +15,6 @@ const SEGMENT_DIR = `${FileSystem.documentDirectory}podcast_segments/`;
 
 class RecordingProtectionService {
     constructor() {
-        this.autoBackupInterval = null;
         this.currentDraftId = null;
     }
 
@@ -44,7 +42,6 @@ class RecordingProtectionService {
 
             await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
             
-            this.startAutoBackup();
             return this.currentDraftId;
         } catch (error) {
             Logger.error('❌ Protection start failed:', error);
@@ -80,8 +77,7 @@ class RecordingProtectionService {
                 uri: permanentPath,
                 duration,
                 timestamp,
-                size: await this.getFileSize(permanentPath),
-                backed_up: false
+                size: await this.getFileSize(permanentPath)
             };
 
             await this.updateDraftSegments(segmentData);
@@ -111,71 +107,6 @@ class RecordingProtectionService {
             Logger.error('❌ Draft update failed:', error);
             throw error;
         }
-    }
-
-    /**
-     * Layer 3: Auto-backup segments to server
-     */
-    startAutoBackup() {
-        this.stopAutoBackup();
-
-        this.autoBackupInterval = setInterval(async () => {
-            try {
-                await this.backupToServer();
-            } catch (error) {
-                Logger.error('❌ Auto-backup failed:', error);
-                // Continue even on error - local files are safe
-            }
-        }, 5 * 60 * 1000); // 5 minutes
-    }
-
-    stopAutoBackup() {
-        if (this.autoBackupInterval) {
-            clearInterval(this.autoBackupInterval);
-            this.autoBackupInterval = null;
-        }
-    }
-
-    /**
-     * Upload un-backed segments to server
-     */
-    async backupToServer() {
-        const draft = await this.getDraft();
-        if (!draft) return;
-
-        const pendingSegments = draft.segments.filter(s => !s.backed_up);
-        if (pendingSegments.length === 0) return;
-
-        for (const segment of pendingSegments) {
-            try {
-                await this.uploadSegment(segment);
-                segment.backed_up = true;
-            } catch (error) {
-                // Silently fail - backup is optional feature
-                // Segment is still safe in local storage
-                Logger.warn('⚠️ Segment backup skipped (endpoint not available):', segment.timestamp);
-                // Continue with next segment
-            }
-        }
-
-        await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-    }
-
-    async uploadSegment(segment) {
-        const formData = new FormData();
-        formData.append('file', {
-            uri: segment.uri,
-            type: 'audio/m4a',
-            name: `segment_${segment.timestamp}.m4a`
-        });
-        formData.append('draft_id', this.currentDraftId.toString());
-        formData.append('timestamp', segment.timestamp.toString());
-
-        return apiService.request('/podcasts/draft/upload-segment', {
-            method: 'POST',
-            body: formData,
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
     }
 
     /**
@@ -230,8 +161,6 @@ class RecordingProtectionService {
      */
     async clearDraft() {
         try {
-            this.stopAutoBackup();
-            
             await AsyncStorage.removeItem(DRAFT_KEY);
             
             const dirInfo = await FileSystem.getInfoAsync(SEGMENT_DIR);

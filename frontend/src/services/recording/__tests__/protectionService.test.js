@@ -18,7 +18,6 @@ describe('RecordingProtectionService', () => {
         jest.clearAllMocks();
         
         // Reset service state
-        protectionService.stopAutoBackup();
         protectionService.currentDraftId = null;
     });
 
@@ -170,7 +169,7 @@ describe('RecordingProtectionService', () => {
     });
 
     describe('clearDraft', () => {
-        it('should clear draft and stop auto-backup', async () => {
+        it('should clear draft and remove segment files', async () => {
             AsyncStorage.removeItem.mockResolvedValue(undefined);
             FileSystem.getInfoAsync.mockResolvedValue({ exists: true });
             FileSystem.deleteAsync.mockResolvedValue(undefined);
@@ -211,35 +210,6 @@ describe('RecordingProtectionService', () => {
             const updatedDraft = JSON.parse(setItemCall[1]);
 
             expect(updatedDraft.metadata.title).toBe('New Title');
-        });
-    });
-
-    describe('Memory Management', () => {
-        it('should stop auto-backup interval on clearDraft', async () => {
-            FileSystem.makeDirectoryAsync.mockResolvedValue(undefined);
-            AsyncStorage.setItem.mockResolvedValue(undefined);
-
-            await protectionService.startProtection();
-            
-            expect(protectionService.autoBackupInterval).not.toBeNull();
-
-            await protectionService.clearDraft();
-
-            expect(protectionService.autoBackupInterval).toBeNull();
-        });
-
-        it('should not create multiple intervals', async () => {
-            FileSystem.makeDirectoryAsync.mockResolvedValue(undefined);
-            AsyncStorage.setItem.mockResolvedValue(undefined);
-
-            await protectionService.startProtection();
-            const firstInterval = protectionService.autoBackupInterval;
-
-            await protectionService.startProtection();
-            const secondInterval = protectionService.autoBackupInterval;
-
-            // Should be different intervals (old one cleared)
-            expect(firstInterval).not.toBe(secondInterval);
         });
     });
 });
