@@ -255,11 +255,11 @@ const Create = () => {
         setIsRecording(false);
 
         if (uri) {
+            // Get recording duration from AudioService (before try block so it's accessible in catch)
+            const status = AudioService.getRecordingStatus();
+            const duration = status.duration || 0;
+            
             try {
-                // Get recording duration from AudioService
-                const status = AudioService.getRecordingStatus();
-                const duration = status.duration || 0;
-
                 // Save segment to protection service
                 const segment = await protectionService.saveSegment(uri, duration);
 
@@ -281,7 +281,7 @@ const Create = () => {
                 showToast("Recording completed but protection failed", "error");
                 // Still proceed with URI - at least we have the recording
                 setRecordedUri(uri);
-                setRecordedDuration(status?.duration || 0);
+                setRecordedDuration(duration); // Now accessible from outer scope
                 setCurrentStep("review");
             }
         } else {
