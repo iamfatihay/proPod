@@ -21,7 +21,6 @@ try {
     Logger.warn('Native modules not available (Expo Go). Notifications disabled.', error);
 }
 
-const RECORDING_NOTIFICATION_ID = 'recording-in-progress';
 const BACKGROUND_TASK_NAME = 'recording-protection-task';
 
 // Configure notification behavior (only if available)
