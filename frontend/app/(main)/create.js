@@ -40,7 +40,6 @@ const Create = () => {
     const [isAIEnabled, setIsAIEnabled] = useState(false);
     const [audioInitialized, setAudioInitialized] = useState(false);
     const [draftLoaded, setDraftLoaded] = useState(false);
-    const [autoStartRecording, setAutoStartRecording] = useState(false);
 
     // Podcast metadata
     const [title, setTitle] = useState("");
@@ -174,12 +173,15 @@ const Create = () => {
             // Load recording data
             setRecordedDuration(draft.total_duration || 0);
             
+            // Validate segments exist for both modes
+            if (!draft.segments || draft.segments.length === 0) {
+                throw new Error('No segments found in draft');
+            }
+            
             // For resume mode, go to recording screen (but don't auto-start)
             if (mode === 'resume-draft') {
                 // Use first segment for preview
-                if (draft.segments && draft.segments.length > 0) {
-                    setRecordedUri(draft.segments[0].uri);
-                }
+                setRecordedUri(draft.segments[0].uri);
                 setCurrentStep('recording');
                 // Don't auto-start - let user press record button to continue
                 // This gives them time to prepare and see the existing duration
@@ -187,12 +189,8 @@ const Create = () => {
             // For save mode, use first segment and go to review screen
             else if (mode === 'save-draft') {
                 // Use first segment for preview
-                if (draft.segments && draft.segments.length > 0) {
-                    setRecordedUri(draft.segments[0].uri);
-                    setCurrentStep('review');
-                } else {
-                    throw new Error('No segments found in draft');
-                }
+                setRecordedUri(draft.segments[0].uri);
+                setCurrentStep('review');
             }
 
             setDraftLoaded(true);
@@ -217,14 +215,6 @@ const Create = () => {
             showToast("Failed to initialize audio. Please try again.", "error");
         }
     };
-
-    // Auto-start recording when continuing from draft
-    useEffect(() => {
-        if (autoStartRecording && audioInitialized && currentStep === 'recording' && !isRecording) {
-            setAutoStartRecording(false); // Reset flag
-            handleRecordingStart();
-        }
-    }, [autoStartRecording, audioInitialized, currentStep, isRecording]);
 
     const handleRecordingStart = async () => {
         try {
