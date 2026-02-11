@@ -155,7 +155,10 @@ class ApiService {
             clearTimeout(timeoutId);
 
             // Handle token expiration and refresh (but not if already retrying)
-            if (response.status === 401 && retry && refreshToken && !options._isRetry) {
+            // CRITICAL: Skip retry for FormData requests - FormData body is consumed after first request
+            // and cannot be reused. Caller must handle 401 and recreate FormData for retry.
+            const isFormDataBody = options.body instanceof FormData;
+            if (response.status === 401 && retry && refreshToken && !options._isRetry && !isFormDataBody) {
                 const refreshController = new AbortController();
                 const refreshTimeoutId = setTimeout(
                     () => refreshController.abort(),
@@ -209,6 +212,11 @@ class ApiService {
 
                     throw new Error("Session expired. Please login again.");
                 }
+            }
+            
+            // Log warning if 401 occurred with FormData (token refresh retry was skipped)
+            if (response.status === 401 && isFormDataBody) {
+                Logger.warn('⚠️ Token expired during FormData upload - automatic retry skipped. Caller must handle 401 and recreate FormData.');
             }
 
             if (!response.ok) {
@@ -560,13 +568,17 @@ class ApiService {
     /**
      * Upload audio file for podcast
      *
+     * NOTE: FormData requests do NOT support automatic token refresh retry.
+     * If token expires during upload (401), caller must catch error and retry manually.
+     * This is because FormData body is consumed and cannot be reused.
+     *
      * @param {Object} audioFile - Audio file data
      * @param {string} audioFile.uri - File URI
      * @param {string} audioFile.type - File MIME type
      * @param {string} audioFile.name - File name
      * @param {number} audioFile.size - File size in bytes (optional)
      * @returns {Promise<Object>} Upload response with audio URL
-     * @throws {Error} If upload fails or file too large
+     * @throws {Error} If upload fails, file too large, or token expired (401)
      */
     async uploadAudio(audioFile) {
         // Check file size before upload (mobile friendly: max 50MB)
@@ -611,8 +623,13 @@ class ApiService {
          * Merge multiple audio segments and upload as single file
          * Used for draft recovery with multiple recording sessions
          * 
+         * NOTE: FormData requests do NOT support automatic token refresh retry.
+         * If token expires during upload (401), caller must catch error and retry manually.
+         * This is because FormData body is consumed and cannot be reused.
+         * 
          * @param {Array} audioFiles - Array of {uri, type, name} objects
          * @returns {Promise<Object>} Upload response with audio_url
+         * @throws {Error} If upload fails or token expired (401)
          */
         const formData = new FormData();
         
