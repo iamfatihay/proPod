@@ -232,14 +232,22 @@ const Create = () => {
             }
 
             // Start professional notification service (iOS & Android)
-            await backgroundService.startRecording(title || 'New Recording');
+            // Check if notification is already active to prevent duplicates
+            if (!backgroundService.isActive()) {
+                await backgroundService.startRecording(title || 'New Recording');
+            }
 
             setIsRecording(true);
             setCurrentStep("recording");
             showToast("Recording started", "success");
         } catch (error) {
             Logger.error("Recording start failed:", error);
-            showToast("Failed to start recording protection", "error");
+            showToast(
+                "Recording could not be started because safety protection failed. No audio was recorded.",
+                "error"
+            );
+            // Ensure recording state is not set if protection fails
+            setIsRecording(false);
         }
     };
 
