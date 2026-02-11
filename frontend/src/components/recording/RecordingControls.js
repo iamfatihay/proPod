@@ -61,9 +61,15 @@ const RecordingControls = ({
                 })
             ).start();
 
-            // Update duration timer
+            // Update duration timer - sync with AudioService for accuracy
             interval = setInterval(() => {
-                setDuration(prevDuration => prevDuration + 1);
+                const status = AudioService.getRecordingStatus();
+                if (status.isRecording && status.startTime) {
+                    // Calculate actual elapsed time from AudioService
+                    const currentSessionDuration = Math.floor((Date.now() - status.startTime) / 1000);
+                    // Add to initial duration (for continue mode with existing segments)
+                    setDuration(initialDuration + currentSessionDuration);
+                }
             }, 1000);
         } else {
             recordingAnimation.stopAnimation();
