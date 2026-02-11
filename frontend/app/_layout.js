@@ -1,6 +1,6 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import useAuthStore from "../src/context/useAuthStore";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PaperProvider } from "react-native-paper";
 import { ToastProvider } from "../src/components/Toast";
@@ -49,10 +49,8 @@ export default function Layout() {
             notificationSubscription = Notifications.addNotificationResponseReceivedListener(response => {
                 const data = response.notification.request.content.data;
                 if (data?.type === 'recording') {
-                    // Navigate to create screen with correct route path
-                    setTimeout(() => {
-                        router.push('/(main)/create');
-                    }, 100);
+                    // Navigate to create screen - router is ready at this point
+                    router.push('/(main)/create');
                 }
             });
         }
@@ -68,6 +66,11 @@ export default function Layout() {
     }, []);
 
     const checkForDrafts = async () => {
+        // Skip if modal is already showing to prevent unnecessary state updates
+        if (showDraftModal) {
+            return;
+        }
+        
         try {
             const foundDraft = await protectionService.checkForDrafts();
             if (foundDraft && foundDraft.segments.length > 0) {
