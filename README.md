@@ -1,10 +1,27 @@
 # ProPod - Podcast Application
 
-![CI Status](https://github.com/iamfatihay/proPod/workflows/Full%20CI%20Pipeline/badge.svg)
-
 ## 📱 Project Description
 
 ProPod is a cross-platform (Android, iOS, Web) mobile application for creating, broadcasting, and editing podcasts with AI assistance. Designed for rapid MVP development, scalability, and maintainability.
+
+---
+
+## 🧪 Testing
+
+Automatic testing is enabled via pre-commit hooks:
+
+```bash
+# Install (one-time setup)
+./scripts/install-hooks.sh
+
+# Now tests run automatically before each commit
+git commit -m "your message"  # Tests run automatically
+
+# Skip tests if needed
+git commit --no-verify -m "your message"
+```
+
+Tests run only for changed files (backend or frontend).
 
 ---
 
