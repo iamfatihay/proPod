@@ -1,5 +1,5 @@
 import { Tabs, useRouter, usePathname } from "expo-router";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import React, { useState, useCallback } from "react";
 import {
     View,
@@ -225,18 +225,18 @@ export default function TabLayout() {
         }
     }, [currentTrack, isPlaying, play, pause]);
 
-    const handleHomePress = useCallback(() => {
+    const handleHomePress = useCallback((defaultOnPress) => {
         // Check if we're currently on the home screen
-        const isOnHome = pathname === '/home' || pathname === '/(main)/home';
+        const isOnHome = pathname === "/home" || pathname === "/(main)/home";
         
         if (isOnHome) {
             // Already on home, scroll to top
-            DeviceEventEmitter.emit('scrollToHomeTop');
+            DeviceEventEmitter.emit("scrollToHomeTop");
         } else {
-            // Navigate to home
-            router.push('/(main)/home');
+            // Use default tab navigation behavior
+            defaultOnPress?.();
         }
-    }, [pathname, router]);
+    }, [pathname]);
 
     return (
         <View style={{ flex: 1 }}>
@@ -272,7 +272,7 @@ export default function TabLayout() {
                         tabBarButton: (props) => (
                             <TouchableOpacity
                                 {...props}
-                                onPress={handleHomePress}
+                                onPress={() => handleHomePress(props.onPress)}
                                 activeOpacity={0.7}
                             />
                         ),

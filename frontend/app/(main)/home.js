@@ -127,7 +127,7 @@ export default function HomeScreen() {
     // Listen for scroll to top event from tab bar
     useEffect(() => {
         const subscription = DeviceEventEmitter.addListener(
-            'scrollToHomeTop',
+            "scrollToHomeTop",
             () => {
                 // Use InteractionManager for smoother animations
                 // Waits for any running animations to complete first
@@ -308,7 +308,6 @@ export default function HomeScreen() {
                 className="flex-1"
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 100 }}
-                scrollEventThrottle={16}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
