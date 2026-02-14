@@ -10,8 +10,10 @@ import {
     Platform,
     ScrollView,
     StatusBar,
+    DeviceEventEmitter,
+    InteractionManager,
 } from "react-native";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import useAuthStore from "../../src/context/useAuthStore";
@@ -86,6 +88,7 @@ export default function HomeScreen() {
     const { user, logout } = useAuthStore();
     const { showToast } = useToast();
     const { viewMode } = useViewModeStore();
+    const scrollViewRef = useRef(null);
 
     // PERFORMANCE FIX: Use selective subscriptions to prevent unnecessary re-renders
     // Only subscribe to values that affect THIS component's UI
@@ -120,6 +123,25 @@ export default function HomeScreen() {
             loadFromStorage();
         }
     }, [isLoaded, loadFromStorage]);
+
+    // Listen for scroll to top event from tab bar
+    useEffect(() => {
+        const subscription = DeviceEventEmitter.addListener(
+            "scrollToHomeTop",
+            () => {
+                // Use InteractionManager for smoother animations
+                // Waits for any running animations to complete first
+                InteractionManager.runAfterInteractions(() => {
+                    scrollViewRef.current?.scrollTo({
+                        y: 0,
+                        animated: true,
+                    });
+                });
+            }
+        );
+
+        return () => subscription.remove();
+    }, []);
 
     // Watch for audio playback errors and show toast
     useEffect(() => {
@@ -282,6 +304,7 @@ export default function HomeScreen() {
     return (
         <SafeAreaView className="flex-1 bg-background">
             <ScrollView
+                ref={scrollViewRef}
                 className="flex-1"
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 100 }}
