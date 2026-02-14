@@ -84,7 +84,6 @@ const Search = () => {
 
             // Normalize URLs (relative to absolute)
             setSearchResults(normalizePodcasts(results));
-            Logger.log(`🔍 Search completed: ${results.length} results`);
         } catch (error) {
             Logger.error("Search failed:", error);
             setSearchResults([]);

@@ -189,13 +189,8 @@ export default function Profile() {
             // Upload to server
             const updatedUser = await apiService.uploadProfilePhoto(imageAsset);
 
-            Logger.log("👤 Updated user from server:", updatedUser);
-            Logger.log("🖼️ Photo URL from server:", updatedUser.photo_url);
-
             // Update local user state with new photo URL
             setUser(updatedUser);
-
-            Logger.log("✅ User state updated!");
 
             // Show success message
             setInfoConfig({

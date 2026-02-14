@@ -43,8 +43,6 @@ const RecommendedPodcasts = ({
                 );
             // Normalize URLs (relative to absolute)
             setRecommendations(normalizePodcasts(recs));
-
-            Logger.log(`✅ Loaded ${recs.length} recommendations`);
         } catch (err) {
             Logger.error("Failed to load recommendations:", err);
             setError("Failed to load recommendations");

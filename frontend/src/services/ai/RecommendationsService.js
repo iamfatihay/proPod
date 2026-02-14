@@ -31,12 +31,9 @@ class RecommendationsService {
             if (this.cache.has(cacheKey)) {
                 const cached = this.cache.get(cacheKey);
                 if (Date.now() - cached.timestamp < this.cacheExpiry) {
-                    Logger.log("📚 Returning cached recommendations");
                     return cached.data;
                 }
             }
-
-            Logger.log("🤖 Fetching AI-powered recommendations...");
 
             // Get user's listening history and preferences
             const [listeningHistory, likedPodcasts, allPodcasts] =
@@ -89,10 +86,6 @@ class RecommendationsService {
                 data: recommendations,
                 timestamp: Date.now(),
             });
-
-            Logger.log(
-                `✅ Generated ${recommendations.length} recommendations`
-            );
             return recommendations;
         } catch (error) {
             Logger.error("Failed to get recommendations:", error);
@@ -109,8 +102,6 @@ class RecommendationsService {
      */
     async getSimilarPodcasts(podcastId, limit = 5) {
         try {
-            Logger.log(`🔍 Finding podcasts similar to ${podcastId}...`);
-
             // Get the reference podcast
             const referencePodcast = await apiService.getPodcast(podcastId);
 
@@ -133,8 +124,6 @@ class RecommendationsService {
                 }))
                 .sort((a, b) => b.similarity - a.similarity)
                 .slice(0, limit);
-
-            Logger.log(`✅ Found ${similarPodcasts.length} similar podcasts`);
             return similarPodcasts;
         } catch (error) {
             Logger.error("Failed to get similar podcasts:", error);
@@ -304,7 +293,6 @@ class RecommendationsService {
      */
     clearCache() {
         this.cache.clear();
-        Logger.log("🗑️ Recommendations cache cleared");
     }
 }
 

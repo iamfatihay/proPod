@@ -21,6 +21,8 @@ import Logger from "../../src/utils/logger";
 import PermissionModal from "../../src/components/PermissionModal";
 import ConfirmationModal from "../../src/components/ConfirmationModal";
 import { COLORS } from "../../src/constants/theme";
+import protectionService from "../../src/services/recording/protectionService";
+import backgroundService from "../../src/services/recording/backgroundService";
 
 const Create = () => {
     const router = useRouter();
@@ -28,7 +30,7 @@ const Create = () => {
     const params = useLocalSearchParams();
     const { showToast } = useToast();
 
-    // Mode: 'quick-record' or 'full-create'
+    // Mode: 'quick-record', 'full-create', 'resume-draft', or 'save-draft'
     const mode = params.mode || "full-create";
 
     // Recording state
@@ -37,12 +39,27 @@ const Create = () => {
     const [recordedDuration, setRecordedDuration] = useState(0); // Store duration in seconds
     const [isAIEnabled, setIsAIEnabled] = useState(false);
     const [audioInitialized, setAudioInitialized] = useState(false);
+    const [draftLoaded, setDraftLoaded] = useState(false);
 
     // Podcast metadata
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [category, setCategory] = useState("General");
     const [isPublic, setIsPublic] = useState(false);
+
+    // Update draft metadata when title/description changes (only if draft loaded or recording active)
+    useEffect(() => {
+        // Only update metadata if we have a loaded draft or active recording session
+        // Prevents overwriting draft metadata with empty values on initial mount
+        if ((draftLoaded || isRecording || recordedUri) && (title || description)) {
+            protectionService.updateMetadata({
+                title: title || 'Untitled Recording',
+                description,
+                category,
+                is_public: isPublic
+            });
+        }
+    }, [title, description, category, isPublic, draftLoaded, isRecording, recordedUri]);
 
     // UI state
     const [isUploading, setIsUploading] = useState(false);
@@ -54,39 +71,136 @@ const Create = () => {
     const [permissionModalVisible, setPermissionModalVisible] = useState(false);
     const [discardConfirmVisible, setDiscardConfirmVisible] = useState(false);
 
-    // Reset state when screen comes into focus
+    // Reset state when screen comes into focus (but not for draft modes)
     useFocusEffect(
         useCallback(() => {
-            // Reset all state to initial values
-            setIsRecording(false);
-            setRecordedUri(null);
-            setRecordedDuration(0);
-            setIsAIEnabled(false);
-            setTitle("");
-            setDescription("");
-            setCategory("General");
-            setIsPublic(false);
-            setIsUploading(false);
-            setCurrentStep(mode === "quick-record" ? "recording" : "setup");
-            setPermissionModalVisible(false);
-            setDiscardConfirmVisible(false);
+            // Initialize audio for all modes
+            if (!audioInitialized) {
+                initializeAudio();
+            }
+            
+            // Don't reset if we're loading a draft
+            if (mode === 'resume-draft' || mode === 'save-draft') {
+                if (!draftLoaded) {
+                    loadDraftData();
+                }
+                return;
+            }
+
+            // CRITICAL: Check if there's an active recording session before resetting
+            // This prevents state desync when user navigates back during recording
+            const checkActiveSession = async () => {
+                try {
+                    // Check for active recording in AudioService
+                    const recordingStatus = AudioService.getRecordingStatus();
+                    const hasActiveRecording = recordingStatus.isRecording || recordingStatus.activeMode === 'recording';
+                    
+                    // Check for existing draft (protection service may have segments)
+                    const existingDraft = await protectionService.getDraft();
+                    
+                    if (hasActiveRecording || existingDraft) {
+                        // Sync local state with active session instead of resetting
+                        if (existingDraft) {
+                            setRecordedDuration(existingDraft.total_duration || 0);
+                            setTitle(existingDraft.metadata?.title || '');
+                            setDescription(existingDraft.metadata?.description || '');
+                            setCategory(existingDraft.metadata?.category || 'General');
+                            setIsPublic(existingDraft.metadata?.is_public || false);
+                        }
+                        
+                        setIsRecording(hasActiveRecording);
+                        setCurrentStep('recording');
+                        
+                        // Don't reset - we're restoring an active session
+                        return;
+                    }
+                } catch (error) {
+                    Logger.error('Failed to check active session:', error);
+                }
+                
+                // Only reset if no active session exists
+                setIsRecording(false);
+                setRecordedUri(null);
+                setRecordedDuration(0);
+                setIsAIEnabled(false);
+                setTitle("");
+                setDescription("");
+                setCategory("General");
+                setIsPublic(false);
+                setIsUploading(false);
+                setCurrentStep(mode === "quick-record" ? "recording" : "setup");
+                setPermissionModalVisible(false);
+                setDiscardConfirmVisible(false);
+                setDraftLoaded(false);
+            };
+            
+            checkActiveSession();
 
             // Initialize audio
             initializeAudio();
 
-            // Auto-start recording for quick-record mode
-            if (mode === "quick-record") {
-                setTimeout(() => {
-                    handleRecordingStart();
-                }, 500);
+            // Auto-start quick-record mode (just show recording UI, don't start services yet)
+            // Services will start when user presses the actual record button
+            // This prevents premature notifications
+
+            // Cleanup when screen loses focus or unmounts
+            return () => {
+                // Only stop auto-backup timer, NOT recording
+                // Recording should continue in background
+                protectionService.stopAutoBackup();
+                
+                // DON'T stop recording here - it should continue in background
+                // User can stop it manually or it will stop on app unmount
+            };
+        }, [mode, draftLoaded])
+    );
+
+    const loadDraftData = async () => {
+        try {
+            const draft = await protectionService.getDraft();
+            if (!draft) {
+                showToast('Draft not found', 'error');
+                router.back();
+                return;
             }
 
-            // Cleanup when screen loses focus
-            return () => {
-                // Optional: cleanup any ongoing recordings if needed
-            };
-        }, [mode])
-    );
+            // Load metadata
+            setTitle(draft.metadata?.title || 'Recovered Recording');
+            setDescription(draft.metadata?.description || '');
+            setCategory(draft.metadata?.category || 'General');
+            setIsPublic(draft.metadata?.is_public || false);
+            
+            // Load recording data
+            setRecordedDuration(draft.total_duration || 0);
+            
+            // Validate segments exist for both modes
+            if (!draft.segments || draft.segments.length === 0) {
+                throw new Error('No segments found in draft');
+            }
+            
+            // For resume mode, go to recording screen (but don't auto-start)
+            if (mode === 'resume-draft') {
+                // Use first segment for preview
+                setRecordedUri(draft.segments[0].uri);
+                setCurrentStep('recording');
+                // Don't auto-start - let user press record button to continue
+                // This gives them time to prepare and see the existing duration
+            }
+            // For save mode, use first segment and go to review screen
+            else if (mode === 'save-draft') {
+                // Use first segment for preview
+                setRecordedUri(draft.segments[0].uri);
+                setCurrentStep('review');
+            }
+
+            setDraftLoaded(true);
+            showToast(`Draft loaded: ${draft.segments?.length || 0} segments`, 'success');
+        } catch (error) {
+            Logger.error('Failed to load draft:', error);
+            showToast('Failed to load draft', 'error');
+            router.back();
+        }
+    };
 
     const initializeAudio = async () => {
         try {
@@ -102,40 +216,78 @@ const Create = () => {
         }
     };
 
-    const handleRecordingStart = () => {
-        setIsRecording(true);
-        setCurrentStep("recording");
-        showToast("Recording started", "success");
+    const handleRecordingStart = async () => {
+        try {
+            // Only start new protection if not continuing from draft
+            if (mode !== 'resume-draft' || !draftLoaded) {
+                // Start protection service for new recording
+                await protectionService.startProtection({
+                    title: title || 'New Recording',
+                    category
+                });
+            } else {
+                // Continue mode - resume existing draft protection
+                // Just restart auto-backup, don't create new draft
+                protectionService.startAutoBackup();
+            }
+
+            // Start professional notification service (iOS & Android)
+            // Check if notification is already active to prevent duplicates
+            if (!backgroundService.isActive()) {
+                await backgroundService.startRecording(title || 'New Recording');
+            }
+
+            setIsRecording(true);
+            setCurrentStep("recording");
+            showToast("Recording started", "success");
+        } catch (error) {
+            Logger.error("Recording start failed:", error);
+            showToast(
+                "Recording could not be started because safety protection failed. No audio was recorded.",
+                "error"
+            );
+            // Ensure recording state is not set if protection fails
+            setIsRecording(false);
+        }
     };
 
     const handleRecordingStop = async (uri) => {
         setIsRecording(false);
 
         if (uri) {
-            // Get recording duration from AudioService before stopping
+            // Get recording duration from AudioService (before try block so it's accessible in catch)
             const status = AudioService.getRecordingStatus();
-            const duration = status.duration || 0; // Duration in seconds
+            const duration = status.duration || 0;
+            
+            try {
+                // Save segment to protection service
+                const segment = await protectionService.saveSegment(uri, duration);
 
-            setRecordedUri(uri);
-            setRecordedDuration(duration);
-            setCurrentStep("review");
+                setRecordedUri(segment.uri); // Use permanent URI
+                setRecordedDuration(duration);
+                setCurrentStep("review");
 
-            if (mode === "quick-record") {
-                // For quick record, auto-save with timestamp
-                const timestamp = new Date().toLocaleString();
-                setTitle(`Quick Recording - ${timestamp}`);
+                // Stop background notification
+                await backgroundService.stopRecording();
+
+                if (mode === "quick-record") {
+                    const timestamp = new Date().toLocaleString();
+                    setTitle(`Quick Recording - ${timestamp}`);
+                }
+
+                showToast("Recording saved safely", "success");
+            } catch (error) {
+                Logger.error("Recording save failed:", error);
+                showToast("Recording completed but protection failed", "error");
+                // Still proceed with URI - at least we have the recording
+                setRecordedUri(uri);
+                setRecordedDuration(duration); // Now accessible from outer scope
+                setCurrentStep("review");
             }
-
-            showToast("Recording completed", "success");
         } else {
-            // URI is null - recording may have failed
             Logger.error("Recording stopped but URI is null");
-            showToast(
-                "Recording failed - no file was saved. Please try again.",
-                "error"
-            );
-            // Stay on recording step so user can try again
-            // Don't change currentStep
+            showToast("Recording failed - no file was saved", "error");
+            await backgroundService.stopRecording();
         }
     };
 
@@ -163,7 +315,6 @@ const Create = () => {
 
         // Prevent double submission
         if (isUploading) {
-            Logger.warn("Upload already in progress, ignoring duplicate save attempt");
             return;
         }
 
@@ -177,40 +328,54 @@ const Create = () => {
                 return;
             }
 
-            // Prepare filename from title
-            const filename = `${title.replace(/[^a-zA-Z0-9]/g, "_")}.${
-                Platform.OS === "ios" ? "m4a" : "m4a"
-            }`;
+            // Get all segments from draft (for continue mode with multiple segments)
+            const draft = await protectionService.getDraft();
+            const segments = draft?.segments || [];
+            
+            if (segments.length === 0) {
+                showToast("No valid recording found", "error");
+                setIsUploading(false);
+                return;
+            }
 
-            // Prepare metadata - use backend field names (snake_case)
+            // Show appropriate loading message
+            const loadingMessage = segments.length > 1 
+                ? `Merging ${segments.length} segments...` 
+                : "Uploading audio...";
+            showToast(loadingMessage, "info");
+
+            const filename = `${title.replace(/[^a-zA-Z0-9]/g, "_")}.m4a`;
+            const totalDuration = draft?.total_duration || recordedDuration;
+
             const podcastData = {
                 title: title.trim(),
                 description: description.trim() || "",
                 category,
-                is_public: isPublic, // Backend expects snake_case
-                duration: recordedDuration, // Duration in seconds
-                // audio_url will be added after upload
+                is_public: isPublic,
+                duration: totalDuration,
             };
 
-            Logger.log("📤 Uploading audio file:", {
-                uri: recordedUri,
-                filename,
-                duration: recordedDuration,
-            });
+            let uploadRes;
 
-            // Upload audio file - recording is already saved at recordedUri
-            const uploadData = {
-                uri: recordedUri, // Use the URI from stopRecording directly
-                type: Platform.OS === "ios" ? "audio/mp4" : "audio/mp4", // Android also uses m4a
-                name: filename,
-            };
+            // Use merge-upload for multiple segments, regular upload for single
+            if (segments.length > 1) {
+                const segmentFiles = segments.map((segment, idx) => ({
+                    uri: segment.uri,
+                    type: "audio/mp4",
+                    name: `segment_${idx}.m4a`,
+                }));
 
-            const uploadRes = await apiService.uploadAudio(uploadData);
+                uploadRes = await apiService.mergeAndUploadAudio(segmentFiles);
+                showToast("Segments merged successfully", "success");
+            } else {
+                const uploadData = {
+                    uri: segments[0].uri,
+                    type: "audio/mp4",
+                    name: filename,
+                };
 
-            Logger.log("✅ Audio uploaded, creating podcast:", {
-                audio_url: uploadRes.audio_url,
-                podcastData,
-            });
+                uploadRes = await apiService.uploadAudio(uploadData);
+            }
 
             // Create podcast with uploaded audio URL
             const finalPodcastData = {
@@ -218,13 +383,12 @@ const Create = () => {
                 audio_url: uploadRes.audio_url, // Add audio URL from upload response
             };
 
-            Logger.log("📝 Creating podcast with data:", finalPodcastData);
-
             const createdPodcast = await apiService.createPodcast(
                 finalPodcastData
             );
 
-            Logger.log("✅ Podcast created successfully:", createdPodcast);
+            // Clear draft after successful save
+            await protectionService.clearDraft();
 
             showToast("Podcast saved successfully!", "success");
 
@@ -251,7 +415,6 @@ const Create = () => {
 
             // Check if it's an auth error
             if (error.status === 401) {
-                Logger.warn("Authentication error - session may have expired");
                 // Session expired - logout will be handled by apiService
                 // User will be redirected to login automatically
             }
@@ -266,6 +429,11 @@ const Create = () => {
 
     const confirmDiscard = async () => {
         setDiscardConfirmVisible(false);
+        
+        // Clear draft when discarding
+        await protectionService.clearDraft();
+        await backgroundService.stopRecording();
+        
         if (recordedUri) {
             await AudioService.deleteAudioFile(recordedUri);
         }
@@ -392,6 +560,8 @@ const Create = () => {
                 onRecordingResume={handleRecordingResume}
                 onAIAssistToggle={handleAIToggle}
                 isAIEnabled={isAIEnabled}
+                isRecording={isRecording}
+                initialDuration={recordedDuration} // Pass existing duration for continue mode
                 disabled={!audioInitialized}
             />
 

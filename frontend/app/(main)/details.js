@@ -164,8 +164,7 @@ const Details = () => {
                     const aiDataResponse = await apiService.getPodcastAIData(params.id);
                     setAiData(aiDataResponse);
                 } catch (error) {
-                    Logger.warn("Failed to load AI data:", error);
-                    // Don't show error to user, AI data is optional
+                    // AI data is optional, fail silently
                 }
             }
         } catch (error) {
@@ -326,11 +325,6 @@ const Details = () => {
                 error?.message ||
                 "Action failed";
             showToast(msg, "error");
-
-            // Check if it's an auth error
-            if (error.status === 401) {
-                Logger.warn("Authentication error - session may have expired");
-            }
         } finally {
             setIsBookmarking(false);
         }
@@ -392,7 +386,6 @@ const Details = () => {
                 }
             } catch (error) {
                 // Silently fail if vibration not supported
-                Logger.debug("Vibration not supported:", error);
             }
             showToast("✨ AI processing completed! Check AI Insights below.", "success");
             
@@ -425,7 +418,6 @@ const Details = () => {
                     Vibration.vibrate(500);
                 }
             } catch (vibError) {
-                Logger.debug("Vibration not supported:", vibError);
             }
         } finally {
             setIsProcessingAI(false);
@@ -440,23 +432,18 @@ const Details = () => {
     };
 
     const handleDelete = () => {
-        Logger.log("🗑️ Delete button pressed, showing confirmation modal");
         setDeleteConfirmVisible(true);
     };
 
     const confirmDelete = async () => {
-        Logger.log("🗑️ Confirm delete pressed", { podcastId: podcast.id, isDeleting });
         setDeleteConfirmVisible(false);
         if (isDeleting) {
-            Logger.warn("🗑️ Delete already in progress, ignoring");
             return; // Prevent multiple clicks
         }
 
         try {
             setIsDeleting(true);
-            Logger.log("🗑️ Calling deletePodcast API...", { podcastId: podcast.id });
             await apiService.deletePodcast(podcast.id);
-            Logger.log("🗑️ Delete successful!");
             showToast("Podcast deleted", "success");
             
             // Navigate to library with refresh flag
@@ -468,11 +455,6 @@ const Details = () => {
             Logger.error("🗑️ Delete failed:", error);
             const errorMessage = error.message || "Failed to delete podcast";
             showToast(errorMessage, "error");
-
-            // Check if it's an auth error
-            if (error.status === 401) {
-                Logger.warn("Authentication error - session may have expired");
-            }
         } finally {
             setIsDeleting(false);
         }

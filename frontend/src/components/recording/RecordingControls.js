@@ -22,10 +22,14 @@ const RecordingControls = ({
     onAIAssistToggle,
     isAIEnabled = false,
     disabled = false,
+    isRecording: isRecordingProp, // Accept isRecording from parent
+    initialDuration = 0, // Accept initial duration for continue mode
 }) => {
-    const [isRecording, setIsRecording] = useState(false);
+    // Use prop if provided, otherwise use internal state
+    const [internalIsRecording, setInternalIsRecording] = useState(false);
+    const isRecording = isRecordingProp !== undefined ? isRecordingProp : internalIsRecording;
     const [isPaused, setIsPaused] = useState(false);
-    const [duration, setDuration] = useState(0);
+    const [duration, setDuration] = useState(initialDuration); // Start from initial duration
     const [recordingAnimation] = useState(new Animated.Value(1));
     const [waveAnimation] = useState(new Animated.Value(0));
 
@@ -57,10 +61,15 @@ const RecordingControls = ({
                 })
             ).start();
 
-            // Update duration timer
+            // Update duration timer - sync with AudioService for accuracy
             interval = setInterval(() => {
                 const status = AudioService.getRecordingStatus();
-                setDuration(status.duration);
+                if (status.isRecording && status.startTime) {
+                    // Calculate actual elapsed time from AudioService
+                    const currentSessionDuration = Math.floor((Date.now() - status.startTime) / 1000);
+                    // Add to initial duration (for continue mode with existing segments)
+                    setDuration(initialDuration + currentSessionDuration);
+                }
             }, 1000);
         } else {
             recordingAnimation.stopAnimation();
@@ -84,52 +93,37 @@ const RecordingControls = ({
     };
 
     const handleRecordPress = async () => {
-        Logger.log("🎵 RecordingControls: handleRecordPress called", {
-            disabled,
-            isRecording,
-            isPaused,
-            duration,
-        });
-
         if (disabled) {
-            Logger.log("❌ Recording disabled, skipping");
             return;
         }
 
         try {
             if (!isRecording) {
-                Logger.log("▶️ Starting recording via AudioService...");
                 // Start recording
                 const success = await AudioService.startRecording();
-                Logger.log("🎵 AudioService.startRecording result:", success);
 
                 if (success) {
-                    Logger.log("✅ Recording started, updating UI state...");
-                    setIsRecording(true);
+                    setInternalIsRecording(true);
                     setIsPaused(false);
-                    setDuration(0);
+                    // Don't reset duration if we're continuing (initialDuration > 0)
+                    if (initialDuration === 0) {
+                        setDuration(0);
+                    }
                     onRecordingStart && onRecordingStart();
                 } else {
                     Logger.warn("❌ Failed to start recording");
                 }
             } else {
-                Logger.log("⏹️ Stopping recording via AudioService...");
                 // Stop recording
                 const uri = await AudioService.stopRecording();
-                Logger.log("🎵 AudioService.stopRecording result URI:", uri);
 
                 // Always update UI state, even if URI is null
                 // This prevents UI from getting stuck
-                Logger.log("🔄 Updating UI state (stopped recording)...");
-                setIsRecording(false);
+                setInternalIsRecording(false);
                 setIsPaused(false);
                 setDuration(0);
 
                 if (uri) {
-                    Logger.log(
-                        "✅ Recording stopped successfully with URI:",
-                        uri
-                    );
                 } else {
                     Logger.warn(
                         "⚠️ Recording stopped but URI is null - file may not be saved"
@@ -164,42 +158,25 @@ const RecordingControls = ({
     };
 
     const handlePausePress = async () => {
-        Logger.log("⏸️ RecordingControls: handlePausePress called", {
-            disabled,
-            isRecording,
-            isPaused,
-            platform: Platform.OS,
-        });
-
         if (disabled || !isRecording) {
-            Logger.log("❌ Cannot pause: disabled or not recording", {
-                disabled,
-                isRecording,
-            });
             return;
         }
 
         try {
             if (Platform.OS === "ios") {
                 if (!isPaused) {
-                    Logger.log("⏸️ Pausing recording on iOS...");
                     const success = await AudioService.pauseRecording();
-                    Logger.log("⏸️ Pause result:", success);
 
                     if (success) {
-                        Logger.log("✅ Recording paused, updating UI...");
                         setIsPaused(true);
                         onRecordingPause && onRecordingPause();
                     } else {
                         Logger.warn("❌ Failed to pause recording");
                     }
                 } else {
-                    Logger.log("▶️ Resuming recording on iOS...");
                     const success = await AudioService.resumeRecording();
-                    Logger.log("▶️ Resume result:", success);
 
                     if (success) {
-                        Logger.log("✅ Recording resumed, updating UI...");
                         setIsPaused(false);
                         onRecordingResume && onRecordingResume();
                     } else {
@@ -207,7 +184,6 @@ const RecordingControls = ({
                     }
                 }
             } else {
-                Logger.log("⚠️ Android pause not supported, showing alert");
                 // Android doesn't support pause, show info
                 Alert.alert(
                     "Pause Not Available",
@@ -242,8 +218,8 @@ const RecordingControls = ({
 
     return (
         <View className="items-center">
-            {/* Duration Display */}
-            {isRecording && (
+            {/* Duration Display - show even when not recording if there's initial duration (continue mode) */}
+            {(isRecording || initialDuration > 0) && (
                 <View className="mb-4 bg-panel px-4 py-2 rounded-lg">
                     <Text className="text-text-primary text-lg font-mono text-center">
                         {formatDuration(duration)}
@@ -251,6 +227,11 @@ const RecordingControls = ({
                     {isPaused && (
                         <Text className="text-warning text-sm text-center mt-1">
                             PAUSED
+                        </Text>
+                    )}
+                    {!isRecording && initialDuration > 0 && (
+                        <Text className="text-accent text-sm text-center mt-1">
+                            Ready to continue
                         </Text>
                     )}
                 </View>
@@ -395,7 +376,9 @@ const RecordingControls = ({
                     </Text>
                 ) : (
                     <Text className="text-text-secondary text-sm text-center">
-                        Tap the record button to start
+                        {initialDuration > 0 
+                            ? "Tap to continue recording" 
+                            : "Tap the record button to start"}
                         {isAIEnabled && "\n🤖 AI assistance ready"}
                     </Text>
                 )}

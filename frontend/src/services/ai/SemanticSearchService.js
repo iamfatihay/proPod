@@ -33,8 +33,6 @@ class SemanticSearchService {
                 return [];
             }
 
-            Logger.log(`🔍 Semantic search: "${query}"`);
-
             // Add to search history
             this.addToHistory(query);
 
@@ -56,8 +54,6 @@ class SemanticSearchService {
                 }))
                 .filter((podcast) => podcast.relevance > 0.1) // Filter out very low relevance
                 .sort((a, b) => b.relevance - a.relevance);
-
-            Logger.log(`✅ Found ${results.length} relevant podcasts`);
             return results;
         } catch (error) {
             Logger.error("Semantic search failed:", error);
@@ -75,8 +71,6 @@ class SemanticSearchService {
             if (!query || query.trim().length === 0) {
                 return [];
             }
-
-            Logger.log(`📝 Searching transcriptions for: "${query}"`);
 
             const podcasts = await apiService.getPodcasts({ limit: 100 });
             const queryLower = query.toLowerCase();
@@ -108,10 +102,6 @@ class SemanticSearchService {
                 })
                 .filter((p) => p !== null)
                 .sort((a, b) => b.relevance - a.relevance);
-
-            Logger.log(
-                `✅ Found ${results.length} podcasts with transcript matches`
-            );
             return results;
         } catch (error) {
             Logger.error("Transcription search failed:", error);
@@ -130,8 +120,6 @@ class SemanticSearchService {
                 // Return recent search history
                 return this.searchHistory.slice(0, 5);
             }
-
-            Logger.log(`💡 Getting suggestions for: "${query}"`);
 
             const podcasts = await apiService.getPodcasts({ limit: 50 });
             const suggestions = new Set();
@@ -158,7 +146,6 @@ class SemanticSearchService {
             });
 
             const suggestionArray = Array.from(suggestions).slice(0, 8);
-            Logger.log(`✅ Generated ${suggestionArray.length} suggestions`);
             return suggestionArray;
         } catch (error) {
             Logger.error("Failed to get suggestions:", error);
@@ -299,10 +286,6 @@ class SemanticSearchService {
         if (this.searchHistory.length > this.maxHistorySize) {
             this.searchHistory.pop();
         }
-
-        Logger.log(
-            `📚 Search history updated: ${this.searchHistory.length} entries`
-        );
     }
 
     /**
@@ -318,7 +301,6 @@ class SemanticSearchService {
      */
     clearSearchHistory() {
         this.searchHistory = [];
-        Logger.log("🗑️ Search history cleared");
     }
 }
 

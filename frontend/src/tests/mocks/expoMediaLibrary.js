@@ -132,4 +132,32 @@ const MediaLibrary = {
     },
 };
 
+// Named exports for ES6 imports
+export const requestPermissionsAsync = MediaLibrary.requestPermissionsAsync;
+export const getPermissionsAsync = MediaLibrary.getPermissionsAsync;
+export const getAssetsAsync = MediaLibrary.getAssetsAsync;
+export const getAssetInfoAsync = MediaLibrary.getAssetInfoAsync;
+export const createAssetAsync = MediaLibrary.createAssetAsync;
+export const deleteAssetsAsync = MediaLibrary.deleteAssetsAsync;
+export const getAlbumsAsync = MediaLibrary.getAlbumsAsync;
+export const createAlbumAsync = MediaLibrary.createAlbumAsync;
+export const MediaType = MediaLibrary.MediaType;
+export const SortBy = MediaLibrary.SortBy;
+export const PermissionStatus = MediaLibrary.PermissionStatus;
+
+export default MediaLibrary;
+
+// CommonJS compatibility for Jest environments that might not fully support ESM
 module.exports = MediaLibrary;
+module.exports.default = MediaLibrary;
+module.exports.requestPermissionsAsync = MediaLibrary.requestPermissionsAsync;
+module.exports.getPermissionsAsync = MediaLibrary.getPermissionsAsync;
+module.exports.getAssetsAsync = MediaLibrary.getAssetsAsync;
+module.exports.getAssetInfoAsync = MediaLibrary.getAssetInfoAsync;
+module.exports.createAssetAsync = MediaLibrary.createAssetAsync;
+module.exports.deleteAssetsAsync = MediaLibrary.deleteAssetsAsync;
+module.exports.getAlbumsAsync = MediaLibrary.getAlbumsAsync;
+module.exports.createAlbumAsync = MediaLibrary.createAlbumAsync;
+module.exports.MediaType = MediaLibrary.MediaType;
+module.exports.SortBy = MediaLibrary.SortBy;
+module.exports.PermissionStatus = MediaLibrary.PermissionStatus;

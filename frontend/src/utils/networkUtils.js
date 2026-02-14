@@ -103,9 +103,9 @@ export async function retryWithBackoff(fn, options = {}) {
             lastError = error;
             
             // Don't retry on certain errors (client errors that won't be fixed by retrying)
+            // Note: 401 is excluded because token refresh is handled at a higher level
             if (
                 error.status === 400 ||
-                error.status === 401 ||
                 error.status === 403 ||
                 error.status === 404 ||
                 error.status === 422
