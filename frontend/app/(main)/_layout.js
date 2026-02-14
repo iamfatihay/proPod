@@ -1,4 +1,4 @@
-import { Tabs, useRouter } from "expo-router";
+import { Tabs, useRouter, usePathname } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState, useCallback } from "react";
 import {
@@ -9,6 +9,7 @@ import {
     Modal,
     Text,
     Image,
+    DeviceEventEmitter,
 } from "react-native";
 import BottomMiniPlayer from "../../src/components/audio/BottomMiniPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
@@ -107,15 +108,11 @@ const CreateTab = () => {
             >
                 <Image
                     source={require("../../assets/Volo-logo.png")}
-                    style={[
-                        {
-                            width: 53,
-                            height: 53,
-                        },
-                        Platform.OS === "ios" && {
-                            tintColor: COLORS.text.primary,
-                        },
-                    ]}
+                    style={{
+                        width: 53,
+                        height: 53,
+                        tintColor: COLORS.text.primary, // Apply to both iOS and Android
+                    }}
                 />
             </View>
             {/* Custom Themed Modal */}
@@ -178,6 +175,7 @@ const CreateTab = () => {
 
 export default function TabLayout() {
     const router = useRouter();
+    const pathname = usePathname();
 
     // PERFORMANCE FIX: Use selective subscriptions for mini player
     // Avoid subscribing to fast-changing position/duration in tab layout
@@ -227,6 +225,19 @@ export default function TabLayout() {
         }
     }, [currentTrack, isPlaying, play, pause]);
 
+    const handleHomePress = useCallback(() => {
+        // Check if we're currently on the home screen
+        const isOnHome = pathname === '/home' || pathname === '/(main)/home';
+        
+        if (isOnHome) {
+            // Already on home, scroll to top
+            DeviceEventEmitter.emit('scrollToHomeTop');
+        } else {
+            // Navigate to home
+            router.push('/(main)/home');
+        }
+    }, [pathname, router]);
+
     return (
         <View style={{ flex: 1 }}>
             <Tabs
@@ -256,6 +267,13 @@ export default function TabLayout() {
                                 icon={focused ? "home" : "home-outline"}
                                 color={color}
                                 focused={focused}
+                            />
+                        ),
+                        tabBarButton: (props) => (
+                            <TouchableOpacity
+                                {...props}
+                                onPress={handleHomePress}
+                                activeOpacity={0.7}
                             />
                         ),
                     }}
