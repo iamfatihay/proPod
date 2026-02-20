@@ -494,6 +494,61 @@ class ApiService {
         });
     }
 
+    // ==================== RTC Methods ====================
+
+    /**
+     * Create a 100ms room
+     *
+     * @param {Object} roomData - Room creation payload
+     * @returns {Promise<Object>} Room details
+     */
+    async createRtcRoom(roomData) {
+        return this.request("/rtc/rooms", {
+            method: "POST",
+            body: JSON.stringify(roomData),
+        });
+    }
+
+    /**
+     * Create a 100ms auth token
+     *
+     * @param {Object} tokenData - Token request payload
+     * @returns {Promise<Object>} Token response
+     */
+    async createRtcToken(tokenData) {
+        return this.request("/rtc/token", {
+            method: "POST",
+            body: JSON.stringify(tokenData),
+        });
+    }
+
+    /**
+     * Get a single RTC session by ID
+     *
+     * @param {number} sessionId - RTC session ID
+     * @returns {Promise<Object>} RTC session data
+     */
+    async getRtcSession(sessionId) {
+        return this.request(`/rtc/sessions/${sessionId}`);
+    }
+
+    /**
+     * List RTC sessions for the current user
+     *
+     * @param {Object} params - Query params
+     * @returns {Promise<Array>} RTC session list
+     */
+    async listRtcSessions(params = {}) {
+        const queryParams = new URLSearchParams();
+
+        if (params.room_id) queryParams.append("room_id", params.room_id);
+        if (params.limit !== undefined) queryParams.append("limit", params.limit);
+
+        const queryString = queryParams.toString();
+        const endpoint = queryString ? `/rtc/sessions?${queryString}` : "/rtc/sessions";
+        return this.request(endpoint);
+    }
+
     /**
      * Get a specific podcast by ID
      *
