@@ -58,6 +58,20 @@ Project planning, roadmaps, and development tracking.
 
 **Status:** Updated with each PR
 
+---
+
+### [RTC Session Memory](./RTC_SESSION_MEMORY.md)
+**Multi-host recording implementation session documentation**
+
+**Topics:**
+- RTC Phase 1 implementation (100ms integration)
+- Critical blocker solutions (template config)
+- Future Phase 2-4 features (backup branch)
+- Testing checklist & next steps
+- Architecture decisions & learnings
+
+**Status:** ✅ Phase 1 complete, February 2026
+
 ## 📊 Project Status
 
 ### Current Sprint
