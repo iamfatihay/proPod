@@ -172,6 +172,86 @@ class Podcast(PodcastBase):
     model_config = {'from_attributes': True}
 
 
+# ==================== RTC Schemas ====================
+
+class RTCTokenRequest(BaseModel):
+    """Request schema for generating a 100ms auth token."""
+    room_id: str = Field(..., description="100ms room ID")
+    role: str = Field(default="host", description="100ms role to join as")
+    user_id: Optional[str] = Field(
+        default=None,
+        description="Internal user identifier (defaults to current user id)"
+    )
+    expires_in_seconds: int = Field(
+        default=86400,
+        ge=300,
+        le=604800,
+        description="Token validity in seconds"
+    )
+
+
+class RTCTokenResponse(BaseModel):
+    """Response schema for generated 100ms auth token."""
+    token: str
+    room_id: str
+    role: str
+    user_id: str
+    expires_in_seconds: int
+
+
+class RTCRoomCreateRequest(BaseModel):
+    """Request schema for creating a 100ms room via REST API."""
+    name: Optional[str] = Field(None, description="Room name")
+    description: Optional[str] = Field(None, description="Room description")
+    title: Optional[str] = Field(None, description="Podcast title")
+    category: Optional[str] = Field(None, description="Podcast category")
+    is_public: Optional[bool] = Field(None, description="Whether podcast is public")
+    media_mode: Optional[str] = Field(None, description="audio or video")
+    template_id: Optional[str] = Field(None, description="100ms template ID")
+    region: Optional[str] = Field(None, description="Room region (us, eu, in, auto)")
+    size: Optional[int] = Field(None, ge=0, le=2500, description="Max peers")
+    max_duration_seconds: Optional[int] = Field(
+        None,
+        ge=120,
+        le=43200,
+        description="Max room duration in seconds"
+    )
+    webhook_url: Optional[str] = Field(None, description="Room-level webhook URL")
+    webhook_headers: Optional[dict] = Field(
+        None,
+        description="Custom headers for room-level webhook"
+    )
+
+
+class RTCRoomCreateResponse(BaseModel):
+    """Response schema for room creation."""
+    id: str
+    name: str
+    enabled: bool
+    template_id: Optional[str] = None
+    region: Optional[str] = None
+    session_id: Optional[int] = None
+
+
+class RTCSessionResponse(BaseModel):
+    """Response schema for RTC session status."""
+    id: int
+    room_id: str
+    room_name: Optional[str] = None
+    owner_id: int
+    title: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    is_public: bool
+    media_mode: str
+    status: str
+    recording_url: Optional[str] = None
+    duration_seconds: int
+    podcast_id: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # Google Login Schema
 class GoogleLoginRequest(BaseModel):
     email: EmailStr
