@@ -57,7 +57,6 @@ class TestRTCToken:
             json={
                 "room_id": "test-room-id",
                 "role": "host",
-                "user_id": "test-user",
                 "expires_in_seconds": 3600,
             },
             headers={"Authorization": f"Bearer {test_user['token']}"},
@@ -69,7 +68,8 @@ class TestRTCToken:
         assert "token" in data
         assert data["room_id"] == "test-room-id"
         assert data["role"] == "host"
-        assert data["user_id"] == "test-user"
+        # user_id should be the authenticated user's ID (security fix: no user impersonation)
+        assert data["user_id"] == str(test_user["user"].id)
 
     def test_create_token_unauthorized(self):
         """Test token creation without auth."""
