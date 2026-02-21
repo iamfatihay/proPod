@@ -178,10 +178,7 @@ class RTCTokenRequest(BaseModel):
     """Request schema for generating a 100ms auth token."""
     room_id: str = Field(..., description="100ms room ID")
     role: str = Field(default="host", description="100ms role to join as")
-    user_id: Optional[str] = Field(
-        default=None,
-        description="Internal user identifier (defaults to current user id)"
-    )
+    # user_id removed: always use authenticated user to prevent impersonation
     expires_in_seconds: int = Field(
         default=86400,
         ge=300,

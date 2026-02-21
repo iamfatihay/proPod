@@ -129,7 +129,15 @@ async def create_room(
         webhook_headers=webhook_headers,
     )
 
-    print(f"[HMS] Creating room with payload: {payload}")
+    # Log only non-sensitive fields (avoid webhook headers/secrets)
+    safe_log = {
+        "name": name,
+        "template_id": template_id,
+        "region": region,
+        "has_webhook": bool(webhook_url),
+        "max_duration": max_duration_seconds,
+    }
+    print(f"[HMS] Creating room: {safe_log}")
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
@@ -142,7 +150,8 @@ async def create_room(
         )
 
     if response.status_code >= 400:
-        print(f"[HMS] API Error {response.status_code}: {response.text}")
+        # Log only status code and error type, not full response body
+        print(f"[HMS] API Error: status={response.status_code}, url={response.url}")
     
     response.raise_for_status()
     return response.json()

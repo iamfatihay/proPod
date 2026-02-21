@@ -29,7 +29,8 @@ async def create_rtc_token(
     current_user: User = Depends(get_current_user),
 ) -> schemas.RTCTokenResponse:
     """Create a 100ms auth token for the current user."""
-    user_id = request.user_id or str(current_user.id)
+    # Always use authenticated user ID to prevent impersonation
+    user_id = str(current_user.id)
 
     _rtc_log(
         "token.request",
@@ -114,8 +115,23 @@ async def create_rtc_room(
             webhook_url=webhook_url,
             webhook_headers=request.webhook_headers,
         )
+        
+        # Validate 100ms response contains required room ID
+        room_id = room.get("id")
+        if not room_id:
+            _rtc_log(
+                "room.error",
+                owner_id=current_user.id,
+                error_type="missing_room_id",
+                error="100ms response missing room ID",
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="100ms API returned invalid response (missing room ID)",
+            )
+        
         session = models.RTCSession(
-            room_id=room.get("id"),
+            room_id=room_id,
             room_name=room.get("name") or request.name,
             owner_id=current_user.id,
             title=request.title or request.name,
@@ -160,8 +176,8 @@ async def create_rtc_room(
         ) from exc
 
     return schemas.RTCRoomCreateResponse(
-        id=room.get("id"),
-        name=room.get("name"),
+        id=room_id,
+        name=session.room_name or request.name or "",
         enabled=room.get("enabled", True),
         template_id=room.get("template_id"),
         region=room.get("region"),

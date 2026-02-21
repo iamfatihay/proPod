@@ -41,9 +41,7 @@ const Create = () => {
     const [isAIEnabled, setIsAIEnabled] = useState(false);
     const [audioInitialized, setAudioInitialized] = useState(false);
     const [draftLoaded, setDraftLoaded] = useState(false);
-    const [recordingMode, setRecordingMode] = useState(
-        mode === "quick-record" ? "solo" : "solo"
-    );
+    const [recordingMode, setRecordingMode] = useState("solo");
     const [rtcMediaMode, setRtcMediaMode] = useState("video");
     const [rtcSession, setRtcSession] = useState(null);
     const [rtcSessionState, setRtcSessionState] = useState("idle");
@@ -162,13 +160,14 @@ const Create = () => {
                 setPermissionModalVisible(false);
                 setDiscardConfirmVisible(false);
                 setDraftLoaded(false);
-                setRecordingMode(mode === "quick-record" ? "solo" : "solo");
+                setRecordingMode("solo");
                 setRtcMediaMode("video");
                 setRtcSession(null);
                 setRtcSessionState("idle");
                 setRtcSessionSummary(null);
                 setRtcLoading(false);
                 setRtcError(null);
+                setRtcStatusMessage(null);
             };
             
             checkActiveSession();
@@ -488,8 +487,8 @@ const Create = () => {
 
         setRtcSession(null);
         setRtcSessionState("idle");
-            setRtcSessionSummary(null);
-            setRtcStatusMessage(null);
+        setRtcSessionSummary(null);
+        setRtcStatusMessage(null);
 
         router.back();
     };
