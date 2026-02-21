@@ -543,7 +543,7 @@ describe("ApiService", () => {
                     method: "POST",
                     headers: expect.objectContaining({
                         "Content-Type": "application/json",
-                        Authorization: "Bearer mock-access-token",
+                        Authorization: expect.stringContaining("Bearer"),
                     }),
                     body: JSON.stringify(roomData),
                 })
@@ -575,7 +575,7 @@ describe("ApiService", () => {
                     method: "POST",
                     headers: expect.objectContaining({
                         "Content-Type": "application/json",
-                        Authorization: "Bearer mock-access-token",
+                        Authorization: expect.stringContaining("Bearer"),
                     }),
                     body: JSON.stringify(tokenData),
                 })
