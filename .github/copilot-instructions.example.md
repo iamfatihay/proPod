@@ -56,7 +56,7 @@ Configured via `AI_PROVIDER` env var (`local`/`openai`/`hybrid`):
 - **OpenAI**: Whisper API + GPT-4 analysis (~$0.08 per 10min podcast)
 - **Hybrid**: Free users → local, premium users (`user.is_premium=True`) → OpenAI
 
-See [docs/architecture/AI_PROVIDER_ARCHITECTURE.md](../docs/architecture/AI_PROVIDER_ARCHITECTURE.md) for details.
+See [AI Provider Architecture](/docs/architecture/AI_PROVIDER_ARCHITECTURE.md) for details.
 
 ## Critical Frontend Patterns
 
@@ -194,11 +194,11 @@ pytest tests/test_ai_service.py -v
 
 ## Documentation Navigation
 
-- **Quick Start**: [docs/guides/QUICK_START.md](../docs/guides/QUICK_START.md)
-- **API Reference**: [docs/api/API_DOCUMENTATION.md](../docs/api/API_DOCUMENTATION.md)
-- **AI Integration**: [docs/features/AI_INTEGRATION_GUIDE.md](../docs/features/AI_INTEGRATION_GUIDE.md)
-- **Testing Guide**: [docs/testing/TEST_DOCUMENTATION.md](../docs/testing/TEST_DOCUMENTATION.md)
-- **All Docs**: [docs/README.md](../docs/README.md) - comprehensive navigation hub
+- **Quick Start**: [QUICK_START.md](/docs/guides/QUICK_START.md)
+- **API Reference**: [API_DOCUMENTATION.md](/docs/api/API_DOCUMENTATION.md)
+- **AI Integration**: [AI_INTEGRATION_GUIDE.md](/docs/features/AI_INTEGRATION_GUIDE.md)
+- **Testing Guide**: [TEST_DOCUMENTATION.md](/docs/testing/TEST_DOCUMENTATION.md)
+- **All Docs**: [Documentation Index](/docs/README.md) - comprehensive navigation hub
 
 ## Common Tasks
 
@@ -253,6 +253,6 @@ pytest tests/test_ai_service.py -v
 - Background audio needs session configuration
 
 ### Resources
-- Implementation: [docs/project/RTC_SESSION_MEMORY.md](../docs/project/RTC_SESSION_MEMORY.md)
-- Research: [docs/project/VIDEO_PODCAST_RESEARCH.md](../docs/project/VIDEO_PODCAST_RESEARCH.md)
+- Implementation: [RTC_SESSION_MEMORY.md](/docs/project/RTC_SESSION_MEMORY.md)
+- Research: [VIDEO_PODCAST_RESEARCH.md](/docs/project/VIDEO_PODCAST_RESEARCH.md)
 - Backup branch: `feature/rtc-phase2-3-4-backup` (Phase 2-4 features)
