@@ -25,6 +25,22 @@ Tests run only for changed files (backend or frontend).
 
 ---
 
+## 🤖 AI Assistant Setup (Optional)
+
+For GitHub Copilot and similar AI assistants:
+
+```bash
+# First time setup (one-time)
+cp .github/copilot-instructions.example.md .github/copilot-instructions.md
+
+# Customize for your workflow (file is gitignored)
+nano .github/copilot-instructions.md
+```
+
+The example file contains ProPod-specific patterns and conventions.
+
+---
+
 ## 📚 Documentation
 
 **All documentation has been reorganized for better navigation!**

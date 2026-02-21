@@ -7,6 +7,10 @@
 # Local setup guide (personal notes)
 LOCAL_SETUP_GUIDE.md
 
+# AI instructions (personal workflow)
+.github/copilot-instructions.md
+.github/copilot-instructions.local.md
+
 # Node/Frontend
 node_modules/
 .expo/

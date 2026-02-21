@@ -1,5 +1,12 @@
 # ProPod AI Coding Agent Instructions
 
+> **📋 TEMPLATE FILE**  
+> This is an example template. Copy to `copilot-instructions.md` and customize:
+> ```bash
+> cp .github/copilot-instructions.example.md .github/copilot-instructions.md
+> ```
+> Your customized file will be gitignored for personal workflows.
+
 ## Architecture Overview
 
 **ProPod** is a full-stack podcast creation app with AI features:
