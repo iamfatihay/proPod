@@ -72,6 +72,20 @@ Project planning, roadmaps, and development tracking.
 
 **Status:** ✅ Phase 1 complete, February 2026
 
+---
+
+### [Documentation Reorganization Summary](./REORGANIZATION_SUMMARY.md)
+**Documentation structure refactor history**
+
+**Topics:**
+- New documentation structure (8 categories)
+- File migration mapping
+- Navigation improvements
+- Before/after organization
+- Verification commands
+
+**Status:** Completed January 2026
+
 ## 📊 Project Status
 
 ### Current Sprint
