@@ -13,7 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 import os
 
-from app.routers import users, podcasts, ai, admin as admin_router
+from app.routers import users, podcasts, ai, admin as admin_router, rtc
 from app.admin import setup_admin
 
 # Load environment variables
@@ -47,6 +47,7 @@ app.include_router(users.router)
 app.include_router(podcasts.router)
 app.include_router(ai.router)
 app.include_router(admin_router.router)
+app.include_router(rtc.router)
 
 # Setup admin panel (accessible at /admin)
 admin_panel = setup_admin(app)

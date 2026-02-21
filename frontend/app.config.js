@@ -16,6 +16,7 @@ export default ({ config }) => ({
         backgroundColor: "#000000",
     },
     ios: {
+        bundleIdentifier: "com.iamfatihay.Volo",
         supportsTablet: true,
         splash: {
             backgroundColor: "#000000",
@@ -43,6 +44,12 @@ export default ({ config }) => ({
         permissions: [
             "android.permission.RECORD_AUDIO",
             "android.permission.MODIFY_AUDIO_SETTINGS",
+            "android.permission.INTERNET",
+            "android.permission.ACCESS_NETWORK_STATE",
+            "android.permission.CHANGE_NETWORK_STATE",
+            "android.permission.FOREGROUND_SERVICE",
+            "android.permission.BLUETOOTH",
+            "android.permission.BLUETOOTH_CONNECT",
             "android.permission.WRITE_EXTERNAL_STORAGE",
             "android.permission.READ_EXTERNAL_STORAGE",
             "android.permission.CAMERA",

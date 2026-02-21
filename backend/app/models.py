@@ -127,6 +127,44 @@ class Podcast(Base):
     )
 
 
+class RTCSession(Base):
+    """
+    RTC session metadata for multi-host live podcast sessions.
+
+    Stores session details needed to map 100ms recording webhooks to
+    podcast creation without client-side uploads.
+    """
+    __tablename__ = "rtc_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    room_id = Column(String, unique=True, index=True, nullable=False)
+    room_name = Column(String, nullable=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+
+    title = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+    category = Column(String, default="General")
+    is_public = Column(Boolean, default=False)
+    media_mode = Column(String, default="video")  # audio | video
+
+    status = Column(String, default="created")
+    recording_url = Column(String, nullable=True)
+    duration_seconds = Column(Integer, default=0)
+    podcast_id = Column(Integer, ForeignKey("podcasts.id"), nullable=True, index=True)
+    last_webhook_payload = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc),
+                       onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    owner = relationship("User", foreign_keys=[owner_id])
+    podcast = relationship("Podcast", foreign_keys=[podcast_id])
+
+    __table_args__ = (
+        Index('idx_rtc_sessions_owner_created', 'owner_id', 'created_at'),
+    )
+
+
 class PodcastLike(Base):
     __tablename__ = "podcast_likes"
 

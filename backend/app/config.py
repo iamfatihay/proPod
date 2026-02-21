@@ -79,6 +79,13 @@ class Settings(BaseSettings):
     AI_MAX_AUDIO_SIZE_MB: int = Field(default=200, description="Maximum audio file size for AI processing in MB")
     AI_TIMEOUT_SECONDS: int = Field(default=300, description="Timeout for AI processing in seconds")
 
+    # RTC (100ms) Configuration
+    HMS_APP_ACCESS_KEY: str = Field(default="", description="100ms app access key")
+    HMS_APP_SECRET: str = Field(default="", description="100ms app secret")
+    HMS_TEMPLATE_ID: str = Field(default="", description="100ms default room template ID")
+    HMS_WEBHOOK_SECRET: str = Field(default="", description="Shared secret for 100ms webhooks")
+    HMS_WEBHOOK_URL: str = Field(default="", description="Optional room-level webhook URL")
+
     model_config = ConfigDict(
         env_file=os.path.join(os.path.dirname(__file__), '..', '.env'),
         case_sensitive=True,

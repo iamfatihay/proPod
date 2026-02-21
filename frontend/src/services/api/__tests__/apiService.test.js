@@ -514,4 +514,123 @@ describe("ApiService", () => {
             }
         });
     });
+
+    describe("RTC Methods", () => {
+        test("createRtcRoom() should send POST request with correct payload", async () => {
+            const mockResponse = {
+                id: "room-123",
+                name: "test-room",
+                session_id: 1,
+                enabled: true,
+            };
+
+            global.mockApiResponse(mockResponse);
+
+            const roomData = {
+                name: "test-room",
+                description: "Test description",
+                title: "Test Podcast",
+                category: "Tech",
+                is_public: true,
+                media_mode: "video",
+            };
+
+            const result = await apiService.createRtcRoom(roomData);
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                "http://localhost:8000/rtc/rooms",
+                expect.objectContaining({
+                    method: "POST",
+                    headers: expect.objectContaining({
+                        "Content-Type": "application/json",
+                        Authorization: expect.stringContaining("Bearer"),
+                    }),
+                    body: JSON.stringify(roomData),
+                })
+            );
+            expect(result).toEqual(mockResponse);
+        });
+
+        test("createRtcToken() should send POST request with room_id and role", async () => {
+            const mockResponse = {
+                token: "mock-token-123",
+                room_id: "room-123",
+                role: "host",
+                user_id: "1",
+                expires_in_seconds: 86400,
+            };
+
+            global.mockApiResponse(mockResponse);
+
+            const tokenData = {
+                room_id: "room-123",
+                role: "host",
+            };
+
+            const result = await apiService.createRtcToken(tokenData);
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                "http://localhost:8000/rtc/token",
+                expect.objectContaining({
+                    method: "POST",
+                    headers: expect.objectContaining({
+                        "Content-Type": "application/json",
+                        Authorization: expect.stringContaining("Bearer"),
+                    }),
+                    body: JSON.stringify(tokenData),
+                })
+            );
+            expect(result).toEqual(mockResponse);
+        });
+
+        test("getRtcSession() should send GET request with session ID", async () => {
+            const mockResponse = {
+                id: 1,
+                room_id: "room-123",
+                status: "created",
+                created_at: "2026-02-21T00:00:00Z",
+            };
+
+            global.mockApiResponse(mockResponse);
+
+            const result = await apiService.getRtcSession(1);
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                "http://localhost:8000/rtc/sessions/1",
+                expect.any(Object)
+            );
+            expect(result).toEqual(mockResponse);
+        });
+
+        test("listRtcSessions() should send GET request with optional filters", async () => {
+            const mockResponse = [
+                { id: 1, room_id: "room-1", status: "created" },
+                { id: 2, room_id: "room-2", status: "completed" },
+            ];
+
+            global.mockApiResponse(mockResponse);
+
+            const result = await apiService.listRtcSessions({ room_id: "room-1", limit: 10 });
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                "http://localhost:8000/rtc/sessions?room_id=room-1&limit=10",
+                expect.any(Object)
+            );
+            expect(result).toEqual(mockResponse);
+        });
+
+        test("listRtcSessions() should handle empty query params", async () => {
+            const mockResponse = [];
+
+            global.mockApiResponse(mockResponse);
+
+            const result = await apiService.listRtcSessions();
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                "http://localhost:8000/rtc/sessions",
+                expect.any(Object)
+            );
+            expect(result).toEqual(mockResponse);
+        });
+    });
 });

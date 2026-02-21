@@ -58,6 +58,34 @@ Project planning, roadmaps, and development tracking.
 
 **Status:** Updated with each PR
 
+---
+
+### [RTC Session Memory](./RTC_SESSION_MEMORY.md)
+**Multi-host recording implementation session documentation**
+
+**Topics:**
+- RTC Phase 1 implementation (100ms integration)
+- Critical blocker solutions (template config)
+- Future Phase 2-4 features (backup branch)
+- Testing checklist & next steps
+- Architecture decisions & learnings
+
+**Status:** ✅ Phase 1 complete, February 2026
+
+---
+
+### [Documentation Reorganization Summary](./REORGANIZATION_SUMMARY.md)
+**Documentation structure refactor history**
+
+**Topics:**
+- New documentation structure (8 categories)
+- File migration mapping
+- Navigation improvements
+- Before/after organization
+- Verification commands
+
+**Status:** Completed January 2026
+
 ## 📊 Project Status
 
 ### Current Sprint
