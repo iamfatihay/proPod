@@ -37,6 +37,15 @@ cp .github/copilot-instructions.example.md .github/copilot-instructions.md
 nano .github/copilot-instructions.md
 ```
 
+**Optional: Disable VS Code markdown link warnings**  
+If you see "file not found" warnings in `.github/copilot-instructions.md`:
+```json
+// Add to .vscode/settings.json (local, gitignored)
+{
+  "markdown.validate.ignoredLinks": [".github/copilot-instructions.md"]
+}
+```
+
 The example file contains ProPod-specific patterns and conventions.
 
 ---

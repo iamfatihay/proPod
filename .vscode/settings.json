@@ -1,3 +1,7 @@
 {
-    "files.autoSave": "onFocusChange"
+    "files.autoSave": "onFocusChange",
+    "markdown.validate.enabled": true,
+    "markdown.validate.ignoredLinks": [
+        ".github/copilot-instructions.md"
+    ]
 }
