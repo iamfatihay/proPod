@@ -228,3 +228,31 @@ pytest tests/test_ai_service.py -v
 2. Use `create(devtools((set, get) => ({ ... }), { name: 'StoreName' }))`
 3. Export actions and selectors
 4. Import and use in components: `const value = useStore(state => state.value)`
+
+## RTC (100ms) Integration
+
+**Critical:** Recording must be enabled in 100ms template dashboard, NOT via API.
+
+### Backend Pattern
+- Use `hms_service.py` for all 100ms API calls
+- Webhook handler: defensive payload parsing, idempotency checks
+- RTCSession lifecycle: created → completed (on webhook)
+- Token generation: management (backend) vs auth (client)
+
+### Frontend Pattern
+- `HmsRoom` component manages HMS SDK lifecycle
+- Request permissions before join
+- Cleanup on unmount: removeAllListeners → leave → destroy
+- Peer tracking: upsert on UPDATE, remove on LEFT
+- Error timeouts: 15s join timeout
+
+### Common Pitfalls
+- Recording parameter unsupported in room creation API
+- Webhook payload structure varies by event type
+- Peer track accessors sometimes methods, sometimes properties
+- Background audio needs session configuration
+
+### Resources
+- Implementation: [docs/project/RTC_SESSION_MEMORY.md](../docs/project/RTC_SESSION_MEMORY.md)
+- Research: [docs/project/VIDEO_PODCAST_RESEARCH.md](../docs/project/VIDEO_PODCAST_RESEARCH.md)
+- Backup branch: `feature/rtc-phase2-3-4-backup` (Phase 2-4 features)
