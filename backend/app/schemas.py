@@ -245,6 +245,17 @@ class RTCSessionResponse(BaseModel):
     recording_url: Optional[str] = None
     duration_seconds: int
     podcast_id: Optional[int] = None
+    
+    # Phase 2-4: Live session fields
+    is_live: bool = False
+    started_at: Optional[datetime.datetime] = None
+    ended_at: Optional[datetime.datetime] = None
+    participant_count: int = 0
+    viewer_count: int = 0
+    invite_code: Optional[str] = None
+    
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -440,3 +451,40 @@ class ErrorResponse(BaseModel):
     detail: str
     status_code: int
     timestamp: datetime.datetime
+
+
+# ==================== RTC Template Schemas ====================
+
+class RTCTemplateConfig(BaseModel):
+    """RTC recording template configuration."""
+    id: str
+    name: str
+    quality: str
+    max_duration_minutes: int
+    features: dict
+    storage_estimate_mb_per_hour: int
+    tier_required: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RTCTemplatesResponse(BaseModel):
+    """List of available templates for user."""
+    templates: List[RTCTemplateConfig]
+    user_tier: str  # free, standard, premium
+
+
+class RTCStorageEstimateRequest(BaseModel):
+    """Request to estimate storage for recording."""
+    quality: str = Field(..., description="Template quality: free, standard, premium")
+    duration_minutes: int = Field(..., gt=0, description="Expected recording duration in minutes")
+    participant_count: int = Field(default=1, ge=1, description="Number of participants")
+
+
+class RTCStorageEstimateResponse(BaseModel):
+    """Storage estimation response."""
+    estimated_mb: float
+    quality: str
+    duration_minutes: int
+    participant_count: int
+    template: RTCTemplateConfig

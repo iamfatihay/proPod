@@ -356,3 +356,108 @@ def get_rtc_session(
             detail="RTC session not found",
         )
     return session
+
+
+# ==================== Template Management ====================
+
+@router.get("/templates", response_model=schemas.RTCTemplatesResponse)
+async def list_templates(
+    current_user: User = Depends(get_current_user),
+) -> schemas.RTCTemplatesResponse:
+    """
+    List available recording templates based on user tier.
+    
+    Returns different quality options (free, standard, premium) based on
+    whether user has premium status.
+    """
+    from app.services.template_service import list_available_templates
+    
+    user_is_premium = getattr(current_user, 'is_premium', False)
+    templates = list_available_templates(user_is_premium)
+    
+    user_tier = "premium" if user_is_premium else "free"
+    
+    _rtc_log(
+        "templates.list",
+        owner_id=current_user.id,
+        user_tier=user_tier,
+        template_count=len(templates),
+    )
+    
+    return schemas.RTCTemplatesResponse(
+        templates=[
+            schemas.RTCTemplateConfig(
+                id=t.id,
+                name=t.name,
+                quality=t.quality,
+                max_duration_minutes=t.max_duration_minutes,
+                features=t.features,
+                storage_estimate_mb_per_hour=t.storage_estimate_mb_per_hour,
+                tier_required=t.tier_required,
+            )
+            for t in templates
+        ],
+        user_tier=user_tier,
+    )
+
+
+@router.post("/storage-estimate", response_model=schemas.RTCStorageEstimateResponse)
+async def estimate_storage(
+    request: schemas.RTCStorageEstimateRequest,
+    current_user: User = Depends(get_current_user),
+) -> schemas.RTCStorageEstimateResponse:
+    """
+    Estimate storage size for a recording based on quality and duration.
+    
+    Helps users plan storage usage before starting a recording.
+    """
+    from app.services.template_service import estimate_storage as calc_storage, TEMPLATES
+    
+    # Validate quality
+    if request.quality not in TEMPLATES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid quality. Must be one of: {', '.join(TEMPLATES.keys())}",
+        )
+    
+    # Check if user has access to requested quality
+    user_is_premium = getattr(current_user, 'is_premium', False)
+    if request.quality == "premium" and not user_is_premium:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Premium quality requires premium tier subscription",
+        )
+    
+    # Calculate storage
+    estimated_mb = calc_storage(
+        quality=request.quality,
+        duration_minutes=request.duration_minutes,
+        participant_count=request.participant_count,
+    )
+    
+    template = TEMPLATES[request.quality]
+    
+    _rtc_log(
+        "storage.estimate",
+        owner_id=current_user.id,
+        quality=request.quality,
+        duration=request.duration_minutes,
+        participants=request.participant_count,
+        estimated_mb=estimated_mb,
+    )
+    
+    return schemas.RTCStorageEstimateResponse(
+        estimated_mb=estimated_mb,
+        quality=request.quality,
+        duration_minutes=request.duration_minutes,
+        participant_count=request.participant_count,
+        template=schemas.RTCTemplateConfig(
+            id=template.id,
+            name=template.name,
+            quality=template.quality,
+            max_duration_minutes=template.max_duration_minutes,
+            features=template.features,
+            storage_estimate_mb_per_hour=template.storage_estimate_mb_per_hour,
+            tier_required=template.tier_required,
+        ),
+    )
