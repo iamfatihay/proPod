@@ -24,7 +24,7 @@ def get_live_sessions(
 ) -> List[models.RTCSession]:
     """Get currently live sessions."""
     query = db.query(models.RTCSession).filter(
-        models.RTCSession.is_live == True,
+        models.RTCSession.is_live.is_(True),
     )
     
     if not include_private:

@@ -372,7 +372,7 @@ async def list_templates(
     """
     from app.services.template_service import list_available_templates
     
-    user_is_premium = getattr(current_user, 'is_premium', False)
+    user_is_premium = current_user.is_premium
     templates = list_available_templates(user_is_premium)
     
     user_tier = "premium" if user_is_premium else "free"
@@ -421,7 +421,7 @@ async def estimate_storage(
         )
     
     # Check if user has access to requested quality
-    user_is_premium = getattr(current_user, 'is_premium', False)
+    user_is_premium = current_user.is_premium
     if request.quality == "premium" and not user_is_premium:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

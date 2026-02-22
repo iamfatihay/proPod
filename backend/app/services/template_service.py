@@ -47,9 +47,15 @@ class TemplateConfig(BaseModel):
 
 # Template definitions (sync with 100ms dashboard templates)
 # NOTE: Uses multi-template IDs if available, falls back to default HMS_TEMPLATE_ID
+def _get_template_id(tier_id: str) -> str:
+    """Safely get template ID with fallback to default."""
+    if tier_id and tier_id.strip():
+        return tier_id
+    return settings.HMS_TEMPLATE_ID
+
 TEMPLATES = {
     "free": TemplateConfig(
-        id=settings.HMS_TEMPLATE_ID_FREE or settings.HMS_TEMPLATE_ID,
+        id=_get_template_id(settings.HMS_TEMPLATE_ID_FREE),
         name="Basic Quality",
         quality="480p",
         max_duration_minutes=30,
@@ -62,7 +68,7 @@ TEMPLATES = {
         tier_required="free",
     ),
     "standard": TemplateConfig(
-        id=settings.HMS_TEMPLATE_ID_STANDARD or settings.HMS_TEMPLATE_ID,
+        id=_get_template_id(settings.HMS_TEMPLATE_ID_STANDARD),
         name="Standard Quality (Recommended)",
         quality="720p",
         max_duration_minutes=120,
@@ -75,7 +81,7 @@ TEMPLATES = {
         tier_required="free",
     ),
     "premium": TemplateConfig(
-        id=settings.HMS_TEMPLATE_ID_PREMIUM or settings.HMS_TEMPLATE_ID,
+        id=_get_template_id(settings.HMS_TEMPLATE_ID_PREMIUM),
         name="High Quality",
         quality="1080p",
         max_duration_minutes=0,  # unlimited
