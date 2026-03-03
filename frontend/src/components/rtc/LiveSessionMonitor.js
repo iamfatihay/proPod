@@ -1,30 +1,41 @@
 /**
  * Live session monitoring component for host dashboard
  */
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import apiService from '../../services/api/apiService';
 
 const LiveSessionMonitor = ({ sessionId, participants }) => {
   const [duration, setDuration] = useState(0);
   const [storageEstimate, setStorageEstimate] = useState(0);
 
+  // Use a ref to track duration inside the interval without adding it to
+  // the dependency array, which would recreate the interval every second.
+  const durationRef = useRef(0);
+
   useEffect(() => {
-    // Update duration every second
-    const interval = setInterval(() => {
-      setDuration((prev) => prev + 1);
-      
-      // Update storage estimate every 10 seconds
-      if (duration % 10 === 0) {
-        const participantCount = participants.filter(p => p.role !== 'viewer').length;
-        const estimate = (duration / 3600) * 300 * participantCount; // 300MB/hour base
-        setStorageEstimate(estimate);
-      }
+    // Tick every second: increment duration counter
+    const durationInterval = setInterval(() => {
+      durationRef.current += 1;
+      setDuration(durationRef.current);
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [duration, participants]);
+    // Update storage estimate every 10 seconds in a separate interval so the
+    // calculation always uses the latest duration and participant count without
+    // triggering re-creation of the main duration interval.
+    const storageInterval = setInterval(() => {
+      const participantCount = participants.filter(p => p.role !== 'viewer').length;
+      const estimate = (durationRef.current / 3600) * 300 * Math.max(1, participantCount);
+      setStorageEstimate(estimate);
+    }, 10000);
+
+    return () => {
+      clearInterval(durationInterval);
+      clearInterval(storageInterval);
+    };
+  // participants changes should restart the storage interval with fresh count;
+  // duration is intentionally excluded — durationRef tracks it without re-mounting.
+  }, [participants]);
 
   const formatDuration = (seconds) => {
     const h = Math.floor(seconds / 3600);
@@ -54,8 +65,8 @@ const LiveSessionMonitor = ({ sessionId, participants }) => {
   };
 
   const renderParticipant = ({ item }) => {
-    const isSpeaking = item.audioLevel > 20; // Threshold for "speaking"
-    
+    const isSpeaking = item.audioLevel > 20;
+
     return (
       <View className="flex-row items-center justify-between p-3 bg-gray-800 rounded-lg mb-2">
         <View className="flex-row items-center flex-1">
@@ -69,24 +80,20 @@ const LiveSessionMonitor = ({ sessionId, participants }) => {
         </View>
 
         <View className="flex-row items-center space-x-2">
-          {/* Audio mute status */}
           {item.isAudioMuted ? (
             <Ionicons name="mic-off" size={16} color="#ef4444" />
           ) : (
             <Ionicons name="mic" size={16} color="#10b981" />
           )}
 
-          {/* Video status */}
           {item.isVideoMuted ? (
             <Ionicons name="videocam-off" size={16} color="#ef4444" />
           ) : (
             <Ionicons name="videocam" size={16} color="#10b981" />
           )}
 
-          {/* Connection quality */}
           {getConnectionIcon(item.connectionQuality)}
 
-          {/* Audio level indicator */}
           <View className="w-8 h-4 bg-gray-700 rounded overflow-hidden">
             <View
               className="h-full bg-blue-500"

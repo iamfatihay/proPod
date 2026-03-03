@@ -1,4 +1,5 @@
 """Web player and podcast sharing endpoints."""
+import html
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
@@ -40,13 +41,19 @@ async def share_podcast_web(
     # Get owner info
     owner = db.query(models.User).filter(models.User.id == podcast.owner_id).first()
     owner_name = owner.name if owner else "Unknown"
-    
+
+    # Escape all user-generated content to prevent XSS
+    safe_title = html.escape(podcast.title or "")
+    safe_description = html.escape(podcast.description or "")
+    safe_owner_name = html.escape(owner_name)
+    safe_category = html.escape(podcast.category or "")
+
     # Construct full audio URL
     audio_url = podcast.audio_url
     if not audio_url.startswith("http"):
         base_url = settings.BASE_URL or str(request.base_url).rstrip("/")
         audio_url = f"{base_url}{audio_url}"
-    
+
     # Build web player HTML
     html_content = f"""
     <!DOCTYPE html>
@@ -54,21 +61,21 @@ async def share_podcast_web(
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>{podcast.title} - Volo</title>
-        
+        <title>{safe_title} - Volo</title>
+
         <!-- Open Graph / Facebook -->
         <meta property="og:type" content="music.song">
         <meta property="og:url" content="{request.url}">
-        <meta property="og:title" content="{podcast.title}">
-        <meta property="og:description" content="{podcast.description or 'Listen to this podcast on Volo'}">
+        <meta property="og:title" content="{safe_title}">
+        <meta property="og:description" content="{safe_description or 'Listen to this podcast on Volo'}">
         <meta property="og:image" content="{podcast.cover_image_url or f'{settings.BASE_URL}/static/og-image.png'}">
         <meta property="og:audio" content="{audio_url}">
-        
+
         <!-- Twitter -->
         <meta name="twitter:card" content="player">
         <meta name="twitter:url" content="{request.url}">
-        <meta name="twitter:title" content="{podcast.title}">
-        <meta name="twitter:description" content="{podcast.description or 'Listen to this podcast on Volo'}">
+        <meta name="twitter:title" content="{safe_title}">
+        <meta name="twitter:description" content="{safe_description or 'Listen to this podcast on Volo'}">
         <meta name="twitter:image" content="{podcast.cover_image_url or f'{settings.BASE_URL}/static/og-image.png'}">
         <meta name="twitter:player" content="{request.url}">
         <meta name="twitter:player:width" content="480">
@@ -148,16 +155,16 @@ async def share_podcast_web(
     <body>
         <div class="player-container">
             <div class="cover-image">🎙️</div>
-            <h1>{podcast.title}</h1>
+            <h1>{safe_title}</h1>
             <div class="metadata">
-                <span>👤 {owner_name}</span>
-                <span>📁 {podcast.category}</span>
+                <span>👤 {safe_owner_name}</span>
+                <span>📁 {safe_category}</span>
                 <span>⏱️ {podcast.duration // 60} min</span>
             </div>
             <audio controls preload="metadata" src="{audio_url}">
                 Your browser does not support the audio element.
             </audio>
-            {f'<p class="description">{podcast.description}</p>' if podcast.description else ''}
+            {f'<p class="description">{safe_description}</p>' if podcast.description else ''}
             <a href="#" class="cta" onclick="alert('Deep linking coming soon! Install Volo app to listen.'); return false;">
                 🎧 Open in Volo App
             </a>
@@ -192,21 +199,25 @@ async def share_live_session_web(
     # Get owner info
     owner = db.query(models.User).filter(models.User.id == session.owner_id).first()
     owner_name = owner.name if owner else "Unknown"
-    
+
+    # Escape all user-generated content to prevent XSS
+    safe_session_title = html.escape(session.title or "")
+    safe_owner_name = html.escape(owner_name)
+
     status_text = "🔴 LIVE NOW" if session.is_live else "📝 Scheduled"
-    
+
     html_content = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Join {session.title} - Volo Live</title>
-        
+        <title>Join {safe_session_title} - Volo Live</title>
+
         <!-- Open Graph -->
         <meta property="og:type" content="website">
         <meta property="og:url" content="{request.url}">
-        <meta property="og:title" content="{session.title} - Live on Volo">
+        <meta property="og:title" content="{safe_session_title} - Live on Volo">
         <meta property="og:description" content="Join this live podcast session">
         
         <style>
@@ -263,9 +274,9 @@ async def share_live_session_web(
     <body>
         <div class="container">
             <div class="status">{status_text}</div>
-            <h1>{session.title}</h1>
+            <h1>{safe_session_title}</h1>
             <div class="metadata">
-                <p>Hosted by {owner_name}</p>
+                <p>Hosted by {safe_owner_name}</p>
                 <p>{session.participant_count} speakers • {session.viewer_count} viewers</p>
             </div>
             <a href="#" class="cta" onclick="alert('Live session joining coming soon!'); return false;">

@@ -75,6 +75,12 @@ def upgrade() -> None:
                existing_server_default=sa.text('CURRENT_TIMESTAMP'))
     op.create_index('idx_rtc_sessions_live', 'rtc_sessions', ['is_live', 'is_public', 'created_at'], unique=False)
     op.create_index(op.f('ix_rtc_sessions_id'), 'rtc_sessions', ['id'], unique=False)
+    # Populate invite_code for any existing rows before applying unique constraint
+    op.execute("""
+        UPDATE rtc_sessions
+        SET invite_code = UPPER(SUBSTRING(MD5(id::TEXT || RANDOM()::TEXT), 1, 12))
+        WHERE invite_code IS NULL
+    """)
     op.create_index(op.f('ix_rtc_sessions_invite_code'), 'rtc_sessions', ['invite_code'], unique=True)
     op.add_column('users', sa.Column('storage_used_mb', sa.Integer(), nullable=False, server_default=sa.text('0')))
     # ### end Alembic commands ###

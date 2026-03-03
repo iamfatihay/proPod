@@ -28,10 +28,13 @@ DEPLOYMENT MODES:
 
 See: docs/project/RTC_IMPLEMENTATION_SUMMARY.md
 """
+import logging
 from typing import Dict, Optional
 from pydantic import BaseModel
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class TemplateConfig(BaseModel):
@@ -45,17 +48,28 @@ class TemplateConfig(BaseModel):
     tier_required: str  # free, standard, premium
 
 
-# Template definitions (sync with 100ms dashboard templates)
-# NOTE: Uses multi-template IDs if available, falls back to default HMS_TEMPLATE_ID
-def _get_template_id(tier_id: str) -> str:
-    """Safely get template ID with fallback to default."""
-    if tier_id and tier_id.strip():
-        return tier_id
-    return settings.HMS_TEMPLATE_ID
+def _resolve_template_id(tier_id: Optional[str], tier_name: str) -> str:
+    """Resolve template ID for a tier, falling back to the default HMS_TEMPLATE_ID.
 
+    Logs a warning if the final resolved ID is still empty so operators are
+    notified of misconfiguration at startup rather than at request time.
+    """
+    resolved = (tier_id or "").strip() or (settings.HMS_TEMPLATE_ID or "").strip()
+    if not resolved:
+        logger.warning(
+            "No HMS template ID configured for tier '%s' and HMS_TEMPLATE_ID is also "
+            "empty. Room creation will fail until a template ID is set in .env.",
+            tier_name,
+        )
+    return resolved
+
+
+# Template definitions (sync with 100ms dashboard templates)
+# Uses tier-specific IDs when set (HMS_TEMPLATE_ID_FREE/STANDARD/PREMIUM),
+# otherwise falls back to the default HMS_TEMPLATE_ID for all tiers.
 TEMPLATES = {
     "free": TemplateConfig(
-        id=_get_template_id(settings.HMS_TEMPLATE_ID_FREE),
+        id=_resolve_template_id(settings.HMS_TEMPLATE_ID_FREE, "free"),
         name="Basic Quality",
         quality="480p",
         max_duration_minutes=30,
@@ -68,7 +82,7 @@ TEMPLATES = {
         tier_required="free",
     ),
     "standard": TemplateConfig(
-        id=_get_template_id(settings.HMS_TEMPLATE_ID_STANDARD),
+        id=_resolve_template_id(settings.HMS_TEMPLATE_ID_STANDARD, "standard"),
         name="Standard Quality (Recommended)",
         quality="720p",
         max_duration_minutes=120,
@@ -81,7 +95,7 @@ TEMPLATES = {
         tier_required="free",
     ),
     "premium": TemplateConfig(
-        id=_get_template_id(settings.HMS_TEMPLATE_ID_PREMIUM),
+        id=_resolve_template_id(settings.HMS_TEMPLATE_ID_PREMIUM, "premium"),
         name="High Quality",
         quality="1080p",
         max_duration_minutes=0,  # unlimited

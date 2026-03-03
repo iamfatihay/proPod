@@ -22,13 +22,17 @@ jest.mock("expo-audio", () => ({
 }));
 
 jest.mock("../../../utils/logger", () => ({
+    __esModule: true,
     default: {
         error: jest.fn(),
         log: jest.fn(),
+        debug: jest.fn(),
+        warn: jest.fn(),
+        info: jest.fn(),
     },
 }));
 
-describe.skip("HmsRoom Component", () => {
+describe("HmsRoom Component", () => {
     const mockToken = "mock-token-123";
     const mockRoomName = "test-room";
     const mockUserName = "Test User";
@@ -310,7 +314,7 @@ describe.skip("HmsRoom Component", () => {
     });
 
     it("should handle join errors gracefully", async () => {
-        const Logger = require("../../utils/logger").default;
+        const Logger = require("../../../utils/logger").default;
         mockHmsInstance.join.mockRejectedValue(new Error("Join failed"));
 
         const { getByText } = render(

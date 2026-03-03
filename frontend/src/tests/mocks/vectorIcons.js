@@ -1,45 +1,9 @@
 // Mock for @expo/vector-icons
-const MaterialCommunityIcons = jest
-    .fn()
-    .mockImplementation(({ name, size, color, style }) => {
-        return {
-            type: "MaterialCommunityIcons",
-            props: { name, size, color, style },
-        };
-    });
-
-const Ionicons = jest
-    .fn()
-    .mockImplementation(({ name, size, color, style }) => {
-        return {
-            type: "Ionicons",
-            props: { name, size, color, style },
-        };
-    });
-
-const AntDesign = jest
-    .fn()
-    .mockImplementation(({ name, size, color, style }) => {
-        return {
-            type: "AntDesign",
-            props: { name, size, color, style },
-        };
-    });
-
-const FontAwesome = jest
-    .fn()
-    .mockImplementation(({ name, size, color, style }) => {
-        return {
-            type: "FontAwesome",
-            props: { name, size, color, style },
-        };
-    });
-
-const Feather = jest.fn().mockImplementation(({ name, size, color, style }) => {
-    return {
-        type: "Feather",
-        props: { name, size, color, style },
-    };
-});
+// Components must return null (valid React element), not plain objects.
+const MaterialCommunityIcons = jest.fn().mockReturnValue(null);
+const Ionicons = jest.fn().mockReturnValue(null);
+const AntDesign = jest.fn().mockReturnValue(null);
+const FontAwesome = jest.fn().mockReturnValue(null);
+const Feather = jest.fn().mockReturnValue(null);
 
 export { MaterialCommunityIcons, Ionicons, AntDesign, FontAwesome, Feather };

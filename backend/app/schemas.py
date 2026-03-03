@@ -260,6 +260,26 @@ class RTCSessionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class RTCParticipantResponse(BaseModel):
+    """Response schema for a single RTC session participant.
+
+    user_id is intentionally omitted from this schema — it is internal
+    PII and should not be sent to clients. Access to this endpoint is
+    restricted to the session owner (see rtc router).
+    """
+    id: int
+    session_id: int
+    peer_id: str
+    display_name: str
+    role: str
+    joined_at: datetime.datetime
+    left_at: Optional[datetime.datetime] = None
+    is_active: bool
+    connection_quality: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # Google Login Schema
 class GoogleLoginRequest(BaseModel):
     email: EmailStr

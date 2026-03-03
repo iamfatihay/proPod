@@ -22,6 +22,16 @@ module.exports = {
     TextInput: "TextInput",
     ScrollView: "ScrollView",
     Image: "Image",
+    FlatList: "FlatList",
+    ActivityIndicator: "ActivityIndicator",
+    Switch: "Switch",
+    Modal: "Modal",
+    Pressable: "Pressable",
+    SafeAreaView: "SafeAreaView",
+    TouchableHighlight: "TouchableHighlight",
+    TouchableWithoutFeedback: "TouchableWithoutFeedback",
+    Pressable: "Pressable",
+    SafeAreaView: "SafeAreaView",
 
     Alert: {
         alert: jest.fn(),

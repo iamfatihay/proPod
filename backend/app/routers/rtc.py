@@ -1,5 +1,5 @@
 """RTC integration endpoints (100ms) - Core functionality only."""
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import json
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -12,6 +12,7 @@ from app.config import settings
 from app.database import get_db
 from app import models, crud
 from app.services.hms_service import create_room, generate_auth_token
+from app.services.live_session_service import get_active_participants
 from app.models import User
 
 
@@ -356,6 +357,36 @@ def get_rtc_session(
             detail="RTC session not found",
         )
     return session
+
+
+@router.get("/sessions/{session_id}/participants", response_model=List[schemas.RTCParticipantResponse])
+def list_session_participants(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> List[schemas.RTCParticipantResponse]:
+    """List active participants for a session.
+
+    Access is restricted to the session owner. Participant data includes
+    peer_id and connection_quality; user_id is excluded from the response
+    schema to avoid PII leakage.
+    """
+    # Explicit ownership check before returning any participant data
+    session = (
+        db.query(models.RTCSession)
+        .filter(
+            models.RTCSession.id == session_id,
+            models.RTCSession.owner_id == current_user.id,
+        )
+        .first()
+    )
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="RTC session not found",
+        )
+
+    return get_active_participants(db, session_id)
 
 
 # ==================== Template Management ====================
