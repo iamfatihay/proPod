@@ -28,6 +28,8 @@ module.exports = {
         "^@react-native-async-storage/async-storage$": "<rootDir>/src/tests/mocks/asyncStorage.js",
         "^@expo/vector-icons$": "<rootDir>/src/tests/mocks/vectorIcons.js",
         "^react-native-paper$": "<rootDir>/src/tests/mocks/reactNativePaper.js",
+        "^@100mslive/react-native-hms$": "<rootDir>/src/tests/mocks/hmsSDK.js",
+        "^expo-image-picker$": "<rootDir>/src/tests/mocks/expoImagePicker.js",
         "^@/(.*)$": "<rootDir>/src/$1",
         "^~/(.*)$": "<rootDir>/$1",
     },

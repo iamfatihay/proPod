@@ -6,7 +6,27 @@ This documentation contains improvements that can be made after the audio player
 
 ## 🔴 High Priority Improvements
 
-### 1. **Production Logging Optimization**
+### 1. **Web Sharing & Deep Linking (Phase 2-4 RTC)**
+
+-   [ ] **Backend**: Web sharing endpoints already implemented (`/share/podcast/{id}`, `/share/live/{code}`)
+-   [ ] **Frontend**: Implement deep link handling for `volo://` scheme
+    -   [ ] Add `Linking.addEventListener()` in `_layout.js`
+    -   [ ] Process `volo://podcast/{id}` URLs
+    -   [ ] Process `volo://join/{invite_code}` URLs
+-   [ ] **Domain**: Register production domain (currently placeholder)
+    -   [ ] Replace `https://volo.app/download` with real download page
+    -   [ ] Add `og-image.png` for social media sharing
+-   [ ] **Testing**: Test deep links on iOS/Android
+-   [ ] **Documentation**: Update sharing.py with implementation guide
+
+**Priority:** High (Required for Phase 2-4 completion)  
+**Estimated Time:** 4-6 hours  
+**Benefit:** Users can share podcasts and join live sessions via web links  
+**Current Status:** Backend ready (placeholder links), frontend not implemented
+
+---
+
+### 2. **Production Logging Optimization**
 
 -   [ ] Protect all `Logger.log` calls with `__DEV__` check (already done, verify)
 -   [ ] Completely remove console.logs in production build
@@ -272,5 +292,6 @@ These improvements can be done quickly and have a big impact:
 
 ---
 
-_Last updated: 2024_
+_Last updated: 2026-02-22_
 _Author: AI Assistant + Fatih_
+_Latest: Added Phase 2-4 Web Sharing & Deep Linking requirements_

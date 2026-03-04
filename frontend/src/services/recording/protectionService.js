@@ -13,9 +13,12 @@ import apiService from '../api/apiService';
 const DRAFT_KEY = 'active_podcast_draft';
 const SEGMENT_DIR = `${FileSystem.documentDirectory}podcast_segments/`;
 
+const AUTO_BACKUP_INTERVAL_MS = 30000; // 30 seconds
+
 class RecordingProtectionService {
     constructor() {
         this.currentDraftId = null;
+        this.autoBackupTimer = null;
     }
 
     /**
@@ -188,6 +191,34 @@ class RecordingProtectionService {
             await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
         } catch (error) {
             Logger.error('Metadata update failed:', error);
+        }
+    }
+
+    /**
+     * Start periodic auto-backup timer (used when resuming a draft)
+     */
+    startAutoBackup() {
+        this.stopAutoBackup();
+        this.autoBackupTimer = setInterval(async () => {
+            try {
+                const draft = await this.getDraft();
+                if (draft) {
+                    draft.updated_at = new Date().toISOString();
+                    await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+                }
+            } catch (error) {
+                Logger.error('Auto-backup tick failed:', error);
+            }
+        }, AUTO_BACKUP_INTERVAL_MS);
+    }
+
+    /**
+     * Stop periodic auto-backup timer
+     */
+    stopAutoBackup() {
+        if (this.autoBackupTimer) {
+            clearInterval(this.autoBackupTimer);
+            this.autoBackupTimer = null;
         }
     }
 

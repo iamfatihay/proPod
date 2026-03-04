@@ -29,6 +29,32 @@ Performance best practices for audio processing:
 - Rate limiting strategies
 - Error recovery patterns
 
+### [AI Architecture Research](./AI_ARCHITECTURE_RESEARCH.md) ⭐ NEW
+Comprehensive research and strategic decision on AI processing architecture:
+- Device-side vs Server-side analysis
+- Why server-side is optimal for ProPod
+- RTC multi-host recording constraints
+- Cost projections and scaling strategy
+
+**Key Topics:**
+- External recommendations analysis
+- Current architecture deep dive
+- Performance comparisons
+- Strategic roadmap (Faster-Whisper upgrade)
+
+### [AI Optimization Roadmap](./AI_OPTIMIZATION_ROADMAP.md) ⭐ NEW
+Implementation plan for Faster-Whisper integration and AI-first editing:
+- Phase 1: Faster-Whisper migration (4x speed)
+- Phase 2: Transcript-based audio editing
+- Phase 3: Testing and validation
+- Complete task checklist with code samples
+
+**Key Topics:**
+- Concrete implementation tasks
+- Migration scripts
+- Rollback plan
+- Success metrics
+
 ## 🏗️ System Architecture
 
 ```

@@ -191,6 +191,7 @@ pytest tests/test_ai_service.py -v
 2. **Environment**: Backend `.env` in `backend/`, frontend in `frontend/` (gitignored)
 3. **Base URL**: Frontend reads from `API_BASE_URL` env var or detects ngrok automatically
 4. **CORS**: Backend allows all origins in dev (configure for production)
+5. **Code cleanliness**: NEVER create standalone documentation files (e.g., `MIGRATION_NOTES.py`). Put notes in relevant files (migration docstrings, README, or main docs). Keep codebase lean and avoid bloat.
 
 ## Documentation Navigation
 

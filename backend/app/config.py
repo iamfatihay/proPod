@@ -83,6 +83,14 @@ class Settings(BaseSettings):
     HMS_APP_ACCESS_KEY: str = Field(default="", description="100ms app access key")
     HMS_APP_SECRET: str = Field(default="", description="100ms app secret")
     HMS_TEMPLATE_ID: str = Field(default="", description="100ms default room template ID")
+    
+    # Optional: Multi-template support (Phase 2-4 feature)
+    # If not set, all tiers use HMS_TEMPLATE_ID above
+    # To enable: Create 3 templates in 100ms dashboard and add IDs below
+    HMS_TEMPLATE_ID_FREE: str = Field(default="", description="100ms template for free tier (480p)")
+    HMS_TEMPLATE_ID_STANDARD: str = Field(default="", description="100ms template for standard tier (720p)")
+    HMS_TEMPLATE_ID_PREMIUM: str = Field(default="", description="100ms template for premium tier (1080p)")
+    
     HMS_WEBHOOK_SECRET: str = Field(default="", description="Shared secret for 100ms webhooks")
     HMS_WEBHOOK_URL: str = Field(default="", description="Optional room-level webhook URL")
 

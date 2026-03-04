@@ -44,6 +44,7 @@ class User(Base):
     role = Column(SQLEnum(UserRole), default=UserRole.USER, nullable=False, index=True)
     is_active = Column(Boolean, default=True)
     is_premium = Column(Boolean, default=False)  # Premium subscription for AI features
+    storage_used_mb = Column(Integer, default=0, nullable=False)  # Storage quota tracking (MB)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), 
                        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
@@ -153,6 +154,14 @@ class RTCSession(Base):
     podcast_id = Column(Integer, ForeignKey("podcasts.id"), nullable=True, index=True)
     last_webhook_payload = Column(Text, nullable=True)
 
+    # Phase 2-4: Live session tracking
+    is_live = Column(Boolean, default=False, nullable=False)  # Currently broadcasting
+    started_at = Column(DateTime, nullable=True)  # When broadcast started
+    ended_at = Column(DateTime, nullable=True)  # When broadcast ended
+    participant_count = Column(Integer, default=0, nullable=False)  # Active participants
+    viewer_count = Column(Integer, default=0, nullable=False)  # Active viewers
+    invite_code = Column(String(12), unique=True, nullable=True, index=True)  # Shareable invite code
+
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc),
                        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
@@ -162,6 +171,40 @@ class RTCSession(Base):
 
     __table_args__ = (
         Index('idx_rtc_sessions_owner_created', 'owner_id', 'created_at'),
+        Index('idx_rtc_sessions_live', 'is_live', 'is_public', 'created_at'),  # Live session discovery
+    )
+
+
+class RTCParticipant(Base):
+    """
+    Tracks participants in RTC sessions for live podcast recordings.
+    
+    Supports both authenticated users and anonymous viewers.
+    Used for participant lists, viewer counts, and connection quality monitoring.
+    """
+    __tablename__ = "rtc_participants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("rtc_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)  # Null for anonymous
+    peer_id = Column(String, nullable=False, index=True)  # 100ms peer ID
+    display_name = Column(String, nullable=False)  # User's display name
+    role = Column(String, nullable=False)  # host, guest, viewer
+    
+    joined_at = Column(DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    left_at = Column(DateTime, nullable=True)  # Null while active
+    is_active = Column(Boolean, default=True, nullable=False)  # Currently in session
+    connection_quality = Column(String, nullable=True)  # poor, fair, good, excellent
+    
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    # Relationships
+    session = relationship("RTCSession", foreign_keys=[session_id])
+    user = relationship("User", foreign_keys=[user_id])
+
+    __table_args__ = (
+        Index('idx_rtc_participants_session_active', 'session_id', 'is_active'),
+        Index('idx_rtc_participants_user', 'user_id'),
     )
 
 
