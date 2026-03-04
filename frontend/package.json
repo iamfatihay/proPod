@@ -8,6 +8,8 @@
     "start:dev:tunnel": "expo start --dev-client --tunnel",
     "start:lan": "expo start --dev-client --lan",
     "_comment_ip": "⚠️ Development build required for native modules (expo-notifications, expo-audio). Expo Go not supported.",
+    "dev": "bash ../scripts/start-dev.sh",
+    "dev:tunnel": "bash ../scripts/start-dev-tunnel.sh",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
