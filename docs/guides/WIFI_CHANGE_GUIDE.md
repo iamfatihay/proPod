@@ -62,7 +62,7 @@ Telefon → Expo tunnel → Metro
 Script ngrok'u başlatır, URL'yi otomatik okur, `API_BASE_URL` günceller.
 100ms webhook endpoint'ini ngrok URL'siyle konfigüre edebilirsin:
 ```
-$NGROK_URL/rtc/webhook
+$NGROK_URL/rtc/webhooks/100ms
 ```
 
 ---
