@@ -200,7 +200,9 @@ def _extract_recording_info(payload: Dict[str, Any]) -> Tuple[Optional[str], Opt
 
     recording_url = (
         payload.get("recording_url")
+        or data.get("recording_presigned_url")
         or data.get("recording_url")
+        or recording.get("recording_presigned_url")
         or recording.get("recording_url")
         or recording.get("url")
         or recording.get("s3_url")
