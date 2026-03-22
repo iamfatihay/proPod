@@ -58,7 +58,7 @@ async def upload_podcast_audio(
 
         # Build a safe filename
         original_suffix = SysPath(file.filename).suffix or ".mp3"
-        safe_name = f"podcast_{current_user.id}_{int(asyncio.get_event_loop().time()*1e9)}{original_suffix}"
+        safe_name = f"podcast_{current_user.id}_{time.time_ns()}{original_suffix}"
         dest_path = media_dir / safe_name
 
         # Save file to disk
