@@ -25,7 +25,6 @@ class UserBase(BaseModel):
     """Base user schema with common fields."""
     email: EmailStr
     name: str
-    photo_url: Optional[str] = None
 
 
 class UserCreate(UserBase):
@@ -285,7 +284,7 @@ class RTCParticipantResponse(BaseModel):
 class GoogleLoginRequest(BaseModel):
     email: EmailStr
     name: str
-    provider: str
+    provider: str = "google"
     photo_url: Optional[str] = None
 
 

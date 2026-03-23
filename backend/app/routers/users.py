@@ -122,7 +122,7 @@ async def login(user: schemas.UserLogin, db: Session = Depends(get_db)) -> AuthR
 
 
 @router.post("/google-login", response_model=AuthResponse)
-def google_login(user: schemas.UserBase, db: Session = Depends(get_db)):
+def google_login(user: schemas.GoogleLoginRequest, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_email(db, email=user.email)
     if not db_user:
         user_create = schemas.UserCreate(

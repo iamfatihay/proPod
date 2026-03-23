@@ -30,7 +30,7 @@ client = TestClient(app)
 
 @pytest.fixture
 def db_session():
-    """Provide a database session that rolls back after test."""
+    """Provide a database session, closed after test."""
     db = SessionLocal()
     try:
         yield db
@@ -248,7 +248,10 @@ class TestTokenRefresh:
             "email": test_user["user"].email,
             "password": test_user["password"],
         })
-        refresh_token = login_resp.json()["refresh_token"]
+        assert login_resp.status_code == 200
+        login_data = login_resp.json()
+        assert "refresh_token" in login_data
+        refresh_token = login_data["refresh_token"]
 
         response = client.post("/users/refresh-token", json={
             "refresh_token": refresh_token,
@@ -362,8 +365,17 @@ class TestChangePassword:
 
 # ==================== Forgot / Reset Password Tests ====================
 
+@pytest.mark.skipif(
+    __import__("os").getenv("ENV", "dev") != "dev",
+    reason="Forgot/reset password tests require ENV=dev (token returned in response)",
+)
 class TestForgotResetPassword:
-    """Test suite for POST /users/forgot-password and POST /users/reset-password."""
+    """Test suite for POST /users/forgot-password and POST /users/reset-password.
+
+    Note: These tests rely on dev mode behavior where the reset token is
+    returned directly in the API response. In production, the token is sent
+    via email and not included in the response body.
+    """
 
     def test_forgot_password_existing_user(self, test_user):
         """Forgot password for existing user returns token in dev mode."""
