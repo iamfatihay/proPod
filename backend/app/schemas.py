@@ -25,6 +25,7 @@ class UserBase(BaseModel):
     """Base user schema with common fields."""
     email: EmailStr
     name: str
+    photo_url: Optional[str] = None
 
 
 class UserCreate(UserBase):
