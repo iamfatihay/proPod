@@ -160,6 +160,8 @@ def get_current_user_optional(
     Returns:
         Optional[User]: The authenticated user object or None
     """
+    if token is None:
+        return None
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: Optional[str] = payload.get("sub")

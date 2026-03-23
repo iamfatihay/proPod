@@ -1,6 +1,6 @@
 """CRUD (Create, Read, Update, Delete) operations for database models."""
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, desc, and_, or_
+from sqlalchemy import case, func, desc, and_, or_
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
 import secrets
@@ -938,8 +938,8 @@ def get_podcast_analytics(db: Session, podcast_id: int):
     history_stats = db.query(
         func.count(models.ListeningHistory.id).label('total_listens'),
         func.avg(models.ListeningHistory.listen_time).label('avg_listen_time'),
-        func.count(
-            func.case([(models.ListeningHistory.completed == True, 1)])
+        func.sum(
+            case((models.ListeningHistory.completed == True, 1), else_=0)
         ).label('completed_listens')
     ).filter(models.ListeningHistory.podcast_id == podcast_id).first()
     
