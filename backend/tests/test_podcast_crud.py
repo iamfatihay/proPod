@@ -92,15 +92,20 @@ def test_podcast(test_user):
 
 def _cleanup_user(db, user):
     """Remove all data associated with a user."""
+    # Delete interactions created *by* this user
     db.query(PodcastComment).filter(PodcastComment.user_id == user.id).delete()
     db.query(ListeningHistory).filter(ListeningHistory.user_id == user.id).delete()
     db.query(PodcastBookmark).filter(PodcastBookmark.user_id == user.id).delete()
     db.query(PodcastLike).filter(PodcastLike.user_id == user.id).delete()
-    # Delete stats, then podcasts
+    # Delete data associated with podcasts owned by this user (from any user)
     podcast_ids = [p.id for p in db.query(Podcast).filter(Podcast.owner_id == user.id).all()]
     if podcast_ids:
+        db.query(PodcastComment).filter(PodcastComment.podcast_id.in_(podcast_ids)).delete(synchronize_session=False)
+        db.query(ListeningHistory).filter(ListeningHistory.podcast_id.in_(podcast_ids)).delete(synchronize_session=False)
+        db.query(PodcastBookmark).filter(PodcastBookmark.podcast_id.in_(podcast_ids)).delete(synchronize_session=False)
+        db.query(PodcastLike).filter(PodcastLike.podcast_id.in_(podcast_ids)).delete(synchronize_session=False)
         db.query(PodcastStats).filter(PodcastStats.podcast_id.in_(podcast_ids)).delete(synchronize_session=False)
-        db.query(Podcast).filter(Podcast.owner_id == user.id).delete()
+        db.query(Podcast).filter(Podcast.owner_id == user.id).delete(synchronize_session=False)
     db.delete(user)
     db.commit()
 
