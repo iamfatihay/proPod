@@ -204,6 +204,7 @@ class TestListPodcasts:
         for i in range(3):
             _create_podcast_via_api(test_user["token"], title=f"Page Test {i}")
         resp = client.get("/podcasts/?skip=0&limit=2")
+        assert resp.status_code == 200
         data = resp.json()
         assert len(data["podcasts"]) <= 2
         assert data["limit"] == 2
@@ -212,6 +213,7 @@ class TestListPodcasts:
         _create_podcast_via_api(test_user["token"], title="Science Pod", category="Science")
         _create_podcast_via_api(test_user["token"], title="Tech Pod", category="Technology")
         resp = client.get("/podcasts/?category=Science")
+        assert resp.status_code == 200
         data = resp.json()
         for p in data["podcasts"]:
             assert p["category"] == "Science"
@@ -425,7 +427,9 @@ class TestComments:
             )
         resp = client.get(f"/podcasts/{created['id']}/comments")
         assert resp.status_code == 200
-        assert len(resp.json()) >= 3
+        comments = resp.json()
+        assert len(comments) == 3
+        assert {c["content"] for c in comments} == {"Comment 0", "Comment 1", "Comment 2"}
 
     def test_update_comment_success(self, test_user):
         created = _create_podcast_via_api(test_user["token"])
@@ -591,8 +595,10 @@ class TestListeningHistory:
         )
         resp = client.get("/podcasts/my/history", headers=_auth(test_user["token"]))
         assert resp.status_code == 200
-        assert isinstance(resp.json(), list)
-        assert len(resp.json()) >= 1
+        data = resp.json()
+        assert isinstance(data, list)
+        assert len(data) == 1
+        assert data[0].get("podcast_id") == created["id"]
 
 
 # --------------- Analytics ---------------
