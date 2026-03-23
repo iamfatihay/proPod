@@ -9,27 +9,34 @@ Tests cover:
 - Filename uses time.time_ns() (not asyncio) for unique naming
 """
 
+import os
 import pytest
 from io import BytesIO
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.database import SessionLocal, engine, Base
+from app.database import SessionLocal
 from app.models import User
 from app import crud, schemas
 from app.auth import create_access_token
 
-# Create all tables before tests run
-Base.metadata.create_all(bind=engine)
-
 client = TestClient(app)
 
 
-def create_test_audio_bytes():
+def _create_test_audio_bytes():
     """Create minimal bytes that simulate an audio file for testing."""
-    # Minimal data to pass content reading (not a real audio file,
-    # but sufficient for upload validation tests)
     return BytesIO(b'\x00' * 1024)
+
+
+def _cleanup_uploaded_file(response_json):
+    """Remove an uploaded file from disk to prevent test pollution."""
+    if "audio_url" in response_json:
+        backend_dir = os.path.dirname(os.path.dirname(__file__))
+        rel_path = response_json["audio_url"].lstrip("/")
+        full_path = os.path.join(backend_dir, rel_path)
+        if os.path.exists(full_path):
+            os.remove(full_path)
 
 
 @pytest.fixture
@@ -37,7 +44,6 @@ def test_user():
     """Create a test user and return access token."""
     db = SessionLocal()
     try:
-        # Clean up existing test user
         existing_user = db.query(User).filter(
             User.email == "uploadtest@test.com"
         ).first()
@@ -45,7 +51,6 @@ def test_user():
             db.delete(existing_user)
             db.commit()
 
-        # Create test user
         user_create = schemas.UserCreate(
             email="uploadtest@test.com",
             name="Upload Test User",
@@ -56,7 +61,6 @@ def test_user():
 
         yield {"user": user, "token": token}
 
-        # Cleanup
         db.delete(user)
         db.commit()
     finally:
@@ -69,7 +73,7 @@ class TestPodcastAudioUpload:
     def test_upload_valid_audio(self, test_user):
         """Test uploading a valid audio file succeeds."""
         token = test_user["token"]
-        audio_bytes = create_test_audio_bytes()
+        audio_bytes = _create_test_audio_bytes()
 
         response = client.post(
             "/podcasts/upload",
@@ -84,34 +88,42 @@ class TestPodcastAudioUpload:
         assert data["content_type"] == "audio/mpeg"
         assert data["filename"].startswith(f"podcast_{test_user['user'].id}_")
         assert data["filename"].endswith(".mp3")
+        _cleanup_uploaded_file(data)
 
     def test_upload_generates_unique_filenames(self, test_user):
         """
         Regression test: filename generation must not crash.
         Previously used asyncio.get_event_loop().time() without importing asyncio,
         causing NameError. Now uses time.time_ns() for consistency.
+
+        Uses monkeypatched time.time_ns to guarantee deterministic, distinct values.
         """
         token = test_user["token"]
+        timestamps = iter([1000000000, 2000000000])
 
-        # Upload twice and verify both succeed with different filenames
-        audio_bytes1 = create_test_audio_bytes()
-        response1 = client.post(
-            "/podcasts/upload",
-            headers={"Authorization": f"Bearer {token}"},
-            files={"file": ("test1.mp3", audio_bytes1, "audio/mpeg")}
-        )
-        assert response1.status_code == 200
+        with patch("app.routers.podcasts.time") as mock_time:
+            mock_time.time_ns = lambda: next(timestamps)
 
-        audio_bytes2 = create_test_audio_bytes()
-        response2 = client.post(
-            "/podcasts/upload",
-            headers={"Authorization": f"Bearer {token}"},
-            files={"file": ("test2.mp3", audio_bytes2, "audio/mpeg")}
-        )
-        assert response2.status_code == 200
+            response1 = client.post(
+                "/podcasts/upload",
+                headers={"Authorization": f"Bearer {token}"},
+                files={"file": ("test1.mp3", _create_test_audio_bytes(), "audio/mpeg")}
+            )
+            assert response1.status_code == 200
 
-        # Filenames should be different (unique timestamps)
-        assert response1.json()["filename"] != response2.json()["filename"]
+            response2 = client.post(
+                "/podcasts/upload",
+                headers={"Authorization": f"Bearer {token}"},
+                files={"file": ("test2.mp3", _create_test_audio_bytes(), "audio/mpeg")}
+            )
+            assert response2.status_code == 200
+
+        data1, data2 = response1.json(), response2.json()
+        assert "1000000000" in data1["filename"]
+        assert "2000000000" in data2["filename"]
+        assert data1["filename"] != data2["filename"]
+        _cleanup_uploaded_file(data1)
+        _cleanup_uploaded_file(data2)
 
     def test_upload_invalid_file_type(self, test_user):
         """Test uploading an unsupported file type is rejected."""
@@ -128,23 +140,27 @@ class TestPodcastAudioUpload:
         assert "Unsupported file type" in response.json()["detail"]
 
     def test_upload_oversized_file(self, test_user):
-        """Test uploading a file larger than 100MB is rejected."""
-        token = test_user["token"]
-        # Create a file slightly over 100MB
-        large_data = b'\x00' * (101 * 1024 * 1024)
-        file_content = BytesIO(large_data)
+        """Test uploading a file larger than the size limit is rejected.
 
-        response = client.post(
-            "/podcasts/upload",
-            headers={"Authorization": f"Bearer {token}"},
-            files={"file": ("large.mp3", file_content, "audio/mpeg")}
-        )
+        Monkeypatches MAX_UPLOAD_SIZE to a tiny value to avoid allocating
+        100+ MB in memory during testing.
+        """
+        token = test_user["token"]
+        # 2KB file, but we set the limit to 1KB
+        file_content = BytesIO(b'\x00' * 2048)
+
+        with patch("app.routers.podcasts.MAX_UPLOAD_SIZE", 1024):
+            response = client.post(
+                "/podcasts/upload",
+                headers={"Authorization": f"Bearer {token}"},
+                files={"file": ("large.mp3", file_content, "audio/mpeg")}
+            )
 
         assert response.status_code == 413
 
     def test_upload_without_authentication(self):
         """Test uploading without authentication token is rejected."""
-        audio_bytes = create_test_audio_bytes()
+        audio_bytes = _create_test_audio_bytes()
 
         response = client.post(
             "/podcasts/upload",
@@ -156,7 +172,7 @@ class TestPodcastAudioUpload:
     def test_upload_wav_format(self, test_user):
         """Test uploading WAV format is accepted."""
         token = test_user["token"]
-        audio_bytes = create_test_audio_bytes()
+        audio_bytes = _create_test_audio_bytes()
 
         response = client.post(
             "/podcasts/upload",
@@ -168,11 +184,12 @@ class TestPodcastAudioUpload:
         data = response.json()
         assert data["filename"].endswith(".wav")
         assert data["content_type"] == "audio/wav"
+        _cleanup_uploaded_file(data)
 
     def test_upload_m4a_format(self, test_user):
         """Test uploading M4A format is accepted."""
         token = test_user["token"]
-        audio_bytes = create_test_audio_bytes()
+        audio_bytes = _create_test_audio_bytes()
 
         response = client.post(
             "/podcasts/upload",
@@ -183,6 +200,7 @@ class TestPodcastAudioUpload:
         assert response.status_code == 200
         data = response.json()
         assert data["filename"].endswith(".m4a")
+        _cleanup_uploaded_file(data)
 
 
 if __name__ == "__main__":

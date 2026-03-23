@@ -14,6 +14,10 @@ from ..services.ai_service import get_ai_service
 
 router = APIRouter(prefix="/podcasts", tags=["podcasts"])
 
+# Maximum upload size in bytes (100 MB). Extracted as a module constant so
+# tests can monkeypatch it to avoid allocating large in-memory payloads.
+MAX_UPLOAD_SIZE = 100 * 1024 * 1024
+
 
 @router.post("/create", response_model=schemas.Podcast)
 def create_podcast(
@@ -35,8 +39,6 @@ async def upload_podcast_audio(
         # Validate file type and size
         allowed_types = {"audio/mpeg", "audio/mp4",
                          "audio/m4a", "audio/aac", "audio/wav", "audio/ogg"}
-        max_size = 100 * 1024 * 1024  # 100MB
-
         if file.content_type not in allowed_types:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -45,10 +47,10 @@ async def upload_podcast_audio(
 
         # Read file content to check size
         contents = await file.read()
-        if len(contents) > max_size:
+        if len(contents) > MAX_UPLOAD_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"File too large. Maximum size: {max_size // (1024*1024)}MB",
+                detail=f"File too large. Maximum size: {MAX_UPLOAD_SIZE // (1024*1024)}MB",
             )
 
         # Ensure media directory exists
