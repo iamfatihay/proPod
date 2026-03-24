@@ -62,6 +62,8 @@ export default ({ config }) => ({
         favicon: "./assets/Volo-logo.png",
     },
     extra: {
+        // Analytics
+        clarityProjectId: process.env.CLARITY_PROJECT_ID || "w0q4nzuzaa",
         // API Configuration
         // Development: Leave empty for auto-detection
         // Production: Set in .env or environment variables
