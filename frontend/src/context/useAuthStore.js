@@ -3,6 +3,7 @@ import { devtools } from "zustand/middleware";
 import { getToken, deleteToken } from "../services/auth/tokenStorage";
 import apiService from "../services/api/apiService";
 import Logger from "../utils/logger";
+import clarityService from "../services/analytics/clarityService";
 
 const storeConfig = (set) => ({
     user: null,
@@ -16,6 +17,7 @@ const storeConfig = (set) => ({
         await deleteToken("accessToken");
         await deleteToken("refreshToken");
         apiService.clearToken();
+        clarityService.clearUser();
         set(
             { user: null, accessToken: null, refreshToken: null },
             false,
@@ -34,6 +36,8 @@ const storeConfig = (set) => ({
                 // Fetch user data
                 try {
                     const userData = await apiService.getMe();
+                    // Identify user in analytics
+                    clarityService.setUser(userData.id, userData.username || userData.email);
                     set(
                         {
                             user: userData,
