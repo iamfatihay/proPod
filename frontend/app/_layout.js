@@ -11,6 +11,7 @@ import protectionService from "../src/services/recording/protectionService";
 import DraftRecoveryModal from "../src/components/DraftRecoveryModal";
 import * as Notifications from 'expo-notifications';
 import Logger from "../src/utils/logger";
+import clarityService from "../src/services/analytics/clarityService";
 
 export default function Layout() {
     const { user, isInitializing } = useAuthStore();
@@ -23,6 +24,9 @@ export default function Layout() {
     const [showDraftModal, setShowDraftModal] = useState(false);
 
     useEffect(() => {
+        // Initialize analytics
+        clarityService.initialize();
+
         // Load tokens and user data from SecureStore when the app starts
         initAuth();
 
