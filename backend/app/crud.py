@@ -1056,3 +1056,98 @@ def get_recommended_podcasts(db: Session, user_id: int, limit: int = 10):
     ).limit(limit).all()
     
     return recommended
+
+
+# ==================== Public User Profile ====================
+
+def get_public_user_profile(db: Session, user_id: int) -> Optional[Dict]:
+    """
+    Get a user's public profile with aggregate creator statistics.
+
+    Returns non-sensitive user information and aggregate stats
+    (podcast count, total plays, total likes) across all of
+    the user's public, non-deleted podcasts.
+
+    Args:
+        db: Database session
+        user_id: ID of the user whose profile to retrieve
+
+    Returns:
+        Dict with user info and aggregate stats, or None if user not found
+    """
+    user = db.query(models.User).filter(
+        models.User.id == user_id,
+        models.User.is_active == True
+    ).first()
+
+    if not user:
+        return None
+
+    # Aggregate stats across user's public podcasts
+    stats = db.query(
+        func.count(models.Podcast.id).label("podcast_count"),
+        func.coalesce(func.sum(models.PodcastStats.play_count), 0).label("total_plays"),
+        func.coalesce(func.sum(models.PodcastStats.like_count), 0).label("total_likes"),
+    ).outerjoin(
+        models.PodcastStats,
+        models.PodcastStats.podcast_id == models.Podcast.id
+    ).filter(
+        models.Podcast.owner_id == user_id,
+        models.Podcast.is_deleted == False,
+        models.Podcast.is_public == True,
+    ).first()
+
+    return {
+        "id": user.id,
+        "name": user.name,
+        "photo_url": user.photo_url,
+        "created_at": user.created_at,
+        "podcast_count": stats.podcast_count if stats else 0,
+        "total_plays": int(stats.total_plays) if stats else 0,
+        "total_likes": int(stats.total_likes) if stats else 0,
+        "total_followers": 0,  # Placeholder for future follower feature
+    }
+
+
+def get_user_public_podcasts(
+    db: Session,
+    user_id: int,
+    skip: int = 0,
+    limit: int = 20,
+) -> Tuple[List[models.Podcast], int]:
+    """
+    Get a user's public, non-deleted podcasts with pagination.
+
+    Args:
+        db: Database session
+        user_id: ID of the podcast owner
+        skip: Number of results to skip (pagination offset)
+        limit: Maximum results to return
+
+    Returns:
+        Tuple of (list of enriched Podcast objects, total count)
+    """
+    base_query = db.query(models.Podcast).options(
+        joinedload(models.Podcast.stats),
+        joinedload(models.Podcast.ai_data),
+        joinedload(models.Podcast.owner),
+    ).filter(
+        models.Podcast.owner_id == user_id,
+        models.Podcast.is_deleted == False,
+        models.Podcast.is_public == True,
+    )
+
+    total = db.query(func.count(models.Podcast.id)).filter(
+        models.Podcast.owner_id == user_id,
+        models.Podcast.is_deleted == False,
+        models.Podcast.is_public == True,
+    ).scalar()
+
+    podcasts = base_query.order_by(
+        desc(models.Podcast.created_at)
+    ).offset(skip).limit(limit).all()
+
+    for podcast in podcasts:
+        enrich_podcast_with_stats(podcast)
+
+    return podcasts, total

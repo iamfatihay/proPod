@@ -49,6 +49,25 @@ class UserUpdate(BaseModel):
     name: Optional[str] = None
 
 
+class PublicUserProfile(BaseModel):
+    """Public-facing user profile with aggregate creator stats.
+
+    Exposes only non-sensitive information suitable for display
+    on public profile pages. Includes aggregate statistics across
+    all of the user's public podcasts.
+    """
+    id: int
+    name: str
+    photo_url: Optional[str] = None
+    created_at: datetime.datetime
+    podcast_count: int = 0
+    total_plays: int = 0
+    total_likes: int = 0
+    total_followers: int = 0  # Placeholder for future follower feature
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class User(UserBase):
     """User response schema."""
     id: int
