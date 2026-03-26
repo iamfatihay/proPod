@@ -110,3 +110,16 @@ class TestUpdateProfile:
             headers={"Authorization": "Bearer invalid-token-here"},
         )
         assert response.status_code == 401
+
+    def test_null_name_is_noop_not_crash(self, test_user):
+        """Sending name=null should not crash with 500 — it is treated as a no-op."""
+        user, token, db = test_user
+        response = client.put(
+            "/users/me",
+            json={"name": None},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        # Must NOT return 500; null values are excluded (not written to DB)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == user.name  # Name must be unchanged
