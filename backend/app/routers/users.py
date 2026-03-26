@@ -123,24 +123,29 @@ async def login(user: schemas.UserLogin, db: Session = Depends(get_db)) -> AuthR
 
 @router.post("/google-login", response_model=AuthResponse)
 def google_login(user: schemas.GoogleLoginRequest, db: Session = Depends(get_db)):
+    """
+    Authenticate or register a user via Google OAuth.
+
+    If the user already exists, returns tokens for the existing account.
+    If the user is new, creates an account with Google profile data
+    (including photo_url) and returns tokens.
+    """
     db_user = crud.get_user_by_email(db, email=user.email)
     if not db_user:
-        user_create = schemas.UserCreate(
-            email=user.email,
-            name=user.name,
-            provider="google",
-            photo_url=user.photo_url,
-            password=None
-        )
-        db_user = crud.create_user(db, user_create)
+        db_user = crud.create_google_user(db, {
+            "email": user.email,
+            "name": user.name,
+            "provider": "google",
+            "photo_url": user.photo_url,
+        })
     access_token = auth.create_access_token(data={"sub": db_user.email})
     refresh_token = auth.create_refresh_token(data={"sub": db_user.email})
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "user": UserSchema.model_validate(db_user)
-    }
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        user=UserSchema.model_validate(db_user)
+    )
 
 
 @router.post("/refresh-token")
