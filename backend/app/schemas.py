@@ -284,7 +284,7 @@ class RTCParticipantResponse(BaseModel):
 class GoogleLoginRequest(BaseModel):
     email: EmailStr
     name: str
-    provider: str
+    provider: str = "google"
     photo_url: Optional[str] = None
 
 

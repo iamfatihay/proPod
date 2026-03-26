@@ -162,7 +162,7 @@ def update_user(db: Session, user: models.User, user_update: schemas.UserUpdate)
     Returns:
         models.User: Updated user object
     """
-    for field, value in user_update.dict(exclude_unset=True).items():
+    for field, value in user_update.model_dump(exclude_unset=True).items():
         setattr(user, field, value)
     db.commit()
     db.refresh(user)
@@ -266,7 +266,7 @@ def create_podcast(db: Session, podcast: schemas.PodcastCreate, owner_id: int) -
     Returns:
         models.Podcast: Created podcast object
     """
-    db_podcast = models.Podcast(**podcast.dict(), owner_id=owner_id)
+    db_podcast = models.Podcast(**podcast.model_dump(), owner_id=owner_id)
     db.add(db_podcast)
     db.flush()  # Get the podcast ID without committing
     
@@ -458,7 +458,7 @@ def update_podcast(db: Session, podcast: models.Podcast, podcast_update: schemas
     Returns:
         models.Podcast: Updated podcast object
     """
-    for field, value in podcast_update.dict(exclude_unset=True).items():
+    for field, value in podcast_update.model_dump(exclude_unset=True).items():
         setattr(podcast, field, value)
     
     podcast.updated_at = datetime.datetime.now(timezone.utc)
@@ -910,7 +910,7 @@ def update_comment(db: Session, comment: models.PodcastComment, comment_update: 
     Returns:
         models.PodcastComment: Updated comment object
     """
-    for field, value in comment_update.dict(exclude_unset=True).items():
+    for field, value in comment_update.model_dump(exclude_unset=True).items():
         setattr(comment, field, value)
     
     comment.updated_at = datetime.datetime.now(timezone.utc)

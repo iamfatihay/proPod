@@ -47,7 +47,7 @@ def test_user():
 class TestRTCToken:
     """Test RTC token generation."""
 
-    @patch("app.services.hms_service.generate_auth_token")
+    @patch("app.routers.rtc.generate_auth_token")
     def test_create_token_success(self, mock_generate, test_user):
         """Test successful token creation."""
         mock_generate.return_value = "mock-token-12345"
@@ -155,7 +155,7 @@ class TestRTCWebhook:
 
     def test_webhook_invalid_secret(self):
         """Test webhook with invalid secret."""
-        with patch("app.config.settings") as mock_settings:
+        with patch("app.routers.rtc.settings") as mock_settings:
             mock_settings.HMS_WEBHOOK_SECRET = "correct-secret"
 
             response = client.post(
