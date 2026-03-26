@@ -508,3 +508,45 @@ class RTCStorageEstimateResponse(BaseModel):
     duration_minutes: int
     participant_count: int
     template: RTCTemplateConfig
+
+
+# ==================== Creator Analytics Dashboard Schemas ====================
+
+class CreatorDashboardStats(BaseModel):
+    """Aggregate statistics for a creator's dashboard."""
+    total_podcasts: int = 0
+    total_plays: int = 0
+    total_likes: int = 0
+    total_bookmarks: int = 0
+    total_comments: int = 0
+    total_listen_time_seconds: int = 0
+    average_completion_rate: float = 0.0
+    podcasts_with_ai: int = 0
+
+
+class CategoryStats(BaseModel):
+    """Statistics broken down by podcast category."""
+    category: str
+    podcast_count: int = 0
+    total_plays: int = 0
+    total_likes: int = 0
+    total_bookmarks: int = 0
+
+
+class TopPodcastStats(BaseModel):
+    """Stats for a single podcast in the top-performing list."""
+    id: int
+    title: str
+    category: str
+    play_count: int = 0
+    like_count: int = 0
+    bookmark_count: int = 0
+    comment_count: int = 0
+    created_at: datetime.datetime
+
+
+class CreatorDashboardResponse(BaseModel):
+    """Full creator analytics dashboard response."""
+    stats: CreatorDashboardStats
+    top_podcasts: List[TopPodcastStats] = []
+    category_breakdown: List[CategoryStats] = []
