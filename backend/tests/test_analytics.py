@@ -194,10 +194,10 @@ class TestAnalyticsEmptyState:
         resp = client.get("/analytics/dashboard", headers=_auth_header(user))
         assert resp.status_code == 200
         data = resp.json()
-        assert data["stats"]["total_podcasts"] == 0
-        assert data["stats"]["total_plays"] == 0
+        assert data["total_podcasts"] == 0
+        assert data["total_plays"] == 0
         assert data["top_podcasts"] == []
-        assert data["category_breakdown"] == []
+        assert data["category_distribution"] == []
 
     def test_stats_empty(self, db):
         user = _create_user(db)
@@ -424,15 +424,15 @@ class TestFullDashboard:
         assert resp.status_code == 200
         data = resp.json()
 
-        assert "stats" in data
+        assert "total_podcasts" in data
         assert "top_podcasts" in data
-        assert "category_breakdown" in data
+        assert "category_distribution" in data
 
-        assert data["stats"]["total_podcasts"] == 1
-        assert data["stats"]["total_plays"] == 42
+        assert data["total_podcasts"] == 1
+        assert data["total_plays"] == 42
         assert len(data["top_podcasts"]) == 1
         assert data["top_podcasts"][0]["title"] == "Dashboard Test"
-        assert len(data["category_breakdown"]) == 1
+        assert len(data["category_distribution"]) == 1
 
 
 # ---------------------------------------------------------------------------
