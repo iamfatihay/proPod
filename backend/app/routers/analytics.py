@@ -6,7 +6,7 @@ including top-performing content, category breakdowns, and engagement metrics.
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, case
-from typing import List
+from typing import List, Literal
 
 from .. import schemas, models, auth
 from ..database import get_db
@@ -48,7 +48,7 @@ def get_creator_stats(
 @router.get("/top-podcasts", response_model=List[schemas.TopPodcastStats])
 def get_top_podcasts(
     limit: int = Query(5, ge=1, le=20, description="Number of top podcasts to return"),
-    sort_by: str = Query(
+    sort_by: Literal["plays", "likes", "bookmarks"] = Query(
         "plays",
         description="Sort metric: plays, likes, or bookmarks",
     ),
@@ -187,11 +187,13 @@ def _get_top_podcasts(
 def _get_category_breakdown(db: Session, owner_id: int) -> List[schemas.CategoryStats]:
     """Return per-category aggregates for a creator's podcasts."""
 
+    plays_expr = func.coalesce(func.sum(models.PodcastStats.play_count), 0).label("plays")
+
     rows = (
         db.query(
             models.Podcast.category,
             func.count(models.Podcast.id).label("podcast_count"),
-            func.coalesce(func.sum(models.PodcastStats.play_count), 0).label("plays"),
+            plays_expr,
             func.coalesce(func.sum(models.PodcastStats.like_count), 0).label("likes"),
             func.coalesce(func.sum(models.PodcastStats.bookmark_count), 0).label("bookmarks"),
         )
@@ -201,7 +203,7 @@ def _get_category_breakdown(db: Session, owner_id: int) -> List[schemas.Category
             models.Podcast.is_deleted == False,
         )
         .group_by(models.Podcast.category)
-        .order_by(desc("plays"))
+        .order_by(desc(plays_expr))
         .all()
     )
 

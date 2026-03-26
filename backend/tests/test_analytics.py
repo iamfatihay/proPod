@@ -19,16 +19,20 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
 from app import models, auth
 
 # ---------------------------------------------------------------------------
-# Test database setup
+# Test database setup — in-memory SQLite (no file artifacts, no conflicts)
 # ---------------------------------------------------------------------------
-SQLALCHEMY_TEST_URL = "sqlite:///./test_analytics.db"
-engine = create_engine(SQLALCHEMY_TEST_URL, connect_args={"check_same_thread": False})
+engine = create_engine(
+    "sqlite://",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -39,8 +43,6 @@ def override_get_db():
     finally:
         db.close()
 
-
-app.dependency_overrides[get_db] = override_get_db
 
 client = TestClient(app)
 
@@ -138,9 +140,11 @@ def _add_listening_history(db, user_id, podcast_id, listen_time=60, completed=Fa
 
 @pytest.fixture(autouse=True)
 def setup_database():
-    """Create tables before each test and drop them afterwards."""
+    """Create tables before each test, override get_db, and clean up after."""
     Base.metadata.create_all(bind=engine)
+    app.dependency_overrides[get_db] = override_get_db
     yield
+    app.dependency_overrides.pop(get_db, None)
     Base.metadata.drop_all(bind=engine)
 
 
