@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 from app.main import app
 from app.database import SessionLocal
 from app import crud, schemas, models
-from app.auth import create_access_token
 
 client = TestClient(app)
 
@@ -79,7 +78,7 @@ def _create_podcast_with_stats(
 
 @pytest.fixture
 def db():
-    """Yield a database session, rolled back after the test."""
+    """Yield a database session. Closed after each test; tests clean up their own committed state."""
     session = SessionLocal()
     try:
         yield session
@@ -276,13 +275,20 @@ class TestGetUserPodcasts:
         assert resp.status_code == 200
 
     def test_podcasts_sorted_newest_first(self, db, profile_user_with_podcasts):
-        """Podcasts are returned in reverse chronological order."""
+        """Podcasts are returned in reverse chronological order.
+
+        Uses (created_at, id) as a compound sort key to make the assertion
+        stable even if multiple podcasts share the same timestamp.
+        """
         user = profile_user_with_podcasts
         resp = client.get(f"/users/{user.id}/podcasts")
         assert resp.status_code == 200
         data = resp.json()
-        dates = [p["created_at"] for p in data["podcasts"]]
-        assert dates == sorted(dates, reverse=True)
+        podcasts = data["podcasts"]
+        # Build compound sort key: (created_at desc, id desc) for tie-breaking
+        sort_keys = [(p["created_at"], p["id"]) for p in podcasts]
+        assert sort_keys == sorted(sort_keys, reverse=True), \
+            "Podcasts should be sorted newest-first (by created_at, then id desc)"
 
     def test_podcast_response_includes_expected_fields(self, profile_user_with_podcasts):
         """Each podcast in the response has the expected schema fields."""

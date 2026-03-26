@@ -1127,20 +1127,28 @@ def get_user_public_podcasts(
     Returns:
         Tuple of (list of enriched Podcast objects, total count)
     """
+    # Include is_active join to guard against inactive (soft-deleted) user accounts,
+    # preventing accidental exposure of their podcasts on reuse without caller check.
     base_query = db.query(models.Podcast).options(
         joinedload(models.Podcast.stats),
         joinedload(models.Podcast.ai_data),
         joinedload(models.Podcast.owner),
+    ).join(
+        models.User, models.User.id == models.Podcast.owner_id
     ).filter(
         models.Podcast.owner_id == user_id,
         models.Podcast.is_deleted == False,
         models.Podcast.is_public == True,
+        models.User.is_active == True,
     )
 
-    total = db.query(func.count(models.Podcast.id)).filter(
+    total = db.query(func.count(models.Podcast.id)).join(
+        models.User, models.User.id == models.Podcast.owner_id
+    ).filter(
         models.Podcast.owner_id == user_id,
         models.Podcast.is_deleted == False,
         models.Podcast.is_public == True,
+        models.User.is_active == True,
     ).scalar()
 
     podcasts = base_query.order_by(

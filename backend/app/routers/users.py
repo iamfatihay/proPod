@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Path, Query
 from sqlalchemy.orm import Session
 from pathlib import Path as SysPath
-from typing import Dict, List
+from typing import Dict
 import os
 import asyncio
 import secrets
