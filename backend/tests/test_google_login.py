@@ -8,11 +8,9 @@ Covers:
 - Response contains valid tokens and correct user data
 - Existing local user can also authenticate via Google
 """
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.database import SessionLocal
 import app.models as models
 
 client = TestClient(app)
@@ -58,8 +56,8 @@ class TestGoogleLogin:
         db_user = db_session.query(models.User).filter(
             models.User.email == "googleuser@gmail.com"
         ).first()
-        db_session.refresh(db_user)
         assert db_user is not None
+        db_session.refresh(db_user)
         assert db_user.photo_url == "https://lh3.googleusercontent.com/photo.jpg"
         assert db_user.provider == "google"
         assert db_user.hashed_password is None  # Google users have no password

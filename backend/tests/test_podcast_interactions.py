@@ -12,11 +12,9 @@ Covers:
 - Authorization: comment edit/delete restricted to owner
 - Edge cases: unlike non-liked, unbookmark non-bookmarked, interact with non-existent podcast
 """
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.database import SessionLocal
 import app.models as models
 
 client = TestClient(app)

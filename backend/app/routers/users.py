@@ -122,7 +122,7 @@ async def login(user: schemas.UserLogin, db: Session = Depends(get_db)) -> AuthR
 
 
 @router.post("/google-login", response_model=AuthResponse)
-def google_login(user: schemas.GoogleLoginRequest, db: Session = Depends(get_db)):
+def google_login(user: schemas.GoogleLoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
     """
     Authenticate or register a user via Google OAuth.
 
