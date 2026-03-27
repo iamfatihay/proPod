@@ -1,5 +1,5 @@
 """User authentication and profile management endpoints."""
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Path, Query
 from sqlalchemy.orm import Session
 from pathlib import Path as SysPath
 from typing import Dict
@@ -325,3 +325,66 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
         del reset_tokens[request.token]
 
     return {"msg": "Password reset successful."}
+
+
+# ==================== Public User Profiles ====================
+
+
+@router.get("/{user_id}/profile", response_model=schemas.PublicUserProfile)
+def get_user_profile(
+    user_id: int = Path(..., description="The ID of the user"),
+    db: Session = Depends(get_db),
+):
+    """
+    Get a user's public profile with aggregate creator statistics.
+
+    Returns non-sensitive profile information including podcast count,
+    total plays, and total likes. Does not require authentication.
+    """
+    profile = crud.get_public_user_profile(db=db, user_id=user_id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    return profile
+
+
+@router.get("/{user_id}/podcasts", response_model=schemas.PodcastListResponse)
+def get_user_podcasts(
+    user_id: int = Path(..., description="The ID of the user"),
+    skip: int = Query(0, ge=0, description="Number of podcasts to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Number of podcasts to return"),
+    db: Session = Depends(get_db),
+):
+    """
+    Get a user's public podcasts with pagination.
+
+    Returns only public, non-deleted podcasts sorted by creation date
+    (newest first). Does not require authentication.
+    """
+    # Verify user exists and is active
+    user = db.query(models.User).filter(
+        models.User.id == user_id,
+        models.User.is_active == True,
+    ).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    podcasts, total = crud.get_user_public_podcasts(
+        db=db,
+        user_id=user_id,
+        skip=skip,
+        limit=limit,
+    )
+
+    return schemas.PodcastListResponse(
+        podcasts=podcasts,
+        total=total,
+        limit=limit,
+        offset=skip,
+        has_more=total > skip + limit,
+    )
