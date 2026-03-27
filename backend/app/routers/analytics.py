@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, case
 from typing import List, Literal
+import datetime
+from datetime import timezone
 
 from .. import schemas, models, auth
 from ..database import get_db
@@ -14,26 +16,175 @@ from ..database import get_db
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
-@router.get("/dashboard", response_model=schemas.CreatorDashboardResponse)
+@router.get("/dashboard")
 def get_creator_dashboard(
+    days: int = Query(
+        30, ge=1, le=365,
+        description="Number of days to look back for recent engagement metrics (likes, bookmarks, comments)",
+    ),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
     """
     Get the full creator analytics dashboard.
 
-    Returns aggregate stats, top podcasts, and category breakdown
-    for all non-deleted podcasts owned by the authenticated user.
+    Returns aggregate stats, top podcasts, recent engagement trends,
+    and category distribution for all non-deleted podcasts owned by
+    the authenticated user.
     """
-    stats = _get_aggregate_stats(db, current_user.id)
-    top_podcasts = _get_top_podcasts(db, current_user.id, limit=5)
-    category_breakdown = _get_category_breakdown(db, current_user.id)
+    user_id = current_user.id
+    cutoff = datetime.datetime.now(timezone.utc) - datetime.timedelta(days=days)
 
-    return schemas.CreatorDashboardResponse(
-        stats=stats,
-        top_podcasts=top_podcasts,
-        category_breakdown=category_breakdown,
+    # ---- 1. Podcast IDs subquery (avoids materialising IDs into Python) ----
+    base_filter = [
+        models.Podcast.owner_id == user_id,
+        models.Podcast.is_deleted == False,
+    ]
+    podcast_ids_subq = db.query(models.Podcast.id).filter(*base_filter).scalar_subquery()
+    total_podcasts = db.query(models.Podcast.id).filter(*base_filter).count()
+
+    if total_podcasts == 0:
+        return {
+            "total_podcasts": 0,
+            "total_plays": 0,
+            "total_likes": 0,
+            "total_bookmarks": 0,
+            "total_comments": 0,
+            "average_completion_rate": 0.0,
+            "top_podcasts": [],
+            "recent_likes": 0,
+            "recent_bookmarks": 0,
+            "recent_comments": 0,
+            "category_distribution": [],
+            "days": days,
+        }
+
+    # ---- 2. Aggregate stats from PodcastStats ----
+    agg = (
+        db.query(
+            func.coalesce(func.sum(models.PodcastStats.play_count), 0).label("plays"),
+            func.coalesce(func.sum(models.PodcastStats.like_count), 0).label("likes"),
+            func.coalesce(func.sum(models.PodcastStats.bookmark_count), 0).label("bookmarks"),
+            func.coalesce(func.sum(models.PodcastStats.comment_count), 0).label("comments"),
+        )
+        .join(models.Podcast, models.PodcastStats.podcast_id == models.Podcast.id)
+        .filter(*base_filter)
+        .first()
     )
+
+    total_plays = int(agg.plays) if agg else 0
+    total_likes = int(agg.likes) if agg else 0
+    total_bookmarks = int(agg.bookmarks) if agg else 0
+    total_comments = int(agg.comments) if agg else 0
+
+    # ---- 3. Average completion rate from listening history ----
+    history_agg = (
+        db.query(
+            func.count(models.ListeningHistory.id).label("total"),
+            func.count(
+                case((models.ListeningHistory.completed == True, 1))
+            ).label("completed"),
+        )
+        .filter(models.ListeningHistory.podcast_id.in_(podcast_ids_subq))
+        .first()
+    )
+
+    total_listens = int(history_agg.total) if history_agg and history_agg.total else 0
+    completed_listens = int(history_agg.completed) if history_agg and history_agg.completed else 0
+    avg_completion = round((completed_listens / total_listens) * 100, 1) if total_listens > 0 else 0.0
+
+    # ---- 4. Top 5 podcasts by play count ----
+    top_podcasts_q = (
+        db.query(
+            models.Podcast.id,
+            models.Podcast.title,
+            models.Podcast.category,
+            models.Podcast.created_at,
+            func.coalesce(models.PodcastStats.play_count, 0).label("play_count"),
+            func.coalesce(models.PodcastStats.like_count, 0).label("like_count"),
+            func.coalesce(models.PodcastStats.bookmark_count, 0).label("bookmark_count"),
+        )
+        .outerjoin(models.PodcastStats, models.PodcastStats.podcast_id == models.Podcast.id)
+        .filter(*base_filter)
+        .order_by(desc(func.coalesce(models.PodcastStats.play_count, 0)))
+        .limit(5)
+        .all()
+    )
+
+    top_podcasts = [
+        {
+            "id": row.id,
+            "title": row.title,
+            "category": row.category,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "play_count": row.play_count,
+            "like_count": row.like_count,
+            "bookmark_count": row.bookmark_count,
+        }
+        for row in top_podcasts_q
+    ]
+
+    # ---- 5. Recent engagement within the time window ----
+    recent_likes = (
+        db.query(func.count(models.PodcastLike.id))
+        .filter(
+            models.PodcastLike.podcast_id.in_(podcast_ids_subq),
+            models.PodcastLike.created_at >= cutoff,
+        )
+        .scalar()
+    ) or 0
+
+    recent_bookmarks = (
+        db.query(func.count(models.PodcastBookmark.id))
+        .filter(
+            models.PodcastBookmark.podcast_id.in_(podcast_ids_subq),
+            models.PodcastBookmark.created_at >= cutoff,
+        )
+        .scalar()
+    ) or 0
+
+    recent_comments = (
+        db.query(func.count(models.PodcastComment.id))
+        .filter(
+            models.PodcastComment.podcast_id.in_(podcast_ids_subq),
+            models.PodcastComment.is_active == True,
+            models.PodcastComment.created_at >= cutoff,
+        )
+        .scalar()
+    ) or 0
+
+    # ---- 6. Category distribution ----
+    podcast_count_col = func.count(models.Podcast.id).label("count")
+    category_dist = (
+        db.query(
+            models.Podcast.category,
+            podcast_count_col,
+        )
+        .filter(*base_filter)
+        .group_by(models.Podcast.category)
+        .order_by(desc(podcast_count_col))
+        .all()
+    )
+
+    category_distribution = [
+        {"category": row.category, "count": row.count}
+        for row in category_dist
+    ]
+
+    return {
+        "total_podcasts": total_podcasts,
+        "total_plays": total_plays,
+        "total_likes": total_likes,
+        "total_bookmarks": total_bookmarks,
+        "total_comments": total_comments,
+        "average_completion_rate": avg_completion,
+        "top_podcasts": top_podcasts,
+        "recent_likes": recent_likes,
+        "recent_bookmarks": recent_bookmarks,
+        "recent_comments": recent_comments,
+        "category_distribution": category_distribution,
+        "days": days,
+    }
 
 
 @router.get("/stats", response_model=schemas.CreatorDashboardStats)
