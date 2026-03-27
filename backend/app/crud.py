@@ -162,7 +162,7 @@ def update_user(db: Session, user: models.User, user_update: schemas.UserUpdate)
     Returns:
         models.User: Updated user object
     """
-    for field, value in user_update.model_dump(exclude_unset=True).items():
+    for field, value in user_update.model_dump(exclude_unset=True, exclude_none=True).items():
         setattr(user, field, value)
     db.commit()
     db.refresh(user)

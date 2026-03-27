@@ -162,7 +162,8 @@ def get_me(current_user: models.User = Depends(auth.get_current_user)):
 
 
 @router.put("/me", response_model=UserSchema)
-def update_me(update: schemas.UserBase, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+def update_me(update: schemas.UserUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    """Update current user's profile (name only)."""
     updated_user = crud.update_user(db, current_user, update)
     return UserSchema.model_validate(updated_user)
 
