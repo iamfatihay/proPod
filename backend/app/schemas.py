@@ -569,3 +569,28 @@ class CreatorDashboardResponse(BaseModel):
     stats: CreatorDashboardStats
     top_podcasts: List[TopPodcastStats] = []
     category_breakdown: List[CategoryStats] = []
+
+
+# ==================== Continue Listening Schemas ====================
+
+class ContinueListeningItem(BaseModel):
+    """A podcast the user started but has not finished listening to.
+
+    Combines podcast metadata with the user's playback progress so
+    the client can render a 'Continue Listening' widget.
+    """
+    podcast_id: int
+    title: str
+    description: Optional[str] = None
+    audio_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    category: str = "General"
+    duration: int = 0
+    owner_id: int
+    owner_name: Optional[str] = None
+    position: int = 0
+    listen_time: int = 0
+    progress_percent: float = 0.0
+    last_played_at: datetime.datetime
+
+    model_config = ConfigDict(from_attributes=True)
