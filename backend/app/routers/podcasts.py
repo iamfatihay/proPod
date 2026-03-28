@@ -781,6 +781,18 @@ def get_podcast_analytics(
     return crud.get_podcast_analytics(db=db, podcast_id=podcast_id)
 
 
+@router.get("/discover/categories", response_model=List[schemas.CategoryInfo])
+def get_categories(
+    db: Session = Depends(get_db),
+):
+    """List all podcast categories with their podcast counts.
+
+    Returns categories sorted by number of public podcasts (descending),
+    useful for populating category filters and browse-by-category screens.
+    """
+    return crud.get_categories(db=db)
+
+
 @router.get("/discover/trending", response_model=List[schemas.Podcast])
 def get_trending_podcasts(
     limit: int = Query(
