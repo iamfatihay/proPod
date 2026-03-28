@@ -68,7 +68,7 @@ async def share_podcast_web(
         <meta property="og:url" content="{request.url}">
         <meta property="og:title" content="{safe_title}">
         <meta property="og:description" content="{safe_description or 'Listen to this podcast on Volo'}">
-        <meta property="og:image" content="{podcast.cover_image_url or f'{settings.BASE_URL}/static/og-image.png'}">
+        <meta property="og:image" content="{podcast.thumbnail_url or f'{settings.BASE_URL}/static/og-image.png'}">
         <meta property="og:audio" content="{audio_url}">
 
         <!-- Twitter -->
@@ -76,7 +76,7 @@ async def share_podcast_web(
         <meta name="twitter:url" content="{request.url}">
         <meta name="twitter:title" content="{safe_title}">
         <meta name="twitter:description" content="{safe_description or 'Listen to this podcast on Volo'}">
-        <meta name="twitter:image" content="{podcast.cover_image_url or f'{settings.BASE_URL}/static/og-image.png'}">
+        <meta name="twitter:image" content="{podcast.thumbnail_url or f'{settings.BASE_URL}/static/og-image.png'}">
         <meta name="twitter:player" content="{request.url}">
         <meta name="twitter:player:width" content="480">
         <meta name="twitter:player:height" content="240">
