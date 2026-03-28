@@ -870,6 +870,14 @@ def create_comment(db: Session, comment: schemas.PodcastCommentCreate, user_id: 
         timestamp=comment.timestamp
     )
     db.add(db_comment)
+
+    # Update stats comment count
+    stats = db.query(models.PodcastStats).filter(
+        models.PodcastStats.podcast_id == comment.podcast_id
+    ).first()
+    if stats:
+        stats.comment_count += 1
+
     db.commit()
     db.refresh(db_comment)
     return db_comment
@@ -923,6 +931,14 @@ def delete_comment(db: Session, comment: models.PodcastComment):
     """Soft delete a comment"""
     comment.is_active = False
     comment.updated_at = datetime.datetime.now(timezone.utc)
+
+    # Update stats comment count
+    stats = db.query(models.PodcastStats).filter(
+        models.PodcastStats.podcast_id == comment.podcast_id
+    ).first()
+    if stats and stats.comment_count > 0:
+        stats.comment_count -= 1
+
     db.commit()
     return comment
 
