@@ -255,3 +255,85 @@ class TestContinueListeningEndpoint:
         assert len(items) == 1
         assert items[0]["owner_name"] == other_user.name
         assert items[0]["progress_percent"] == 40.0
+
+    def test_excludes_private_podcasts_not_owned_by_user(
+        self, db_session, test_user, second_user
+    ):
+        """Podcasts made private after the user listened must not appear.
+
+        Without an access-control filter, a podcast that was made private would
+        still be returned and would leak its metadata / audio URL to the listener.
+        """
+        user, token = test_user
+        other_user, _ = second_user
+        _cleanup_history(db_session, user.id)
+
+        # Create a podcast owned by another user and make it private
+        podcast = _create_podcast(
+            db_session, other_user.id, "Now-Private EP",
+            duration=400, is_public=False,
+        )
+        crud.update_listening_history(
+            db_session, user.id, podcast.id,
+            position=100, listen_time=100, completed=False,
+        )
+
+        resp = client.get(
+            "/podcasts/my/continue-listening",
+            headers=_auth_header(token),
+        )
+        assert resp.status_code == 200
+        ids = [i["podcast_id"] for i in resp.json()]
+        assert podcast.id not in ids, (
+            "Private podcasts owned by others must not appear in continue-listening"
+        )
+
+    def test_includes_own_private_podcast(self, db_session, test_user):
+        """Users should always see their own private podcasts in continue-listening."""
+        user, token = test_user
+        _cleanup_history(db_session, user.id)
+
+        podcast = _create_podcast(
+            db_session, user.id, "My Private EP",
+            duration=300, is_public=False,
+        )
+        crud.update_listening_history(
+            db_session, user.id, podcast.id,
+            position=100, listen_time=100, completed=False,
+        )
+
+        resp = client.get(
+            "/podcasts/my/continue-listening",
+            headers=_auth_header(token),
+        )
+        assert resp.status_code == 200
+        ids = [i["podcast_id"] for i in resp.json()]
+        assert podcast.id in ids, "Owner must always see their own private podcasts"
+
+    def test_progress_percent_clamped_at_100(self, db_session, test_user):
+        """progress_percent must never exceed 100 even when position > duration.
+
+        Seeking past the end of a podcast is possible and would produce an
+        unclamped value greater than 100%, which is invalid for UI progress bars.
+        """
+        user, token = test_user
+        _cleanup_history(db_session, user.id)
+
+        podcast = _create_podcast(db_session, user.id, "Overshoot EP", duration=300)
+        # Simulate seek past end-of-file (position > duration)
+        crud.update_listening_history(
+            db_session, user.id, podcast.id,
+            position=500, listen_time=300, completed=False,
+        )
+
+        resp = client.get(
+            "/podcasts/my/continue-listening",
+            headers=_auth_header(token),
+        )
+        assert resp.status_code == 200
+        items = [i for i in resp.json() if i["podcast_id"] == podcast.id]
+        assert len(items) == 1
+        assert items[0]["progress_percent"] <= 100.0, (
+            "progress_percent must be clamped to 100 when position exceeds duration"
+        )
+        assert items[0]["progress_percent"] == 100.0

@@ -885,6 +885,13 @@ def get_continue_listening(
             models.ListeningHistory.completed == False,
             models.ListeningHistory.position > 0,
             models.Podcast.is_deleted == False,
+            # Only expose podcasts that are public OR owned by the requesting
+            # user.  Without this guard a podcast made private after the user
+            # listened to it would still appear here, leaking metadata/URLs.
+            or_(
+                models.Podcast.is_public == True,
+                models.Podcast.owner_id == user_id,
+            ),
         )
         .order_by(desc(models.ListeningHistory.updated_at))
         .offset(skip)
@@ -894,11 +901,14 @@ def get_continue_listening(
 
     items: List[schemas.ContinueListeningItem] = []
     for history, podcast, owner_name in rows:
-        progress = (
-            round((history.position / podcast.duration) * 100, 1)
+        # Clamp to [0.0, 100.0]: a user can seek past the end (position >
+        # duration) which would otherwise produce a value above 100%.
+        raw_progress = (
+            (history.position / podcast.duration) * 100
             if podcast.duration and podcast.duration > 0
             else 0.0
         )
+        progress = round(min(100.0, max(0.0, raw_progress)), 1)
         items.append(
             schemas.ContinueListeningItem(
                 podcast_id=podcast.id,
