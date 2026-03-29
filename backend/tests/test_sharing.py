@@ -24,6 +24,7 @@ from sqlalchemy.pool import StaticPool
 from app.database import Base, get_db
 from app.main import app
 from app import models, auth
+from app.auth import get_password_hash
 
 # ---------------------------------------------------------------------------
 # Test database setup — in-memory SQLite (no file artifacts, no conflicts)
@@ -52,13 +53,16 @@ client = TestClient(app)
 # ---------------------------------------------------------------------------
 
 def _create_user(db, email="test@example.com", name="Test User") -> models.User:
-    """Create a user directly in the database."""
-    from passlib.context import CryptContext
-    pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    """Create a user directly in the database.
+
+    Uses the shared get_password_hash helper instead of instantiating a
+    new CryptContext per call, which avoids redundant bcrypt work in tests
+    where password validation is never exercised.
+    """
     user = models.User(
         email=email,
         name=name,
-        hashed_password=pwd.hash("testpass123"),
+        hashed_password=get_password_hash("testpass123"),
         provider="local",
         is_active=True,
     )
@@ -148,14 +152,32 @@ def _create_rtc_session(
 # Fixtures
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def setup_database():
-    """Create tables before each test, override get_db, and clean up after."""
+    """Create tables once for the entire test session and override get_db.
+
+    Using session scope avoids the expensive create_all/drop_all cycle that
+    would otherwise run for every test function.  Data isolation is handled
+    by the function-scoped ``clean_tables`` fixture below.
+    """
     Base.metadata.create_all(bind=engine)
     app.dependency_overrides[get_db] = override_get_db
     yield
     app.dependency_overrides.pop(get_db, None)
     Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def clean_tables():
+    """Truncate all rows between tests for isolation without recreating schema."""
+    yield
+    session = TestSessionLocal()
+    try:
+        for table in reversed(Base.metadata.sorted_tables):
+            session.execute(table.delete())
+        session.commit()
+    finally:
+        session.close()
 
 
 @pytest.fixture
