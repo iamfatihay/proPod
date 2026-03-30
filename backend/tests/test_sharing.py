@@ -152,13 +152,14 @@ def _create_rtc_session(
 # Fixtures
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def setup_database():
-    """Create tables once for the entire test session and override get_db.
+    """Create tables once for this module's tests and override get_db.
 
-    Using session scope avoids the expensive create_all/drop_all cycle that
-    would otherwise run for every test function.  Data isolation is handled
-    by the function-scoped ``clean_tables`` fixture below.
+    Using module scope (not session) ensures the DB override is cleared after
+    test_sharing.py completes, preventing the in-memory DB from leaking into
+    subsequent test modules that rely on the real test DB (e.g. test_user_auth).
+    Data isolation between individual tests is handled by ``clean_tables``.
     """
     Base.metadata.create_all(bind=engine)
     app.dependency_overrides[get_db] = override_get_db
@@ -550,6 +551,7 @@ class TestShareLiveSession:
         _create_rtc_session(db, user.id, is_live=True, invite_code="LIVNOW")
 
         resp = client.get("/share/live/LIVNOW")
+        assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
         assert "LIVE NOW" in resp.text
 
     def test_scheduled_session_shows_scheduled_status(self, db):
@@ -557,6 +559,7 @@ class TestShareLiveSession:
         _create_rtc_session(db, user.id, is_live=False, invite_code="SCHED1")
 
         resp = client.get("/share/live/SCHED1")
+        assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
         assert "Scheduled" in resp.text
 
     def test_html_contains_participant_and_viewer_counts(self, db):
