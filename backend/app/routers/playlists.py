@@ -1,7 +1,7 @@
 """Playlist management endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Optional
 
 from .. import schemas, crud, models, auth
 from ..database import get_db
@@ -28,11 +28,11 @@ def get_my_playlists(
     current_user: models.User = Depends(auth.get_current_user),
 ):
     """Get the current user's playlists."""
-    playlists, total = crud.get_user_playlists(
+    rows, total = crud.get_user_playlists(
         db=db, user_id=current_user.id, skip=skip, limit=limit,
     )
     return schemas.PlaylistListResponse(
-        playlists=[_playlist_to_response(p) for p in playlists],
+        playlists=[_playlist_to_response(p, count) for p, count in rows],
         total=total,
         limit=limit,
         offset=skip,
@@ -47,9 +47,9 @@ def get_public_playlists(
     db: Session = Depends(get_db),
 ):
     """Get all public playlists."""
-    playlists, total = crud.get_public_playlists(db=db, skip=skip, limit=limit)
+    rows, total = crud.get_public_playlists(db=db, skip=skip, limit=limit)
     return schemas.PlaylistListResponse(
-        playlists=[_playlist_to_response(p) for p in playlists],
+        playlists=[_playlist_to_response(p, count) for p, count in rows],
         total=total,
         limit=limit,
         offset=skip,
@@ -85,10 +85,12 @@ def get_playlist(
             )
 
     # Build response with enriched podcast data
+    # Non-owners should only see public podcasts within the playlist
+    is_owner = current_user and playlist.owner_id == current_user.id
     items = []
     for item in playlist.items:
         podcast = item.podcast
-        if podcast and not podcast.is_deleted:
+        if podcast and not podcast.is_deleted and (is_owner or podcast.is_public):
             crud.enrich_podcast_with_stats(podcast)
             items.append(schemas.PlaylistItemResponse(
                 id=item.id,
@@ -226,15 +228,24 @@ def remove_item_from_playlist(
     return schemas.SuccessMessage(message="Podcast removed from playlist")
 
 
-def _playlist_to_response(playlist: models.Playlist) -> schemas.PlaylistResponse:
-    """Convert a Playlist model to a PlaylistResponse schema."""
+def _playlist_to_response(
+    playlist: models.Playlist, item_count: Optional[int] = None
+) -> schemas.PlaylistResponse:
+    """Convert a Playlist model to a PlaylistResponse schema.
+
+    Pass ``item_count`` explicitly when building responses from a list query
+    that does not eager-load items, to avoid triggering a lazy SELECT per row.
+    """
+    if item_count is None:
+        # items are already in identity map (e.g. detail view); safe to use
+        item_count = len(playlist.items) if playlist.items is not None else 0
     return schemas.PlaylistResponse(
         id=playlist.id,
         name=playlist.name,
         description=playlist.description,
         is_public=playlist.is_public,
         owner_id=playlist.owner_id,
-        item_count=len(playlist.items) if playlist.items else 0,
+        item_count=item_count,
         created_at=playlist.created_at,
         updated_at=playlist.updated_at,
     )

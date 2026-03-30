@@ -1,10 +1,8 @@
 """Tests for playlist CRUD endpoints."""
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.database import SessionLocal
-from app import models, crud, schemas
+from app import crud, schemas
 
 client = TestClient(app)
 

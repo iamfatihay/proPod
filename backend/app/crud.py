@@ -1153,6 +1153,9 @@ def get_playlist(db: Session, playlist_id: int) -> Optional[models.Playlist]:
         joinedload(models.Playlist.items)
             .joinedload(models.PlaylistItem.podcast)
             .joinedload(models.Podcast.stats),
+        joinedload(models.Playlist.items)
+            .joinedload(models.PlaylistItem.podcast)
+            .joinedload(models.Podcast.ai_data),
         joinedload(models.Playlist.owner),
     ).filter(models.Playlist.id == playlist_id).first()
 
@@ -1162,9 +1165,13 @@ def get_user_playlists(
     user_id: int,
     skip: int = 0,
     limit: int = 20,
-) -> Tuple[List[models.Playlist], int]:
+) -> Tuple[List[Tuple[models.Playlist, int]], int]:
     """
     Get playlists owned by a user with pagination.
+
+    Returns a tuple of (rows, total) where each row is (Playlist, item_count).
+    The item_count is computed via a correlated subquery so no lazy loads are
+    needed when building the response.
 
     Args:
         db: Database session
@@ -1173,24 +1180,35 @@ def get_user_playlists(
         limit: Maximum number of records
 
     Returns:
-        Tuple of (list of Playlist objects, total count)
+        Tuple of (list of (Playlist, item_count) tuples, total count)
     """
-    query = db.query(models.Playlist).filter(
+    item_count_subq = (
+        db.query(func.count(models.PlaylistItem.id))
+        .filter(models.PlaylistItem.playlist_id == models.Playlist.id)
+        .correlate(models.Playlist)
+        .scalar_subquery()
+    )
+    query = db.query(models.Playlist, item_count_subq.label("item_count")).filter(
         models.Playlist.owner_id == user_id,
     ).order_by(desc(models.Playlist.updated_at))
 
-    total = query.count()
-    playlists = query.offset(skip).limit(limit).all()
-    return playlists, total
+    total = db.query(func.count(models.Playlist.id)).filter(
+        models.Playlist.owner_id == user_id,
+    ).scalar() or 0
+    rows = query.offset(skip).limit(limit).all()
+    return rows, total
 
 
 def get_public_playlists(
     db: Session,
     skip: int = 0,
     limit: int = 20,
-) -> Tuple[List[models.Playlist], int]:
+) -> Tuple[List[Tuple[models.Playlist, int]], int]:
     """
     Get all public playlists with pagination.
+
+    Only includes playlists whose owner is active. Returns (rows, total)
+    where each row is (Playlist, item_count) to avoid N+1 lazy loads.
 
     Args:
         db: Database session
@@ -1198,15 +1216,33 @@ def get_public_playlists(
         limit: Maximum number of records
 
     Returns:
-        Tuple of (list of Playlist objects, total count)
+        Tuple of (list of (Playlist, item_count) tuples, total count)
     """
-    query = db.query(models.Playlist).filter(
+    item_count_subq = (
+        db.query(func.count(models.PlaylistItem.id))
+        .filter(models.PlaylistItem.playlist_id == models.Playlist.id)
+        .correlate(models.Playlist)
+        .scalar_subquery()
+    )
+    base_filter = [
         models.Playlist.is_public == True,
-    ).order_by(desc(models.Playlist.updated_at))
+        models.User.is_active == True,
+    ]
+    query = (
+        db.query(models.Playlist, item_count_subq.label("item_count"))
+        .join(models.User, models.User.id == models.Playlist.owner_id)
+        .filter(*base_filter)
+        .order_by(desc(models.Playlist.updated_at))
+    )
 
-    total = query.count()
-    playlists = query.offset(skip).limit(limit).all()
-    return playlists, total
+    total = (
+        db.query(func.count(models.Playlist.id))
+        .join(models.User, models.User.id == models.Playlist.owner_id)
+        .filter(*base_filter)
+        .scalar() or 0
+    )
+    rows = query.offset(skip).limit(limit).all()
+    return rows, total
 
 
 def update_playlist(
