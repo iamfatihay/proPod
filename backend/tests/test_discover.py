@@ -131,30 +131,91 @@ class TestDiscoverCategories:
         counts = [item["podcast_count"] for item in data]
         assert counts == sorted(counts, reverse=True)
 
-    def test_categories_excludes_deleted(self, discover_podcasts):
+    def test_categories_excludes_deleted(self, db, discover_user, discover_podcasts):
         """Soft-deleted podcasts must not inflate category counts."""
+        # Compute the expected count dynamically: all public, non-deleted
+        # Technology podcasts in the DB at this moment.  Other test modules
+        # may have left Technology podcasts around, so we must not hard-code 2.
+        expected = db.query(models.Podcast).filter(
+            models.Podcast.is_public == True,
+            models.Podcast.is_deleted == False,
+            models.Podcast.category == "Technology",
+        ).count()
+        # Sanity-check: our fixture definitely created a soft-deleted Tech pod
+        deleted_count = db.query(models.Podcast).filter(
+            models.Podcast.owner_id == discover_user.id,
+            models.Podcast.category == "Technology",
+            models.Podcast.is_deleted == True,
+        ).count()
+        assert deleted_count >= 1, "Fixture must include at least 1 deleted Tech podcast"
+
         resp = client.get("/podcasts/discover/categories")
         data = resp.json()
         tech = next((c for c in data if c["category"] == "Technology"), None)
         assert tech is not None
-        # We created 2 public Tech podcasts + 1 deleted + 1 private
-        # Only 2 should be counted
-        assert tech["podcast_count"] == 2
+        # The deleted podcast must not be counted — count must match only the
+        # public non-deleted ones.
+        assert tech["podcast_count"] == expected
 
-    def test_categories_excludes_private(self, discover_podcasts):
+    def test_categories_excludes_private(self, db, discover_user, discover_podcasts):
         """Private podcasts must not be counted."""
+        # Same dynamic approach: count only public, non-deleted Tech podcasts.
+        expected = db.query(models.Podcast).filter(
+            models.Podcast.is_public == True,
+            models.Podcast.is_deleted == False,
+            models.Podcast.category == "Technology",
+        ).count()
+        # Sanity-check: our fixture created a private Tech pod
+        private_count = db.query(models.Podcast).filter(
+            models.Podcast.owner_id == discover_user.id,
+            models.Podcast.category == "Technology",
+            models.Podcast.is_public == False,
+        ).count()
+        assert private_count >= 1, "Fixture must include at least 1 private Tech podcast"
+
         resp = client.get("/podcasts/discover/categories")
         data = resp.json()
         tech = next((c for c in data if c["category"] == "Technology"), None)
         assert tech is not None
-        assert tech["podcast_count"] == 2
+        # The private podcast must not be counted.
+        assert tech["podcast_count"] == expected
 
-    def test_categories_empty_when_no_podcasts(self, db):
-        """If there are no public podcasts, return empty list."""
-        # This just verifies the endpoint doesn't error on an empty-ish DB
-        resp = client.get("/podcasts/discover/categories")
-        assert resp.status_code == 200
-        assert isinstance(resp.json(), list)
+    def test_categories_returns_list_on_empty_db(self, db):
+        """Endpoint returns an empty list when there are no public podcasts.
+
+        Verifies no 500 on a bare DB and that the response is a list (satisfies
+        the response_model=List[CategoryInfo] contract with zero items).
+        """
+        from sqlalchemy import text as _text
+        # Record exactly which podcasts we are about to hide so that the
+        # finally block only restores *those* rows — not pre-existing
+        # soft-deleted podcasts (e.g. the "Deleted Pod" fixture).
+        rows = db.execute(_text(
+            "SELECT id FROM podcasts WHERE is_deleted = 0 AND is_public = 1"
+        )).fetchall()
+        temporarily_hidden_ids = [row[0] for row in rows]
+
+        if temporarily_hidden_ids:
+            id_list = ",".join(str(i) for i in temporarily_hidden_ids)
+            db.execute(_text(
+                f"UPDATE podcasts SET is_deleted = 1 WHERE id IN ({id_list})"
+            ))
+            db.commit()
+        try:
+            resp = client.get("/podcasts/discover/categories")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert isinstance(data, list)
+            assert data == [], f"Expected empty list, got {data[:3]}"
+        finally:
+            # Restore only the podcasts we temporarily hid.
+            if temporarily_hidden_ids:
+                id_list = ",".join(str(i) for i in temporarily_hidden_ids)
+                db.execute(_text(
+                    f"UPDATE podcasts SET is_deleted = 0, deleted_at = NULL"
+                    f" WHERE id IN ({id_list})"
+                ))
+                db.commit()
 
 
 # ===========================================================================

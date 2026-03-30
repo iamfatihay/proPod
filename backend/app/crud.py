@@ -1,6 +1,6 @@
 """CRUD (Create, Read, Update, Delete) operations for database models."""
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import case, func, desc, and_, or_
+from sqlalchemy.orm import Session, joinedload, contains_eager
+from sqlalchemy import case, func, desc, and_, or_, select, union
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
 import secrets
@@ -1117,6 +1117,10 @@ def get_categories(db: Session) -> List[Dict[str, Any]]:
         .filter(
             models.Podcast.is_public == True,
             models.Podcast.is_deleted == False,
+            # Exclude NULL/empty categories to avoid response-model validation
+            # failures: CategoryInfo.category is typed as str, not Optional[str].
+            models.Podcast.category.isnot(None),
+            models.Podcast.category != "",
         )
         .group_by(models.Podcast.category)
         .order_by(desc("podcast_count"), models.Podcast.category)
@@ -1144,33 +1148,52 @@ def get_recommended_podcasts(db: Session, user_id: int, limit: int = 10):
     ).order_by(
         desc('category_likes')
     ).limit(3).all()
-    
+
     if not liked_categories:
         # If no likes, return trending podcasts
         return get_trending_podcasts(db, limit)
-    
-    # Get podcasts from preferred categories that user hasn't interacted with
-    user_podcast_ids = db.query(models.PodcastLike.podcast_id).filter(
-        models.PodcastLike.user_id == user_id
-    ).union(
-        db.query(models.PodcastBookmark.podcast_id).filter(
+
+    # Build the set of podcast IDs the user has already interacted with using
+    # Core select() + union() — this avoids the legacy db.query() coercion
+    # warning and is fully compatible with SQLAlchemy 2.0.
+    user_podcast_ids = union(
+        select(models.PodcastLike.podcast_id).where(
+            models.PodcastLike.user_id == user_id
+        ),
+        select(models.PodcastBookmark.podcast_id).where(
             models.PodcastBookmark.user_id == user_id
+        ),
+    ).subquery("user_podcast_ids")
+
+    # Use a single explicit LEFT JOIN on PodcastStats with contains_eager so
+    # SQLAlchemy loads the relationship from the join result without adding a
+    # second implicit join for eager loading (avoids redundant LEFT JOIN in SQL).
+    # The explicit ON condition mirrors the pattern used in get_podcasts().
+    recommended = (
+        db.query(models.Podcast)
+        .join(models.User, models.Podcast.owner_id == models.User.id)
+        .outerjoin(
+            models.PodcastStats,
+            models.PodcastStats.podcast_id == models.Podcast.id,
         )
-    ).subquery()
-    
-    recommended = db.query(models.Podcast).options(
-        joinedload(models.Podcast.owner),
-        joinedload(models.Podcast.stats),
-    ).outerjoin(
-        models.PodcastStats,
-    ).filter(
-        models.Podcast.is_deleted == False,
-        models.Podcast.category.in_([cat[0] for cat in liked_categories]),
-        models.Podcast.is_public == True,
-        ~models.Podcast.id.in_(db.query(user_podcast_ids)),
-    ).order_by(
-        desc(func.coalesce(models.PodcastStats.like_count, 0))
-    ).limit(limit).all()
+        .options(
+            contains_eager(models.Podcast.stats),
+            joinedload(models.Podcast.owner),
+        )
+        .filter(
+            models.Podcast.is_deleted == False,
+            models.Podcast.category.in_([cat[0] for cat in liked_categories]),
+            models.Podcast.is_public == True,
+            ~models.Podcast.id.in_(
+                select(user_podcast_ids.c.podcast_id)
+            ),
+        )
+        .order_by(
+            desc(func.coalesce(models.PodcastStats.like_count, 0))
+        )
+        .limit(limit)
+        .all()
+    )
 
     for podcast in recommended:
         enrich_podcast_with_stats(podcast)

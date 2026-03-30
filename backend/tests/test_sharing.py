@@ -152,13 +152,14 @@ def _create_rtc_session(
 # Fixtures
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def setup_database():
-    """Create tables once for the entire test session and override get_db.
+    """Create tables once for this module's tests and override get_db.
 
-    Using session scope avoids the expensive create_all/drop_all cycle that
-    would otherwise run for every test function.  Data isolation is handled
-    by the function-scoped ``clean_tables`` fixture below.
+    Using module scope (not session) ensures the DB override is cleared after
+    test_sharing.py completes, preventing the in-memory DB from leaking into
+    subsequent test modules that rely on the real test DB (e.g. test_user_auth).
+    Data isolation between individual tests is handled by ``clean_tables``.
     """
     Base.metadata.create_all(bind=engine)
     app.dependency_overrides[get_db] = override_get_db
