@@ -849,6 +849,86 @@ def get_user_listening_history(db: Session, user_id: int, skip: int = 0, limit: 
     return history
 
 
+def get_continue_listening(
+    db: Session,
+    user_id: int,
+    skip: int = 0,
+    limit: int = 10,
+) -> List[schemas.ContinueListeningItem]:
+    """
+    Return podcasts the user started but has not finished listening to.
+
+    Only includes non-deleted, public-or-owned podcasts with a recorded
+    position > 0 and completed == False.  Results are ordered by the most
+    recently played first so the client can render a "Continue Listening"
+    carousel.
+
+    Args:
+        db: Database session
+        user_id: Authenticated user ID
+        skip: Pagination offset
+        limit: Maximum items to return
+
+    Returns:
+        List of ContinueListeningItem schemas ready for serialisation.
+    """
+    rows = (
+        db.query(
+            models.ListeningHistory,
+            models.Podcast,
+            models.User.name.label("owner_name"),
+        )
+        .join(models.Podcast, models.ListeningHistory.podcast_id == models.Podcast.id)
+        .join(models.User, models.Podcast.owner_id == models.User.id)
+        .filter(
+            models.ListeningHistory.user_id == user_id,
+            models.ListeningHistory.completed == False,
+            models.ListeningHistory.position > 0,
+            models.Podcast.is_deleted == False,
+            # Only expose podcasts that are public OR owned by the requesting
+            # user.  Without this guard a podcast made private after the user
+            # listened to it would still appear here, leaking metadata/URLs.
+            or_(
+                models.Podcast.is_public == True,
+                models.Podcast.owner_id == user_id,
+            ),
+        )
+        .order_by(desc(models.ListeningHistory.updated_at))
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    items: List[schemas.ContinueListeningItem] = []
+    for history, podcast, owner_name in rows:
+        # Clamp to [0.0, 100.0]: a user can seek past the end (position >
+        # duration) which would otherwise produce a value above 100%.
+        raw_progress = (
+            (history.position / podcast.duration) * 100
+            if podcast.duration and podcast.duration > 0
+            else 0.0
+        )
+        progress = round(min(100.0, max(0.0, raw_progress)), 1)
+        items.append(
+            schemas.ContinueListeningItem(
+                podcast_id=podcast.id,
+                title=podcast.title,
+                description=podcast.description,
+                audio_url=podcast.audio_url,
+                thumbnail_url=podcast.thumbnail_url,
+                category=podcast.category,
+                duration=podcast.duration,
+                owner_id=podcast.owner_id,
+                owner_name=owner_name,
+                position=history.position,
+                listen_time=history.listen_time,
+                progress_percent=progress,
+                last_played_at=history.updated_at,
+            )
+        )
+    return items
+
+
 # ==================== Comment CRUD Operations ====================
 
 def create_comment(db: Session, comment: schemas.PodcastCommentCreate, user_id: int) -> models.PodcastComment:
