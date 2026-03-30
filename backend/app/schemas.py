@@ -476,6 +476,66 @@ class PodcastAIDataResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ==================== Playlist Schemas ====================
+
+class PlaylistCreate(BaseModel):
+    """Schema for creating a new playlist."""
+    name: str = Field(..., min_length=1, max_length=200, description="Playlist name")
+    description: Optional[str] = Field(None, max_length=1000, description="Playlist description")
+    is_public: bool = Field(True, description="Whether the playlist is publicly visible")
+
+
+class PlaylistUpdate(BaseModel):
+    """Schema for updating an existing playlist."""
+    name: Optional[str] = Field(None, min_length=1, max_length=200, description="Playlist name")
+    description: Optional[str] = Field(None, max_length=1000, description="Playlist description")
+    is_public: Optional[bool] = Field(None, description="Whether the playlist is publicly visible")
+
+
+class PlaylistItemAdd(BaseModel):
+    """Schema for adding a podcast to a playlist."""
+    podcast_id: int = Field(..., description="ID of the podcast to add")
+
+
+class PlaylistItemResponse(BaseModel):
+    """Response schema for a playlist item."""
+    id: int
+    podcast_id: int
+    position: int
+    added_at: datetime.datetime
+    podcast: Optional["Podcast"] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PlaylistResponse(BaseModel):
+    """Response schema for a single playlist."""
+    id: int
+    name: str
+    description: Optional[str] = None
+    is_public: bool = True
+    owner_id: int
+    item_count: int = 0
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PlaylistDetailResponse(PlaylistResponse):
+    """Detailed playlist response including items with podcast data."""
+    items: List[PlaylistItemResponse] = []
+
+
+class PlaylistListResponse(BaseModel):
+    """Paginated list of playlists."""
+    playlists: List[PlaylistResponse]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+
 # Success Message Schema
 
 
@@ -575,3 +635,28 @@ class CreatorDashboardResponse(BaseModel):
     stats: CreatorDashboardStats
     top_podcasts: List[TopPodcastStats] = []
     category_breakdown: List[CategoryStats] = []
+
+
+# ==================== Continue Listening Schemas ====================
+
+class ContinueListeningItem(BaseModel):
+    """A podcast the user started but has not finished listening to.
+
+    Combines podcast metadata with the user's playback progress so
+    the client can render a 'Continue Listening' widget.
+    """
+    podcast_id: int
+    title: str
+    description: Optional[str] = None
+    audio_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    category: str = "General"
+    duration: int = 0
+    owner_id: int
+    owner_name: Optional[str] = None
+    position: int = 0
+    listen_time: int = 0
+    progress_percent: float = 0.0
+    last_played_at: datetime.datetime
+
+    model_config = ConfigDict(from_attributes=True)

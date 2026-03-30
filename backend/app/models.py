@@ -57,6 +57,7 @@ class User(Base):
     bookmarks = relationship("PodcastBookmark", back_populates="user", cascade="all, delete-orphan")
     listening_history = relationship("ListeningHistory", back_populates="user", cascade="all, delete-orphan")
     comments = relationship("PodcastComment", back_populates="user", cascade="all, delete-orphan")
+    playlists = relationship("Playlist", back_populates="owner", cascade="all, delete-orphan")
 
 
 class Podcast(Base):
@@ -296,6 +297,71 @@ class PodcastComment(Base):
         Index('idx_podcast_comments_podcast_active', 'podcast_id', 'is_active'),
         Index('idx_podcast_comments_user', 'user_id'),
         Index('idx_podcast_comments_timestamp', 'timestamp'),
+    )
+
+
+class Playlist(Base):
+    """
+    User-created playlist for organizing podcasts.
+
+    Attributes:
+        id: Primary key
+        name: Playlist name
+        description: Optional playlist description
+        is_public: Whether the playlist is publicly visible
+        owner_id: Foreign key to the user who created the playlist
+        created_at: Creation timestamp
+        updated_at: Last update timestamp
+    """
+    __tablename__ = "playlists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    is_public = Column(Boolean, default=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc),
+                       onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    # Relationships
+    owner = relationship("User", back_populates="playlists")
+    items = relationship("PlaylistItem", back_populates="playlist", cascade="all, delete-orphan",
+                        order_by="PlaylistItem.position")
+
+    __table_args__ = (
+        Index('idx_playlist_owner', 'owner_id'),
+        Index('idx_playlist_public', 'is_public'),
+    )
+
+
+class PlaylistItem(Base):
+    """
+    Association between a playlist and a podcast, with ordering.
+
+    Attributes:
+        id: Primary key
+        playlist_id: Foreign key to playlist
+        podcast_id: Foreign key to podcast
+        position: Order of the podcast in the playlist (0-indexed)
+        added_at: When the podcast was added to the playlist
+    """
+    __tablename__ = "playlist_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    playlist_id = Column(Integer, ForeignKey("playlists.id", ondelete="CASCADE"), nullable=False)
+    podcast_id = Column(Integer, ForeignKey("podcasts.id", ondelete="CASCADE"), nullable=False)
+    position = Column(Integer, nullable=False, default=0)
+    added_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    # Relationships
+    playlist = relationship("Playlist", back_populates="items")
+    podcast = relationship("Podcast")
+
+    __table_args__ = (
+        UniqueConstraint('playlist_id', 'podcast_id', name='unique_playlist_podcast'),
+        Index('idx_playlist_item_playlist', 'playlist_id'),
+        Index('idx_playlist_item_podcast', 'podcast_id'),
     )
 
 

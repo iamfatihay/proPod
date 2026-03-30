@@ -13,7 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 import os
 
-from app.routers import users, podcasts, ai, admin as admin_router, rtc, sharing, analytics
+from app.routers import users, podcasts, ai, admin as admin_router, rtc, sharing, analytics, playlists
 from app.admin import setup_admin
 
 # Load environment variables
@@ -50,6 +50,7 @@ app.include_router(admin_router.router)
 app.include_router(rtc.router)
 app.include_router(sharing.router)  # Web sharing & deep linking (Phase 2-4)
 app.include_router(analytics.router)  # Creator analytics dashboard (Phase 3)
+app.include_router(playlists.router)  # User playlists for organizing podcasts
 
 # Setup admin panel (accessible at /admin)
 admin_panel = setup_admin(app)

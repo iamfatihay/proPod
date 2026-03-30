@@ -45,6 +45,19 @@ def test_user(db_session):
         models.User.email == "testuser@example.com"
     ).first()
     if existing:
+        # Clean up playlists and their items
+        playlist_ids = [
+            p.id for p in db_session.query(models.Playlist).filter(
+                models.Playlist.owner_id == existing.id
+            ).all()
+        ]
+        if playlist_ids:
+            db_session.query(models.PlaylistItem).filter(
+                models.PlaylistItem.playlist_id.in_(playlist_ids)
+            ).delete(synchronize_session=False)
+            db_session.query(models.Playlist).filter(
+                models.Playlist.owner_id == existing.id
+            ).delete(synchronize_session=False)
         db_session.query(models.PodcastComment).filter(
             models.PodcastComment.user_id == existing.id
         ).delete()

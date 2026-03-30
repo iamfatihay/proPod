@@ -885,6 +885,27 @@ def get_my_listening_history(
     return crud.get_user_listening_history(db=db, user_id=current_user.id, skip=skip, limit=limit)
 
 
+@router.get("/my/continue-listening", response_model=List[schemas.ContinueListeningItem])
+def get_continue_listening(
+    skip: int = Query(
+        0, ge=0, description="Number of entries to skip"),
+    limit: int = Query(
+        10, ge=1, le=50, description="Number of entries to return"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """Get podcasts the user started but hasn't finished.
+
+    Returns in-progress podcasts ordered by most recently played,
+    suitable for rendering a 'Continue Listening' widget on the home screen.
+    Only podcasts with a saved position > 0 and not yet marked as completed
+    are included.
+    """
+    return crud.get_continue_listening(
+        db=db, user_id=current_user.id, skip=skip, limit=limit,
+    )
+
+
 @router.get("/my/created", response_model=schemas.PodcastListResponse)
 def get_my_podcasts(
     skip: int = Query(0, ge=0, description="Number of podcasts to skip"),
