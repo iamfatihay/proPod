@@ -108,8 +108,8 @@ class TestCommentStatsSync:
         stats.comment_count = 0
         db_session.commit()
 
-        # Create and delete a comment
-        resp = client.post(
+        # Create a comment
+        create_resp = client.post(
             f"/podcasts/{test_podcast.id}/comments",
             json={
                 "podcast_id": test_podcast.id,
@@ -118,16 +118,22 @@ class TestCommentStatsSync:
             },
             headers=auth_header(token),
         )
-        comment_id = resp.json()["id"]
+        assert create_resp.status_code == 200, (
+            f"Expected 200 on comment create, got {create_resp.status_code}: {create_resp.text}"
+        )
+        comment_id = create_resp.json()["id"]
 
         # Stats should now be 1
         db_session.refresh(stats)
         assert stats.comment_count == 1
 
-        # Delete it
-        client.delete(
+        # Delete the comment
+        delete_resp = client.delete(
             f"/podcasts/comments/{comment_id}",
             headers=auth_header(token),
+        )
+        assert delete_resp.status_code == 200, (
+            f"Expected 200 on comment delete, got {delete_resp.status_code}: {delete_resp.text}"
         )
 
         db_session.refresh(stats)
