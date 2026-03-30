@@ -49,8 +49,8 @@ async def share_podcast_web(
     safe_category = html.escape(podcast.category or "")
 
     # Construct full audio URL
-    audio_url = podcast.audio_url
-    if not audio_url.startswith("http"):
+    audio_url = podcast.audio_url or ""
+    if audio_url and not audio_url.startswith("http"):
         base_url = settings.BASE_URL or str(request.base_url).rstrip("/")
         audio_url = f"{base_url}{audio_url}"
 
@@ -68,7 +68,7 @@ async def share_podcast_web(
         <meta property="og:url" content="{request.url}">
         <meta property="og:title" content="{safe_title}">
         <meta property="og:description" content="{safe_description or 'Listen to this podcast on Volo'}">
-        <meta property="og:image" content="{podcast.cover_image_url or f'{settings.BASE_URL}/static/og-image.png'}">
+        <meta property="og:image" content="{podcast.thumbnail_url or f'{settings.BASE_URL}/static/og-image.png'}">
         <meta property="og:audio" content="{audio_url}">
 
         <!-- Twitter -->
@@ -76,7 +76,7 @@ async def share_podcast_web(
         <meta name="twitter:url" content="{request.url}">
         <meta name="twitter:title" content="{safe_title}">
         <meta name="twitter:description" content="{safe_description or 'Listen to this podcast on Volo'}">
-        <meta name="twitter:image" content="{podcast.cover_image_url or f'{settings.BASE_URL}/static/og-image.png'}">
+        <meta name="twitter:image" content="{podcast.thumbnail_url or f'{settings.BASE_URL}/static/og-image.png'}">
         <meta name="twitter:player" content="{request.url}">
         <meta name="twitter:player:width" content="480">
         <meta name="twitter:player:height" content="240">
