@@ -849,6 +849,86 @@ def get_user_listening_history(db: Session, user_id: int, skip: int = 0, limit: 
     return history
 
 
+def get_continue_listening(
+    db: Session,
+    user_id: int,
+    skip: int = 0,
+    limit: int = 10,
+) -> List[schemas.ContinueListeningItem]:
+    """
+    Return podcasts the user started but has not finished listening to.
+
+    Only includes non-deleted, public-or-owned podcasts with a recorded
+    position > 0 and completed == False.  Results are ordered by the most
+    recently played first so the client can render a "Continue Listening"
+    carousel.
+
+    Args:
+        db: Database session
+        user_id: Authenticated user ID
+        skip: Pagination offset
+        limit: Maximum items to return
+
+    Returns:
+        List of ContinueListeningItem schemas ready for serialisation.
+    """
+    rows = (
+        db.query(
+            models.ListeningHistory,
+            models.Podcast,
+            models.User.name.label("owner_name"),
+        )
+        .join(models.Podcast, models.ListeningHistory.podcast_id == models.Podcast.id)
+        .join(models.User, models.Podcast.owner_id == models.User.id)
+        .filter(
+            models.ListeningHistory.user_id == user_id,
+            models.ListeningHistory.completed == False,
+            models.ListeningHistory.position > 0,
+            models.Podcast.is_deleted == False,
+            # Only expose podcasts that are public OR owned by the requesting
+            # user.  Without this guard a podcast made private after the user
+            # listened to it would still appear here, leaking metadata/URLs.
+            or_(
+                models.Podcast.is_public == True,
+                models.Podcast.owner_id == user_id,
+            ),
+        )
+        .order_by(desc(models.ListeningHistory.updated_at))
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    items: List[schemas.ContinueListeningItem] = []
+    for history, podcast, owner_name in rows:
+        # Clamp to [0.0, 100.0]: a user can seek past the end (position >
+        # duration) which would otherwise produce a value above 100%.
+        raw_progress = (
+            (history.position / podcast.duration) * 100
+            if podcast.duration and podcast.duration > 0
+            else 0.0
+        )
+        progress = round(min(100.0, max(0.0, raw_progress)), 1)
+        items.append(
+            schemas.ContinueListeningItem(
+                podcast_id=podcast.id,
+                title=podcast.title,
+                description=podcast.description,
+                audio_url=podcast.audio_url,
+                thumbnail_url=podcast.thumbnail_url,
+                category=podcast.category,
+                duration=podcast.duration,
+                owner_id=podcast.owner_id,
+                owner_name=owner_name,
+                position=history.position,
+                listen_time=history.listen_time,
+                progress_percent=progress,
+                last_played_at=history.updated_at,
+            )
+        )
+    return items
+
+
 # ==================== Comment CRUD Operations ====================
 
 def create_comment(db: Session, comment: schemas.PodcastCommentCreate, user_id: int) -> models.PodcastComment:
@@ -1123,6 +1203,276 @@ def get_public_user_profile(db: Session, user_id: int) -> Optional[Dict]:
         "total_likes": int(stats.total_likes) if stats else 0,
         "total_followers": 0,  # Placeholder for future follower feature
     }
+
+
+# ==================== Playlist CRUD Operations ====================
+
+def create_playlist(db: Session, playlist: schemas.PlaylistCreate, owner_id: int) -> models.Playlist:
+    """
+    Create a new playlist.
+
+    Args:
+        db: Database session
+        playlist: Playlist creation schema
+        owner_id: ID of the playlist owner
+
+    Returns:
+        models.Playlist: Created playlist object
+    """
+    db_playlist = models.Playlist(
+        name=playlist.name,
+        description=playlist.description,
+        is_public=playlist.is_public,
+        owner_id=owner_id,
+    )
+    db.add(db_playlist)
+    db.commit()
+    db.refresh(db_playlist)
+    return db_playlist
+
+
+def get_playlist(db: Session, playlist_id: int) -> Optional[models.Playlist]:
+    """
+    Get a playlist by ID with its items and associated podcasts.
+
+    Args:
+        db: Database session
+        playlist_id: Playlist ID
+
+    Returns:
+        Optional[models.Playlist]: Playlist object if found, None otherwise
+    """
+    return db.query(models.Playlist).options(
+        joinedload(models.Playlist.items)
+            .joinedload(models.PlaylistItem.podcast)
+            .joinedload(models.Podcast.owner),
+        joinedload(models.Playlist.items)
+            .joinedload(models.PlaylistItem.podcast)
+            .joinedload(models.Podcast.stats),
+        joinedload(models.Playlist.items)
+            .joinedload(models.PlaylistItem.podcast)
+            .joinedload(models.Podcast.ai_data),
+        joinedload(models.Playlist.owner),
+    ).filter(models.Playlist.id == playlist_id).first()
+
+
+def get_user_playlists(
+    db: Session,
+    user_id: int,
+    skip: int = 0,
+    limit: int = 20,
+) -> Tuple[List[Tuple[models.Playlist, int]], int]:
+    """
+    Get playlists owned by a user with pagination.
+
+    Returns a tuple of (rows, total) where each row is (Playlist, item_count).
+    The item_count is computed via a correlated subquery so no lazy loads are
+    needed when building the response.
+
+    Args:
+        db: Database session
+        user_id: Owner user ID
+        skip: Number of records to skip
+        limit: Maximum number of records
+
+    Returns:
+        Tuple of (list of (Playlist, item_count) tuples, total count)
+    """
+    item_count_subq = (
+        db.query(func.count(models.PlaylistItem.id))
+        .filter(models.PlaylistItem.playlist_id == models.Playlist.id)
+        .correlate(models.Playlist)
+        .scalar_subquery()
+    )
+    query = db.query(models.Playlist, item_count_subq.label("item_count")).filter(
+        models.Playlist.owner_id == user_id,
+    ).order_by(desc(models.Playlist.updated_at))
+
+    total = db.query(func.count(models.Playlist.id)).filter(
+        models.Playlist.owner_id == user_id,
+    ).scalar() or 0
+    rows = query.offset(skip).limit(limit).all()
+    return rows, total
+
+
+def get_public_playlists(
+    db: Session,
+    skip: int = 0,
+    limit: int = 20,
+) -> Tuple[List[Tuple[models.Playlist, int]], int]:
+    """
+    Get all public playlists with pagination.
+
+    Only includes playlists whose owner is active. Returns (rows, total)
+    where each row is (Playlist, item_count) to avoid N+1 lazy loads.
+
+    Args:
+        db: Database session
+        skip: Number of records to skip
+        limit: Maximum number of records
+
+    Returns:
+        Tuple of (list of (Playlist, item_count) tuples, total count)
+    """
+    item_count_subq = (
+        db.query(func.count(models.PlaylistItem.id))
+        .filter(models.PlaylistItem.playlist_id == models.Playlist.id)
+        .correlate(models.Playlist)
+        .scalar_subquery()
+    )
+    base_filter = [
+        models.Playlist.is_public == True,
+        models.User.is_active == True,
+    ]
+    query = (
+        db.query(models.Playlist, item_count_subq.label("item_count"))
+        .join(models.User, models.User.id == models.Playlist.owner_id)
+        .filter(*base_filter)
+        .order_by(desc(models.Playlist.updated_at))
+    )
+
+    total = (
+        db.query(func.count(models.Playlist.id))
+        .join(models.User, models.User.id == models.Playlist.owner_id)
+        .filter(*base_filter)
+        .scalar() or 0
+    )
+    rows = query.offset(skip).limit(limit).all()
+    return rows, total
+
+
+def update_playlist(
+    db: Session,
+    playlist: models.Playlist,
+    playlist_update: schemas.PlaylistUpdate,
+) -> models.Playlist:
+    """
+    Update playlist information.
+
+    Args:
+        db: Database session
+        playlist: Playlist object to update
+        playlist_update: Schema containing fields to update
+
+    Returns:
+        models.Playlist: Updated playlist object
+    """
+    for field, value in playlist_update.model_dump(exclude_unset=True).items():
+        setattr(playlist, field, value)
+
+    playlist.updated_at = datetime.datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(playlist)
+    return playlist
+
+
+def delete_playlist(db: Session, playlist: models.Playlist) -> bool:
+    """
+    Permanently delete a playlist and all its items.
+
+    Args:
+        db: Database session
+        playlist: Playlist object to delete
+
+    Returns:
+        bool: True if deletion successful
+    """
+    db.delete(playlist)
+    db.commit()
+    return True
+
+
+def add_podcast_to_playlist(
+    db: Session,
+    playlist_id: int,
+    podcast_id: int,
+) -> models.PlaylistItem:
+    """
+    Add a podcast to a playlist.
+
+    Args:
+        db: Database session
+        playlist_id: Playlist ID
+        podcast_id: Podcast ID to add
+
+    Returns:
+        models.PlaylistItem: Created playlist item
+
+    Raises:
+        HTTPException: If podcast is already in the playlist
+    """
+    existing = db.query(models.PlaylistItem).filter(
+        models.PlaylistItem.playlist_id == playlist_id,
+        models.PlaylistItem.podcast_id == podcast_id,
+    ).first()
+
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Podcast already in playlist",
+        )
+
+    # Determine the next position
+    max_pos = db.query(func.max(models.PlaylistItem.position)).filter(
+        models.PlaylistItem.playlist_id == playlist_id,
+    ).scalar()
+    next_position = (max_pos or 0) + 1 if max_pos is not None else 0
+
+    item = models.PlaylistItem(
+        playlist_id=playlist_id,
+        podcast_id=podcast_id,
+        position=next_position,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def remove_podcast_from_playlist(
+    db: Session,
+    playlist_id: int,
+    podcast_id: int,
+) -> bool:
+    """
+    Remove a podcast from a playlist.
+
+    Args:
+        db: Database session
+        playlist_id: Playlist ID
+        podcast_id: Podcast ID to remove
+
+    Returns:
+        bool: True if successful
+
+    Raises:
+        HTTPException: If podcast is not in the playlist
+    """
+    item = db.query(models.PlaylistItem).filter(
+        models.PlaylistItem.playlist_id == playlist_id,
+        models.PlaylistItem.podcast_id == podcast_id,
+    ).first()
+
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Podcast not found in playlist",
+        )
+
+    removed_position = item.position
+    db.delete(item)
+
+    # Re-order remaining items to close the gap
+    db.query(models.PlaylistItem).filter(
+        models.PlaylistItem.playlist_id == playlist_id,
+        models.PlaylistItem.position > removed_position,
+    ).update(
+        {models.PlaylistItem.position: models.PlaylistItem.position - 1},
+        synchronize_session="fetch",
+    )
+
+    db.commit()
+    return True
 
 
 def get_user_public_podcasts(

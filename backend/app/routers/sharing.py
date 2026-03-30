@@ -48,11 +48,22 @@ async def share_podcast_web(
     safe_owner_name = html.escape(owner_name)
     safe_category = html.escape(podcast.category or "")
 
-    # Construct full audio URL
+    # Construct full audio URL, then escape for safe HTML attribute embedding
     audio_url = podcast.audio_url
-    if not audio_url.startswith("http"):
+    if audio_url and not audio_url.startswith("http"):
         base_url = settings.BASE_URL or str(request.base_url).rstrip("/")
         audio_url = f"{base_url}{audio_url}"
+    safe_audio_url = html.escape(audio_url or "")
+
+    # Escape thumbnail URL (user-controlled, must be escaped before HTML injection)
+    # Falls back to a static OG image when no thumbnail is set.
+    if podcast.thumbnail_url:
+        safe_thumbnail_url = html.escape(podcast.thumbnail_url)
+    else:
+        safe_thumbnail_url = f"{settings.BASE_URL}/static/og-image.png"
+
+    # Escape the request URL (may contain user-supplied query params)
+    safe_request_url = html.escape(str(request.url))
 
     # Build web player HTML
     html_content = f"""
@@ -65,19 +76,19 @@ async def share_podcast_web(
 
         <!-- Open Graph / Facebook -->
         <meta property="og:type" content="music.song">
-        <meta property="og:url" content="{request.url}">
+        <meta property="og:url" content="{safe_request_url}">
         <meta property="og:title" content="{safe_title}">
         <meta property="og:description" content="{safe_description or 'Listen to this podcast on Volo'}">
-        <meta property="og:image" content="{podcast.thumbnail_url or f'{settings.BASE_URL}/static/og-image.png'}">
-        <meta property="og:audio" content="{audio_url}">
+        <meta property="og:image" content="{safe_thumbnail_url}">
+        <meta property="og:audio" content="{safe_audio_url}">
 
         <!-- Twitter -->
         <meta name="twitter:card" content="player">
-        <meta name="twitter:url" content="{request.url}">
+        <meta name="twitter:url" content="{safe_request_url}">
         <meta name="twitter:title" content="{safe_title}">
         <meta name="twitter:description" content="{safe_description or 'Listen to this podcast on Volo'}">
-        <meta name="twitter:image" content="{podcast.thumbnail_url or f'{settings.BASE_URL}/static/og-image.png'}">
-        <meta name="twitter:player" content="{request.url}">
+        <meta name="twitter:image" content="{safe_thumbnail_url}">
+        <meta name="twitter:player" content="{safe_request_url}">
         <meta name="twitter:player:width" content="480">
         <meta name="twitter:player:height" content="240">
         
@@ -161,7 +172,7 @@ async def share_podcast_web(
                 <span>📁 {safe_category}</span>
                 <span>⏱️ {podcast.duration // 60} min</span>
             </div>
-            <audio controls preload="metadata" src="{audio_url}">
+            <audio controls preload="metadata" src="{safe_audio_url}">
                 Your browser does not support the audio element.
             </audio>
             {f'<p class="description">{safe_description}</p>' if podcast.description else ''}
