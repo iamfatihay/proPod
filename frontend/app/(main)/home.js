@@ -26,7 +26,7 @@ import ModeToggle from "../../src/components/ModeToggle";
 import HeroSection from "../../src/components/HeroSection";
 import QuickActionsBar from "../../src/components/QuickActionsBar";
 import ContinueListeningRow from "../../src/components/ContinueListeningRow";
-import { normalizePodcast } from "../../src/utils/urlHelper";
+import { normalizePodcast, toAbsoluteUrl } from "../../src/utils/urlHelper";
 import { PodcastCardSkeleton } from "../../src/components/SkeletonLoader";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
@@ -204,7 +204,14 @@ export default function HomeScreen() {
         try {
             setContinueListeningLoading(true);
             const res = await apiService.getContinueListening({ limit: 10 });
-            setContinueListening(res || []);
+            // Normalize audio_url / thumbnail_url to absolute URLs so Image
+            // sources and playback don't break when the backend returns relative paths.
+            const normalized = (res || []).map((item) => ({
+                ...item,
+                audio_url: toAbsoluteUrl(item.audio_url),
+                thumbnail_url: toAbsoluteUrl(item.thumbnail_url),
+            }));
+            setContinueListening(normalized);
         } catch (e) {
             // Non-blocking: silently swallow; widget simply won't render
             Logger.warn("ContinueListening fetch failed:", e?.message);
@@ -253,8 +260,11 @@ export default function HomeScreen() {
 
     useEffect(() => {
         (async () => {
+            // Only block the spinner on the main feed; continue-listening has
+            // its own loading state and must not delay first paint.
             setLoading(true);
-            await Promise.all([load(), loadContinueListening()]);
+            loadContinueListening(); // fire-and-forget — own loading state
+            await load();
             setLoading(false);
         })();
     }, [load, loadContinueListening]);
