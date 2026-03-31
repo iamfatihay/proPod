@@ -25,6 +25,7 @@ import GradientCard from "../../src/components/GradientCard";
 import ModeToggle from "../../src/components/ModeToggle";
 import HeroSection from "../../src/components/HeroSection";
 import QuickActionsBar from "../../src/components/QuickActionsBar";
+import ContinueListeningRow from "../../src/components/ContinueListeningRow";
 import { normalizePodcast } from "../../src/utils/urlHelper";
 import { PodcastCardSkeleton } from "../../src/components/SkeletonLoader";
 import apiService from "../../src/services/api/apiService";
@@ -139,6 +140,7 @@ export default function HomeScreen() {
     // Categories fetched from backend; falls back to FALLBACK_CATEGORIES until
     // the API responds.
     const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
+    const [continueListening, setContinueListening] = useState([]);
 
     // Load notifications from storage on mount
     // Note: loadFromStorage is a stable Zustand action, safe in dependency array
@@ -223,6 +225,19 @@ export default function HomeScreen() {
         }
     }, [selectedCategory]);
 
+    // Fetch in-progress podcasts for the Continue Listening widget.
+    // Silently fails — the section simply won't render if unavailable.
+    const loadContinueListening = useCallback(async () => {
+        try {
+            const items = await apiService.getContinueListening({ limit: 10 });
+            setContinueListening(Array.isArray(items) ? items : []);
+        } catch (e) {
+            // Non-critical: suppress error, don't show it to user
+            Logger.warn("Continue listening fetch failed:", e);
+            setContinueListening([]);
+        }
+    }, []);
+
     useEffect(() => {
         (async () => {
             setLoading(true);
@@ -240,20 +255,26 @@ export default function HomeScreen() {
         }
     }, [params.refresh, load]);
 
+    // Load continue listening once on mount
+    useEffect(() => {
+        loadContinueListening();
+    }, [loadContinueListening]);
+
     // Reload when screen comes into focus
     useFocusEffect(
         useCallback(() => {
             (async () => {
                 await load();
+                await loadContinueListening();
             })();
-        }, [load])
+        }, [load, loadContinueListening])
     );
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await load();
+        await Promise.all([load(), loadContinueListening()]);
         setRefreshing(false);
-    }, [load]);
+    }, [load, loadContinueListening]);
 
     const handleLogout = () => {
         logout();
@@ -296,6 +317,51 @@ export default function HomeScreen() {
                 play(track);
 
                 // Show mini player if not visible
+                if (!showMiniPlayer) {
+                    toggleMiniPlayer(true);
+                }
+            }
+        },
+        [
+            currentTrack?.id,
+            isPlaying,
+            play,
+            pause,
+            showMiniPlayer,
+            toggleMiniPlayer,
+            showToast,
+        ]
+    );
+
+    // Resume a podcast from a ContinueListeningItem.
+    // The item has `podcast_id`, `audio_url`, `title`, etc. but not the
+    // same shape as a full Podcast object, so we build the track manually.
+    const handleResumePodcast = useCallback(
+        (item) => {
+            if (!item.audio_url) {
+                showToast("Audio not available", "error");
+                return;
+            }
+
+            const track = {
+                id: item.podcast_id,
+                uri: item.audio_url,
+                title: item.title,
+                artist: item.owner_name || "Unknown Artist",
+                duration: (item.duration || 0) * 1000, // ms
+                artwork: item.thumbnail_url,
+                category: item.category,
+                description: item.description,
+            };
+
+            if (currentTrack?.id === item.podcast_id) {
+                if (isPlaying) {
+                    pause();
+                } else {
+                    play();
+                }
+            } else {
+                play(track);
                 if (!showMiniPlayer) {
                     toggleMiniPlayer(true);
                 }
@@ -450,6 +516,22 @@ export default function HomeScreen() {
                             }}
                         />
                     </View>
+
+                    {/* Continue Listening — only shown when the user has in-progress podcasts */}
+                    {continueListening.length > 0 && (
+                        <ContinueListeningRow
+                            items={continueListening}
+                            currentTrackId={currentTrack?.id}
+                            isPlaying={isPlaying}
+                            onResume={handleResumePodcast}
+                            onCardPress={(item) =>
+                                router.push({
+                                    pathname: "/(main)/details",
+                                    params: { id: item.podcast_id },
+                                })
+                            }
+                        />
+                    )}
 
                     {/* Category Filters - Horizontal scroll */}
                     <ScrollView

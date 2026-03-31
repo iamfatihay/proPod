@@ -1128,6 +1128,30 @@ class ApiService {
             throw error;
         }
     }
+
+    /**
+     * Get podcasts the user started but hasn't finished listening to.
+     *
+     * Maps to GET /podcasts/my/continue-listening.
+     * Returns an array of ContinueListeningItem objects, each containing
+     * podcast metadata plus the user's playback progress (position, progress_percent).
+     *
+     * @param {Object} params - Query parameters
+     * @param {number} [params.skip=0] - Number of entries to skip
+     * @param {number} [params.limit=10] - Number of entries to return (max 50)
+     * @returns {Promise<Array>} List of in-progress podcasts with progress info
+     * @throws {Error} If request fails
+     */
+    async getContinueListening(params = {}) {
+        const queryParams = new URLSearchParams();
+        if (params.skip !== undefined) queryParams.append("skip", params.skip);
+        if (params.limit !== undefined) queryParams.append("limit", params.limit);
+        const queryString = queryParams.toString();
+        const endpoint = queryString
+            ? `/podcasts/my/continue-listening?${queryString}`
+            : "/podcasts/my/continue-listening";
+        return this.request(endpoint);
+    }
 }
 
 export default new ApiService();
