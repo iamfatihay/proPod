@@ -200,6 +200,19 @@ export default function HomeScreen() {
         }
     }, [audioError, clearError, showToast]);
 
+    const loadContinueListening = useCallback(async () => {
+        try {
+            setContinueListeningLoading(true);
+            const res = await apiService.getContinueListening({ limit: 10 });
+            setContinueListening(res || []);
+        } catch (e) {
+            // Non-blocking: silently swallow; widget simply won't render
+            Logger.warn("ContinueListening fetch failed:", e?.message);
+        } finally {
+            setContinueListeningLoading(false);
+        }
+    }, []);
+
     const load = useCallback(async () => {
         try {
             const params = { limit: 20 };
@@ -241,10 +254,10 @@ export default function HomeScreen() {
     useEffect(() => {
         (async () => {
             setLoading(true);
-            await load();
+            await Promise.all([load(), loadContinueListening()]);
             setLoading(false);
         })();
-    }, [load]);
+    }, [load, loadContinueListening]);
 
     // Reload when params.refresh changes (after delete/create)
     useEffect(() => {
@@ -264,8 +277,7 @@ export default function HomeScreen() {
     useFocusEffect(
         useCallback(() => {
             (async () => {
-                await load();
-                await loadContinueListening();
+                await Promise.all([load(), loadContinueListening()]);
             })();
         }, [load, loadContinueListening])
     );
