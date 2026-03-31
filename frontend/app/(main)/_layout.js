@@ -361,6 +361,12 @@ export default function TabLayout() {
                         href: null,
                     }}
                 />
+                <Tabs.Screen
+                    name="creator-profile"
+                    options={{
+                        href: null,
+                    }}
+                />
             </Tabs>
 
             {/* Debug MiniPlayer State */}

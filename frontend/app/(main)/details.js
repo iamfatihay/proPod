@@ -664,9 +664,32 @@ const Details = () => {
                         {podcast.title}
                     </Text>
 
-                    <Text className="text-text-secondary text-lg mb-4">
-                        by {podcast.owner?.name || "Unknown Artist"}
-                    </Text>
+                    {/* Creator name — tappable for other users' profiles */}
+                    {isOwner ? (
+                        <Text className="text-text-secondary text-lg mb-4">
+                            by {podcast.owner?.name || "Unknown Artist"}
+                        </Text>
+                    ) : (
+                        <TouchableOpacity
+                            onPress={() => {
+                                if (podcast.owner_id) {
+                                    router.push({
+                                        pathname: "/(main)/creator-profile",
+                                        params: { userId: podcast.owner_id },
+                                    });
+                                }
+                            }}
+                            activeOpacity={0.7}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            accessible
+                            accessibilityLabel={`View ${podcast.owner?.name || "creator"}'s profile`}
+                            accessibilityRole="button"
+                        >
+                            <Text className="text-primary text-lg mb-4 font-medium">
+                                by {podcast.owner?.name || "Unknown Artist"}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
 
                     {/* Metadata */}
                     <View className="flex-row items-center justify-between mb-6">
