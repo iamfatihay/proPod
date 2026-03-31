@@ -554,6 +554,7 @@ class TestShareLiveSession:
         _create_rtc_session(db, user.id, is_live=True, invite_code="LIVNOW")
 
         resp = client.get("/share/live/LIVNOW")
+        assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
         assert "LIVE NOW" in resp.text
 
     def test_scheduled_session_shows_scheduled_status(self, db):
@@ -561,6 +562,7 @@ class TestShareLiveSession:
         _create_rtc_session(db, user.id, is_live=False, invite_code="SCHED1")
 
         resp = client.get("/share/live/SCHED1")
+        assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
         assert "Scheduled" in resp.text
 
     def test_html_contains_participant_and_viewer_counts(self, db):

@@ -591,6 +591,12 @@ class RTCStorageEstimateResponse(BaseModel):
 
 # ==================== Creator Analytics Dashboard Schemas ====================
 
+class CategoryInfo(BaseModel):
+    """A single category with its podcast count."""
+    category: str
+    podcast_count: int = 0
+
+
 class CreatorDashboardStats(BaseModel):
     """Aggregate statistics for a creator's dashboard."""
     total_podcasts: int = 0
