@@ -15,7 +15,18 @@ import Avatar from "../../src/components/Avatar";
 import PodcastCard from "../../src/components/PodcastCard";
 import apiService from "../../src/services/api/apiService";
 import useAudioStore from "../../src/context/useAudioStore";
-import { normalizePodcasts } from "../../src/utils/urlHelper";
+import { normalizePodcasts, toAbsoluteUrl } from "../../src/utils/urlHelper";
+
+// Maps a normalised podcast API object to the track shape required by useAudioStore
+const toTrack = (p) => ({
+    id: p.id,
+    uri: toAbsoluteUrl(p.audio_url),
+    title: p.title,
+    artist: p.owner?.name || "Unknown Artist",
+    artwork: toAbsoluteUrl(p.thumbnail_url),
+    duration: (p.duration || 0), // already in ms after normalizePodcasts
+    category: p.category,
+});
 import { COLORS } from "../../src/constants/theme";
 import Logger from "../../src/utils/logger";
 
@@ -78,8 +89,14 @@ export default function CreatorProfile() {
             setLoadingProfile(false);
             return;
         }
+        // Reset all stale data so Retry / userId-change shows a clean load state
+        setLoadingProfile(true);
+        setError(null);
+        setProfile(null);
+        setPodcasts([]);
+        setTotal(0);
+        setPage(0);
         try {
-            setError(null);
             const [profileData, podcastData] = await Promise.all([
                 apiService.getPublicUserProfile(userId),
                 apiService.getPublicUserPodcasts(userId, {
@@ -141,7 +158,12 @@ export default function CreatorProfile() {
             if (isCurrentTrack) {
                 isPlaying ? pause() : play();
             } else {
-                setQueue(podcasts, podcast);
+                // Build proper track objects (audio_url → uri) for useAudioStore.
+                // setQueue expects (tracks[], startIndex: number) — pass a numeric index.
+                const tracks = podcasts.map(toTrack);
+                const startIdx = tracks.findIndex((t) => t.id === podcast.id);
+                setQueue(tracks, startIdx >= 0 ? startIdx : 0);
+                play(tracks[startIdx >= 0 ? startIdx : 0]);
             }
         },
         [currentTrack, isPlaying, podcasts, setQueue, play, pause]
