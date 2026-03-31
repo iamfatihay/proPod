@@ -139,6 +139,9 @@ export default function HomeScreen() {
     // Categories fetched from backend; falls back to FALLBACK_CATEGORIES until
     // the API responds.
     const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
+    const [continueListening, setContinueListening] = useState([]);
+    const [continueListeningLoading, setContinueListeningLoading] =
+        useState(false);
 
     // Load notifications from storage on mount
     // Note: loadFromStorage is a stable Zustand action, safe in dependency array
@@ -198,6 +201,19 @@ export default function HomeScreen() {
         }
     }, [audioError, clearError, showToast]);
 
+    const loadContinueListening = useCallback(async () => {
+        try {
+            setContinueListeningLoading(true);
+            const res = await apiService.getContinueListening({ limit: 10 });
+            setContinueListening(res || []);
+        } catch (e) {
+            // Non-blocking: silently swallow; widget simply won't render
+            Logger.warn("ContinueListening fetch failed:", e?.message);
+        } finally {
+            setContinueListeningLoading(false);
+        }
+    }, []);
+
     const load = useCallback(async () => {
         try {
             const params = { limit: 20 };
@@ -226,10 +242,10 @@ export default function HomeScreen() {
     useEffect(() => {
         (async () => {
             setLoading(true);
-            await load();
+            await Promise.all([load(), loadContinueListening()]);
             setLoading(false);
         })();
-    }, [load]);
+    }, [load, loadContinueListening]);
 
     // Reload when params.refresh changes (after delete/create)
     useEffect(() => {
@@ -244,16 +260,16 @@ export default function HomeScreen() {
     useFocusEffect(
         useCallback(() => {
             (async () => {
-                await load();
+                await Promise.all([load(), loadContinueListening()]);
             })();
-        }, [load])
+        }, [load, loadContinueListening])
     );
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await load();
+        await Promise.all([load(), loadContinueListening()]);
         setRefreshing(false);
-    }, [load]);
+    }, [load, loadContinueListening]);
 
     const handleLogout = () => {
         logout();
@@ -450,6 +466,237 @@ export default function HomeScreen() {
                             }}
                         />
                     </View>
+
+                    {/* Continue Listening Row */}
+                    {(continueListeningLoading ||
+                        continueListening.length > 0) && (
+                        <View className="mb-6">
+                            <View className="flex-row items-center justify-between mb-3">
+                                <View className="flex-row items-center">
+                                    <MaterialCommunityIcons
+                                        name="play-circle-outline"
+                                        size={22}
+                                        color={COLORS.primary}
+                                    />
+                                    <Text className="text-xl font-bold text-text-primary ml-2">
+                                        Continue Listening
+                                    </Text>
+                                </View>
+                            </View>
+                            {continueListeningLoading ? (
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={{ paddingRight: 16 }}
+                                >
+                                    {[1, 2, 3].map((k) => (
+                                        <View
+                                            key={k}
+                                            className="w-[160px] h-[100px] bg-panel rounded-2xl mr-3"
+                                        />
+                                    ))}
+                                </ScrollView>
+                            ) : (
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={{ paddingRight: 16 }}
+                                >
+                                    {continueListening.map((item) => {
+                                        const isCurrentTrack =
+                                            currentTrack?.id ===
+                                            item.podcast_id;
+                                        const isItemPlaying =
+                                            isCurrentTrack && isPlaying;
+                                        return (
+                                            <TouchableOpacity
+                                                key={item.podcast_id}
+                                                onPress={() =>
+                                                    router.push({
+                                                        pathname:
+                                                            "/(main)/details",
+                                                        params: {
+                                                            id: item.podcast_id,
+                                                        },
+                                                    })
+                                                }
+                                                activeOpacity={0.85}
+                                                style={{
+                                                    width: 160,
+                                                    marginRight: 12,
+                                                    backgroundColor:
+                                                        COLORS.card,
+                                                    borderRadius: 16,
+                                                    overflow: "hidden",
+                                                }}
+                                            >
+                                                {/* Thumbnail */}
+                                                <View
+                                                    style={{
+                                                        width: "100%",
+                                                        height: 90,
+                                                        backgroundColor:
+                                                            COLORS.panel,
+                                                    }}
+                                                >
+                                                    {item.thumbnail_url ? (
+                                                        <Image
+                                                            source={{
+                                                                uri: item.thumbnail_url,
+                                                            }}
+                                                            style={{
+                                                                width: "100%",
+                                                                height: "100%",
+                                                            }}
+                                                            resizeMode="cover"
+                                                        />
+                                                    ) : (
+                                                        <View
+                                                            style={{
+                                                                flex: 1,
+                                                                alignItems:
+                                                                    "center",
+                                                                justifyContent:
+                                                                    "center",
+                                                            }}
+                                                        >
+                                                            <MaterialCommunityIcons
+                                                                name="podcast"
+                                                                size={36}
+                                                                color={
+                                                                    COLORS.text
+                                                                        .muted
+                                                                }
+                                                            />
+                                                        </View>
+                                                    )}
+                                                    {/* Play/Pause overlay button */}
+                                                    <TouchableOpacity
+                                                        onPress={() => {
+                                                            if (isCurrentTrack) {
+                                                                isPlaying
+                                                                    ? pause()
+                                                                    : play();
+                                                            } else {
+                                                                const track = {
+                                                                    id: item.podcast_id,
+                                                                    uri: item.audio_url,
+                                                                    title: item.title,
+                                                                    artist:
+                                                                        item.owner_name ||
+                                                                        "Unknown",
+                                                                    duration:
+                                                                        (item.duration ||
+                                                                            0) *
+                                                                        1000,
+                                                                    artwork:
+                                                                        item.thumbnail_url,
+                                                                    category:
+                                                                        item.category,
+                                                                };
+                                                                play(track);
+                                                                if (
+                                                                    !showMiniPlayer
+                                                                )
+                                                                    toggleMiniPlayer(
+                                                                        true
+                                                                    );
+                                                            }
+                                                        }}
+                                                        activeOpacity={0.8}
+                                                        style={{
+                                                            position:
+                                                                "absolute",
+                                                            bottom: 6,
+                                                            right: 6,
+                                                            width: 32,
+                                                            height: 32,
+                                                            borderRadius: 16,
+                                                            backgroundColor:
+                                                                "rgba(0,0,0,0.65)",
+                                                            alignItems:
+                                                                "center",
+                                                            justifyContent:
+                                                                "center",
+                                                        }}
+                                                    >
+                                                        <MaterialCommunityIcons
+                                                            name={
+                                                                isItemPlaying
+                                                                    ? "pause"
+                                                                    : "play"
+                                                            }
+                                                            size={18}
+                                                            color={
+                                                                COLORS.text
+                                                                    .primary
+                                                            }
+                                                        />
+                                                    </TouchableOpacity>
+                                                </View>
+
+                                                {/* Info + progress bar */}
+                                                <View
+                                                    style={{ padding: 8 }}
+                                                >
+                                                    <Text
+                                                        className="text-text-primary font-semibold text-sm"
+                                                        numberOfLines={2}
+                                                        style={{
+                                                            lineHeight: 18,
+                                                            marginBottom: 6,
+                                                        }}
+                                                    >
+                                                        {item.title}
+                                                    </Text>
+                                                    {/* Progress bar */}
+                                                    <View
+                                                        style={{
+                                                            height: 3,
+                                                            backgroundColor:
+                                                                COLORS.border,
+                                                            borderRadius: 2,
+                                                            overflow: "hidden",
+                                                        }}
+                                                    >
+                                                        <View
+                                                            style={{
+                                                                height: "100%",
+                                                                width: `${Math.min(
+                                                                    100,
+                                                                    Math.max(
+                                                                        0,
+                                                                        item.progress_percent ||
+                                                                            0
+                                                                    )
+                                                                )}%`,
+                                                                backgroundColor:
+                                                                    COLORS.primary,
+                                                                borderRadius: 2,
+                                                            }}
+                                                        />
+                                                    </View>
+                                                    <Text
+                                                        className="text-text-muted"
+                                                        style={{
+                                                            fontSize: 10,
+                                                            marginTop: 4,
+                                                        }}
+                                                    >
+                                                        {Math.round(
+                                                            item.progress_percent ||
+                                                                0
+                                                        )}
+                                                        % complete
+                                                    </Text>
+                                                </View>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
+                            )}
+                        </View>
+                    )}
 
                     {/* Category Filters - Horizontal scroll */}
                     <ScrollView
