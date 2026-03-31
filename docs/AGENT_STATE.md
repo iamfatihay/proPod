@@ -16,7 +16,7 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-01
-**Last session:** PR gap audit — all 10 merged PRs reviewed, AGENT_STATE fully synced
+**Last session:** Public creator profile screen — tap creator name in details to view profile + episodes (PR #36) on branch `feature/public-creator-profile`
 **Test suite baseline:** 293 passed, 0 failed
 
 ### What's shipped (merged to master)
@@ -24,7 +24,7 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Podcast CRUD (create, edit, delete, list, search) — fully wired
 - ✅ Audio playback + listening history update — fully wired
 - ✅ Like, bookmark, comments — fully wired
-- ✅ AI transcription/keywords/summary — shown in details screen (PR #22-ish)
+- ✅ AI transcription/keywords/summary — shown in details screen
 - ✅ Audio performance optimizations (non-blocking playback)
 - ✅ Library screen (my podcasts / liked / bookmarked tabs)
 - ✅ Trending, recommended, related — apiService methods exist
@@ -36,11 +36,16 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Bug fixes: comment stats sync, sharing cover_image_url, test isolation (PRs #26, #30, #31)
 
 ### What's open / in-progress
-- 🔲 `feature/continue-listening-widget` — PR #33 open, awaiting merge (https://github.com/iamfatihay/proPod/pull/33)
-- 🔲 Frontend: **Playlist UI** — 8 backend endpoints ready at `/playlists/`, zero apiService methods, no screens at all
-- 🔲 Frontend: **Creator Analytics screen** — `GET /analytics/dashboard` untouched by frontend; home.js shows "coming soon" toast
-- 🔲 Frontend: **Deep link handling** — `volo://podcast/{id}` generated in details.js but `_layout.js` has no `expo-linking` setup
-- 🔲 Frontend: **Public creator profiles** — `GET /users/{id}/profile` and `GET /users/{id}/podcasts` have no apiService methods; details.js shows owner name but no tap-to-profile navigation
+- 🔲 `feature/continue-listening-widget` — PR #33 open, awaiting merge
+- 🔲 `feature/continue-listening-ui` — PR #32 open (older version, superseded by #33)
+- 🔲 `feature/playlist-ui` — PR #34 open, awaiting merge
+- 🔲 `feature/creator-analytics-screen` — PR #35 open, awaiting merge
+- 🔲 `feature/public-creator-profile` — PR #36 open, awaiting merge
+  - New screen `creator-profile.js`: avatar, stats row, paginated episode list
+  - Details.js: owner name tappable for non-owners → navigates to creator profile
+  - apiService: `getPublicUserProfile(userId)` + `getPublicUserPodcasts(userId, params)` added
+  - `_layout.js`: `creator-profile` registered as non-tab route
+- 🔲 Frontend: **Deep link handling** — `volo://podcast/{id}` generated in details.js but root `_layout.js` has no `expo-linking` setup
 - 🔲 Frontend: **Discover categories from API** — home.js hardcodes `CATEGORIES` array; should fetch from `GET /podcasts/discover/categories`
 - 🔲 Frontend: **Search uses backend** — search.js uses `SemanticSearchService` which fetches all podcasts locally; backend `GET /podcasts/search?query=` endpoint exists but is never called
 
@@ -49,8 +54,10 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - No Alembic migration for Playlist tables (dev uses `create_all`, prod needs migration)
 - Backend heavily tested; frontend has very few tests
 - `SemanticSearchService` fetches up to 100 podcasts client-side for search — should delegate to backend `/podcasts/search` for scalability
-- Profile screen only shows own profile (`useAuthStore`); no public creator profile view for other users
 - Notifications screen and chat screens appear to use mock/dummy data
+- Creator profile only reachable from details screen; not yet surfaced in search results or home cards
+- Follow/unfollow button not yet implemented (`total_followers` placeholder exists in backend schema)
+- Frontend Jest suite fails in sandbox with `@babel/preset-env` missing — pre-existing environment issue, not a code problem
 
 ---
 
@@ -60,58 +67,48 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 |---|---|---|---|---|
 | `POST /users/login` | — | `login()` | login screen | ✅ wired |
 | `GET /users/me` | — | `getMe()` | auth store | ✅ wired |
-| `GET /users/{id}/profile` | #24 | ❌ missing | ❌ no screen | 🔴 GAP |
-| `GET /users/{id}/podcasts` | #24 | ❌ missing | ❌ no screen | 🔴 GAP |
-| `GET /analytics/dashboard` | #25 | ❌ missing | ❌ "coming soon" toast | 🔴 GAP |
+| `GET /users/{id}/profile` | #24 | ✅ `getPublicUserProfile()` (PR #36) | ✅ `creator-profile.js` (PR #36) | 🟡 open PR |
+| `GET /users/{id}/podcasts` | #24 | ✅ `getPublicUserPodcasts()` (PR #36) | ✅ `creator-profile.js` (PR #36) | 🟡 open PR |
+| `GET /analytics/dashboard` | #25 | ✅ in PR #35 | ✅ in PR #35 | 🟡 open PR |
 | `GET /podcasts/my/continue-listening` | #27 | ✅ in PR #33 | ✅ in PR #33 | 🟡 open PR |
-| `POST /playlists/` | #28 | ❌ missing | ❌ no screen | 🔴 GAP |
-| `GET /playlists/my` | #28 | ❌ missing | ❌ no screen | 🔴 GAP |
-| `GET /playlists/{id}` | #28 | ❌ missing | ❌ no screen | 🔴 GAP |
-| `PUT /playlists/{id}` | #28 | ❌ missing | ❌ no screen | 🔴 GAP |
-| `DELETE /playlists/{id}` | #28 | ❌ missing | ❌ no screen | 🔴 GAP |
-| `POST /playlists/{id}/items` | #28 | ❌ missing | ❌ no screen | 🔴 GAP |
-| `DELETE /playlists/{id}/items/{pod}` | #28 | ❌ missing | ❌ no screen | 🔴 GAP |
+| `POST /playlists/` | #28 | ✅ in PR #34 | ✅ in PR #34 | 🟡 open PR |
+| `GET /playlists/my` | #28 | ✅ in PR #34 | ✅ in PR #34 | 🟡 open PR |
+| `GET /playlists/{id}` | #28 | ✅ in PR #34 | ✅ in PR #34 | 🟡 open PR |
+| `PUT /playlists/{id}` | #28 | ✅ in PR #34 | ✅ in PR #34 | 🟡 open PR |
+| `DELETE /playlists/{id}` | #28 | ✅ in PR #34 | ✅ in PR #34 | 🟡 open PR |
+| `POST /playlists/{id}/items` | #28 | ✅ in PR #34 | ✅ in PR #34 | 🟡 open PR |
+| `DELETE /playlists/{id}/items/{pod}` | #28 | ✅ in PR #34 | ✅ in PR #34 | 🟡 open PR |
 | `GET /podcasts/discover/categories` | #29 | ❌ missing | ❌ hardcoded | 🟡 nice-to-have |
 | `GET /podcasts/search` | old | ❌ not used | ❌ client-side only | 🟡 perf issue |
-| `GET /sharing/podcast/{id}` deep link | #26 | generates link only | ❌ `_layout.js` not wired | 🔴 GAP |
+| `GET /sharing/podcast/{id}` deep link | #26 | generates link only | ❌ root `_layout.js` not wired | 🔴 GAP |
 
 ---
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-These are the areas that move the **user-facing product** forward most. Prefer these over backend-only work.
-
-1. **Frontend: Connect existing backend features to UI** ← primary focus
+1. **Frontend: Connect remaining backend features to UI** ← primary focus
    - ~~Continue Listening widget~~ → in PR #33
-   - Playlist screens (create, list, detail, add-to-playlist action) — biggest gap, 0% done
-   - Creator analytics screen — `GET /analytics/dashboard` → charts + stats
-   - Public creator profile page — tap owner name → `GET /users/{id}/profile`
-   - Deep link handling in `_layout.js` — `volo://podcast/{id}`
+   - ~~Playlist screens~~ → in PR #34
+   - ~~Creator analytics screen~~ → in PR #35
+   - ~~Public creator profile page~~ → in PR #36
+   - Deep link handling in root `_layout.js` — `volo://podcast/{id}` via expo-linking
+   - Discover categories from API (remove hardcoded CATEGORIES array in home.js)
+   - Search: replace client-side SemanticSearchService with backend `/podcasts/search`
 
-2. **Search efficiency**
-   - Replace client-side `SemanticSearchService` with backend `GET /podcasts/search?query=`
+2. **Phase 2: Studio Mode** (from FEATURE_ROADMAP.md)
+   - Basic audio waveform visualization, trim start/end, chapter markers
 
-3. **Phase 2: Studio Mode** (from FEATURE_ROADMAP.md)
-   - Basic audio waveform visualization
-   - Trim start/end
-   - Chapter markers
-
-4. **Phase 1 remaining: AI features in frontend**
+3. **Phase 1 remaining: AI features in frontend**
    - AI processing state (loading, done, error) in create flow
-   - ~~Transcription in details screen~~ → already shown (PR #22+)
 
-5. **Live Broadcasting (RTC)**
+4. **Live Broadcasting (RTC)**
    - Several branches exist (`feature/rtc-phase2-*`) — review and resume
 
-6. **Backend features still missing**
-   - Push notifications (expo-notifications integration)
-   - Alembic migration for Playlist tables
-   - Follow/unfollow users (total_followers placeholder exists in schema)
+5. **Backend features still missing**
+   - Push notifications, Alembic migration for Playlist tables, follow/unfollow users
 
-7. **Polish & cross-platform**
-   - Lock screen / notification controls for audio playback (iOS + Android)
-   - Background playback improvements
-   - Offline mode (downloaded podcasts)
+6. **Polish & cross-platform**
+   - Lock screen controls, background playback, offline mode
 
 ---
 
@@ -138,19 +135,12 @@ Update the following sections:
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FRONTEND] Playlist UI** — Largest remaining gap. Backend fully ready (PR #28, 8 endpoints). Work needed:
-   - Add 7 apiService methods to `frontend/src/services/api/apiService.js`: `getMyPlaylists`, `getPlaylist`, `createPlaylist`, `updatePlaylist`, `deletePlaylist`, `addToPlaylist`, `removeFromPlaylist`
-   - Create `frontend/app/(main)/playlists.js` — list screen (my playlists + create button)
-   - Create `frontend/app/(main)/playlist-detail.js` — detail + remove items
-   - Add "Add to playlist" action sheet to `PodcastCard` long-press or details screen action menu
-   - Playlists router prefix: `GET/POST /playlists/`, see `backend/app/routers/playlists.py`
+1. **[FRONTEND] Deep link handling in root `_layout.js`** — `volo://podcast/{id}` URLs are already generated and shared via the Share action in details.js, but opening them does nothing because the root `frontend/app/_layout.js` has no `expo-linking` config. Work needed:
+   - Confirm `expo-linking` is in package.json (it ships with Expo, likely already available)
+   - In `frontend/app/_layout.js`, configure `expo-router`'s linking to handle `volo://podcast/:id` → navigate to `/(main)/details?id=:id`
+   - The Expo Router docs pattern: export a `linking` config object and pass it to the root `<Stack>`
+   - Test by calling: `npx uri-scheme open "volo://podcast/1" --ios`
 
-2. **[FRONTEND] Creator Analytics screen** — Backend at `GET /analytics/dashboard` returns: total_podcasts, total_plays, total_likes, total_bookmarks, total_comments, avg_completion_rate, top_5_podcasts, recent_engagement, category_distribution. Work needed:
-   - Add `getCreatorDashboard()` to `frontend/src/services/api/apiService.js`
-   - Create `frontend/app/(main)/analytics.js` with stat cards + top podcasts list
-   - Replace `showToast("Analytics coming soon!")` in `home.js handleQuickAction` case `"analytics"` with `router.push("/(main)/analytics")`
+2. **[FRONTEND] Replace hardcoded CATEGORIES in `home.js` with API data** — `home.js` has a top-level `const CATEGORIES = [...]` array. Replace with a `useEffect` that calls a new `apiService.getDiscoverCategories()` method → `GET /podcasts/discover/categories`. The endpoint returns `{ categories: [{name, podcast_count, cover_image_url}] }`. Render category cover images instead of placeholder icons. File: `frontend/app/(main)/home.js`, method insertion in `frontend/src/services/api/apiService.js`.
 
-3. **[FRONTEND] Public creator profile page** — Backend `GET /users/{id}/profile` returns: name, photo_url, podcast_count, total_plays, total_likes. Work needed:
-   - Add `getPublicUserProfile(userId)` and `getPublicUserPodcasts(userId, params)` to apiService
-   - Create `frontend/app/(main)/creator-profile.js` screen
-   - In `frontend/app/(main)/details.js` around line 668, wrap the `podcast.owner?.name` text in a `TouchableOpacity` that navigates to `/(main)/creator-profile?userId={podcast.owner_id}`
+3. **[FRONTEND] Replace client-side search with backend endpoint** — `frontend/app/(main)/search.js` uses `SemanticSearchService.search()` which fetches up to 100 podcasts and filters locally. Replace with `GET /podcasts/search?query=&category=&sort_by=` via a new `apiService.searchPodcasts(query, filters)` method. This eliminates the 100-podcast cap and makes search scale correctly. Files: `frontend/app/(main)/search.js`, `frontend/src/services/api/apiService.js`.
