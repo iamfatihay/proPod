@@ -24,7 +24,7 @@ const toTrack = (p) => ({
     title: p.title,
     artist: p.owner?.name || "Unknown Artist",
     artwork: toAbsoluteUrl(p.thumbnail_url),
-    duration: (p.duration || 0), // already in ms after normalizePodcasts
+    duration: (p.duration || 0) * 1000, // convert seconds → ms (backend returns seconds)
     category: p.category,
 });
 import { COLORS } from "../../src/constants/theme";
