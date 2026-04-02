@@ -828,6 +828,48 @@ class ApiService {
         );
     }
 
+    /**
+     * Search podcasts via the backend full-text search endpoint.
+     *
+     * Replaces client-side SemanticSearchService.searchPodcasts() for the
+     * "All Content" search mode. The backend filters by title and description
+     * using SQL ILIKE, which is far more scalable than fetching 100 podcasts
+     * and filtering in JS.
+     *
+     * @param {string} query - Non-empty search string
+     * @param {Object} params - Optional query parameters
+     * @param {string} [params.category] - Restrict results to a category
+     * @param {number} [params.skip=0] - Pagination offset
+     * @param {number} [params.limit=20] - Max results (1-100)
+     * @returns {Promise<Array>} Array of matching podcast objects
+     */
+    async searchPodcasts(query, params = {}) {
+        const queryParams = new URLSearchParams({ query });
+        if (params.category) queryParams.append("category", params.category);
+        if (params.skip !== undefined) queryParams.append("skip", params.skip);
+        if (params.limit !== undefined)
+            queryParams.append("limit", params.limit);
+
+        const response = await this.request(
+            `/podcasts/search?${queryParams.toString()}`
+        );
+        // Backend returns { podcasts: [], total, limit, offset, has_more }
+        const podcasts = response?.podcasts || [];
+        return podcasts.map((p) => this.normalizePodcast(p));
+    }
+
+    /**
+     * Fetch all podcast categories with their podcast counts from the backend.
+     *
+     * Used by the Home screen to replace the static CATEGORIES constant.
+     * Returns categories sorted by podcast count (descending).
+     *
+     * @returns {Promise<Array<{category: string, podcast_count: number}>>}
+     */
+    async getDiscoverCategories() {
+        return this.request("/podcasts/discover/categories");
+    }
+
     // User's Personal Collections
     async getLikedPodcasts(params = {}) {
         const queryParams = new URLSearchParams();
