@@ -112,6 +112,13 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ---
 
+## ⛔ Hard Rules (Never Break These)
+
+- **Never add co-author lines to commits.** Do not include `Co-Authored-By:` or any self-attribution in commit messages, ever.
+- Commit messages belong solely to the human developer.
+
+---
+
 ## 🧠 Agent Instructions: How to Use This File
 
 ### At session START
