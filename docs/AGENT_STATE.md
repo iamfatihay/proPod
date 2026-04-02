@@ -15,8 +15,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-01
-**Last session:** PR gap audit — all 10 merged PRs reviewed, AGENT_STATE fully synced
+**Last updated:** 2026-04-02
+**Last session:** Wired backend search + dynamic categories — branch `feature/backend-search-and-categories`, PR #38
 **Test suite baseline:** 293 passed, 0 failed
 
 ### What's shipped (merged to master)
@@ -36,19 +36,23 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Bug fixes: comment stats sync, sharing cover_image_url, test isolation (PRs #26, #30, #31)
 
 ### What's open / in-progress
-- 🔲 `feature/continue-listening-widget` — PR #33 open, awaiting merge (https://github.com/iamfatihay/proPod/pull/33)
-- 🔲 Frontend: **Playlist UI** — 8 backend endpoints ready at `/playlists/`, zero apiService methods, no screens at all
-- 🔲 Frontend: **Creator Analytics screen** — `GET /analytics/dashboard` untouched by frontend; home.js shows "coming soon" toast
+- 🔲 `feature/continue-listening-widget` — PR #33 open (https://github.com/iamfatihay/proPod/pull/33)
+- 🔲 `feature/continue-listening-ui` — PR #32 open (duplicate of #33 — one should be closed)
+- 🔲 `feature/playlist-ui` — PR #34 open (https://github.com/iamfatihay/proPod/pull/34)
+- 🔲 `feature/creator-analytics-screen` — PR #35 open (https://github.com/iamfatihay/proPod/pull/35)
+- 🔲 `feature/public-creator-profile` — PR #36 open (https://github.com/iamfatihay/proPod/pull/36)
+- 🔲 `feature/analytics-screen` — PR #37 open (duplicate of #35 — one should be closed)
+- 🔲 `feature/backend-search-and-categories` — PR #38 open (https://github.com/iamfatihay/proPod/pull/38)
 - 🔲 Frontend: **Deep link handling** — `volo://podcast/{id}` generated in details.js but `_layout.js` has no `expo-linking` setup
-- 🔲 Frontend: **Public creator profiles** — `GET /users/{id}/profile` and `GET /users/{id}/podcasts` have no apiService methods; details.js shows owner name but no tap-to-profile navigation
-- 🔲 Frontend: **Discover categories from API** — home.js hardcodes `CATEGORIES` array; should fetch from `GET /podcasts/discover/categories`
-- 🔲 Frontend: **Search uses backend** — search.js uses `SemanticSearchService` which fetches all podcasts locally; backend `GET /podcasts/search?query=` endpoint exists but is never called
 
 ### Known issues / tech debt
 - `test_analytics_dashboard` has a pre-existing flaky isolation issue (passes when run alone)
 - No Alembic migration for Playlist tables (dev uses `create_all`, prod needs migration)
 - Backend heavily tested; frontend has very few tests
-- `SemanticSearchService` fetches up to 100 podcasts client-side for search — should delegate to backend `/podcasts/search` for scalability
+- Search transcription mode still uses client-side SemanticSearchService (no backend transcript-search endpoint)
+- Search results not paginated — search.js fetches limit=50 and shows all; needs "load more" for large results
+- Category list not cached — `getDiscoverCategories()` fetched fresh on every Home mount; a Zustand store would avoid redundant calls
+- Duplicate open PRs: #32 vs #33 (continue-listening), #35 vs #37 (analytics) — one of each pair should be closed
 - Profile screen only shows own profile (`useAuthStore`); no public creator profile view for other users
 - Notifications screen and chat screens appear to use mock/dummy data
 
@@ -71,8 +75,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 | `DELETE /playlists/{id}` | #28 | ❌ missing | ❌ no screen | 🔴 GAP |
 | `POST /playlists/{id}/items` | #28 | ❌ missing | ❌ no screen | 🔴 GAP |
 | `DELETE /playlists/{id}/items/{pod}` | #28 | ❌ missing | ❌ no screen | 🔴 GAP |
-| `GET /podcasts/discover/categories` | #29 | ❌ missing | ❌ hardcoded | 🟡 nice-to-have |
-| `GET /podcasts/search` | old | ❌ not used | ❌ client-side only | 🟡 perf issue |
+| `GET /podcasts/discover/categories` | #29 | ✅ `getDiscoverCategories()` in PR #38 | ✅ home.js in PR #38 | 🟡 open PR |
+| `GET /podcasts/search` | old | ✅ `searchPodcasts()` in PR #38 | ✅ search.js in PR #38 | 🟡 open PR |
 | `GET /sharing/podcast/{id}` deep link | #26 | generates link only | ❌ `_layout.js` not wired | 🔴 GAP |
 
 ---
@@ -89,7 +93,8 @@ These are the areas that move the **user-facing product** forward most. Prefer t
    - Deep link handling in `_layout.js` — `volo://podcast/{id}`
 
 2. **Search efficiency**
-   - Replace client-side `SemanticSearchService` with backend `GET /podcasts/search?query=`
+   - ~~Replace client-side `SemanticSearchService` with backend `GET /podcasts/search?query=`~~ → in PR #38
+   - Transcription search still client-side; needs backend endpoint
 
 3. **Phase 2: Studio Mode** (from FEATURE_ROADMAP.md)
    - Basic audio waveform visualization
@@ -138,19 +143,19 @@ Update the following sections:
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FRONTEND] Playlist UI** — Largest remaining gap. Backend fully ready (PR #28, 8 endpoints). Work needed:
-   - Add 7 apiService methods to `frontend/src/services/api/apiService.js`: `getMyPlaylists`, `getPlaylist`, `createPlaylist`, `updatePlaylist`, `deletePlaylist`, `addToPlaylist`, `removeFromPlaylist`
-   - Create `frontend/app/(main)/playlists.js` — list screen (my playlists + create button)
-   - Create `frontend/app/(main)/playlist-detail.js` — detail + remove items
-   - Add "Add to playlist" action sheet to `PodcastCard` long-press or details screen action menu
-   - Playlists router prefix: `GET/POST /playlists/`, see `backend/app/routers/playlists.py`
+1. **[CLEANUP] Close duplicate PRs** — PRs #32 and #35 are earlier drafts of #33 and #37 respectively. Before opening new work, close the duplicates so the merge queue is clean. Use GitHub API (browser JS) to close them:
+   ```js
+   fetch('https://api.github.com/repos/iamfatihay/proPod/pulls/32', {method:'PATCH', headers:{Authorization:'Bearer TOKEN','Content-Type':'application/json'}, body: JSON.stringify({state:'closed'})})
+   ```
+   Then pick the best of each pair (compare diff sizes) and ensure it's ready to merge.
 
-2. **[FRONTEND] Creator Analytics screen** — Backend at `GET /analytics/dashboard` returns: total_podcasts, total_plays, total_likes, total_bookmarks, total_comments, avg_completion_rate, top_5_podcasts, recent_engagement, category_distribution. Work needed:
-   - Add `getCreatorDashboard()` to `frontend/src/services/api/apiService.js`
-   - Create `frontend/app/(main)/analytics.js` with stat cards + top podcasts list
-   - Replace `showToast("Analytics coming soon!")` in `home.js handleQuickAction` case `"analytics"` with `router.push("/(main)/analytics")`
+2. **[FRONTEND] Deep link handling** — `volo://podcast/{id}` is already generated in `details.js` share sheet but `_layout.js` has zero `expo-linking` setup. Users who tap a shared link land on the home screen. Work needed:
+   - Add `expo-linking` config to `frontend/app/_layout.js` with scheme `volo` and path `podcast/:id`
+   - Add a `useEffect` that reads the initial URL on mount and navigates to `/(main)/details?id=X`
+   - Subscribe to `Linking.addEventListener('url', ...)` for foreground deep links
+   - Test: open `volo://podcast/1` in simulator
 
-3. **[FRONTEND] Public creator profile page** — Backend `GET /users/{id}/profile` returns: name, photo_url, podcast_count, total_plays, total_likes. Work needed:
-   - Add `getPublicUserProfile(userId)` and `getPublicUserPodcasts(userId, params)` to apiService
-   - Create `frontend/app/(main)/creator-profile.js` screen
-   - In `frontend/app/(main)/details.js` around line 668, wrap the `podcast.owner?.name` text in a `TouchableOpacity` that navigates to `/(main)/creator-profile?userId={podcast.owner_id}`
+3. **[FRONTEND] Cache categories in Zustand** — `getDiscoverCategories()` is called on every Home screen mount (including focus events). Caching in a lightweight Zustand store (similar to `useNotificationStore`) would eliminate redundant network calls. Work needed:
+   - Create `frontend/src/context/useCategoryStore.js` with `categories`, `loadCategories()`, `isLoaded` fields
+   - Replace the `useEffect` in `home.js` with a store action call
+   - This also lets `search.js` show a category filter dropdown populated from the same store without an extra API call
