@@ -879,6 +879,18 @@ class ApiService {
         return this.request(`/podcasts/${podcastId}/analytics`);
     }
 
+    /**
+     * Get the creator analytics dashboard.
+     * @param {number} days - Look-back window for recent engagement (default 30)
+     * @returns {{ total_podcasts, total_plays, total_likes, total_bookmarks,
+     *             total_comments, average_completion_rate, top_podcasts,
+     *             recent_likes, recent_bookmarks, recent_comments,
+     *             category_distribution, days }}
+     */
+    async getCreatorDashboard(days = 30) {
+        return this.request(`/analytics/dashboard?days=${days}`);
+    }
+
     // AI Processing methods
     async getAIStatus() {
         return this.request("/ai/status");
