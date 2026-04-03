@@ -266,12 +266,13 @@ export default function HomeScreen() {
         }
     }, [params.refresh, load]);
 
-    // Reload when screen comes into focus
+    // Reload when screen comes into focus.
+    // Only await the main feed — loadContinueListening fires independently
+    // so it never blocks the main-feed repaint when returning to this screen.
     useFocusEffect(
         useCallback(() => {
-            (async () => {
-                await Promise.all([load(), loadContinueListening()]);
-            })();
+            loadContinueListening(); // fire-and-forget — has own loading state
+            load(); // main feed; triggers setLoading via its own effect
         }, [load, loadContinueListening])
     );
 
