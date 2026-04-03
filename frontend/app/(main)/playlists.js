@@ -8,7 +8,6 @@ import {
     ActivityIndicator,
     TextInput,
     Switch,
-    Alert,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -67,7 +66,7 @@ const PlaylistCard = ({ playlist, onPress, onEdit, onDelete }) => (
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 className="p-1"
             >
-                <MaterialCommunityIcons name="trash-can-outline" size={18} color={COLORS.error} />
+                <MaterialCommunityIcons name="delete-outline" size={18} color={COLORS.error} />
             </TouchableOpacity>
         </View>
     </TouchableOpacity>
@@ -342,7 +341,7 @@ const Playlists = () => {
                 cancelText="Cancel"
                 destructive
                 loading={deleting}
-                icon="trash-can-outline"
+                icon="trash-outline"
             />
         </SafeAreaView>
     );

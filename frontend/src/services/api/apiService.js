@@ -1065,7 +1065,12 @@ class ApiService {
 
     /** Fetch the current user's playlists. */
     async getMyPlaylists(params = {}) {
-        const query = new URLSearchParams(params).toString();
+        // Use conditional appending (consistent with rest of apiService) to
+        // avoid serialising `undefined`/`null` values as literal URL params.
+        const queryParams = new URLSearchParams();
+        if (params.skip !== undefined) queryParams.append("skip", params.skip);
+        if (params.limit !== undefined) queryParams.append("limit", params.limit);
+        const query = queryParams.toString();
         return this.request(`/playlists/my${query ? `?${query}` : ""}`);
     }
 

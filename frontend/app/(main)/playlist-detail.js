@@ -230,7 +230,7 @@ const PlaylistDetail = () => {
                 cancelText="Cancel"
                 destructive
                 loading={removing}
-                icon="playlist-minus"
+                icon="remove-circle-outline"
             />
         </SafeAreaView>
     );
