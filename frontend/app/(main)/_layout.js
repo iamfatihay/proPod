@@ -367,6 +367,18 @@ export default function TabLayout() {
                         href: null,
                     }}
                 />
+                <Tabs.Screen
+                    name="playlists"
+                    options={{
+                        href: null,
+                    }}
+                />
+                <Tabs.Screen
+                    name="playlist-detail"
+                    options={{
+                        href: null,
+                    }}
+                />
             </Tabs>
 
             {/* Debug MiniPlayer State */}

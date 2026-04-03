@@ -1061,6 +1061,72 @@ class ApiService {
         });
     }
 
+    // ─── Playlist Methods ────────────────────────────────────────────────────
+
+    /** Fetch the current user's playlists. */
+    async getMyPlaylists(params = {}) {
+        const query = new URLSearchParams(params).toString();
+        return this.request(`/playlists/my${query ? `?${query}` : ""}`);
+    }
+
+    /** Fetch a single playlist by ID (includes items). */
+    async getPlaylist(playlistId) {
+        return this.request(`/playlists/${playlistId}`);
+    }
+
+    /**
+     * Create a new playlist.
+     * @param {{ name: string, description?: string, is_public?: boolean }} data
+     */
+    async createPlaylist(data) {
+        return this.request("/playlists/", {
+            method: "POST",
+            body: JSON.stringify(data),
+        });
+    }
+
+    /**
+     * Update an existing playlist.
+     * @param {number} playlistId
+     * @param {{ name?: string, description?: string, is_public?: boolean }} data
+     */
+    async updatePlaylist(playlistId, data) {
+        return this.request(`/playlists/${playlistId}`, {
+            method: "PUT",
+            body: JSON.stringify(data),
+        });
+    }
+
+    /** Delete a playlist by ID. */
+    async deletePlaylist(playlistId) {
+        return this.request(`/playlists/${playlistId}`, { method: "DELETE" });
+    }
+
+    /**
+     * Add a podcast to a playlist.
+     * @param {number} playlistId
+     * @param {number} podcastId
+     */
+    async addToPlaylist(playlistId, podcastId) {
+        return this.request(`/playlists/${playlistId}/items`, {
+            method: "POST",
+            body: JSON.stringify({ podcast_id: podcastId }),
+        });
+    }
+
+    /**
+     * Remove a podcast from a playlist.
+     * @param {number} playlistId
+     * @param {number} podcastId
+     */
+    async removeFromPlaylist(playlistId, podcastId) {
+        return this.request(`/playlists/${playlistId}/items/${podcastId}`, {
+            method: "DELETE",
+        });
+    }
+
+    // ─── End Playlist Methods ─────────────────────────────────────────────────
+
     // Logout function
     async logout() {
         await deleteToken("accessToken");
