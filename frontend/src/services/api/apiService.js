@@ -93,6 +93,9 @@ class ApiService {
         if (podcast.audio_url && !podcast.audio_url.startsWith("http")) {
             podcast.audio_url = `${this.baseURL}${podcast.audio_url}`;
         }
+        if (podcast.thumbnail_url && !podcast.thumbnail_url.startsWith("http")) {
+            podcast.thumbnail_url = `${this.baseURL}${podcast.thumbnail_url}`;
+        }
 
         return podcast;
     }
@@ -829,11 +832,11 @@ class ApiService {
     }
 
     /**
-     * Search podcasts via the backend full-text search endpoint.
+     * Search podcasts via the backend search endpoint (SQL ILIKE on title/description).
      *
      * Replaces client-side SemanticSearchService.searchPodcasts() for the
      * "All Content" search mode. The backend filters by title and description
-     * using SQL ILIKE, which is far more scalable than fetching 100 podcasts
+     * using ILIKE, which is far more scalable than fetching 100 podcasts
      * and filtering in JS.
      *
      * @param {string} query - Non-empty search string

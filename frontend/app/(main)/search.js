@@ -64,7 +64,9 @@ const Search = () => {
     };
 
     const performSearch = async (query) => {
-        if (!query || query.trim().length === 0) {
+        // Trim once here so all downstream calls (API, history) use the clean value.
+        const q = (query || "").trim();
+        if (q.length === 0) {
             setSearchResults([]);
             return;
         }
@@ -75,22 +77,20 @@ const Search = () => {
             Keyboard.dismiss();
 
             // Record query in local history (used for suggestions / recent searches)
-            SemanticSearchService.addToHistory(query);
+            SemanticSearchService.addToHistory(q);
 
             let results;
             if (searchMode === "transcriptions") {
                 // Transcription search is still client-side (backend has no
                 // dedicated transcript search endpoint yet).
-                results = await SemanticSearchService.searchTranscriptions(
-                    query
-                );
+                results = await SemanticSearchService.searchTranscriptions(q);
                 // SemanticSearchService already normalizes URLs internally;
                 // apply normalizePodcasts for consistency.
                 setSearchResults(normalizePodcasts(results));
             } else {
                 // Delegate to the backend search endpoint for scalability.
                 // Returns already-normalized podcast objects from apiService.
-                results = await apiService.searchPodcasts(query, { limit: 50 });
+                results = await apiService.searchPodcasts(q, { limit: 50 });
                 setSearchResults(results);
             }
         } catch (error) {
