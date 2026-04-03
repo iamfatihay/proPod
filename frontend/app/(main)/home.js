@@ -329,7 +329,7 @@ export default function HomeScreen() {
                 });
                 break;
             case "analytics":
-                showToast("Analytics coming soon! 📊", "info");
+                router.push("/(main)/analytics");
                 break;
             case "notifications":
                 router.push("/(main)/notifications");
