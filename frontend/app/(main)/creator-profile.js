@@ -63,7 +63,10 @@ const StatItem = ({ icon, value, label }) => (
 
 export default function CreatorProfile() {
     const router = useRouter();
-    const { userId } = useLocalSearchParams();
+    // useLocalSearchParams can return string | string[] | undefined.
+    // Normalise to a single string so API URLs remain valid.
+    const rawUserId = useLocalSearchParams().userId;
+    const userId = Array.isArray(rawUserId) ? rawUserId[0] : rawUserId;
 
     const [profile, setProfile] = useState(null);
     const [podcasts, setPodcasts] = useState([]);
