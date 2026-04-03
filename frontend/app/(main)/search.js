@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import PodcastCard from "../../src/components/PodcastCard";
 import SemanticSearchService from "../../src/services/ai/SemanticSearchService";
+import apiService from "../../src/services/api/apiService";
 import useAudioStore from "../../src/context/useAudioStore";
 import Logger from "../../src/utils/logger";
 import { normalizePodcasts } from "../../src/utils/urlHelper";
@@ -63,7 +64,9 @@ const Search = () => {
     };
 
     const performSearch = async (query) => {
-        if (!query || query.trim().length === 0) {
+        // Trim once here so all downstream calls (API, history) use the clean value.
+        const q = (query || "").trim();
+        if (q.length === 0) {
             setSearchResults([]);
             return;
         }
@@ -73,17 +76,23 @@ const Search = () => {
             setShowHistory(false);
             Keyboard.dismiss();
 
+            // Record query in local history (used for suggestions / recent searches)
+            SemanticSearchService.addToHistory(q);
+
             let results;
             if (searchMode === "transcriptions") {
-                results = await SemanticSearchService.searchTranscriptions(
-                    query
-                );
+                // Transcription search is still client-side (backend has no
+                // dedicated transcript search endpoint yet).
+                results = await SemanticSearchService.searchTranscriptions(q);
+                // SemanticSearchService already normalizes URLs internally;
+                // apply normalizePodcasts for consistency.
+                setSearchResults(normalizePodcasts(results));
             } else {
-                results = await SemanticSearchService.searchPodcasts(query);
+                // Delegate to the backend search endpoint for scalability.
+                // Returns already-normalized podcast objects from apiService.
+                results = await apiService.searchPodcasts(q, { limit: 50 });
+                setSearchResults(results);
             }
-
-            // Normalize URLs (relative to absolute)
-            setSearchResults(normalizePodcasts(results));
         } catch (error) {
             Logger.error("Search failed:", error);
             setSearchResults([]);
@@ -241,7 +250,9 @@ const Search = () => {
                 <View className="flex-1 items-center justify-center">
                     <ActivityIndicator size="large" color={COLORS.primary} />
                     <Text className="text-text-secondary mt-3">
-                        🤖 AI is analyzing content...
+                        {searchMode === "transcriptions"
+                            ? "🤖 Scanning transcriptions..."
+                            : "Searching podcasts..."}
                     </Text>
                 </View>
             ) : searchResults.length > 0 ? (
@@ -266,11 +277,14 @@ const Search = () => {
                 <View className="flex-1 items-center justify-center px-8">
                     <Ionicons name="search-outline" size={64} color="#444" />
                     <Text className="text-text-primary text-xl font-semibold mt-4">
-                        Semantic Search
+                        {searchMode === "transcriptions"
+                            ? "Transcription Search"
+                            : "Search Podcasts"}
                     </Text>
                     <Text className="text-text-secondary text-center mt-2">
-                        Powered by AI. Search by topic, mood, keywords, or even
-                        specific phrases from transcriptions.
+                        {searchMode === "transcriptions"
+                            ? "Find podcasts by exact phrases spoken in the episode."
+                            : "Search by title or description across all public podcasts."}
                     </Text>
                 </View>
             )}
