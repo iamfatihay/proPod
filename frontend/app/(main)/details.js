@@ -24,6 +24,7 @@ import { Stack } from "expo-router";
 import Logger from "../../src/utils/logger";
 import ConfirmationModal from "../../src/components/ConfirmationModal";
 import InfoModal from "../../src/components/InfoModal";
+import CustomModal from "../../src/components/CustomModal";
 import { normalizePodcast, normalizePodcasts } from "../../src/utils/urlHelper";
 import { getQualityMessage } from "../../src/utils/qualityHelpers";
 import { COLORS } from "../../src/constants/theme";
@@ -83,6 +84,12 @@ const Details = () => {
     const [showFullTranscription, setShowFullTranscription] = useState(false);
     const [aiData, setAiData] = useState(null);
     const [showQualityInfo, setShowQualityInfo] = useState(false);
+
+    // Add-to-playlist modal state
+    const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+    const [myPlaylists, setMyPlaylists] = useState([]);
+    const [loadingPlaylists, setLoadingPlaylists] = useState(false);
+    const [addingToPlaylist, setAddingToPlaylist] = useState(null); // playlistId being added to
 
     // Watch for audio playback errors and show toast
     useEffect(() => {
@@ -327,6 +334,34 @@ const Details = () => {
             showToast(msg, "error");
         } finally {
             setIsBookmarking(false);
+        }
+    };
+
+    const handleOpenPlaylistPicker = async () => {
+        setPlaylistModalVisible(true);
+        setLoadingPlaylists(true);
+        try {
+            const res = await apiService.getMyPlaylists();
+            setMyPlaylists(res.playlists || []);
+        } catch (e) {
+            showToast("Could not load playlists", "error");
+            setPlaylistModalVisible(false);
+        } finally {
+            setLoadingPlaylists(false);
+        }
+    };
+
+    const handleAddToPlaylist = async (playlistId) => {
+        if (!podcast?.id) return;
+        setAddingToPlaylist(playlistId);
+        try {
+            await apiService.addToPlaylist(playlistId, podcast.id);
+            showToast("Added to playlist", "success");
+            setPlaylistModalVisible(false);
+        } catch (e) {
+            showToast(e?.detail || e?.message || "Failed to add to playlist", "error");
+        } finally {
+            setAddingToPlaylist(null);
         }
     };
 
@@ -848,6 +883,28 @@ const Details = () => {
                             </Text>
                         </TouchableOpacity>
 
+                        {/* Add to Playlist */}
+                        <TouchableOpacity
+                            onPress={handleOpenPlaylistPicker}
+                            className="flex-row items-center px-4 py-1 rounded-xl bg-panel"
+                            activeOpacity={0.7}
+                            hitSlop={{
+                                top: 10,
+                                bottom: 10,
+                                left: 10,
+                                right: 10,
+                            }}
+                        >
+                            <MaterialCommunityIcons
+                                name="playlist-edit"
+                                size={18}
+                                color={COLORS.text.muted}
+                            />
+                            <Text className="text-text-secondary ml-1.5 text-sm font-medium">
+                                Playlist
+                            </Text>
+                        </TouchableOpacity>
+
                         {/* Delete Button - Only for owner */}
                         {isOwner && (
                             <TouchableOpacity
@@ -1203,6 +1260,81 @@ const Details = () => {
                 {/* Bottom Spacing for Mini Player */}
                 <View style={{ height: showMiniPlayer ? 100 : 20 }} />
             </ScrollView>
+
+            {/* Add-to-Playlist Picker Modal */}
+            <CustomModal
+                visible={playlistModalVisible}
+                onClose={() => setPlaylistModalVisible(false)}
+                title="Add to Playlist"
+                animationType="slide"
+            >
+                {loadingPlaylists ? (
+                    <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 24 }} />
+                ) : myPlaylists.length === 0 ? (
+                    <View className="items-center py-6">
+                        <MaterialCommunityIcons
+                            name="playlist-music-outline"
+                            size={48}
+                            color={COLORS.text.muted}
+                        />
+                        <Text className="text-text-secondary mt-3 text-center">
+                            You have no playlists yet.
+                        </Text>
+                        <TouchableOpacity
+                            onPress={() => {
+                                setPlaylistModalVisible(false);
+                                router.push("/(main)/playlists");
+                            }}
+                            className="mt-4 bg-primary px-5 py-2 rounded-xl"
+                            activeOpacity={0.8}
+                        >
+                            <Text className="text-white font-semibold">Create Playlist</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    myPlaylists.map((pl) => (
+                        <TouchableOpacity
+                            key={pl.id}
+                            onPress={() => handleAddToPlaylist(pl.id)}
+                            disabled={addingToPlaylist === pl.id}
+                            className="flex-row items-center py-3 border-b border-border"
+                            activeOpacity={0.7}
+                        >
+                            <View className="w-9 h-9 bg-primary/10 rounded-lg items-center justify-center mr-3">
+                                <MaterialCommunityIcons
+                                    name={pl.is_public ? "playlist-music" : "playlist-lock"}
+                                    size={20}
+                                    color={COLORS.primary}
+                                />
+                            </View>
+                            <View className="flex-1">
+                                <Text className="text-text-primary font-medium" numberOfLines={1}>
+                                    {pl.name}
+                                </Text>
+                                <Text className="text-text-secondary text-xs">
+                                    {pl.item_count ?? 0} episode{pl.item_count !== 1 ? "s" : ""}
+                                </Text>
+                            </View>
+                            {addingToPlaylist === pl.id ? (
+                                <ActivityIndicator size="small" color={COLORS.primary} />
+                            ) : (
+                                <MaterialCommunityIcons
+                                    name="plus-circle-outline"
+                                    size={22}
+                                    color={COLORS.primary}
+                                />
+                            )}
+                        </TouchableOpacity>
+                    ))
+                )}
+                <TouchableOpacity
+                    onPress={() => setPlaylistModalVisible(false)}
+                    className="mt-4 bg-panel border border-border rounded-xl py-3 items-center"
+                    activeOpacity={0.7}
+                >
+                    <Text className="text-text-secondary font-medium">Cancel</Text>
+                </TouchableOpacity>
+            </CustomModal>
         </SafeAreaView>
     );
 };
