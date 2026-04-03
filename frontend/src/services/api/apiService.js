@@ -405,6 +405,34 @@ class ApiService {
     }
 
     /**
+     * Get a public creator's profile (non-sensitive stats, no auth required).
+     *
+     * @param {number} userId - The creator's user ID
+     * @returns {Promise<Object>} PublicUserProfile — id, name, photo_url, created_at,
+     *                           podcast_count, total_plays, total_likes, total_followers
+     * @throws {Error} If user not found or request fails
+     */
+    async getPublicUserProfile(userId) {
+        return this.request(`/users/${userId}/profile`);
+    }
+
+    /**
+     * Get a creator's public podcasts with pagination.
+     *
+     * @param {number} userId - The creator's user ID
+     * @param {Object} [params] - Optional pagination params
+     * @param {number} [params.skip=0] - Offset
+     * @param {number} [params.limit=20] - Page size (max 100)
+     * @returns {Promise<Object>} { podcasts: Podcast[], total: number }
+     * @throws {Error} If user not found or request fails
+     */
+    async getPublicUserPodcasts(userId, { skip = 0, limit = 20 } = {}) {
+        return this.request(
+            `/users/${userId}/podcasts?skip=${skip}&limit=${limit}`
+        );
+    }
+
+    /**
      * Update user profile
      *
      * @param {Object} profileData - Profile data to update
