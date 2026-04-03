@@ -34,9 +34,11 @@ const fmt = (n) => {
     return String(n);
 };
 
+// average_completion_rate arrives from the backend already as a percentage
+// value in the 0–100 range (e.g. 42 means 42%). Do NOT multiply by 100.
 const pct = (n) => {
     if (n === null || n === undefined) return "—";
-    return `${Math.round(n * 100)}%`;
+    return `${Math.round(n)}%`;
 };
 
 // ─── StatCard ─────────────────────────────────────────────────────────────────
@@ -156,7 +158,8 @@ const RecentDeltaRow = ({ icon, label, value, color }) => (
 
 // ─── TopPodcastRow ────────────────────────────────────────────────────────────
 
-const TopPodcastRow = ({ rank, podcast, onPress }) => (
+// isLast is passed from the parent map to suppress the divider on the final row.
+const TopPodcastRow = ({ rank, podcast, onPress, isLast = false }) => (
     <TouchableOpacity
         onPress={() => onPress(podcast.id)}
         activeOpacity={0.7}
@@ -164,7 +167,7 @@ const TopPodcastRow = ({ rank, podcast, onPress }) => (
             flexDirection: "row",
             alignItems: "center",
             paddingVertical: 12,
-            borderBottomWidth: 1,
+            borderBottomWidth: isLast ? 0 : 1,
             borderBottomColor: COLORS.border,
         }}
     >
@@ -234,10 +237,13 @@ const TopPodcastRow = ({ rank, podcast, onPress }) => (
 );
 
 // ─── CategoryRow ──────────────────────────────────────────────────────────────
+// Backend returns category_distribution as { category, count } where `count`
+// is the number of podcasts in that category. There is no per-category
+// play count in the current response, so we use `count` for the bar width.
 
-const CategoryRow = ({ cat, maxPlays }) => {
+const CategoryRow = ({ cat, maxCount }) => {
     const barWidth =
-        maxPlays > 0 ? Math.max(4, (cat.total_plays / maxPlays) * 100) : 4;
+        maxCount > 0 ? Math.max(4, (cat.count / maxCount) * 100) : 4;
 
     return (
         <View style={{ marginBottom: 12 }}>
@@ -258,7 +264,7 @@ const CategoryRow = ({ cat, maxPlays }) => {
                     {cat.category || "Uncategorized"}
                 </Text>
                 <Text style={{ color: COLORS.text.muted, fontSize: 12 }}>
-                    {fmt(cat.total_plays)} plays · {cat.podcast_count} ep
+                    {cat.count} {cat.count === 1 ? "podcast" : "podcasts"}
                 </Text>
             </View>
             {/* Progress bar */}
@@ -462,9 +468,10 @@ const AnalyticsScreen = () => {
     }
 
     // ── Main view ────────────────────────────────────────────────────────────
-    const maxCatPlays =
+    // Use `count` (podcast count per category) as the bar denominator.
+    const maxCatCount =
         data?.category_distribution?.reduce(
-            (max, c) => Math.max(max, c.total_plays),
+            (max, c) => Math.max(max, c.count ?? 0),
             0
         ) || 0;
 
@@ -707,12 +714,13 @@ const AnalyticsScreen = () => {
                     {/* ── Top podcasts ─────────────────────────────────── */}
                     {data?.top_podcasts?.length > 0 && (
                         <Section title="Top Episodes">
-                            {data.top_podcasts.map((p, i) => (
+                            {data.top_podcasts.map((p, i, arr) => (
                                 <TopPodcastRow
                                     key={p.id}
                                     rank={i + 1}
                                     podcast={p}
                                     onPress={handlePodcastPress}
+                                    isLast={i === arr.length - 1}
                                 />
                             ))}
                         </Section>
@@ -725,7 +733,7 @@ const AnalyticsScreen = () => {
                                 <CategoryRow
                                     key={cat.category || "uncategorized"}
                                     cat={cat}
-                                    maxPlays={maxCatPlays}
+                                    maxCount={maxCatCount}
                                 />
                             ))}
                         </Section>
