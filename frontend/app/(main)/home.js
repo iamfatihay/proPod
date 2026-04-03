@@ -34,16 +34,37 @@ import { COLORS, BORDER_RADIUS } from "../../src/constants/theme";
 
 // Removed mock episodes; will fetch from API
 
-// Category filters for home page
-const CATEGORIES = [
-    { id: "all", label: "All", icon: "apps" },
+// Static icon map used to enrich categories returned by the backend.
+// Keys are exact category strings from the backend; value is an Ionicons name.
+const CATEGORY_ICON_MAP = {
+    Technology: "laptop-outline",
+    Business: "briefcase-outline",
+    "Health & Wellness": "fitness-outline",
+    Science: "flask-outline",
+    Education: "school-outline",
+    Entertainment: "film-outline",
+    "Food & Drink": "restaurant-outline",
+    Music: "musical-notes-outline",
+    Sports: "football-outline",
+    News: "newspaper-outline",
+    Comedy: "happy-outline",
+    Society: "people-outline",
+    History: "time-outline",
+    Politics: "megaphone-outline",
+    Art: "color-palette-outline",
+    Finance: "cash-outline",
+};
+
+// The "All" pill is always the first entry and never comes from the backend.
+const ALL_CATEGORY = { id: "all", label: "All", icon: "apps" };
+
+// Fallback list shown while the API call is in-flight.
+const FALLBACK_CATEGORIES = [
+    ALL_CATEGORY,
     { id: "Technology", label: "Technology", icon: "laptop-outline" },
     { id: "Business", label: "Business", icon: "briefcase-outline" },
-    { id: "Health & Wellness", label: "Health", icon: "fitness-outline" },
-    { id: "Science", label: "Science", icon: "flask-outline" },
     { id: "Education", label: "Education", icon: "school-outline" },
     { id: "Entertainment", label: "Entertainment", icon: "film-outline" },
-    { id: "Food & Drink", label: "Food", icon: "restaurant-outline" },
 ];
 
 const chats = [
@@ -115,6 +136,9 @@ export default function HomeScreen() {
     const [error, setError] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [refreshing, setRefreshing] = useState(false);
+    // Categories fetched from backend; falls back to FALLBACK_CATEGORIES until
+    // the API responds.
+    const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
 
     // Load notifications from storage on mount
     // Note: loadFromStorage is a stable Zustand action, safe in dependency array
@@ -123,6 +147,29 @@ export default function HomeScreen() {
             loadFromStorage();
         }
     }, [isLoaded, loadFromStorage]);
+
+    // Fetch category list from backend once on mount and build enriched list.
+    // The "All" pill is always prepended. Each API category gets an icon from
+    // CATEGORY_ICON_MAP; unknown categories fall back to "grid-outline".
+    useEffect(() => {
+        apiService
+            .getDiscoverCategories()
+            .then((apiCategories) => {
+                if (!Array.isArray(apiCategories) || apiCategories.length === 0)
+                    return;
+                const enriched = apiCategories.map((c) => ({
+                    id: c.category,
+                    label: c.category,
+                    icon: CATEGORY_ICON_MAP[c.category] || "grid-outline",
+                    podcast_count: c.podcast_count,
+                }));
+                setCategories([ALL_CATEGORY, ...enriched]);
+            })
+            .catch((err) => {
+                // Non-critical — keep showing the fallback list
+                Logger.warn("Failed to load categories from API:", err);
+            });
+    }, []);
 
     // Listen for scroll to top event from tab bar
     useEffect(() => {
@@ -282,7 +329,7 @@ export default function HomeScreen() {
                 });
                 break;
             case "analytics":
-                showToast("Analytics coming soon! 📊", "info");
+                router.push("/(main)/analytics");
                 break;
             case "notifications":
                 router.push("/(main)/notifications");
@@ -411,7 +458,7 @@ export default function HomeScreen() {
                         className="mb-6"
                         contentContainerStyle={{ paddingRight: 16 }}
                     >
-                        {CATEGORIES.map((category) => (
+                        {categories.map((category) => (
                             <TouchableOpacity
                                 key={category.id}
                                 onPress={() => setSelectedCategory(category.id)}

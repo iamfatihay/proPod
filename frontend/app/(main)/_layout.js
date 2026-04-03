@@ -362,7 +362,7 @@ export default function TabLayout() {
                     }}
                 />
                 <Tabs.Screen
-                    name="creator-profile"
+                    name="analytics"
                     options={{
                         href: null,
                     }}

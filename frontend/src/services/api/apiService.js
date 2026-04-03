@@ -93,6 +93,9 @@ class ApiService {
         if (podcast.audio_url && !podcast.audio_url.startsWith("http")) {
             podcast.audio_url = `${this.baseURL}${podcast.audio_url}`;
         }
+        if (podcast.thumbnail_url && !podcast.thumbnail_url.startsWith("http")) {
+            podcast.thumbnail_url = `${this.baseURL}${podcast.thumbnail_url}`;
+        }
 
         return podcast;
     }
@@ -856,6 +859,48 @@ class ApiService {
         );
     }
 
+    /**
+     * Search podcasts via the backend search endpoint (SQL ILIKE on title/description).
+     *
+     * Replaces client-side SemanticSearchService.searchPodcasts() for the
+     * "All Content" search mode. The backend filters by title and description
+     * using ILIKE, which is far more scalable than fetching 100 podcasts
+     * and filtering in JS.
+     *
+     * @param {string} query - Non-empty search string
+     * @param {Object} params - Optional query parameters
+     * @param {string} [params.category] - Restrict results to a category
+     * @param {number} [params.skip=0] - Pagination offset
+     * @param {number} [params.limit=20] - Max results (1-100)
+     * @returns {Promise<Array>} Array of matching podcast objects
+     */
+    async searchPodcasts(query, params = {}) {
+        const queryParams = new URLSearchParams({ query });
+        if (params.category) queryParams.append("category", params.category);
+        if (params.skip !== undefined) queryParams.append("skip", params.skip);
+        if (params.limit !== undefined)
+            queryParams.append("limit", params.limit);
+
+        const response = await this.request(
+            `/podcasts/search?${queryParams.toString()}`
+        );
+        // Backend returns { podcasts: [], total, limit, offset, has_more }
+        const podcasts = response?.podcasts || [];
+        return podcasts.map((p) => this.normalizePodcast(p));
+    }
+
+    /**
+     * Fetch all podcast categories with their podcast counts from the backend.
+     *
+     * Used by the Home screen to replace the static CATEGORIES constant.
+     * Returns categories sorted by podcast count (descending).
+     *
+     * @returns {Promise<Array<{category: string, podcast_count: number}>>}
+     */
+    async getDiscoverCategories() {
+        return this.request("/podcasts/discover/categories");
+    }
+
     // User's Personal Collections
     async getLikedPodcasts(params = {}) {
         const queryParams = new URLSearchParams();
@@ -905,6 +950,18 @@ class ApiService {
     // Analytics methods (for podcast owners)
     async getPodcastAnalytics(podcastId) {
         return this.request(`/podcasts/${podcastId}/analytics`);
+    }
+
+    /**
+     * Get the creator analytics dashboard.
+     * @param {number} days - Look-back window for recent engagement (default 30)
+     * @returns {{ total_podcasts, total_plays, total_likes, total_bookmarks,
+     *             total_comments, average_completion_rate, top_podcasts,
+     *             recent_likes, recent_bookmarks, recent_comments,
+     *             category_distribution, days }}
+     */
+    async getCreatorDashboard(days = 30) {
+        return this.request(`/analytics/dashboard?days=${days}`);
     }
 
     // AI Processing methods
