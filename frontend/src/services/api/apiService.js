@@ -794,6 +794,21 @@ class ApiService {
         return this.request(endpoint);
     }
 
+    async getContinueListening(params = {}) {
+        const queryParams = new URLSearchParams();
+
+        if (params.skip !== undefined) queryParams.append("skip", params.skip);
+        if (params.limit !== undefined)
+            queryParams.append("limit", params.limit);
+
+        const queryString = queryParams.toString();
+        const endpoint = queryString
+            ? `/podcasts/my/continue-listening?${queryString}`
+            : "/podcasts/my/continue-listening";
+
+        return this.request(endpoint);
+    }
+
     // Comment methods
     async createComment(podcastId, commentData) {
         return this.request(`/podcasts/${podcastId}/comments`, {

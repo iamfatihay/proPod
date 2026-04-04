@@ -26,7 +26,7 @@ import ModeToggle from "../../src/components/ModeToggle";
 import HeroSection from "../../src/components/HeroSection";
 import QuickActionsBar from "../../src/components/QuickActionsBar";
 import ContinueListeningRow from "../../src/components/ContinueListeningRow";
-import { normalizePodcast } from "../../src/utils/urlHelper";
+import { normalizePodcast, toAbsoluteUrl } from "../../src/utils/urlHelper";
 import { PodcastCardSkeleton } from "../../src/components/SkeletonLoader";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
@@ -200,6 +200,23 @@ export default function HomeScreen() {
         }
     }, [audioError, clearError, showToast]);
 
+    const loadContinueListening = useCallback(async () => {
+        try {
+            const res = await apiService.getContinueListening({ limit: 10 });
+            // Normalize audio_url / thumbnail_url to absolute URLs so Image
+            // sources and playback don't break when the backend returns relative paths.
+            const normalized = (res || []).map((item) => ({
+                ...item,
+                audio_url: toAbsoluteUrl(item.audio_url),
+                thumbnail_url: toAbsoluteUrl(item.thumbnail_url),
+            }));
+            setContinueListening(normalized);
+        } catch (e) {
+            // Non-blocking: silently swallow; widget simply won't render
+            Logger.warn("ContinueListening fetch failed:", e?.message);
+        }
+    }, []);
+
     const load = useCallback(async () => {
         try {
             const params = { limit: 20 };
@@ -240,11 +257,14 @@ export default function HomeScreen() {
 
     useEffect(() => {
         (async () => {
+            // Only block the spinner on the main feed; continue-listening has
+            // its own loading state and must not delay first paint.
             setLoading(true);
+            loadContinueListening(); // fire-and-forget — own loading state
             await load();
             setLoading(false);
         })();
-    }, [load]);
+    }, [load, loadContinueListening]);
 
     // Reload when params.refresh changes (after delete/create)
     useEffect(() => {
@@ -255,18 +275,13 @@ export default function HomeScreen() {
         }
     }, [params.refresh, load]);
 
-    // Load continue listening once on mount
-    useEffect(() => {
-        loadContinueListening();
-    }, [loadContinueListening]);
-
-    // Reload when screen comes into focus
+    // Reload when screen comes into focus.
+    // Only await the main feed — loadContinueListening fires independently
+    // so it never blocks the main-feed repaint when returning to this screen.
     useFocusEffect(
         useCallback(() => {
-            (async () => {
-                await load();
-                await loadContinueListening();
-            })();
+            loadContinueListening(); // fire-and-forget — has own loading state
+            load(); // main feed; triggers setLoading via its own effect
         }, [load, loadContinueListening])
     );
 
