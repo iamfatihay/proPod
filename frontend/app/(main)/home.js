@@ -361,7 +361,7 @@ export default function HomeScreen() {
                     play();
                 }
             } else {
-                play(track);
+                play(track, { startPosition: item.position });
                 if (!showMiniPlayer) {
                     toggleMiniPlayer(true);
                 }

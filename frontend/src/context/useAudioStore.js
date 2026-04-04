@@ -102,7 +102,15 @@ const useAudioStore = create(
         },
 
         // Playback Controls
-        play: (track = null) => {
+        /**
+         * play(track?, options?)
+         *
+         * @param {object|null} track  - Track object to load and play. If null, resumes current track.
+         * @param {object}      options
+         * @param {number}      [options.startPosition] - Seconds to seek to after the player loads.
+         *                                                Used by Continue Listening to resume mid-episode.
+         */
+        play: (track = null, options = {}) => {
             // PERFORMANCE: Direct execution - no setTimeout wrapper!
             const state = get();
 
@@ -295,6 +303,35 @@ const useAudioStore = create(
                         } catch (playError) {
                             // If play fails, mark as loading and let status updates handle it
                             set({ isLoading: true });
+                        }
+
+                        // Seek to resume position if provided (Continue Listening feature).
+                        // startPosition is in seconds (matches backend ContinueListeningItem.position).
+                        // We wait 500 ms to give the player time to buffer before seeking.
+                        // We capture the track id so the seek is skipped if the user
+                        // switches to a different track before the timeout fires.
+                        const { startPosition } = options;
+                        if (startPosition > 0) {
+                            const seekTrackId = currentTrack.id;
+                            setTimeout(() => {
+                                const activeState = get();
+                                if (
+                                    activeState.sound &&
+                                    activeState.currentTrack?.id === seekTrackId
+                                ) {
+                                    try {
+                                        activeState.sound.seekTo(startPosition);
+                                    } catch (seekErr) {
+                                        // Non-critical — user starts from beginning instead
+                                        if (__DEV__) {
+                                            Logger.warn(
+                                                "⚠️ [PLAY] Resume seek failed:",
+                                                seekErr
+                                            );
+                                        }
+                                    }
+                                }
+                            }, 500);
                         }
                     } else {
                         // Resume existing sound - already optimistic updated above
