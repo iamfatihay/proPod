@@ -361,7 +361,9 @@ export default function HomeScreen() {
                     play();
                 }
             } else {
-                play(track);
+                // Pass startPosition so the audio store seeks to where the user
+                // left off. item.position is seconds (from backend ContinueListeningItem).
+                play(track, { startPosition: item.position || 0 });
                 if (!showMiniPlayer) {
                     toggleMiniPlayer(true);
                 }
