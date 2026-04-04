@@ -15,9 +15,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-03
-**Last session:** Copilot review fixes across all 7 open PRs — functional bugs corrected, no new branches opened
-**Test suite baseline:** 318 passed, 0 failed
+**Last updated:** 2026-04-04
+**Last session:** Fay merged all 7 previously open PRs. Agent shipped Continue Listening seek-to-position and fixed the conflicted continue-listening-widget branch via rebase.
+**Test suite baseline:** 318 passed, 0 failed (backend; no new backend changes this session)
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -33,38 +33,43 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Podcast playlist system — full CRUD backend at `/playlists/`
 - ✅ Discover/categories endpoint — `GET /podcasts/discover/categories`
 - ✅ Bug fixes: comment stats sync, sharing cover_image_url, test isolation
+- ✅ Frontend: Continue Listening UI widget (PR #32 — merged by Fay)
+- ✅ Frontend: Playlist UI screens — list, detail, add-to-playlist (PR #34 — merged by Fay)
+- ✅ Frontend: Public creator profile screen (PR #36 — merged by Fay)
+- ✅ Frontend: Analytics screen — wires `/analytics/dashboard` (PR #37 — merged by Fay)
+- ✅ Frontend: Backend search + dynamic categories from API (PR #38 — merged by Fay)
+- ✅ Frontend: Creator analytics screen v2 (PR #35 — merged by Fay)
+- ✅ Frontend: Continue Listening widget (PR #33 — merged by Fay)
+- ✅ Analytics quick action in home.js already routes to `/(main)/analytics` (done in merged PRs)
 
-### What's open / in-progress (7 PRs — all Copilot issues addressed)
+### What's open / in-progress
 
-| PR | Branch | Status | Key fixes applied |
+| Branch | PR | Status | Description |
 |---|---|---|---|
-| #32 | `feature/continue-listening-ui` | Ready | Unused Ionicons removed, URL normalization via `toAbsoluteUrl` |
-| #33 | `feature/continue-listening-widget` | Ready | `loadContinueListening` decoupled from `useFocusEffect` await — no longer blocks main feed |
-| #34 | `feature/playlist-ui` | Ready | Removed unused `Alert`; fixed Ionicons icon names; fixed `getMyPlaylists()` URLSearchParams |
-| #35 | `feature/creator-analytics-screen` | Ready | Clean — Copilot issues already corrected in prior commits |
-| #36 | `feature/public-creator-profile` | Ready | `userId` normalized from `useLocalSearchParams()` to prevent `string[]` in API URLs |
-| #37 | `feature/analytics-screen` | Ready | `pct()` fixed (was 2340% → now 23%); `CategoryRow` uses `cat.count`; `TopPodcastRow` `isLast` border |
-| #38 | `feature/backend-search-and-categories` | Ready | Query trimmed before API; `normalizePodcast()` also normalizes `thumbnail_url`; JSDoc fixed |
+| `feature/continue-listening-seek-position` | Open (no PR# yet — create via GitHub UI) | Ready for review | Extends `play(track, options)` with `startPosition`; home.js passes `item.position`. Makes resume mid-episode. |
+| `fix/continue-listening-widget-conflict` | Open (no PR# yet — create via GitHub UI) | Ready for review | Rebased the old `feature/continue-listening-widget` branch onto master, resolving 3 rounds of conflicts. Uses `ContinueListeningRow` component (master approach) + decouples `loadContinueListening` from `useFocusEffect`. |
+
+> **Note:** Chrome extension was offline this session — PRs could not be created via browser JS. Open them manually at:
+> - https://github.com/iamfatihay/proPod/compare/feature/continue-listening-seek-position
+> - https://github.com/iamfatihay/proPod/compare/fix/continue-listening-widget-conflict
 
 ### Known issues / tech debt
 - `test_analytics_dashboard` has a pre-existing flaky isolation issue (passes when run alone)
 - No Alembic migration for Playlist tables (dev uses `create_all`, prod needs migration)
 - Backend heavily tested; frontend has very few tests
-- Continue Listening resume plays from track start — audio store `play(track)` needs `startPosition` option
-- Notifications and chat screens use mock/dummy data
 - Deep link handling (`volo://` scheme) — `_layout.js` not yet wired
-- PRs #32 and #33 both implement Continue Listening — one should be closed after review
+- Notifications and chat screens use mock/dummy data
+- Several old feature branches still exist on remote (e.g. `feature/home-scroll-to-top`, `feature/ai-processing-enhancement`, `feature/microsoft-clarity-analytics`) — check if they have open PRs and either merge or close
 
 ---
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **Merge open PRs** — 7 PRs ready; Copilot issues resolved. Recommended merge order: #36 → #35 → #37 → #34 → #38 → #33 or #32 (close duplicate)
-2. **Continue Listening resume-from-position** — pass `item.position` seconds to audio store after load
-3. **Deep link handling** — wire `volo://podcast/{id}` in `_layout.js` using `expo-linking`
-4. **Phase 2: Studio Mode** — waveform visualization, trim, chapter markers
-5. **Backend: Push notifications** — expo-notifications integration
-6. **Backend: Alembic migration** for Playlist tables
+1. **Deep link handling** — wire `volo://podcast/{id}` in `_layout.js` using `expo-linking`
+2. **Phase 2: Studio Mode** — waveform visualization, trim, chapter markers
+3. **Backend: Push notifications** — expo-notifications integration
+4. **Backend: Alembic migration** for Playlist tables
+5. **Frontend tests** — coverage is very thin; add Jest tests for critical flows
 
 ---
 
@@ -86,17 +91,16 @@ git remote set-url origin https://iamfatihay:${GITHUB_TOKEN}@github.com/iamfatih
 3. Store results in `window.__varName`, then retrieve in a **separate** follow-up JS call
 4. Pre-process data before extraction — extract small string chunks to avoid "BLOCKED: Cookie/query string data" security errors
 
+**Chrome extension may be offline.** If `tabs_context_mcp` fails, skip PR creation, document the branch URL, and note in AGENT_STATE that PRs need to be opened manually.
+
+**Checking for open PRs without Chrome:** use `git ls-remote origin "refs/heads/feature/*"` to find all remote branches, then cross-reference with master history to spot branches that haven't been merged yet.
+
 ```javascript
 // Example: list open PRs
 fetch('https://api.github.com/repos/iamfatihay/proPod/pulls?state=open', {
   headers: { 'Authorization': 'Bearer ' + TOKEN, 'Accept': 'application/vnd.github.v3+json' }
 }).then(r => r.json()).then(d => { window.__prs = d.map(p => ({ number: p.number, title: p.title })); });
 // Retrieve in next call: window.__prs
-
-// Example: read PR review comments
-fetch('https://api.github.com/repos/iamfatihay/proPod/pulls/34/comments', {
-  headers: { 'Authorization': 'Bearer ' + TOKEN, 'Accept': 'application/vnd.github.v3+json' }
-}).then(r => r.json()).then(d => { window.__comments = d.map(c => ({ path: c.path, line: c.line, body: c.body.slice(0, 300) })); });
 ```
 
 ---
@@ -107,7 +111,7 @@ fetch('https://api.github.com/repos/iamfatihay/proPod/pulls/34/comments', {
 1. Read this file completely before doing anything else
 2. Check "What's open / in-progress" — resume if something is blocked or half-done
 3. Check "Next session suggestions" below
-4. Run `git log --oneline -10` and `git branch -r | grep -v HEAD` to catch outside changes
+4. Run `git log --oneline -10` and `git ls-remote origin "refs/heads/feature/*"` to catch outside changes
 5. Confirm test suite still green before starting new work
 
 ### At session END
@@ -119,8 +123,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FRONTEND] Seek-to-position on Continue Listening resume** — In `frontend/src/context/useAudioStore.js`, extend `play(track, options)` to accept `options.startPosition` (seconds); call `sound.setPositionAsync(startPosition * 1000)` after load. Then in the continue-listening home widget handler, pass `{ startPosition: item.position }`. Makes resume actually mid-episode. Affects both `feature/continue-listening-ui` and `feature/continue-listening-widget`.
+1. **[FRONTEND] Deep link handling in `_layout.js`** — Import `expo-linking`, call `Linking.addEventListener('url', handler)` on mount, `Linking.getInitialURL()` on startup. Parse `volo://podcast/{id}` → `router.push('/(main)/details', { id })`. Parse `volo://join/{code}` → live room. File: `frontend/app/(main)/_layout.js`. Backend already generates these links. No conflicts expected.
 
-2. **[FRONTEND] Deep link handling in `_layout.js`** — Import `expo-linking`, call `Linking.addEventListener('url', handler)` on mount, `Linking.getInitialURL()` on startup. Parse `volo://podcast/{id}` → `router.push('/(main)/details', { id })`. Parse `volo://join/{code}` → live room. File: `frontend/app/(main)/_layout.js`. Backend already generates these links.
+2. **[CLEANUP] Audit + close stale remote branches** — Several old branches exist on remote (`feature/home-scroll-to-top`, `feature/ai-processing-enhancement`, `feature/microsoft-clarity-analytics`, `feature/ai-transcription-analysis`). Via Chrome JS: check if any have open PRs. If they're abandoned, close PRs and delete branches to keep repo clean.
 
-3. **[FRONTEND] Analytics quick action wire-up** — In `frontend/app/(main)/home.js` `handleQuickAction`, replace `showToast("Analytics coming soon!")` with `router.push("/(main)/analytics")` for the `"analytics"` case. One-line change that unlocks the fully-built analytics screen once PR #35 or #37 is merged.
+3. **[FRONTEND] Notification screen — real data** — `frontend/app/(main)/notifications.js` currently uses mock data. Backend likely has a notifications table or event log — wire it up. Check `backend/app/routers/` for any notifications endpoint, or add a simple one (`GET /notifications/`).
