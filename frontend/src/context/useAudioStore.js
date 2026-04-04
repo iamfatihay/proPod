@@ -306,31 +306,32 @@ const useAudioStore = create(
                         }
 
                         // Seek to resume position if provided (Continue Listening feature).
-                        // We delay slightly to give the player time to buffer before seeking.
                         // startPosition is in seconds (matches backend ContinueListeningItem.position).
+                        // We wait 500 ms to give the player time to buffer before seeking.
+                        // We capture the track id so the seek is skipped if the user
+                        // switches to a different track before the timeout fires.
                         const { startPosition } = options;
-                        if (startPosition && startPosition > 0) {
+                        if (startPosition > 0) {
+                            const seekTrackId = currentTrack.id;
                             setTimeout(() => {
-                                try {
-                                    const currentSound = get().sound;
-                                    if (currentSound) {
-                                        currentSound.seekTo(startPosition); // expo-audio: seconds
+                                const activeState = get();
+                                if (
+                                    activeState.sound &&
+                                    activeState.currentTrack?.id === seekTrackId
+                                ) {
+                                    try {
+                                        activeState.sound.seekTo(startPosition);
+                                    } catch (seekErr) {
+                                        // Non-critical — user starts from beginning instead
                                         if (__DEV__) {
-                                            Logger.info(
-                                                `▶ [PLAY] Seeked to resume position: ${startPosition}s`
+                                            Logger.warn(
+                                                "⚠️ [PLAY] Resume seek failed:",
+                                                seekErr
                                             );
                                         }
                                     }
-                                } catch (seekErr) {
-                                    // Non-critical — user starts from beginning instead
-                                    if (__DEV__) {
-                                        Logger.warn(
-                                            "⚠️ [PLAY] Resume seek failed (non-critical):",
-                                            seekErr
-                                        );
-                                    }
                                 }
-                            }, 500); // 500 ms is enough for initial buffering on most connections
+                            }, 500);
                         }
                     } else {
                         // Resume existing sound - already optimistic updated above
