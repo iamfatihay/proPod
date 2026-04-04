@@ -202,7 +202,6 @@ export default function HomeScreen() {
 
     const loadContinueListening = useCallback(async () => {
         try {
-            setContinueListeningLoading(true);
             const res = await apiService.getContinueListening({ limit: 10 });
             // Normalize audio_url / thumbnail_url to absolute URLs so Image
             // sources and playback don't break when the backend returns relative paths.
@@ -215,8 +214,6 @@ export default function HomeScreen() {
         } catch (e) {
             // Non-blocking: silently swallow; widget simply won't render
             Logger.warn("ContinueListening fetch failed:", e?.message);
-        } finally {
-            setContinueListeningLoading(false);
         }
     }, []);
 
