@@ -242,18 +242,6 @@ export default function HomeScreen() {
         }
     }, [selectedCategory]);
 
-    // Fetch in-progress podcasts for the Continue Listening widget.
-    // Silently fails — the section simply won't render if unavailable.
-    const loadContinueListening = useCallback(async () => {
-        try {
-            const items = await apiService.getContinueListening({ limit: 10 });
-            setContinueListening(Array.isArray(items) ? items : []);
-        } catch (e) {
-            // Non-critical: suppress error, don't show it to user
-            Logger.warn("Continue listening fetch failed:", e);
-            setContinueListening([]);
-        }
-    }, []);
 
     useEffect(() => {
         (async () => {
