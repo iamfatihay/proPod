@@ -301,10 +301,7 @@ class RTCParticipantResponse(BaseModel):
 
 # Google Login Schema
 class GoogleLoginRequest(BaseModel):
-    email: EmailStr
-    name: str
-    provider: str = "google"
-    photo_url: Optional[str] = None
+    google_access_token: str = Field(..., min_length=1)
 
 
 # Token Schemas

@@ -13,6 +13,7 @@ from ..database import get_db
 from ..schemas import User as UserSchema, BaseModel, ChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest
 from ..config import settings
 from ..services.email_service import email_service
+from ..services import google_auth_service
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -126,18 +127,19 @@ def google_login(user: schemas.GoogleLoginRequest, db: Session = Depends(get_db)
     """
     Authenticate or register a user via Google OAuth.
 
-    If the user already exists, returns tokens for the existing account.
-    If the user is new, creates an account with Google profile data
-    (including photo_url) and returns tokens.
+    The backend validates the Google access token directly with Google,
+    then treats the verified email address as the account identity.
+
+    If the verified email already exists, returns tokens for that account.
+    If the verified email is new, creates a Google-backed account and returns tokens.
     """
-    db_user = crud.get_user_by_email(db, email=user.email)
+    google_profile = google_auth_service.fetch_google_user_profile(
+        user.google_access_token
+    )
+
+    db_user = crud.get_user_by_email(db, email=google_profile["email"])
     if not db_user:
-        db_user = crud.create_google_user(db, {
-            "email": user.email,
-            "name": user.name,
-            "provider": "google",
-            "photo_url": user.photo_url,
-        })
+        db_user = crud.create_google_user(db, google_profile)
     access_token = auth.create_access_token(data={"sub": db_user.email})
     refresh_token = auth.create_refresh_token(data={"sub": db_user.email})
     return AuthResponse(

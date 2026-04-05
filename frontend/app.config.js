@@ -1,5 +1,16 @@
 import "dotenv/config";
 
+const googleAndroidClientId =
+    "255785247154-6jckrlgjgafpgkki4ec5b2man58tv357.apps.googleusercontent.com";
+const googleIosClientId =
+    "255785247154-ubfuvv65ft1ras0mnnpminqjibeksg2d.apps.googleusercontent.com";
+const googleWebClientId =
+    "255785247154-af6kqt9s2g6ovnl5du0frdtd987dsves.apps.googleusercontent.com";
+const googleIosUrlScheme = `com.googleusercontent.apps.${googleIosClientId.replace(
+    ".apps.googleusercontent.com",
+    ""
+)}`;
+
 export default ({ config }) => ({
     ...config,
     name: "Volo",
@@ -69,12 +80,10 @@ export default ({ config }) => ({
         eas: {
             projectId: "6760a9ac-697b-4e25-9f44-0d0ecc8edbbb",
         },
-        googleAndroidClientId:
-            "255785247154-dalcf8c8sn20hchs1edgeo87u7m5p2oc.apps.googleusercontent.com",
-        googleIosClientId:
-            "255785247154-ubfuvv65ft1ras0mnnpminqjibeksg2d.apps.googleusercontent.com",
-        googleExpoClientId:
-            "255785247154-af6kqt9s2g6ovnl5du0frdtd987dsves.apps.googleusercontent.com",
+        googleAndroidClientId,
+        googleIosClientId,
+        googleWebClientId,
+        googleExpoClientId: googleWebClientId,
     },
     plugins: [
         "expo-secure-store",
@@ -82,6 +91,12 @@ export default ({ config }) => ({
         "expo-font",
         "expo-image-picker",
         "expo-asset",
+        [
+            "@react-native-google-signin/google-signin",
+            {
+                iosUrlScheme: googleIosUrlScheme,
+            },
+        ],
         [
             "expo-audio",
             {

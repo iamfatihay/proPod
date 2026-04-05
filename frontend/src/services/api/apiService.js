@@ -361,14 +361,12 @@ class ApiService {
         }
     }
 
-    async googleLogin({ email, name, photo_url }) {
+    async googleLogin({ google_access_token }) {
         const data = await this.request("/users/google-login", {
             method: "POST",
             body: JSON.stringify({
-                email,
-                name,
+                google_access_token,
                 provider: "google",
-                photo_url,
             }),
         });
         await saveToken("accessToken", data.access_token);
