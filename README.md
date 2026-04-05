@@ -1,263 +1,140 @@
 # ProPod - Podcast Application
 
-## 📱 Project Description
+## Project Description
 
-ProPod is a cross-platform (Android, iOS, Web) mobile application for creating, broadcasting, and editing podcasts with AI assistance. Designed for rapid MVP development, scalability, and maintainability.
+ProPod is a cross-platform mobile application for creating, editing, sharing, and eventually broadcasting podcasts with AI assistance.
 
----
+## Documentation
 
-## 🧪 Testing
+Start here: [docs/README.md](./docs/README.md)
+
+Recommended entry points:
+- [Quick Start Guide](./docs/guides/QUICK_START.md)
+- [Manual Regression Re-Entry Guide](./docs/testing/MANUAL_REGRESSION_REENTRY_GUIDE.md)
+- [API Documentation](./docs/api/API_DOCUMENTATION.md)
+- [Implementation Summary](./docs/project/IMPLEMENTATION_SUMMARY.md)
+
+## Testing
 
 Automatic testing is enabled via pre-commit hooks:
 
 ```bash
-# Install (one-time setup)
 ./scripts/install-hooks.sh
-
-# Now tests run automatically before each commit
-git commit -m "your message"  # Tests run automatically
-
-# Skip tests if needed
-git commit --no-verify -m "your message"
+git commit -m "your message"
 ```
 
-Tests run only for changed files (backend or frontend).
-
----
-
-## 🤖 AI Assistant Setup (Optional)
-
-For GitHub Copilot and similar AI assistants:
+Backend tests require a dedicated test database. If you run pytest manually, set `DATABASE_URL` to a disposable test DB.
 
 ```bash
-# First time setup (one-time)
-cp .github/copilot-instructions.example.md .github/copilot-instructions.md
-
-# Customize for your workflow (file is gitignored)
-nano .github/copilot-instructions.md
+cd backend
+source venv/bin/activate
+DATABASE_URL=sqlite:///./test.db pytest tests/ -q
 ```
 
-**Optional: Disable VS Code markdown link warnings**  
-If you see "file not found" warnings in `.github/copilot-instructions.md`:
-```json
-// Add to .vscode/settings.json (local, gitignored)
-{
-  "markdown.validate.ignoredLinks": [".github/copilot-instructions.md"]
-}
-```
+## Recent Updates
 
-The example file contains ProPod-specific patterns and conventions.
+### April 2026
+- Native Google Sign-In replaced the old browser-based Expo AuthSession flow on mobile.
+- Backend Google auth now validates the Google access token with Google before login-or-signup.
+- A manual regression re-entry guide was added under `docs/testing/`.
 
----
+### Existing Product Areas
+- auth, password reset, and Google sign-in
+- podcast CRUD, search, comments, and sharing
+- continue listening, playlists, creator profiles, and analytics
+- AI transcription and content analysis
+- RTC/live session foundation with 100ms
 
-## 📚 Documentation
+## Technology Stack
 
-**All documentation has been reorganized for better navigation!**
+### Frontend
+- expo-router
+- NativeWind
+- Zustand
+- expo-audio
+- expo-secure-store
+- @react-native-google-signin/google-signin
+- jest-expo and React Native Testing Library
 
-👉 **Start here:** [Documentation Index](./docs/README.md)
+### Backend
+- FastAPI
+- SQLAlchemy
+- Alembic
+- JWT via python-jose
+- PostgreSQL / SQLite
+- AI services for transcription and analysis
 
-### Quick Links by Role
+## Quick Start
 
-**For Developers:**
-- [Quick Start Guide](./docs/guides/QUICK_START.md) - Get running in 5 minutes
-- [API Documentation](./docs/api/API_DOCUMENTATION.md) - Complete API reference
-- [AI Integration Guide](./docs/features/AI_INTEGRATION_GUIDE.md) - AI features implementation
-
-**For Project Managers:**
-- [Feature Roadmap](./docs/project/FEATURE_ROADMAP.md) - Planned features
-- [TODO & Improvements](./docs/project/TODO_IMPROVEMENTS.md) - Known issues
-- [Pull Request #7](./docs/pull-requests/PR-7-AI-TRANSCRIPTION.md) - Latest feature
-
-**For Designers:**
-- [UI/UX Documentation](./docs/ui-ux/) - All design documents
-- [Home Screen Redesign](./docs/ui-ux/HOME_REDESIGN.md) - Design decisions
-
----
-
-## 🆕 Recent Updates
-
-### Documentation Reorganization (January 31, 2026)
-- ✅ **Professional documentation structure** - Organized into 8 logical categories
-- ✅ **29 documents** organized with navigation hubs
-- ✅ **Role-based access** - Easy to find what you need
-- 📖 [See reorganization details](./docs/REORGANIZATION_SUMMARY.md)
-
-### AI Features & Code Quality (January 2026)
-- ✅ **AI transcription & analysis** - Production-ready with OpenAI Whisper & GPT-4
-- ✅ **11 bugs fixed** - All critical issues resolved ([details](./docs/pull-requests/PR-7-REVIEW-SUMMARY.md))
-- ✅ **Rate limiting** - 20 req/hr free, 100 req/hr premium
-- ✅ **Input sanitization** - Security & error handling improvements
-- 📦 [Pull Request #7](./docs/pull-requests/PR-7-AI-TRANSCRIPTION.md)
-
-### Audio Performance Optimizations (Latest)
--   **Non-blocking audio operations** - Optimized play, pause, seek, and playback rate controls with optimistic updates
--   **UI performance improvements** - Added throttling for status updates and PanResponder operations to prevent UI blocking
--   **Audio system refactoring** - Complete rewrite of useAudioStore with improved state management and error handling
--   **Component updates** - Added thumbnail image support to PodcastCard and GradientCard components
-
-### Previous Updates (2025-01-19)
--   **Fixed Schema vs Model inconsistencies** - Added missing fields to User, PodcastLike, PodcastBookmark models
--   **Alembic Migration system** - Installed and configured Alembic for database migration management
--   **Resolved Pydantic validation errors** - Completely fixed validation errors in login endpoint
--   **Database consistency** - All Schema and Model are now fully compatible
--   **Development documentation** - Added Schema/Model control commands and migration guide
--   **Fixed podcast duration storage and display** - Duration field added to PodcastCreate schema, AI transcription duration persistence implemented
--   **Enhanced podcast interactions** - Like/bookmark toggle functionality with visual feedback in details page
--   **Improved UI consistency** - Unified header design across all detail pages using Appbar.Header
-
----
-
-## 🛠 Technology Stack
-
-### Frontend (React Native + Expo)
-
--   **expo-router**: File-based navigation
--   **NativeWind**: Tailwind CSS for React Native styling
--   **React Native Paper**: UI components
--   **Zustand**: Simple global state management
--   **expo-audio**: Audio recording/playback (SDK 53+ compatible)
--   **expo-file-system**: File management
--   **expo-secure-store**: Secure token storage (authentication)
--   **expo-auth-session**: Google OAuth integration
--   **@expo/vector-icons**: Icons
--   **jest-expo, @testing-library/react-native**: Testing
-
-### Backend (FastAPI)
-
--   **FastAPI**: Python web API framework
--   **SQLAlchemy**: ORM for database
--   **Alembic**: Database Migrations
--   **JWT (python-jose)**: Authentication
--   **PostgreSQL / SQLite**: Database
--   **passlib**: Password hashing
--   **python-dotenv**: Environment variable management
--   **AI Services**: Whisper, Content Analysis
-
----
-
-## 🚀 Quick Start
-
-### 1. Backend Setup
+### Backend
 
 ```bash
 cd backend
 python -m venv venv
-.\venv\Scripts\Activate.ps1  # Windows
+source venv/bin/activate
 pip install -r requirements.txt
-# Create .env file (see backend/.env.example)
 python -m app.init_db
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 2. Frontend Setup
+Windows PowerShell:
+
+```powershell
+cd backend
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m app.init_db
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Frontend
 
 ```bash
 cd frontend
 npm install
-# Create .env file (see frontend/.env.example)
-# API_BASE_URL=http://localhost:8000
-npx expo start --dev-client -c --tunnel
 ```
 
-### 3. Run on Device/Emulator
+Common startup modes:
 
--   Android: `npm run android`
--   iOS: `npm run ios`
--   Web: `npm run web`
-
----
-
-## 📁 Project Structure
-
+```bash
+npm run dev
+npm run dev:tunnel
+npm run start:dev
+npm run start:dev:tunnel
 ```
+
+Use a development build. Expo Go is not supported.
+
+## Project Structure
+
+```text
 proPod/
-├── frontend/          # React Native application
-│   ├── app/          # Screens (expo-router)
-│   ├── src/          # Components, services, state, etc.
-│   └── android/      # Android build files
-├── backend/           # FastAPI backend service
-│   ├── app/          # API, models, routers
-│   ├── alembic/      # Database migrations
-│   └── tests/        # Test files
-└── docs/             # Detailed documentation
-    ├── README.md                         # Documentation index
-    ├── QUICK_START.md                    # Quick start guide
-    ├── DEVELOPMENT_NOTES.md              # Development guidelines
-    ├── API_DOCUMENTATION.md              # API reference
-    ├── AI_INTEGRATION_GUIDE.md           # AI features guide
-    ├── TEST_DOCUMENTATION.md             # Testing guide
-    ├── CROSS_PLATFORM_TESTING_GUIDE.md   # Cross-platform testing
-    ├── HOME_REDESIGN.md                  # Home screen redesign docs
-    ├── HOME_SCREEN_UPDATE.md             # Home screen update notes
-    └── IMPLEMENTATION_SUMMARY.md         # Implementation summary
+├── frontend/
+├── backend/
+└── docs/
 ```
 
----
+## Main API Endpoints
 
-## 🔧 Developer Notes
+- `/users/register`
+- `/users/login`
+- `/users/google-login`
+- `/podcasts/create`
+- `/podcasts/upload`
+- `/podcasts/{id}/process-ai`
+- `/podcasts/{id}/like`
+- `/podcasts/{id}/bookmark`
+- `/podcasts/{id}/interactions`
 
-### Schema vs Model Inconsistencies
+## Project Goals
 
-Schema (Pydantic) and Model (SQLAlchemy) inconsistencies in this project can cause critical errors.
+- high-quality audio recording and editing
+- AI-powered creator workflows
+- scalable mobile architecture
+- live podcast broadcasting support
 
-**Control Commands:**
-
-```bash
-# Go to backend directory
-cd backend
-.\venv\Scripts\Activate.ps1
-
-# Check users
-python -c "from app.database import SessionLocal; from app.models import User; db = SessionLocal(); users = db.query(User).all(); print(f'Total users: {len(users)}'); [print(f'User {u.id}: {u.email}, updated_at: {u.updated_at}') for u in users]; db.close()"
-```
-
-### Database Migrations
-
-Use Alembic migrations for model changes:
-
-```bash
-# Create migration
-alembic revision --autogenerate -m "Migration description"
-
-# Apply migration
-alembic upgrade head
-```
-
-### Build Processes
-
-```bash
-# Frontend build
-cd frontend
-npx expo-doctor  # Check first
-npx eas build --platform android --profile development
-
-# Backend Docker build
-cd backend
-docker build -t propod-backend .
-docker run -p 8000:8000 --env-file .env propod-backend
-```
-
----
-
-## 📋 Main API Endpoints
-
--   `/users/register` : User registration
--   `/users/login` : User login (JWT)
--   `/podcasts/create` : Create podcast
--   `/podcasts/upload` : Upload audio files
--   `/podcasts/{id}/process-ai` : AI processing (transcription, analysis)
--   `/podcasts/{id}/like` : Like/unlike podcast
--   `/podcasts/{id}/bookmark` : Bookmark/unbookmark podcast
--   `/podcasts/{id}/interactions` : Get user interactions
-
----
-
-## 🌟 Project Goals
-
--   High-quality audio recording and editing
--   AI-powered features (transcription, noise reduction)
--   Live podcast broadcasting (future)
--   Simple, scalable state management
+Last updated: 2026-04-05
 -   Modern, responsive UI/UX
 -   Secure authentication and Google OAuth support
 

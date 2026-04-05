@@ -1,223 +1,108 @@
-# 🚀 Quick Start Guide - Home Screen Redesign
+# Quick Start Guide
 
-## Sabah Uyandığında İlk Yapılacaklar! ☀️
+This guide covers the current development setup for ProPod.
 
-Bu kılavuz, yeni ana ekran tasarımını hızlıca test etmek için adım adım talimatlar içerir.
+## Requirements
 
----
+- Python for the FastAPI backend
+- Node.js and npm for the Expo frontend
+- An installed development build on a device or emulator
+- Expo Go is not supported
 
-## 📱 Uygulamayı Başlatma
+## Backend Setup
 
-### Adım 1: Dependencies Kontrol
-```bash
-cd frontend
-npm install  # Yeni package'lar zaten yüklendi
-```
-
-### Adım 2: Backend Başlat (Terminal 1)
 ```bash
 cd backend
-# Virtual environment'ı aktif et (gerekirse)
-source venv/bin/activate  # Linux/Mac
-# veya
-.\venv\Scripts\activate  # Windows PowerShell
-
-# Backend'i başlat
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python -m app.init_db
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Adım 3: Frontend Başlat (Terminal 2)
-```bash
-cd frontend
-npm run start:dev:tunnel  # Tunnel mode (önerilen)
-# VEYA
-npm run start:dev  # LAN mode
+Windows PowerShell:
+
+```powershell
+cd backend
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m app.init_db
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Adım 4: Uygulamayı Aç
-- Expo Go KULLANMA (native features var)
-- Telefonundaki kurulu APK'yı aç
-- QR kodunu tara (tunnel mode kullanıyorsan)
+## Frontend Setup
 
----
-
-## ✨ Yeni Özellikleri Test Etme
-
-### 1️⃣ Mode Toggle'ı Dene
-**Konum:** Ana ekranın üst kısmı  
-**Ne yap:**
-- "Discover" ve "Studio" butonları arasında geçiş yap
-- İlk açılışta tutorial tooltip göreceksin (3 saniye)
-- Her modda farklı içerik ve hero görüntüle
-
-**Beklenen:**
-- Smooth animasyon ✅
-- iOS'ta haptic feedback ✅
-- Hero section değişiyor ✅
-- Quick actions güncelleniyor ✅
-
-### 2️⃣ Gradient Card'ları İncele
-**Konum:** "For You" section (ana ekranın ortalarında)  
-**Ne yap:**
-- Yatay kaydır
-- Farklı kategorilerdeki gradient'leri gör
-- Play butonuna dokun
-- Card'a tıklayarak detay sayfasına git
-
-**Beklenen:**
-- Smooth scroll ✅
-- Kategori bazlı renkler (Tech=Mor, Business=Pembe, vs) ✅
-- AI badge göster (eğer varsa) ✅
-- Play butonu çalışıyor ✅
-
-### 3️⃣ Hero Section'ı Keşfet
-**Konum:** Mode toggle'ın hemen altında  
-**Ne yap:**
-- **Discover Mode'da:**
-  - Eğer daha önce bir şey dinlediysen "Continue Listening" göreceksin
-  - Yeni kullanıcıysan "Welcome" mesajı
-- **Studio Mode'da:**
-  - "Start Recording" CTA butonu
-  - En son podcast'inin istatistikleri (varsa)
-
-**Beklenen:**
-- Smooth gradient background ✅
-- Animasyonlu CTA button (pulse effect) ✅
-- Gerçek kullanıcı adını göster ✅
-
-### 4️⃣ Quick Actions'ı Kullan
-**Konum:** Hero section'ın altında  
-**Ne yap:**
-- "Record" (kırmızı büyük buton) → Create sayfasına gider
-- "Bookmarks" → Library'ye gider
-- "Analytics" → "Coming soon" toast'ı
-- Her butona dokun ve feedback gör
-
-**Beklenen:**
-- Haptic feedback (iOS) ✅
-- İlk buton vurgulu ✅
-- Notification badge'leri (eğer varsa) ✅
-- Smooth navigation ✅
-
-### 5️⃣ Trending Section
-**Konum:** Recent Episodes'un altında  
-**Ne yap:**
-- Top 3 trending podcast'i gör
-- Play butonu dene
-- Engagement indicators kontrol et
-
-**Beklenen:**
-- Sıralı liste (#1, #2, #3) ✅
-- Play/pause toggle ✅
-- Trending up icon ✅
-
-### 6️⃣ Empty States'i Gör
-**Ne yap:**
-- Yeni hesap oluştur VEYA
-- Backend'i kapat (network error testi)
-- Category filtrele (podcast olmayan kategori)
-
-**Beklenen:**
-- Mode'a özel empty state ✅
-- Error state (network kapalıysa) ✅
-- CTA butonları çalışıyor ✅
-
----
-
-## 🧪 Test Scenarios
-
-### Senaryo 1: İlk Kullanıcı Deneyimi
-1. Uygulamayı aç (fresh install)
-2. Login ol
-3. Ana ekrana gel
-4. Mode toggle tutorial'ını gör
-5. Studio mode'a geç
-6. "Create First Podcast" butonuna bas
-
-### Senaryo 2: Dönüş Yapan Dinleyici
-1. Bir podcast çal
-2. Home'a dön (mini player aktif)
-3. Hero'da "Continue Listening" göreceksin
-4. Hero'ya tıkla → Podcast detail sayfası
-
-### Senaryo 3: Aktif Creator
-1. Studio mode'a geç
-2. Hero'daki "Start Recording" CTA'yı gör
-3. Quick Actions'da "Record" vurgulu
-4. "Your Podcasts" section'ı gör (eğer podcast'in varsa)
-
-### Senaryo 4: Kategori Keşfi
-1. Üstteki category filter'lardan birini seç
-2. "For You" section gradient card'larla güncellendi
-3. Farklı kategori → farklı gradient renkler
-
----
-
-## 🐛 Muhtemel Sorunlar & Çözümler
-
-### Sorun 1: "Expo module not found" hatası
-**Çözüm:**
 ```bash
 cd frontend
 npm install
-npx expo prebuild --clean
-npx expo run:android  # veya run:ios
 ```
 
-### Sorun 2: Gradient'ler görünmüyor
-**Çözüm:**
+Common startup modes:
+
+```bash
+# Starts the repo helper flow on LAN
+npm run dev
+
+# Starts the repo helper flow with tunnel support
+npm run dev:tunnel
+
+# Expo only, if backend is already running
+npm run start:dev
+npm run start:dev:tunnel
+```
+
+## Development Build Notes
+
+- Use a development build, not Expo Go.
+- Native modules include audio, notifications, and native Google sign-in.
+- If native dependencies change, rebuild the development client.
+
+Android development build example:
+
 ```bash
 cd frontend
-npm install expo-linear-gradient expo-blur
-npx expo start -c  # Clear cache
+npx eas build --profile development --platform android
 ```
 
-### Sorun 3: Mode toggle çalışmıyor
-**Çözüm:**
-- AsyncStorage temizle:
-```javascript
-// Expo console'da çalıştır:
-await AsyncStorage.clear();
-```
+## First Smoke Test
 
-### Sorun 4: Haptic feedback yok (iOS)
-**Çözüm:**
-- Device settings kontrol et: Settings > Sounds & Haptics
-- Simulator'da çalışmaz, gerçek cihazda test et
+After startup, verify these flows:
 
-### Sorun 5: Animation jank
-**Çözüm:**
-- Development mode'da normal (console.logs yavaşlatır)
-- Production build'de test et:
+1. Local register and local login
+2. Google sign-in on the installed development build
+3. Home feed loads successfully
+4. Record a short podcast and save it
+5. Playback works and continue listening appears after leaving details
+
+For wider manual coverage, use [../testing/MANUAL_REGRESSION_REENTRY_GUIDE.md](../testing/MANUAL_REGRESSION_REENTRY_GUIDE.md).
+
+## Troubleshooting
+
+### Backend tests refuse to run
+
+That is expected if `DATABASE_URL` points to the normal dev DB. Use a disposable test DB:
+
 ```bash
-npx expo build:android --release-channel production
+cd backend
+source venv/bin/activate
+DATABASE_URL=sqlite:///./test.db pytest tests/ -q
 ```
 
----
+### Google sign-in still behaves like the old build
 
-## 📊 Kontrol Listesi
+Rebuild and reinstall the development client. Native auth changes are not picked up by a normal JS reload.
 
-Aşağıdaki özelliklerin çalıştığını onayla:
+### Expo cannot reach the backend from the device
 
-### Visual
-- [ ] Mode toggle smooth animation
-- [ ] Gradient cards render correctly
-- [ ] Hero section gradients visible
-- [ ] Shadows appear (iOS & Android)
-- [ ] AI badges visible
-- [ ] Empty states look good
+- Use `npm run dev:tunnel` if LAN routing is unreliable.
+- Confirm the backend is reachable on port `8000`.
 
-### Interaction
-- [ ] Mode toggle works
-- [ ] Gradient cards scrollable
-- [ ] Play buttons functional
-- [ ] Quick actions navigate correctly
-- [ ] Hero CTA buttons work
-- [ ] Category filters work
+### `pip install -r requirements.txt` fails unexpectedly on Linux/WSL
 
-### Performance
-- [ ] No lag during scroll
-- [ ] Animations smooth (60 FPS)
+Check the file encoding of `backend/requirements.txt` and convert it to UTF-8 if needed.
+
+Last updated: 2026-04-05
 - [ ] App responsive
 - [ ] No memory leaks (test with Profiler)
 

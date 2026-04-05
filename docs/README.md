@@ -1,104 +1,40 @@
 # ProPod Documentation
 
-Comprehensive documentation for the ProPod podcast application. All documents are organized by category for easy navigation.
+This directory is the documentation hub for the current state of ProPod.
 
-## 📚 Quick Navigation
+## Quick Navigation
 
-### 🚀 Getting Started
-- [Quick Start Guide](./guides/QUICK_START.md) - Get up and running in 5 minutes
-- [Development Workflow](./guides/DEVELOPMENT_WORKFLOW.md) - Daily development practices
-- [API Documentation](./api/API_DOCUMENTATION.md) - Complete API reference
+### Getting Started
+- [Quick Start Guide](./guides/QUICK_START.md)
+- [Development Workflow](./guides/DEVELOPMENT_WORKFLOW.md)
+- [API Documentation](./api/API_DOCUMENTATION.md)
 
-### 🏗️ Architecture & Design
-- [AI Provider Architecture](./architecture/AI_PROVIDER_ARCHITECTURE.md) - AI service design patterns
-- [Audio Performance Optimization](./architecture/AUDIO_PERFORMANCE_OPTIMIZATION.md) - Performance best practices
+### Testing
+- [Manual Regression Re-Entry Guide](./testing/MANUAL_REGRESSION_REENTRY_GUIDE.md)
+- [Test Documentation](./testing/TEST_DOCUMENTATION.md)
+- [Cross-Platform Testing Guide](./testing/CROSS_PLATFORM_TESTING_GUIDE.md)
 
-### 🤖 AI Features
-- [AI Integration Guide](./features/AI_INTEGRATION_GUIDE.md) - Complete AI implementation guide
-- [AI Transcription Specification](./features/AI_TRANSCRIPTION_SPEC.md) - Transcription feature specs
-- [AI Provider Implementation Summary](./features/AI_PROVIDER_IMPLEMENTATION_SUMMARY.md) - Implementation details
+### Architecture and Features
+- [AI Provider Architecture](./architecture/AI_PROVIDER_ARCHITECTURE.md)
+- [Audio Performance Optimization](./architecture/AUDIO_PERFORMANCE_OPTIMIZATION.md)
+- [AI Integration Guide](./features/AI_INTEGRATION_GUIDE.md)
+- [Recording Protection](./features/RECORDING_PROTECTION.md)
 
-### 🧪 Testing
-- [Test Documentation](./testing/TEST_DOCUMENTATION.md) - Testing strategy and guidelines
-- [Cross-Platform Testing Guide](./testing/CROSS_PLATFORM_TESTING_GUIDE.md) - Mobile testing procedures
+### Project Tracking
+- [Implementation Summary](./project/IMPLEMENTATION_SUMMARY.md)
+- [Feature Roadmap](./project/FEATURE_ROADMAP.md)
+- [RTC Session Memory](./project/RTC_SESSION_MEMORY.md)
+- [AGENT_STATE](./AGENT_STATE.md)
 
-### 🎨 UI/UX
-- [Home Screen Redesign](./ui-ux/HOME_REDESIGN.md) - Home screen design decisions
-- [Home Screen Update](./ui-ux/HOME_SCREEN_UPDATE.md) - Latest UI changes
+### Historical PR Documentation
+- [Pull Requests Index](./pull-requests/README.md)
+- [PR #7 - AI Transcription](./pull-requests/PR-7-AI-TRANSCRIPTION.md)
+- [PR #7 Review Summary](./pull-requests/PR-7-REVIEW-SUMMARY.md)
 
-### 📋 Project Management
-- [Feature Roadmap](./project/FEATURE_ROADMAP.md) - Planned features and timeline
-- [TODO & Improvements](./project/TODO_IMPROVEMENTS.md) - Known issues and enhancements
-- [Development Notes](./project/DEVELOPMENT_NOTES.md) - Meeting notes and decisions
-- [Implementation Summary](./project/IMPLEMENTATION_SUMMARY.md) - Feature implementation status
+## Notes
 
-### 🔧 Configuration & Setup
-- [Admin Customization Guide](./guides/ADMIN_CUSTOMIZATION_GUIDE.md) - Admin panel configuration
-- [WiFi Change Guide](./guides/WIFI_CHANGE_GUIDE.md) - Network configuration
+- Use `AGENT_STATE.md` to recover current engineering context quickly.
+- Use the testing docs for both automated and manual regression planning.
+- The files under `docs/pull-requests/` are historical write-ups, not the live source of truth for current PR state.
 
-### 📦 Pull Requests & Reviews
-- [Pull Request #7 - AI Features](./pull-requests/PR-7-AI-TRANSCRIPTION.md) - AI transcription feature
-- [Code Review Summary](./pull-requests/PR-7-REVIEW-SUMMARY.md) - Bug fixes and improvements
-
----
-
-## 📂 Directory Structure
-
-```
-docs/
-├── README.md                    # This file - navigation hub
-├── api/                         # API documentation
-├── architecture/                # System design & architecture
-├── features/                    # Feature specifications
-├── guides/                      # How-to guides & tutorials
-├── project/                     # Project management docs
-├── pull-requests/               # PR descriptions & reviews
-├── testing/                     # Testing documentation
-└── ui-ux/                       # UI/UX design documents
-```
-
----
-
-## 🔍 Finding What You Need
-
-### For Developers
-- **Starting development?** → [Quick Start Guide](./guides/QUICK_START.md)
-- **Need API info?** → [API Documentation](./api/API_DOCUMENTATION.md)
-- **Understanding AI features?** → [AI Integration Guide](./features/AI_INTEGRATION_GUIDE.md)
-- **Writing tests?** → [Test Documentation](./testing/TEST_DOCUMENTATION.md)
-
-### For Project Managers
-- **Planning features?** → [Feature Roadmap](./project/FEATURE_ROADMAP.md)
-- **Checking progress?** → [Implementation Summary](./project/IMPLEMENTATION_SUMMARY.md)
-- **Reviewing work?** → [Pull Requests](./pull-requests/)
-
-### For Designers
-- **UI changes?** → [UI/UX Documentation](./ui-ux/)
-- **Home screen?** → [Home Redesign](./ui-ux/HOME_REDESIGN.md)
-
----
-
-## 📝 Documentation Standards
-
-All documentation follows these principles:
-- ✅ **Clear headings** - Easy scanning and navigation
-- ✅ **Code examples** - Practical, runnable examples
-- ✅ **Visual aids** - Diagrams and screenshots where helpful
-- ✅ **Up-to-date** - Reflects current codebase state
-- ✅ **Cross-references** - Links to related documents
-
----
-
-## 🔄 Contributing to Documentation
-
-When adding new documentation:
-1. Choose the appropriate category folder
-2. Use descriptive filenames (UPPERCASE_WITH_UNDERSCORES.md)
-3. Add entry to this README in the relevant section
-4. Include date and author at the top of the document
-5. Link to related documents
-
----
-
-**Last Updated:** January 31, 2026  
-**Maintained by:** ProPod Development Team
+Last updated: 2026-04-05

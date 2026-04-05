@@ -1,13 +1,16 @@
 # Pull Request Documentation
 
-Comprehensive documentation for major pull requests and code reviews.
+Historical documentation for major pull requests and code reviews.
 
-## 📄 Active Pull Requests
+## Current Note
+
+This folder is not the source of truth for currently open pull requests. Use GitHub for live PR state. The markdown files here are historical write-ups that remain useful for implementation context.
+
+## Historical Pull Requests
 
 ### [PR #7 - AI Transcription & Content Analysis](./PR-7-AI-TRANSCRIPTION.md)
-**Branch:** `feature/ai-transcription-analysis`  
-**Status:** 🔄 Ready for Review  
-**Author:** ProPod Team  
+**Branch:** `feature/ai-transcription-analysis`
+**Status:** Historical
 **Date:** January 2026
 
 **Overview:**
@@ -51,11 +54,11 @@ Major feature addition implementing AI-powered transcription and content analysi
 
 **Status:** ✅ All issues resolved, production-ready
 
-## 📊 PR Statistics
+## PR Statistics
 
 | PR # | Feature | Status | Files | Lines | Tests |
 |------|---------|--------|-------|-------|-------|
-| #7 | AI Features | Ready | 15+ | +2,500 | 13/13 ✅ |
+| #7 | AI Features | Historical | 15+ | +2,500 | 13/13 at the time |
 
 ## 🔄 PR Workflow
 
