@@ -7,8 +7,10 @@ React Native + Expo frontend application. See the main README.md in the project 
 ```bash
 cd frontend
 npm install
-npx expo start --dev-client -c --tunnel
+npm run start:dev:tunnel
 ```
+
+Use a development build. Expo Go is not supported because the app depends on native modules such as notifications, audio, and native Google sign-in.
 
 ## Environment Variables
 
@@ -28,10 +30,16 @@ npx eas build --platform android --profile development
 npx eas build --platform android --profile production
 ```
 
+## Authentication Notes
+
+- Google sign-in uses `@react-native-google-signin/google-signin`.
+- If native auth dependencies change, rebuild the development client before testing.
+
 ## Test
 
 ```bash
 npm run test
+npm run test:ci
 npm run lint
 ```
 

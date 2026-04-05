@@ -89,22 +89,22 @@ Project planning, roadmaps, and development tracking.
 ## 📊 Project Status
 
 ### Current Sprint
-- **Focus:** AI Features Polish & Testing
-- **Duration:** January 2026
-- **Progress:** 95% complete
+- **Focus:** auth hardening, manual regression readiness, and cleanup
+- **Duration:** April 2026
+- **Progress:** active maintenance
 
 ### Key Metrics
 - **Features Completed:** 25+
-- **Active PRs:** 1
-- **Test Coverage:** 90%+
-- **Documentation:** Comprehensive
+- **Active PRs:** see GitHub for live status
+- **Test Coverage:** backend stronger than frontend
+- **Documentation:** maintained, with historical sections still being cleaned up
 
 ## 🎯 Priorities
 
-1. **HIGH:** AI transcription & analysis (PR #7)
-2. **MEDIUM:** Mobile performance optimization
-3. **MEDIUM:** User profile enhancements
-4. **LOW:** Additional audio formats
+1. **HIGH:** stabilize full backend suite failures and flaky tests
+2. **HIGH:** close remaining auth and deep-linking gaps
+3. **MEDIUM:** replace mock notification data with real events
+4. **MEDIUM:** add production-safe Alembic coverage for newer tables
 
 ## 🔄 Related Documentation
 

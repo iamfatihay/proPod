@@ -16,8 +16,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-05
-**Last session:** Shipped deep link handling — `volo://podcast/{id}` wired in root `_layout.js`. Branch `feature/deep-link-podcast-handler` pushed; PR needs to be opened manually (Chrome offline during session). PR URL: https://github.com/iamfatihay/proPod/pull/new/feature/deep-link-podcast-handler
-**Test suite baseline:** 318 passed, 0 failed
+**Last session:** Agent refreshed project docs, updated PR #41 deep link handling to avoid auth-routing races, and hardened the native Google sign-in flow in PR #42 with server-side token validation and focused test coverage.
+**Test suite baseline:** Focused Google auth tests pass. Full frontend CI passes. Full backend suite currently has one unrelated failure in `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix` when run against a dedicated test DB.
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -40,13 +40,19 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Hotfix: duplicate `loadContinueListening` declaration removed (SyntaxError crash from merging #32 + #40)
 
 ### What's open / in-progress
-- 🔄 `feature/deep-link-podcast-handler` — deep link wiring in `frontend/app/_layout.js`. Branch pushed, PR not yet opened (Chrome offline). Open at: https://github.com/iamfatihay/proPod/compare/feature/deep-link-podcast-handler
+- PR #41: `feat: wire volo://podcast/{id} deep link handling`
+- Deep link wiring in `frontend/app/_layout.js` now guards against auth redirect races on cold start (pending merge)
+- PR #42: `fix(auth): secure native Google sign-in flow`
+- Native Google Sign-In replaced the old Expo AuthSession-based Google flow on mobile (pending merge)
+- Backend Google auth now validates the Google access token against Google before login-or-signup (pending merge)
+- Focused Google auth tests now cover invalid token rejection and verified profile mapping (pending merge)
+- Manual regression guide added at `docs/testing/MANUAL_REGRESSION_REENTRY_GUIDE.md` (local docs update; not yet merged)
 
 ### Known issues / tech debt
-- `test_analytics_dashboard` has a pre-existing flaky isolation issue (passes when run alone)
+- Full backend suite currently has one unrelated failure in `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`
 - No Alembic migration for Playlist tables (dev uses `create_all`, prod needs migration)
 - Backend heavily tested; frontend has very few tests
-- Deep link handling (`volo://` scheme) — implemented in PR (branch: feature/deep-link-podcast-handler), pending merge
+- Deep link handling (`volo://` scheme) is implemented in PR #41 and still needs manual regression coverage after merge
 - Notifications and chat screens use mock/dummy data
 - Several old feature branches still exist on remote (`feature/home-scroll-to-top`, `feature/ai-processing-enhancement`, `feature/microsoft-clarity-analytics`, etc.) — audit and close if abandoned
 
@@ -54,11 +60,11 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **Deep link handling** — wire `volo://podcast/{id}` in `_layout.js` using `expo-linking`
-2. **Notifications screen** — replace mock data with real backend events
-3. **Phase 2: Studio Mode** — waveform visualization, trim, chapter markers
+1. **Fix sharing regression** — restore a clean full backend suite by resolving `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`
+2. **Merge and regression-test open auth/navigation PRs** — prioritize PR #41 (deep links) and PR #42 (Google sign-in hardening)
+3. **Notifications screen** — replace mock data with real backend events
 4. **Backend: Alembic migration** for Playlist tables
-5. **Frontend tests** — coverage is very thin
+5. **Frontend tests** — coverage is still thin outside service-level tests
 
 ---
 
@@ -67,24 +73,12 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ### GitHub API Access — Sandbox Constraint
 
 **The terminal sandbox proxy blocks all outbound HTTPS to `api.github.com`.**
-`curl`, `wget`, and Python `requests`/`httpx` to `api.github.com` always return `403 Forbidden from proxy`. Do NOT attempt terminal-based GitHub API calls.
+Do not rely on terminal REST calls to GitHub. `git` commands still work.
 
-**What works from terminal:** only `git` commands (clone, push, fetch, log) using token in the remote URL:
-```
-git remote set-url origin https://iamfatihay:${GITHUB_TOKEN}@github.com/iamfatihay/proPod.git
-```
-
-**Check for open PRs without Chrome:** use `git ls-remote origin "refs/heads/feature/*"` to list remote branches, then cross-check against master history to find unmerged work.
-
-**Working method for GitHub REST API** (when Chrome extension is available):
-1. `mcp__Claude_in_Chrome__tabs_context_mcp` → get tabId
-2. `mcp__Claude_in_Chrome__navigate` → navigate to `https://github.com`
-3. `mcp__Claude_in_Chrome__javascript_tool` → run `fetch()` with Bearer token, store in `window.__var`
-4. Retrieve in a SEPARATE JS call (not chained) to avoid "BLOCKED: Cookie/query string data" errors
-
-**If Chrome is offline:** push branches, document URLs, note in AGENT_STATE that PRs need to be opened manually.
+If browser tooling is unavailable, push the branch and document the manual PR URL.
 
 ### Merge safety rule
+
 When multiple PRs touch the same file, always check for duplicate declarations after merging:
 ```bash
 grep -n "const funcName" frontend/app/(main)/home.js
@@ -110,8 +104,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[PR] Open the deep-link PR** — If Chrome is available, open the PR for `feature/deep-link-podcast-handler` using the GitHub API via browser JS. URL: https://github.com/iamfatihay/proPod/compare/feature/deep-link-podcast-handler. After Fay merges, consider adding `volo://profile/{username}` as a second URL pattern (same file, `parsed.hostname === 'profile'` → navigate to `/(main)/profile?username={username}`).
+1. **[BACKEND] Fix `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`** — restore green full-suite backend CI.
 
-2. **[FRONTEND] Notifications screen — real data** — `frontend/app/(main)/notifications.js` currently reads from AsyncStorage only (no server). The backend has no `/notifications/` router yet. Add `GET /api/notifications/` in `backend/app/routers/` returning recent activity (likes, comments on user's podcasts from the last 30 days). Wire to frontend with a Zustand `fetchFromServer` action that calls the endpoint and merges into the local store. File to add: `backend/app/routers/notifications.py`; files to edit: `backend/app/main.py`, `frontend/src/context/useNotificationStore.js`.
+2. **[PR] Merge and manually verify PR #41** — after merge, confirm cold-start and warm-start deep links both land on podcast details without being overridden by the auth redirect.
 
-3. **[CLEANUP] Audit stale remote branches** — Many old feature branches exist on remote (`feature/home-scroll-to-top`, `feature/ai-processing-enhancement`, `feature/microsoft-clarity-analytics`, `feature/ai-transcription-analysis`, etc.). Via Chrome JS + GitHub API: list open PRs, identify which branches have no open PR AND are already merged into master, delete them remotely with `git push origin --delete <branch>` or via GitHub API DELETE `/repos/iamfatihay/proPod/git/refs/heads/<branch>`.
+3. **[FRONTEND] Notifications screen — real data** — `frontend/app/(main)/notifications.js` still uses mock data; wire to backend activity events.

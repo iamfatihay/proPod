@@ -2,12 +2,25 @@
 
 Testing strategies, guidelines, and procedures for ProPod.
 
-## 📄 Documents
+## Documents
+
+### [Manual Regression Re-Entry Guide](./MANUAL_REGRESSION_REENTRY_GUIDE.md)
+Step-by-step manual test flows for regaining project context after time away.
+
+Topics:
+- auth and profile checks
+- recording and draft recovery
+- search, continue listening, playlists, sharing, analytics, and RTC
+- high-risk regression areas and a fast 60-minute pass
+
+Status: current manual walkthrough
+
+---
 
 ### [Test Documentation](./TEST_DOCUMENTATION.md)
-**Complete testing strategy and guidelines**
+Complete testing strategy and guidelines
 
-**Topics:**
+Topics:
 - Unit testing with pytest
 - Integration testing
 - API testing
@@ -15,14 +28,14 @@ Testing strategies, guidelines, and procedures for ProPod.
 - Mocking strategies
 - Coverage requirements
 
-**Status:** 13/13 tests passing ✅
+Status: reference guide
 
 ---
 
 ### [Cross-Platform Testing Guide](./CROSS_PLATFORM_TESTING_GUIDE.md)
-**Mobile testing procedures for iOS and Android**
+Mobile testing procedures for iOS and Android
 
-**Topics:**
+Topics:
 - Physical device testing
 - Emulator/Simulator setup
 - Network configuration
@@ -30,38 +43,38 @@ Testing strategies, guidelines, and procedures for ProPod.
 - Performance testing
 - UI testing
 
-**Platforms:** iOS, Android
+Platforms: iOS, Android
 
-## 🧪 Running Tests
+## Running Tests
 
 ### Backend Tests
 ```bash
 cd backend
-pytest                          # Run all tests
-pytest tests/test_ai_service.py # Run specific test file
-pytest -v                       # Verbose output
-pytest --cov=app                # Coverage report
+source venv/bin/activate
+DATABASE_URL=sqlite:///./test.db pytest tests/ -q
+pytest tests/test_ai_service.py -q
+pytest -v
+pytest --cov=app
 ```
+
+Note: backend tests intentionally refuse to run against the normal dev database.
 
 ### Frontend Tests
 ```bash
 cd frontend
-npm test                        # Run all tests
-npm test -- --watch            # Watch mode
-npm run test:e2e               # E2E tests
+npm test
+npm test -- --watch
+npm run test:ci
+npm run test:e2e
 ```
 
-## 📊 Test Coverage
+## Current Notes
 
-| Module | Coverage | Status |
-|--------|----------|--------|
-| AI Service | 95%+ | ✅ |
-| Transcription | 90%+ | ✅ |
-| Content Analyzer | 90%+ | ✅ |
-| API Endpoints | 85%+ | ✅ |
-| Database Models | 80%+ | ✅ |
+- Focused Google auth tests pass after the native sign-in migration.
+- Full frontend CI passes.
+- Full backend suite currently has one unrelated failure in `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`.
 
-## ✅ Test Checklist
+## Test Checklist
 
 Before committing:
 - [ ] All existing tests pass
@@ -71,7 +84,7 @@ Before committing:
 - [ ] Mocks used for external services
 - [ ] No flaky tests
 
-## 🔄 Related Documentation
+## Related Documentation
 
 - [Development Workflow](../guides/DEVELOPMENT_WORKFLOW.md)
 - [API Documentation](../api/API_DOCUMENTATION.md)

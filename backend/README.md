@@ -13,6 +13,8 @@ python -m app.init_db
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+Note: if `pip install -r requirements.txt` behaves unexpectedly on Linux/WSL, verify the file encoding first. This repository has previously contained a UTF-16 encoded `requirements.txt`.
+
 **Windows PowerShell:**
 ```bash
 cd backend
@@ -43,6 +45,22 @@ alembic revision --autogenerate -m "Migration description"
 # Apply migration
 alembic upgrade head
 ```
+
+## Testing
+
+Use a dedicated test database when running pytest:
+
+```bash
+cd backend
+source venv/bin/activate
+DATABASE_URL=sqlite:///./test.db pytest tests/ -q
+```
+
+The suite intentionally refuses to run against the normal dev database.
+
+## Google Auth
+
+`POST /users/google-login` validates the Google access token against Google's userinfo endpoint before creating or authenticating a user. The backend does not trust client-supplied email or profile fields for this flow.
 
 ## Schema vs Model Control
 
