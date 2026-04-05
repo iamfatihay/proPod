@@ -23,15 +23,17 @@ export default function RegisterScreen() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
+    const [googleLoading, setGoogleLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
     const router = useRouter();
     const setUser = useAuthStore((state) => state.setUser);
     const setTokens = useAuthStore((state) => state.setTokens);
     const { showToast } = useToast();
+    const isBusy = loading || googleLoading;
 
     const handleGoogleRegister = async () => {
-        setLoading(true);
+        setGoogleLoading(true);
         setError("");
         setSuccess(false);
 
@@ -54,7 +56,7 @@ export default function RegisterScreen() {
                 setError(message);
             }
         } finally {
-            setLoading(false);
+            setGoogleLoading(false);
         }
     };
 
@@ -158,7 +160,7 @@ export default function RegisterScreen() {
                 <TouchableOpacity
                     className="bg-primary w-full py-3 rounded-lg items-center mb-4 disabled:opacity-50"
                     onPress={handleRegister}
-                    disabled={loading}
+                    disabled={isBusy}
                 >
                     <Text className="text-white font-semibold text-base">
                         {loading ? "Signing up..." : "Sign Up"}
@@ -168,7 +170,7 @@ export default function RegisterScreen() {
                 <TouchableOpacity
                     className="flex-row items-center justify-center bg-panel w-full border border-border rounded-lg py-3 mb-4"
                     onPress={handleGoogleRegister}
-                    disabled={loading}
+                    disabled={isBusy}
                 >
                     <Ionicons
                         name="logo-google"
@@ -177,7 +179,9 @@ export default function RegisterScreen() {
                         className="mr-2"
                     />
                     <Text className="text-base text-text-secondary ml-2">
-                        {loading ? "Signing in..." : "Sign up with Google"}
+                        {googleLoading
+                            ? "Signing up with Google..."
+                            : "Sign up with Google"}
                     </Text>
                 </TouchableOpacity>
                 <View className="flex-row items-center justify-center">

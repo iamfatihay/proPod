@@ -302,7 +302,6 @@ class RTCParticipantResponse(BaseModel):
 # Google Login Schema
 class GoogleLoginRequest(BaseModel):
     google_access_token: str = Field(..., min_length=1)
-    provider: str = "google"
 
 
 # Token Schemas

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 from typing import Any, Dict
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+
+import httpx
 
 from fastapi import HTTPException, status
 
@@ -15,23 +15,23 @@ GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
 def fetch_google_user_profile(access_token: str) -> Dict[str, Any]:
     """Fetch and validate the Google profile for a bearer access token."""
-    request = Request(
-        GOOGLE_USERINFO_URL,
-        headers={"Authorization": f"Bearer {access_token}"},
-    )
-
     try:
-        with urlopen(request, timeout=5) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except HTTPError as exc:
+        response = httpx.get(
+            GOOGLE_USERINFO_URL,
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=5.0,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except httpx.HTTPStatusError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Google access token",
         ) from exc
-    except URLError as exc:
+    except (httpx.RequestError, json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Google authentication is temporarily unavailable",
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Invalid response from Google authentication service",
         ) from exc
 
     email = payload.get("email")

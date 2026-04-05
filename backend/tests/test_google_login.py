@@ -8,6 +8,9 @@ Covers:
 - Invalid Google token is rejected
 - Response contains valid tokens and correct user data
 """
+import json
+
+import pytest
 from fastapi.testclient import TestClient
 from fastapi import HTTPException
 
@@ -216,3 +219,25 @@ class TestGoogleLogin:
 
         assert resp.status_code == 401
         assert resp.json()["detail"] == "Invalid Google access token"
+
+    def test_invalid_google_response_is_rejected(self, monkeypatch):
+        """Malformed Google profile responses should surface a gateway error."""
+
+        class MockResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                raise json.JSONDecodeError("bad json", "", 0)
+
+        monkeypatch.setattr(
+            google_auth_service.httpx,
+            "get",
+            lambda *args, **kwargs: MockResponse(),
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            google_auth_service.fetch_google_user_profile("valid-google-token")
+
+        assert exc_info.value.status_code == 502
+        assert exc_info.value.detail == "Invalid response from Google authentication service"

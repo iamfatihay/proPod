@@ -42,9 +42,14 @@ export async function signInWithGoogle() {
     }
 
     const tokens = await GoogleSignin.getTokens();
+    const accessToken = tokens?.accessToken?.trim();
+
+    if (!accessToken) {
+        throw new Error("Google sign-in did not return an access token.");
+    }
 
     return {
-        google_access_token: tokens.accessToken,
+        google_access_token: accessToken,
     };
 }
 
