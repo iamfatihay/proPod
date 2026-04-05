@@ -15,8 +15,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-04
-**Last session:** All 7 old PRs merged by Fay. Agent shipped seek-to-position (#39), fixed widget conflict branch (#40), and fixed a duplicate-declaration crash on master.
+**Last updated:** 2026-04-05
+**Last session:** Shipped deep link handling — `volo://podcast/{id}` wired in root `_layout.js`. Branch `feature/deep-link-podcast-handler` pushed; PR needs to be opened manually (Chrome offline during session). PR URL: https://github.com/iamfatihay/proPod/pull/new/feature/deep-link-podcast-handler
 **Test suite baseline:** 318 passed, 0 failed
 
 ### What's shipped (merged to master)
@@ -40,13 +40,13 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Hotfix: duplicate `loadContinueListening` declaration removed (SyntaxError crash from merging #32 + #40)
 
 ### What's open / in-progress
-None — no open PRs.
+- 🔄 `feature/deep-link-podcast-handler` — deep link wiring in `frontend/app/_layout.js`. Branch pushed, PR not yet opened (Chrome offline). Open at: https://github.com/iamfatihay/proPod/compare/feature/deep-link-podcast-handler
 
 ### Known issues / tech debt
 - `test_analytics_dashboard` has a pre-existing flaky isolation issue (passes when run alone)
 - No Alembic migration for Playlist tables (dev uses `create_all`, prod needs migration)
 - Backend heavily tested; frontend has very few tests
-- Deep link handling (`volo://` scheme) — `_layout.js` not yet wired
+- Deep link handling (`volo://` scheme) — implemented in PR (branch: feature/deep-link-podcast-handler), pending merge
 - Notifications and chat screens use mock/dummy data
 - Several old feature branches still exist on remote (`feature/home-scroll-to-top`, `feature/ai-processing-enhancement`, `feature/microsoft-clarity-analytics`, etc.) — audit and close if abandoned
 
@@ -110,8 +110,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FRONTEND] Deep link handling in `_layout.js`** — Import `expo-linking`, call `Linking.addEventListener('url', handler)` on mount, `Linking.getInitialURL()` on startup. Parse `volo://podcast/{id}` → `router.push('/(main)/details', { id })`. File: `frontend/app/(main)/_layout.js`. No conflicts expected with current master.
+1. **[PR] Open the deep-link PR** — If Chrome is available, open the PR for `feature/deep-link-podcast-handler` using the GitHub API via browser JS. URL: https://github.com/iamfatihay/proPod/compare/feature/deep-link-podcast-handler. After Fay merges, consider adding `volo://profile/{username}` as a second URL pattern (same file, `parsed.hostname === 'profile'` → navigate to `/(main)/profile?username={username}`).
 
-2. **[FRONTEND] Notifications screen — real data** — `frontend/app/(main)/notifications.js` uses mock data. Check `backend/app/routers/` for a notifications endpoint; if none exists, add `GET /notifications/` returning recent activity (likes, comments on user's podcasts). Wire to frontend.
+2. **[FRONTEND] Notifications screen — real data** — `frontend/app/(main)/notifications.js` currently reads from AsyncStorage only (no server). The backend has no `/notifications/` router yet. Add `GET /api/notifications/` in `backend/app/routers/` returning recent activity (likes, comments on user's podcasts from the last 30 days). Wire to frontend with a Zustand `fetchFromServer` action that calls the endpoint and merges into the local store. File to add: `backend/app/routers/notifications.py`; files to edit: `backend/app/main.py`, `frontend/src/context/useNotificationStore.js`.
 
-3. **[CLEANUP] Audit stale remote branches** — `feature/home-scroll-to-top`, `feature/ai-processing-enhancement`, `feature/microsoft-clarity-analytics`, `feature/ai-transcription-analysis` still exist on remote. Via Chrome JS: check if any have open PRs. Close abandoned ones and delete branches.
+3. **[CLEANUP] Audit stale remote branches** — Many old feature branches exist on remote (`feature/home-scroll-to-top`, `feature/ai-processing-enhancement`, `feature/microsoft-clarity-analytics`, `feature/ai-transcription-analysis`, etc.). Via Chrome JS + GitHub API: list open PRs, identify which branches have no open PR AND are already merged into master, delete them remotely with `git push origin --delete <branch>` or via GitHub API DELETE `/repos/iamfatihay/proPod/git/refs/heads/<branch>`.
