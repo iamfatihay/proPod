@@ -16,7 +16,7 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-05
-**Last session:** Agent reviewed recent merged work, added a manual regression re-entry guide, migrated Android Google auth from Expo AuthSession to native Google Sign-In, and hardened backend Google login to validate Google access tokens server-side. Follow-up PR opened: `fix/google-native-auth-security` → `master` (#42).
+**Last session:** Agent refreshed project docs, updated PR #41 deep link handling to avoid auth-routing races, and hardened the native Google sign-in flow in PR #42 with server-side token validation and focused test coverage.
 **Test suite baseline:** Focused Google auth tests pass. Full frontend CI passes. Full backend suite currently has one unrelated failure in `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix` when run against a dedicated test DB.
 
 ### What's shipped (merged to master)
@@ -40,6 +40,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Hotfix: duplicate `loadContinueListening` declaration removed (SyntaxError crash from merging #32 + #40)
 
 ### What's open / in-progress
+- PR #41: `feat: wire volo://podcast/{id} deep link handling`
+- Deep link wiring in `frontend/app/_layout.js` now guards against auth redirect races on cold start (pending merge)
 - PR #42: `fix(auth): secure native Google sign-in flow`
 - Native Google Sign-In replaced the old Expo AuthSession-based Google flow on mobile (pending merge)
 - Backend Google auth now validates the Google access token against Google before login-or-signup (pending merge)
@@ -50,7 +52,7 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - Full backend suite currently has one unrelated failure in `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`
 - No Alembic migration for Playlist tables (dev uses `create_all`, prod needs migration)
 - Backend heavily tested; frontend has very few tests
-- Deep link handling (`volo://` scheme) — `_layout.js` not yet wired
+- Deep link handling (`volo://` scheme) is implemented in PR #41 and still needs manual regression coverage after merge
 - Notifications and chat screens use mock/dummy data
 - Several old feature branches still exist on remote (`feature/home-scroll-to-top`, `feature/ai-processing-enhancement`, `feature/microsoft-clarity-analytics`, etc.) — audit and close if abandoned
 
@@ -59,7 +61,7 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 🗺️ Roadmap Priority (agent perspective)
 
 1. **Fix sharing regression** — restore a clean full backend suite by resolving `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`
-2. **Deep link handling** — wire `volo://podcast/{id}` in `_layout.js` using `expo-linking`
+2. **Merge and regression-test open auth/navigation PRs** — prioritize PR #41 (deep links) and PR #42 (Google sign-in hardening)
 3. **Notifications screen** — replace mock data with real backend events
 4. **Backend: Alembic migration** for Playlist tables
 5. **Frontend tests** — coverage is still thin outside service-level tests
@@ -104,6 +106,6 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 1. **[BACKEND] Fix `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`** — restore green full-suite backend CI.
 
-2. **[FRONTEND] Deep link handling in `_layout.js`** — Import `expo-linking`, call `Linking.addEventListener('url', handler)` on mount, `Linking.getInitialURL()` on startup. Parse `volo://podcast/{id}` → `router.push('/(main)/details', { id })`.
+2. **[PR] Merge and manually verify PR #41** — after merge, confirm cold-start and warm-start deep links both land on podcast details without being overridden by the auth redirect.
 
 3. **[FRONTEND] Notifications screen — real data** — `frontend/app/(main)/notifications.js` still uses mock data; wire to backend activity events.
