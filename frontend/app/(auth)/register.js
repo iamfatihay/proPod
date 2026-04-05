@@ -10,13 +10,13 @@ import {
 } from "react-native";
 import { Link, useRouter } from "expo-router";
 import apiService from "../../src/services/api/apiService";
-import * as Google from "expo-auth-session/providers/google";
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
 import useAuthStore from "../../src/context/useAuthStore";
-import Constants from "expo-constants";
-import * as AuthSession from "expo-auth-session";
 import { useToast } from "../../src/components/Toast";
+import {
+    authenticateWithGoogle,
+    getGoogleSignInErrorMessage,
+} from "../../src/services/auth/googleSignIn";
 
 export default function RegisterScreen() {
     const [name, setName] = useState("");
@@ -30,49 +30,33 @@ export default function RegisterScreen() {
     const setTokens = useAuthStore((state) => state.setTokens);
     const { showToast } = useToast();
 
-    // Google Auth
-    const googleAndroidClientId =
-        Constants.expoConfig?.extra?.googleAndroidClientId;
-    const googleIosClientId = Constants.expoConfig?.extra?.googleIosClientId;
-    const googleExpoClientId = Constants.expoConfig?.extra?.googleExpoClientId;
+    const handleGoogleRegister = async () => {
+        setLoading(true);
+        setError("");
+        setSuccess(false);
 
-    const redirectUri = AuthSession.makeRedirectUri({
-        scheme: "volo",
-        useProxy: false,
-    });
+        try {
+            const result = await authenticateWithGoogle();
 
-    const [request, response, promptAsync] = Google.useAuthRequest({
-        androidClientId: googleAndroidClientId,
-        iosClientId: googleIosClientId,
-        expoClientId: googleExpoClientId,
-        redirectUri,
-    });
+            if (!result) {
+                return;
+            }
 
-    React.useEffect(() => {
-        if (response?.type === "success") {
-            const { authentication } = response;
-            fetch("https://www.googleapis.com/userinfo/v2/me", {
-                headers: {
-                    Authorization: `Bearer ${authentication.accessToken}`,
-                },
-            })
-                .then((res) => res.json())
-                .then(async (data) => {
-                    try {
-                        const result = await apiService.googleLogin({
-                            email: data.email,
-                            name: data.name,
-                            photo_url: data.picture,
-                        });
-                        apiService.setToken(result.access_token);
-                        setUser(result.user);
-                        setTokens(result.access_token, result.refresh_token);
-                    } catch (err) {
-                        setError("Google register failed");
-                    }
-                });
+            apiService.setToken(result.access_token);
+            setUser(result.user);
+            setTokens(result.access_token, result.refresh_token);
+            showToast("Google registration successful!", "success");
+            router.replace("/(main)/home");
+        } catch (err) {
+            const message = getGoogleSignInErrorMessage(err);
+
+            if (message) {
+                setError(message);
+            }
+        } finally {
+            setLoading(false);
         }
-    }, [response]);
+    };
 
     const handleRegister = async () => {
         setLoading(true);
@@ -183,8 +167,8 @@ export default function RegisterScreen() {
                 {/* Register with Google */}
                 <TouchableOpacity
                     className="flex-row items-center justify-center bg-panel w-full border border-border rounded-lg py-3 mb-4"
-                    onPress={() => promptAsync()}
-                    disabled={!request}
+                    onPress={handleGoogleRegister}
+                    disabled={loading}
                 >
                     <Ionicons
                         name="logo-google"
@@ -193,7 +177,7 @@ export default function RegisterScreen() {
                         className="mr-2"
                     />
                     <Text className="text-base text-text-secondary ml-2">
-                        Sign up with Google
+                        {loading ? "Signing in..." : "Sign up with Google"}
                     </Text>
                 </TouchableOpacity>
                 <View className="flex-row items-center justify-center">

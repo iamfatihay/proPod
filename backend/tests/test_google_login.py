@@ -5,21 +5,32 @@ Covers:
 - New Google user creation with photo_url preserved
 - Existing Google user login returns existing account
 - Missing photo_url defaults gracefully
+- Invalid Google token is rejected
 - Response contains valid tokens and correct user data
-- Existing local user can also authenticate via Google
 """
 from fastapi.testclient import TestClient
+from fastapi import HTTPException
 
 from app.main import app
 import app.models as models
+from app.services import google_auth_service
 
 client = TestClient(app)
+
+
+def _mock_google_profile(email, name, photo_url=None):
+    return {
+        "email": email,
+        "name": name,
+        "provider": "google",
+        "photo_url": photo_url,
+    }
 
 
 class TestGoogleLogin:
     """Tests for POST /users/google-login."""
 
-    def test_new_google_user_created_with_photo(self, db_session):
+    def test_new_google_user_created_with_photo(self, db_session, monkeypatch):
         """New Google user should be created with photo_url preserved."""
         # Ensure user does not already exist
         existing = db_session.query(models.User).filter(
@@ -29,13 +40,21 @@ class TestGoogleLogin:
             db_session.delete(existing)
             db_session.commit()
 
+        monkeypatch.setattr(
+            google_auth_service,
+            "fetch_google_user_profile",
+            lambda access_token: _mock_google_profile(
+                "googleuser@gmail.com",
+                "Google User",
+                "https://lh3.googleusercontent.com/photo.jpg",
+            ),
+        )
+
         resp = client.post(
             "/users/google-login",
             json={
-                "email": "googleuser@gmail.com",
-                "name": "Google User",
+                "google_access_token": "valid-google-token",
                 "provider": "google",
-                "photo_url": "https://lh3.googleusercontent.com/photo.jpg",
             },
         )
         assert resp.status_code == 200
@@ -62,7 +81,7 @@ class TestGoogleLogin:
         assert db_user.provider == "google"
         assert db_user.hashed_password is None  # Google users have no password
 
-    def test_existing_google_user_returns_tokens(self, db_session):
+    def test_existing_google_user_returns_tokens(self, db_session, monkeypatch):
         """Existing Google user should get tokens without creating duplicate."""
         # Ensure user does not already exist
         existing = db_session.query(models.User).filter(
@@ -72,12 +91,20 @@ class TestGoogleLogin:
             db_session.delete(existing)
             db_session.commit()
 
+        monkeypatch.setattr(
+            google_auth_service,
+            "fetch_google_user_profile",
+            lambda access_token: _mock_google_profile(
+                "returning@gmail.com",
+                "Returning User",
+            ),
+        )
+
         # First login creates the user
         client.post(
             "/users/google-login",
             json={
-                "email": "returning@gmail.com",
-                "name": "Returning User",
+                "google_access_token": "valid-google-token",
                 "provider": "google",
             },
         )
@@ -86,8 +113,7 @@ class TestGoogleLogin:
         resp = client.post(
             "/users/google-login",
             json={
-                "email": "returning@gmail.com",
-                "name": "Returning User",
+                "google_access_token": "valid-google-token",
                 "provider": "google",
             },
         )
@@ -101,7 +127,7 @@ class TestGoogleLogin:
         ).count()
         assert count == 1
 
-    def test_google_login_without_photo_url(self, db_session):
+    def test_google_login_without_photo_url(self, db_session, monkeypatch):
         """Google login without photo_url should succeed with null photo."""
         existing = db_session.query(models.User).filter(
             models.User.email == "nophoto@gmail.com"
@@ -110,11 +136,19 @@ class TestGoogleLogin:
             db_session.delete(existing)
             db_session.commit()
 
+        monkeypatch.setattr(
+            google_auth_service,
+            "fetch_google_user_profile",
+            lambda access_token: _mock_google_profile(
+                "nophoto@gmail.com",
+                "No Photo User",
+            ),
+        )
+
         resp = client.post(
             "/users/google-login",
             json={
-                "email": "nophoto@gmail.com",
-                "name": "No Photo User",
+                "google_access_token": "valid-google-token",
                 "provider": "google",
             },
         )
@@ -122,7 +156,7 @@ class TestGoogleLogin:
         data = resp.json()
         assert data["user"]["photo_url"] is None
 
-    def test_google_login_response_structure(self, db_session):
+    def test_google_login_response_structure(self, db_session, monkeypatch):
         """Response should match AuthResponse schema."""
         existing = db_session.query(models.User).filter(
             models.User.email == "schema_check@gmail.com"
@@ -131,13 +165,21 @@ class TestGoogleLogin:
             db_session.delete(existing)
             db_session.commit()
 
+        monkeypatch.setattr(
+            google_auth_service,
+            "fetch_google_user_profile",
+            lambda access_token: _mock_google_profile(
+                "schema_check@gmail.com",
+                "Schema Check",
+                "https://example.com/photo.jpg",
+            ),
+        )
+
         resp = client.post(
             "/users/google-login",
             json={
-                "email": "schema_check@gmail.com",
-                "name": "Schema Check",
+                "google_access_token": "valid-google-token",
                 "provider": "google",
-                "photo_url": "https://example.com/photo.jpg",
             },
         )
         assert resp.status_code == 200
@@ -152,3 +194,25 @@ class TestGoogleLogin:
         assert "provider" in user
         assert "photo_url" in user
         assert "created_at" in user
+
+    def test_invalid_google_token_is_rejected(self, monkeypatch):
+        """Invalid Google tokens should not create or authenticate users."""
+        def raise_invalid_token(access_token):
+            raise HTTPException(status_code=401, detail="Invalid Google access token")
+
+        monkeypatch.setattr(
+            google_auth_service,
+            "fetch_google_user_profile",
+            raise_invalid_token,
+        )
+
+        resp = client.post(
+            "/users/google-login",
+            json={
+                "google_access_token": "bad-token",
+                "provider": "google",
+            },
+        )
+
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == "Invalid Google access token"

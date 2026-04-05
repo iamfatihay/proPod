@@ -79,9 +79,7 @@ describe("ApiService", () => {
             global.mockApiResponse(mockResponse);
 
             const googleData = {
-                email: "test@gmail.com",
-                name: "Test User",
-                photo_url: "https://example.com/photo.jpg",
+                google_access_token: "google-provider-token",
             };
 
             const result = await apiService.googleLogin(googleData);
@@ -91,10 +89,8 @@ describe("ApiService", () => {
                 expect.objectContaining({
                     method: "POST",
                     body: JSON.stringify({
-                        email: "test@gmail.com",
-                        name: "Test User",
+                        google_access_token: "google-provider-token",
                         provider: "google",
-                        photo_url: "https://example.com/photo.jpg",
                     }),
                 })
             );

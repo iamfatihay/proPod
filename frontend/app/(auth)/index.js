@@ -10,14 +10,14 @@ import {
     SafeAreaView,
 } from "react-native";
 import { Link, useRouter } from "expo-router";
-import Constants from "expo-constants";
 import useAuthStore from "../../src/context/useAuthStore";
 import apiService from "../../src/services/api/apiService";
-import * as Google from "expo-auth-session/providers/google";
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import * as AuthSession from "expo-auth-session";
 import { useToast } from "../../src/components/Toast";
+import {
+    authenticateWithGoogle,
+    getGoogleSignInErrorMessage,
+} from "../../src/services/auth/googleSignIn";
 
 export default function LoginScreen() {
     const [email, setEmail] = useState("");
@@ -26,50 +26,35 @@ export default function LoginScreen() {
     const [error, setError] = useState("");
     const setUser = useAuthStore((state) => state.setUser);
     const setTokens = useAuthStore((state) => state.setTokens);
-    const googleAndroidClientId =
-        Constants.expoConfig?.extra?.googleAndroidClientId;
-    const googleIosClientId = Constants.expoConfig?.extra?.googleIosClientId;
-    const googleExpoClientId = Constants.expoConfig?.extra?.googleExpoClientId;
     const router = useRouter();
     const { showToast } = useToast();
 
-    // Google Auth
-    const redirectUri = AuthSession.makeRedirectUri({
-        scheme: "volo",
-        useProxy: false,
-    });
-    const [request, response, promptAsync] = Google.useAuthRequest({
-        androidClientId: googleAndroidClientId,
-        iosClientId: googleIosClientId,
-        expoClientId: googleExpoClientId,
-        redirectUri,
-    });
+    const handleGoogleLogin = async () => {
+        setLoading(true);
+        setError("");
 
-    React.useEffect(() => {
-        if (response?.type === "success") {
-            const { authentication } = response;
-            fetch("https://www.googleapis.com/userinfo/v2/me", {
-                headers: {
-                    Authorization: `Bearer ${authentication.accessToken}`,
-                },
-            })
-                .then((res) => res.json())
-                .then(async (data) => {
-                    try {
-                        const result = await apiService.googleLogin({
-                            email: data.email,
-                            name: data.name,
-                            photo_url: data.picture,
-                        });
-                        apiService.setToken(result.access_token);
-                        setUser(result.user);
-                        setTokens(result.access_token, result.refresh_token);
-                    } catch (err) {
-                        setError("Google login failed");
-                    }
-                });
+        try {
+            const result = await authenticateWithGoogle();
+
+            if (!result) {
+                return;
+            }
+
+            apiService.setToken(result.access_token);
+            setUser(result.user);
+            setTokens(result.access_token, result.refresh_token);
+            showToast("Google login successful!", "success");
+            router.replace("/(main)/home");
+        } catch (err) {
+            const message = getGoogleSignInErrorMessage(err);
+
+            if (message) {
+                setError(message);
+            }
+        } finally {
+            setLoading(false);
         }
-    }, [response]);
+    };
 
     const handleLogin = async () => {
         setLoading(true);
@@ -185,8 +170,8 @@ export default function LoginScreen() {
                     {/* Sign in with Google */}
                     <TouchableOpacity
                         className="flex-row items-center justify-center bg-panel w-full border border-border rounded-lg py-3 mb-4"
-                        onPress={() => promptAsync()}
-                        disabled={!request}
+                        onPress={handleGoogleLogin}
+                        disabled={loading}
                     >
                         <Ionicons
                             name="logo-google"
@@ -195,7 +180,7 @@ export default function LoginScreen() {
                             className="mr-2"
                         />
                         <Text className="text-base text-text-secondary ml-2">
-                            Sign in with Google
+                            {loading ? "Signing in..." : "Sign in with Google"}
                         </Text>
                     </TouchableOpacity>
                     <View className="flex-row items-center justify-center">
