@@ -1,6 +1,6 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import useAuthStore from "../src/context/useAuthStore";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PaperProvider } from "react-native-paper";
 import { ToastProvider } from "../src/components/Toast";
@@ -10,6 +10,7 @@ import apiService from "../src/services/api/apiService";
 import protectionService from "../src/services/recording/protectionService";
 import DraftRecoveryModal from "../src/components/DraftRecoveryModal";
 import * as Notifications from 'expo-notifications';
+import * as Linking from 'expo-linking';
 import Logger from "../src/utils/logger";
 
 export default function Layout() {
@@ -21,6 +22,67 @@ export default function Layout() {
 
     const [draft, setDraft] = useState(null);
     const [showDraftModal, setShowDraftModal] = useState(false);
+
+    // Ref to hold a deep link URL that arrived before auth was ready (cold start)
+    const pendingDeepLinkRef = useRef(null);
+
+    /**
+     * Parse a deep link URL and navigate to the appropriate screen.
+     *
+     * Supported patterns:
+     *   volo://podcast/{id}  →  /(main)/details?id={id}
+     */
+    const handleDeepLink = useCallback((url) => {
+        if (!url) return;
+        try {
+            const parsed = Linking.parse(url);
+            // hostname === 'podcast', path === '{id}'
+            if (parsed.hostname === 'podcast') {
+                const id = parsed.path ? parsed.path.replace(/^\//, '') : null;
+                if (id) {
+                    Logger.info('Deep link: navigating to podcast', id);
+                    router.push({ pathname: '/(main)/details', params: { id } });
+                }
+            }
+        } catch (err) {
+            Logger.error('Deep link parse error:', err);
+        }
+    }, [router]);
+
+    // Register deep link handlers on mount (runs once)
+    useEffect(() => {
+        // Cold start: app was launched via deep link
+        Linking.getInitialURL().then((url) => {
+            if (url) {
+                // Store; we'll flush it once auth resolves (see effect below)
+                pendingDeepLinkRef.current = url;
+            }
+        });
+
+        // Warm start: app already open, URL arrives while running
+        const linkSubscription = Linking.addEventListener('url', ({ url }) => {
+            if (!url) return;
+            // Capture the current auth state from the module-level variables
+            // (no re-render needed; we read from the store directly in the callback)
+            const state = useAuthStore.getState();
+            if (!state.isInitializing && state.user) {
+                handleDeepLink(url);
+            } else {
+                pendingDeepLinkRef.current = url;
+            }
+        });
+
+        return () => linkSubscription.remove();
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps -- intentional mount-only
+
+    // Flush pending deep link once auth is resolved and user is logged in
+    useEffect(() => {
+        if (!isInitializing && user && pendingDeepLinkRef.current) {
+            const url = pendingDeepLinkRef.current;
+            pendingDeepLinkRef.current = null;
+            handleDeepLink(url);
+        }
+    }, [isInitializing, user, handleDeepLink]);
 
     useEffect(() => {
         // Load tokens and user data from SecureStore when the app starts
