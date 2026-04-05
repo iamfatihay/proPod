@@ -25,6 +25,7 @@ export default function Layout() {
 
     // Ref to hold a deep link URL that arrived before auth was ready (cold start)
     const pendingDeepLinkRef = useRef(null);
+    const deepLinkNavigationInProgressRef = useRef(false);
 
     /**
      * Parse a deep link URL and navigate to the appropriate screen.
@@ -40,30 +41,38 @@ export default function Layout() {
             if (parsed.hostname === 'podcast') {
                 const id = parsed.path ? parsed.path.replace(/^\//, '') : null;
                 if (id) {
+                    deepLinkNavigationInProgressRef.current = true;
                     Logger.info('Deep link: navigating to podcast', id);
                     router.push({ pathname: '/(main)/details', params: { id } });
+                    return true;
                 }
             }
         } catch (err) {
             Logger.error('Deep link parse error:', err);
         }
+        return false;
     }, [router]);
 
     // Register deep link handlers on mount (runs once)
     useEffect(() => {
         // Cold start: app was launched via deep link
         Linking.getInitialURL().then((url) => {
-            if (url) {
-                // Store; we'll flush it once auth resolves (see effect below)
-                pendingDeepLinkRef.current = url;
+            if (!url) return;
+
+            const state = useAuthStore.getState();
+            if (!state.isInitializing && state.user) {
+                handleDeepLink(url);
+                return;
             }
+
+            // Store; we'll flush it once auth resolves (see effect below)
+            pendingDeepLinkRef.current = url;
         });
 
         // Warm start: app already open, URL arrives while running
         const linkSubscription = Linking.addEventListener('url', ({ url }) => {
             if (!url) return;
-            // Capture the current auth state from the module-level variables
-            // (no re-render needed; we read from the store directly in the callback)
+            // Read the latest auth state directly from the Zustand store.
             const state = useAuthStore.getState();
             if (!state.isInitializing && state.user) {
                 handleDeepLink(url);
@@ -83,6 +92,12 @@ export default function Layout() {
             handleDeepLink(url);
         }
     }, [isInitializing, user, handleDeepLink]);
+
+    useEffect(() => {
+        if (segments[0] === "(main)") {
+            deepLinkNavigationInProgressRef.current = false;
+        }
+    }, [segments]);
 
     useEffect(() => {
         // Load tokens and user data from SecureStore when the app starts
@@ -178,6 +193,13 @@ export default function Layout() {
         const inMainGroup = segments[0] === "(main)";
 
         if (user && inAuthGroup) {
+            if (
+                pendingDeepLinkRef.current ||
+                deepLinkNavigationInProgressRef.current
+            ) {
+                return;
+            }
+
             // User is signed in but is in the auth group (e.g., login, register).
             // Redirect to the main home screen.
             router.replace("/(main)/home");
