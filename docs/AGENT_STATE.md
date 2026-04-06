@@ -15,9 +15,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-05
-**Last session:** Agent refreshed project docs, updated PR #41 deep link handling to avoid auth-routing races, and hardened the native Google sign-in flow in PR #42 with server-side token validation and focused test coverage.
-**Test suite baseline:** Focused Google auth tests pass. Full frontend CI passes. Full backend suite currently has one unrelated failure in `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix` when run against a dedicated test DB.
+**Last updated:** 2026-04-06
+**Last session:** Reconciled state (PR #41 deep links and PR #42 Google auth both merged by Fay). Fixed 2 failing `TestGoogleLogin` tests in `test_user_auth.py` that broke after the auth-hardening merge — updated both to use `google_access_token` payload and `monkeypatch` the Google service. Full backend suite now green: **320 passed, 0 failed**. Branch: `fix/google-login-tests-after-auth-hardening` (PR pending — Chrome MCP unavailable this session).
+**Test suite baseline:** Full backend suite **320 passed, 0 failed**. Full frontend CI passes.
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -38,33 +38,30 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ loadContinueListening URL normalization — audio_url + thumbnail_url normalized via `toAbsoluteUrl`. (PR #40)
 - ✅ loadContinueListening decoupled — fires independently; never blocks main-feed repaint. (PR #40)
 - ✅ Hotfix: duplicate `loadContinueListening` declaration removed (SyntaxError crash from merging #32 + #40)
+- ✅ Deep link handling — `volo://podcast/{id}` wired in `frontend/app/_layout.js` with auth-race guard (PR #41 merged)
+- ✅ Native Google Sign-In hardened — backend validates access token against Google before login-or-signup; focused test coverage in `tests/test_google_login.py` (PR #42 merged)
 
 ### What's open / in-progress
-- PR #41: `feat: wire volo://podcast/{id} deep link handling`
-- Deep link wiring in `frontend/app/_layout.js` now guards against auth redirect races on cold start (pending merge)
-- PR #42: `fix(auth): secure native Google sign-in flow`
-- Native Google Sign-In replaced the old Expo AuthSession-based Google flow on mobile (pending merge)
-- Backend Google auth now validates the Google access token against Google before login-or-signup (pending merge)
-- Focused Google auth tests now cover invalid token rejection and verified profile mapping (pending merge)
-- Manual regression guide added at `docs/testing/MANUAL_REGRESSION_REENTRY_GUIDE.md` (local docs update; not yet merged)
+- Branch `fix/google-login-tests-after-auth-hardening` — **PR not yet opened** (Chrome MCP unavailable this session). Create PR manually at: https://github.com/iamfatihay/proPod/compare/fix/google-login-tests-after-auth-hardening
+  - Fixes 2 `TestGoogleLogin` tests in `backend/tests/test_user_auth.py` that broke after PR #42 merged (schema change from email+name → google_access_token)
+  - Result after fix: 320 passed, 0 failed
 
 ### Known issues / tech debt
-- Full backend suite currently has one unrelated failure in `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`
 - No Alembic migration for Playlist tables (dev uses `create_all`, prod needs migration)
 - Backend heavily tested; frontend has very few tests
-- Deep link handling (`volo://` scheme) is implemented in PR #41 and still needs manual regression coverage after merge
-- Notifications and chat screens use mock/dummy data
+- Deep link handling (`volo://` scheme) is merged but still needs manual regression coverage on a real device
+- Notifications and chat screens use mock/dummy data — no backend events wired yet
 - Several old feature branches still exist on remote (`feature/home-scroll-to-top`, `feature/ai-processing-enhancement`, `feature/microsoft-clarity-analytics`, etc.) — audit and close if abandoned
 
 ---
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **Fix sharing regression** — restore a clean full backend suite by resolving `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`
-2. **Merge and regression-test open auth/navigation PRs** — prioritize PR #41 (deep links) and PR #42 (Google sign-in hardening)
-3. **Notifications screen** — replace mock data with real backend events
-4. **Backend: Alembic migration** for Playlist tables
-5. **Frontend tests** — coverage is still thin outside service-level tests
+1. **Open PR for `fix/google-login-tests-after-auth-hardening`** — branch is pushed, Chrome MCP was down; open manually or next session
+2. **Notifications screen** — replace mock data with real backend activity events (`frontend/app/(main)/notifications.js`)
+3. **Backend: Alembic migration** for Playlist tables
+4. **Frontend tests** — coverage is still thin outside service-level tests
+5. **Stale branch audit** — many old feature branches still exist on remote; close abandoned ones
 
 ---
 
@@ -104,8 +101,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[BACKEND] Fix `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`** — restore green full-suite backend CI.
+1. **[PR] Open the Google-login test fix PR** — branch `fix/google-login-tests-after-auth-hardening` is pushed. If Chrome MCP is available, use browser JS `fetch` to POST to `/repos/iamfatihay/proPod/pulls`. If not, document for Fay to open manually at https://github.com/iamfatihay/proPod/compare/fix/google-login-tests-after-auth-hardening
 
-2. **[PR] Merge and manually verify PR #41** — after merge, confirm cold-start and warm-start deep links both land on podcast details without being overridden by the auth redirect.
+2. **[FRONTEND] Notifications screen — real data** — `frontend/app/(main)/notifications.js` uses a Zustand store with AsyncStorage but has no backend fetch. Wire it: add a `GET /users/me/notifications` endpoint (or reuse activity events from analytics) and call it on mount with pull-to-refresh. The store's `addNotification` + `markAsRead` API is already in place.
 
-3. **[FRONTEND] Notifications screen — real data** — `frontend/app/(main)/notifications.js` still uses mock data; wire to backend activity events.
+3. **[BACKEND] Alembic migration for Playlist tables** — `backend/app/models.py` has Playlist + PlaylistItem models that are only created via `Base.metadata.create_all`. Add an Alembic migration so production deployments don't require a full DB reset. Files to create: `backend/alembic/versions/<timestamp>_add_playlist_tables.py`.
