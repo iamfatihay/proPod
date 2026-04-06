@@ -15,9 +15,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-05
-**Last session:** Agent refreshed project docs, updated PR #41 deep link handling to avoid auth-routing races, and hardened the native Google sign-in flow in PR #42 with server-side token validation and focused test coverage.
-**Test suite baseline:** Focused Google auth tests pass. Full frontend CI passes. Full backend suite currently has one unrelated failure in `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix` when run against a dedicated test DB.
+**Last updated:** 2026-04-06
+**Last session:** Reconciled agent state — confirmed PR #41 (deep links) and PR #42 (Google auth hardening) are both merged to master. Fixed the 2 stale Google login tests in `test_user_auth.py::TestGoogleLogin` that were broken by PR #42's new required `google_access_token` field. 224 backend tests now pass in combined run. PR opened: `fix/stale-google-login-tests-after-auth-hardening`.
+**Test suite baseline:** 224 tests green across test_sharing, test_user_auth, test_podcast_crud, test_google_login, test_analytics, test_playlists, test_continue_listening, test_discover, test_public_user_profile. The previously-noted `test_sharing` failure is resolved (was passing all along when run correctly; the real blocker was the 2 stale Google login tests).
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -38,33 +38,28 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ loadContinueListening URL normalization — audio_url + thumbnail_url normalized via `toAbsoluteUrl`. (PR #40)
 - ✅ loadContinueListening decoupled — fires independently; never blocks main-feed repaint. (PR #40)
 - ✅ Hotfix: duplicate `loadContinueListening` declaration removed (SyntaxError crash from merging #32 + #40)
+- ✅ Deep link wiring: `volo://podcast/{id}` handled in `frontend/app/_layout.js` with auth-race guard. (PR #41 — merged 2026-04-06)
+- ✅ Google sign-in hardened: native Google Sign-In, server-side token validation via Google API, focused test suite in `test_google_login.py`. (PR #42 — merged 2026-04-06)
 
 ### What's open / in-progress
-- PR #41: `feat: wire volo://podcast/{id} deep link handling`
-- Deep link wiring in `frontend/app/_layout.js` now guards against auth redirect races on cold start (pending merge)
-- PR #42: `fix(auth): secure native Google sign-in flow`
-- Native Google Sign-In replaced the old Expo AuthSession-based Google flow on mobile (pending merge)
-- Backend Google auth now validates the Google access token against Google before login-or-signup (pending merge)
-- Focused Google auth tests now cover invalid token rejection and verified profile mapping (pending merge)
-- Manual regression guide added at `docs/testing/MANUAL_REGRESSION_REENTRY_GUIDE.md` (local docs update; not yet merged)
+- PR open: `fix/stale-google-login-tests-after-auth-hardening` — fixes 2 stale `TestGoogleLogin` tests in `test_user_auth.py` that broke after PR #42 changed the `/users/google-login` request schema. PR URL: https://github.com/iamfatihay/proPod/pull/new/fix/stale-google-login-tests-after-auth-hardening (Fay needs to open manually if Chrome MCP was unavailable)
 
 ### Known issues / tech debt
-- Full backend suite currently has one unrelated failure in `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`
 - No Alembic migration for Playlist tables (dev uses `create_all`, prod needs migration)
 - Backend heavily tested; frontend has very few tests
-- Deep link handling (`volo://` scheme) is implemented in PR #41 and still needs manual regression coverage after merge
-- Notifications and chat screens use mock/dummy data
+- Notifications and chat screens use mock/dummy data — not wired to real backend events
 - Several old feature branches still exist on remote (`feature/home-scroll-to-top`, `feature/ai-processing-enhancement`, `feature/microsoft-clarity-analytics`, etc.) — audit and close if abandoned
+- `test_analytics_dashboard.py`, `test_comment_stats.py`, `test_podcast_interactions.py`, `test_podcast_upload.py`, `test_rtc.py`, `test_update_profile.py`, `test_user_photo_upload.py`, `test_ai_service.py` — not included in this session's combined run; should be verified next session
 
 ---
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **Fix sharing regression** — restore a clean full backend suite by resolving `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`
-2. **Merge and regression-test open auth/navigation PRs** — prioritize PR #41 (deep links) and PR #42 (Google sign-in hardening)
-3. **Notifications screen** — replace mock data with real backend events
-4. **Backend: Alembic migration** for Playlist tables
-5. **Frontend tests** — coverage is still thin outside service-level tests
+1. **Merge `fix/stale-google-login-tests-after-auth-hardening`** — restores clean backend CI
+2. **Notifications screen — real data** — `frontend/app/(main)/notifications.js` uses mock data; wire to backend activity/notification events
+3. **Backend: Alembic migration** for Playlist tables — required before production deployment
+4. **Frontend tests** — coverage is still thin outside service-level tests
+5. **Verify remaining test files** — run `test_analytics_dashboard`, `test_comment_stats`, `test_rtc`, etc. in isolation to confirm their health
 
 ---
 
@@ -104,8 +99,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[BACKEND] Fix `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`** — restore green full-suite backend CI.
+1. **[TESTS] Run remaining backend test files** — verify `test_analytics_dashboard.py`, `test_comment_stats.py`, `test_podcast_interactions.py`, `test_rtc.py`, `test_user_photo_upload.py` individually and in a combined run to get a full suite green baseline.
 
-2. **[PR] Merge and manually verify PR #41** — after merge, confirm cold-start and warm-start deep links both land on podcast details without being overridden by the auth redirect.
+2. **[FRONTEND] Notifications screen — real data** — `frontend/app/(main)/notifications.js` still uses mock data. Wire it to actual backend events so users see real activity (new followers, likes, comments). Check if a `/users/me/notifications` or activity endpoint already exists before building one.
 
-3. **[FRONTEND] Notifications screen — real data** — `frontend/app/(main)/notifications.js` still uses mock data; wire to backend activity events.
+3. **[BACKEND] Alembic migration for Playlist tables** — `backend/app/models.py` has Playlist + PlaylistItem models but no migration file. Create `alembic revision --autogenerate -m "add playlist tables"` and verify it applies cleanly to a fresh DB.
