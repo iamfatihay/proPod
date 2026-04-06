@@ -22,6 +22,7 @@ from app.database import SessionLocal
 from app.models import User
 from app import crud, schemas
 from app.auth import create_access_token
+from app.services import google_auth_service
 
 client = TestClient(app)
 
@@ -201,17 +202,27 @@ class TestLogin:
 class TestGoogleLogin:
     """Test suite for POST /users/google-login."""
 
-    def test_google_login_new_user(self, db_session):
-        """Google login creates a new user if not exists."""
+    def test_google_login_new_user(self, db_session, monkeypatch):
+        """Google login creates a new user when the Google token is valid."""
         email = "newgoogle@test.com"
         existing = db_session.query(User).filter(User.email == email).first()
         if existing:
             db_session.delete(existing)
             db_session.commit()
 
+        monkeypatch.setattr(
+            google_auth_service,
+            "fetch_google_user_profile",
+            lambda access_token: {
+                "email": email,
+                "name": "Google User",
+                "provider": "google",
+                "photo_url": None,
+            },
+        )
+
         response = client.post("/users/google-login", json={
-            "email": email,
-            "name": "Google User",
+            "google_access_token": "valid-google-token",
         })
         assert response.status_code == 200
         data = response.json()
@@ -224,16 +235,26 @@ class TestGoogleLogin:
             db_session.delete(u)
             db_session.commit()
 
-    def test_google_login_existing_user(self, test_user):
-        """Google login returns tokens for existing user."""
+    def test_google_login_existing_user(self, test_user, monkeypatch):
+        """Google login returns tokens for an existing user without creating a duplicate."""
+        user = test_user["user"]
+        monkeypatch.setattr(
+            google_auth_service,
+            "fetch_google_user_profile",
+            lambda access_token: {
+                "email": user.email,
+                "name": user.name,
+                "provider": "google",
+                "photo_url": None,
+            },
+        )
         response = client.post("/users/google-login", json={
-            "email": test_user["user"].email,
-            "name": test_user["user"].name,
+            "google_access_token": "valid-google-token",
         })
         assert response.status_code == 200
         data = response.json()
         assert "access_token" in data
-        assert data["user"]["email"] == test_user["user"].email
+        assert data["user"]["email"] == user.email
 
 
 # ==================== Token Refresh Tests ====================
