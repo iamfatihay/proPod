@@ -18,6 +18,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Logger from '../utils/logger';
+import apiService from '../services/api/apiService';
 
 const STORAGE_KEY = '@notifications';
 
@@ -176,6 +177,112 @@ const useNotificationStore = create((set, get) => ({
      */
     getUnreadNotifications: () => {
         return get().notifications.filter(n => !n.read);
+    },
+
+    // ─── API-backed methods ────────────────────────────────────────────────
+
+    /**
+     * Fetch server-side notifications and merge with local (AI/system) ones.
+     *
+     * Server notifications (like, comment) use a numeric `id` prefixed with
+     * "srv_" to avoid collisions with local IDs.  Local notifications that
+     * are device-only (AI processing complete) are preserved and shown first.
+     *
+     * Call this on mount and on pull-to-refresh.
+     */
+    fetchNotifications: async () => {
+        try {
+            const response = await apiService.getNotifications({ limit: 50 });
+            if (!response || !Array.isArray(response.notifications)) {
+                return;
+            }
+
+            const serverNotifs = response.notifications.map((n) => ({
+                // Normalise server notification to match the local schema
+                id: `srv_${n.id}`,
+                _serverId: n.id,            // keep original DB id for PATCH calls
+                created_at: new Date(n.created_at).getTime(),
+                read: n.read,
+                type: n.type,
+                title: n.title,
+                message: n.message,
+                // Allow navigation to the podcast detail when tapped
+                action: n.podcast_id
+                    ? { type: 'navigate', screen: 'podcast-detail', params: { id: n.podcast_id } }
+                    : null,
+            }));
+
+            // Keep local notifications that are NOT already represented by a
+            // server notification (device-only types: ai_complete, system)
+            const serverTypes = new Set(['like', 'comment']);
+            const localNotifs = get().notifications.filter(
+                (n) => !serverTypes.has(n.type) && !n.id.startsWith('srv_')
+            );
+
+            // Merge: local (AI/system) first, then server notifications
+            const merged = [...localNotifs, ...serverNotifs].sort(
+                (a, b) => b.created_at - a.created_at
+            );
+
+            set({
+                notifications: merged,
+                unreadCount: merged.filter((n) => !n.read).length,
+            });
+
+            // Persist merged list so the tab badge survives app restarts
+            await get().saveToStorage();
+        } catch (error) {
+            // Network errors are expected offline — degrade silently
+            Logger.warn('fetchNotifications: could not reach server, using local cache', error?.message);
+        }
+    },
+
+    /**
+     * Mark a single notification as read — syncs to server for server-backed
+     * notifications; falls back to local-only update for device notifications.
+     *
+     * @param {string} id - Notification id (may be "srv_<n>" or a local uuid)
+     */
+    markAsReadWithSync: async (id) => {
+        // Optimistically update local state first for immediate UI response
+        set((state) => {
+            const notification = state.notifications.find((n) => n.id === id);
+            if (!notification || notification.read) return state;
+            return {
+                notifications: state.notifications.map((n) =>
+                    n.id === id ? { ...n, read: true } : n
+                ),
+                unreadCount: Math.max(0, state.unreadCount - 1),
+            };
+        });
+        await get().saveToStorage();
+
+        // If this is a server-backed notification, persist via API
+        const notification = get().notifications.find((n) => n.id === id);
+        if (notification?._serverId) {
+            try {
+                await apiService.markNotificationRead(notification._serverId);
+            } catch (error) {
+                Logger.warn('markAsReadWithSync: API call failed, local state already updated', error?.message);
+            }
+        }
+    },
+
+    /**
+     * Mark all notifications as read — syncs to server.
+     */
+    markAllAsReadWithSync: async () => {
+        set((state) => ({
+            notifications: state.notifications.map((n) => ({ ...n, read: true })),
+            unreadCount: 0,
+        }));
+        await get().saveToStorage();
+
+        try {
+            await apiService.markAllNotificationsRead();
+        } catch (error) {
+            Logger.warn('markAllAsReadWithSync: API call failed, local state already updated', error?.message);
+        }
     },
 }));
 

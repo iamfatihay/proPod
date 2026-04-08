@@ -202,32 +202,37 @@ export default function NotificationsScreen() {
     const router = useRouter();
     const notifications = useNotificationStore((state) => state.notifications);
     const unreadCount = useNotificationStore((state) => state.unreadCount);
-    const markAsRead = useNotificationStore((state) => state.markAsRead);
-    const markAllAsRead = useNotificationStore((state) => state.markAllAsRead);
-    const loadFromStorage = useNotificationStore((state) => state.loadFromStorage);
+    const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
+    const markAsReadWithSync = useNotificationStore((state) => state.markAsReadWithSync);
+    const markAllAsReadWithSync = useNotificationStore((state) => state.markAllAsReadWithSync);
 
     const [refreshing, setRefreshing] = React.useState(false);
 
+    // Fetch server-side notifications on first mount
+    React.useEffect(() => {
+        fetchNotifications();
+    }, [fetchNotifications]);
+
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await loadFromStorage();
+        await fetchNotifications();
         setRefreshing(false);
-    }, [loadFromStorage]);
+    }, [fetchNotifications]);
 
     const handleNotificationPress = (notification) => {
-        // Mark as read
+        // Mark as read (syncs to server for server-backed notifications)
         if (!notification.read) {
-            markAsRead(notification.id);
+            markAsReadWithSync(notification.id);
         }
 
         // Handle navigation based on action
         if (notification.action) {
             const { type, screen, params } = notification.action;
-            
+
             if (type === "navigate" && screen) {
                 // Sanitize screen name (remove leading slashes and path prefixes)
                 const cleanScreen = screen.replace(/^\/(main\/)?/, '');
-                
+
                 router.push({
                     pathname: `/(main)/${cleanScreen}`,
                     params: params || {},
@@ -237,7 +242,7 @@ export default function NotificationsScreen() {
     };
 
     const handleMarkAllRead = () => {
-        markAllAsRead();
+        markAllAsReadWithSync();
     };
 
     return (

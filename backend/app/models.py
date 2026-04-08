@@ -435,3 +435,55 @@ class PodcastStats(Base):
         Index('idx_stats_play_count', 'play_count'),
         Index('idx_stats_like_count', 'like_count'),
     )
+
+
+class Notification(Base):
+    """
+    In-app notification for a user.
+
+    Represents server-side events such as:
+    - Someone liked a podcast you own
+    - Someone commented on a podcast you own
+
+    The recipient is always the podcast owner.  Device-side events
+    (AI processing complete) are stored locally on-device only and are
+    NOT persisted here.
+    """
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Recipient of the notification
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Optional reference to the podcast that triggered this notification
+    podcast_id = Column(Integer, ForeignKey("podcasts.id", ondelete="CASCADE"), nullable=True)
+
+    # Optional reference to the actor (who liked / commented)
+    actor_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    # Notification type: 'like' | 'comment' | 'system'
+    type = Column(String(32), nullable=False)
+
+    # Human-readable content
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+
+    # State
+    read = Column(Boolean, default=False, nullable=False)
+
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+        nullable=False,
+    )
+
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+    actor = relationship("User", foreign_keys=[actor_id])
+    podcast = relationship("Podcast")
+
+    __table_args__ = (
+        Index("idx_notifications_user_read", "user_id", "read"),
+        Index("idx_notifications_created", "created_at"),
+    )

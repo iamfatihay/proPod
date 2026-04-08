@@ -554,6 +554,19 @@ def get_user_podcast_interactions(db: Session, user_id: int, podcast_id: int) ->
     }
 
 
+def _safe_create_notification(db: Session, **kwargs) -> None:
+    """
+    Create a notification without raising — notification failures must never
+    break the primary action (like / comment).
+    """
+    try:
+        notification = models.Notification(**kwargs, read=False)
+        db.add(notification)
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
 def like_podcast(db: Session, user_id: int, podcast_id: int) -> models.PodcastLike:
     """
     Like a podcast.
@@ -584,14 +597,30 @@ def like_podcast(db: Session, user_id: int, podcast_id: int) -> models.PodcastLi
     # Create like
     like = models.PodcastLike(user_id=user_id, podcast_id=podcast_id)
     db.add(like)
-    
+
     # Update stats like count
     stats = db.query(models.PodcastStats).filter(models.PodcastStats.podcast_id == podcast_id).first()
     if stats:
         stats.like_count += 1
-    
+
     db.commit()
     db.refresh(like)
+
+    # ── Notification: notify the podcast owner (skip self-likes) ──────────
+    podcast = db.query(models.Podcast).filter(models.Podcast.id == podcast_id).first()
+    if podcast and podcast.owner_id != user_id:
+        actor = db.query(models.User).filter(models.User.id == user_id).first()
+        actor_name = actor.name if actor else "Someone"
+        _safe_create_notification(
+            db,
+            user_id=podcast.owner_id,
+            type="like",
+            title="New Like ❤️",
+            message=f"{actor_name} liked your podcast \"{podcast.title}\"",
+            podcast_id=podcast_id,
+            actor_id=user_id,
+        )
+
     return like
 
 
@@ -960,6 +989,23 @@ def create_comment(db: Session, comment: schemas.PodcastCommentCreate, user_id: 
 
     db.commit()
     db.refresh(db_comment)
+
+    # ── Notification: notify the podcast owner (skip self-comments) ───────
+    podcast = db.query(models.Podcast).filter(models.Podcast.id == comment.podcast_id).first()
+    if podcast and podcast.owner_id != user_id:
+        actor = db.query(models.User).filter(models.User.id == user_id).first()
+        actor_name = actor.name if actor else "Someone"
+        preview = comment.content[:60] + ("…" if len(comment.content) > 60 else "")
+        _safe_create_notification(
+            db,
+            user_id=podcast.owner_id,
+            type="comment",
+            title="New Comment 💬",
+            message=f"{actor_name} commented on \"{podcast.title}\": {preview}",
+            podcast_id=comment.podcast_id,
+            actor_id=user_id,
+        )
+
     return db_comment
 
 
@@ -1588,3 +1634,103 @@ def get_user_public_podcasts(
         enrich_podcast_with_stats(podcast)
 
     return podcasts, total
+
+
+# ---------------------------------------------------------------------------
+# Notifications CRUD
+# ---------------------------------------------------------------------------
+
+def create_notification(
+    db: Session,
+    user_id: int,
+    type: str,
+    title: str,
+    message: str,
+    podcast_id: int | None = None,
+    actor_id: int | None = None,
+) -> models.Notification:
+    """
+    Persist a new in-app notification for *user_id*.
+
+    Args:
+        db: Database session
+        user_id: Recipient user ID
+        type: Notification type string ('like', 'comment', 'system')
+        title: Short heading shown in the notification card
+        message: Body text shown in the notification card
+        podcast_id: Optional related podcast
+        actor_id: Optional user who triggered the event
+
+    Returns:
+        models.Notification: Persisted notification object
+    """
+    notification = models.Notification(
+        user_id=user_id,
+        type=type,
+        title=title,
+        message=message,
+        podcast_id=podcast_id,
+        actor_id=actor_id,
+        read=False,
+    )
+    db.add(notification)
+    db.commit()
+    db.refresh(notification)
+    return notification
+
+
+def get_notifications(
+    db: Session,
+    user_id: int,
+    skip: int = 0,
+    limit: int = 30,
+) -> tuple[list[models.Notification], int, int]:
+    """
+    Return paginated notifications for a user, newest first.
+
+    Returns:
+        (notifications, total, unread_count)
+    """
+    base_q = db.query(models.Notification).filter(
+        models.Notification.user_id == user_id,
+    )
+    total = base_q.count()
+    unread_count = base_q.filter(models.Notification.read == False).count()
+    notifications = (
+        base_q.order_by(models.Notification.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return notifications, total, unread_count
+
+
+def mark_notification_read(
+    db: Session,
+    notification_id: int,
+    user_id: int,
+) -> models.Notification | None:
+    """Mark a single notification as read (only if owned by user_id)."""
+    notification = db.query(models.Notification).filter(
+        models.Notification.id == notification_id,
+        models.Notification.user_id == user_id,
+    ).first()
+    if notification and not notification.read:
+        notification.read = True
+        db.commit()
+        db.refresh(notification)
+    return notification
+
+
+def mark_all_notifications_read(db: Session, user_id: int) -> int:
+    """Mark all unread notifications for user as read. Returns count updated."""
+    result = (
+        db.query(models.Notification)
+        .filter(
+            models.Notification.user_id == user_id,
+            models.Notification.read == False,
+        )
+        .update({"read": True}, synchronize_session=False)
+    )
+    db.commit()
+    return result
