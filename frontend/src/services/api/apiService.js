@@ -1236,6 +1236,48 @@ class ApiService {
             : "/podcasts/my/continue-listening";
         return this.request(endpoint);
     }
+
+    // ─── Notifications ────────────────────────────────────────────────────
+
+    /**
+     * Fetch in-app notifications for the authenticated user.
+     *
+     * Maps to GET /notifications/
+     *
+     * @param {Object} params
+     * @param {number} [params.skip=0]
+     * @param {number} [params.limit=30]
+     * @returns {Promise<{notifications, total, unread_count, limit, offset, has_more}>}
+     */
+    async getNotifications({ skip = 0, limit = 30 } = {}) {
+        const q = new URLSearchParams({ skip, limit }).toString();
+        return this.request(`/notifications/?${q}`);
+    }
+
+    /**
+     * Mark a single notification as read.
+     * Maps to PATCH /notifications/{id}/read
+     *
+     * @param {number} notificationId
+     * @returns {Promise<Object>} Updated notification
+     */
+    async markNotificationRead(notificationId) {
+        return this.request(`/notifications/${notificationId}/read`, {
+            method: "PATCH",
+        });
+    }
+
+    /**
+     * Mark all notifications as read for the current user.
+     * Maps to POST /notifications/mark-all-read
+     *
+     * @returns {Promise<{message: string}>}
+     */
+    async markAllNotificationsRead() {
+        return this.request("/notifications/mark-all-read", {
+            method: "POST",
+        });
+    }
 }
 
 export default new ApiService();

@@ -657,3 +657,32 @@ class ContinueListeningItem(BaseModel):
     last_played_at: datetime.datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# Notification schemas
+# ---------------------------------------------------------------------------
+
+class NotificationResponse(BaseModel):
+    """A single in-app notification."""
+    id: int
+    user_id: int
+    podcast_id: Optional[int] = None
+    actor_id: Optional[int] = None
+    type: str          # 'like' | 'comment' | 'system'
+    title: str
+    message: str
+    read: bool
+    created_at: datetime.datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class NotificationListResponse(BaseModel):
+    """Paginated list of notifications."""
+    notifications: List[NotificationResponse]
+    total: int
+    unread_count: int
+    limit: int
+    offset: int
+    has_more: bool
