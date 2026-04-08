@@ -43,7 +43,7 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Notification badge wired to server unread_count — `fetchNotifications` on mount + AppState foreground refresh (PR #46, merged by Fay)
 
 ### What's open / in-progress
-- **PR #47** (this session): `feat: add Alembic migrations for playlists, playlist_items, and notifications tables` — branch `feat/alembic-migrations-playlists-notifications`
+- **PR #47**: `feat: add Alembic migrations for playlists, playlist_items, and notifications tables` — https://github.com/iamfatihay/proPod/pull/47 — branch `feat/alembic-migrations-playlists-notifications`
   - Migration `a1b2c3d4e5f6` — creates `playlists`, `playlist_items`, `notifications` tables with all indexes and constraints
   - Upstream: `788d6da0a208` (Add RTC participants and live status)
   - Upgrade + downgrade both tested on SQLite, 334 backend tests pass
