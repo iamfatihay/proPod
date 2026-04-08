@@ -1,6 +1,6 @@
 import { Tabs, useRouter, usePathname } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
     View,
     TouchableOpacity,
@@ -10,6 +10,7 @@ import {
     Text,
     Image,
     DeviceEventEmitter,
+    AppState,
 } from "react-native";
 import BottomMiniPlayer from "../../src/components/audio/BottomMiniPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
@@ -183,8 +184,32 @@ export default function TabLayout() {
     const isPlaying = useAudioStore((state) => state.isPlaying);
     const showMiniPlayer = useAudioStore((state) => state.showMiniPlayer);
 
-    // Notification count for badge
+    // Notification count and server fetch for badge
     const unreadCount = useNotificationStore((state) => state.unreadCount);
+    const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
+
+    // Fetch server notifications on mount so the badge is accurate from first
+    // render — without this, the badge only populates when the user visits the
+    // notifications screen for the first time.
+    const appStateRef = useRef(AppState.currentState);
+    useEffect(() => {
+        // Initial fetch on login (this component mounts only in the authed group)
+        fetchNotifications();
+
+        // Refresh badge when the app returns to the foreground (e.g. user
+        // background/foregrounds the app between sessions).
+        const subscription = AppState.addEventListener('change', (nextState) => {
+            if (
+                appStateRef.current !== 'active' &&
+                nextState === 'active'
+            ) {
+                fetchNotifications();
+            }
+            appStateRef.current = nextState;
+        });
+
+        return () => subscription.remove();
+    }, [fetchNotifications]);
 
     // Actions (stable)
     const play = useAudioStore((state) => state.play);

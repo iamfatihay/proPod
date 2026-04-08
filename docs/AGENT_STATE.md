@@ -16,8 +16,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-08
-**Last session:** Built and wired real notifications: backend model + CRUD + REST endpoints + 14 tests + frontend API methods + store fetch/sync + screen mount-time fetch. PR #45 opened.
-**Test suite baseline:** 334 backend tests — all passing (0 failures). Full suite run confirmed this session.
+**Last session:** Wired notification badge to server unread_count — `fetchNotifications` now called on mount + app foreground in `(main)/_layout.js`. PR #46 opened.
+**Test suite baseline:** 334 backend tests — all passing (0 failures). Full suite run confirmed last session.
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -39,19 +39,17 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Hotfix: duplicate `loadContinueListening` declaration removed (SyntaxError from merging #32 + #40)
 - ✅ Deep link handling `volo://podcast/{id}` with auth-race guard (PR #41, merged by Fay)
 - ✅ Native Google Sign-In hardened — server-side token validation + stale-test fix (PR #42, PR #44, merged by Fay)
+- ✅ Notifications backend + API wiring — model, CRUD, REST endpoints, frontend store + screen (PR #45, merged by Fay)
 
 ### What's open / in-progress
-- **PR #45**: `feat: notifications backend + API wiring` — https://github.com/iamfatihay/proPod/pull/45
-  - `Notification` model (user_id, actor_id, podcast_id, type, title, message, read, created_at)
-  - Auto-created on like/comment (skips self-events; failure-safe via `_safe_create_notification`)
-  - REST: `GET /notifications/`, `PATCH /notifications/{id}/read`, `POST /notifications/mark-all-read`
-  - Frontend: `apiService` methods + store `fetchNotifications`/`markAsReadWithSync`/`markAllAsReadWithSync`
-  - Screen fetches on mount and pull-to-refresh; tapping a notification navigates to podcast detail
+- **PR #46**: `feat: wire notification badge to server unread_count on login and foreground` — https://github.com/iamfatihay/proPod/pull/46
+  - Adds `fetchNotifications` call on mount in `(main)/_layout.js` so badge shows real count immediately after login
+  - Adds `AppState` listener to refresh badge when app returns to foreground
+  - Pure frontend change — 1 file, ~25 lines added
 
 ### Known issues / tech debt
 - No Alembic migration for `notifications` table (or Playlist tables) — dev uses `create_all`, prod needs migration before deploy
 - Frontend has very few automated tests (backend well-covered at 334 tests)
-- Notification tab bar badge count not yet wired (badge shows local unread count but doesn't reflect server state until first mount)
 - Chat screen still uses dummy/mock data — no backend for it yet
 - Several old feature branches still exist on remote and likely abandoned — audit if needed
 
@@ -60,10 +58,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 🗺️ Roadmap Priority (agent perspective)
 
 1. **Alembic migrations** — add migration for `notifications` + `playlists` tables so prod deployment is safe
-2. **Notification tab badge** — wire unread count from server to the tab bar icon badge
-3. **Frontend tests** — coverage is thin; add service-level tests for notificationsService / apiService methods
-4. **Chat screen** — replace dummy data with a real backend (or decide to scope it out)
-5. **Push notifications** — APNs/FCM integration for out-of-app delivery of like/comment events
+2. **Frontend tests** — coverage is thin; add service-level tests for notificationsService / apiService methods
+3. **Chat screen** — replace dummy data with a real backend (or decide to scope it out)
+4. **Push notifications** — APNs/FCM integration for out-of-app delivery of like/comment events
 
 ---
 
@@ -107,6 +104,6 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 1. **[BACKEND] Add Alembic migrations for `notifications` + `playlists` tables** — required before any production deployment. Files: `backend/alembic/` (create if absent). This unblocks safe prod deploys.
 
-2. **[FRONTEND] Wire notification badge count to server unread_count** — after PR #45 merges, call `fetchNotifications` in the app's root layout (`frontend/app/_layout.js`) on auth state change so the tab bar badge reflects real server state immediately on login.
+2. **[FRONTEND] Add unit tests for `apiService` notification methods** — `frontend/src/services/api/__tests__/` already exists; add `notificationsApi.test.js` covering `getNotifications`, `markNotificationRead`, `markAllNotificationsRead` with mocked fetch.
 
-3. **[FRONTEND] Add unit tests for `apiService` notification methods** — `frontend/src/services/api/__tests__/` already exists; add `notificationsApi.test.js` covering `getNotifications`, `markNotificationRead`, `markAllNotificationsRead` with mocked fetch.
+3. **[FRONTEND] Chat screen backend** — replace dummy data in `frontend/app/(main)/chat-details.js` with real messages API. Scope: design a simple chat model in backend, REST endpoint, and wire the frontend screen.
