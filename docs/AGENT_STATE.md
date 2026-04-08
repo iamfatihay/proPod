@@ -15,9 +15,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-05
-**Last session:** Agent refreshed project docs, updated PR #41 deep link handling to avoid auth-routing races, and hardened the native Google sign-in flow in PR #42 with server-side token validation and focused test coverage.
-**Test suite baseline:** Focused Google auth tests pass. Full frontend CI passes. Full backend suite currently has one unrelated failure in `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix` when run against a dedicated test DB.
+**Last updated:** 2026-04-08
+**Last session:** Built and wired real notifications: backend model + CRUD + REST endpoints + 14 tests + frontend API methods + store fetch/sync + screen mount-time fetch. PR #45 opened.
+**Test suite baseline:** 334 backend tests — all passing (0 failures). Full suite run confirmed this session.
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -34,37 +34,36 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Discover/categories endpoint + dynamic category filters in home
 - ✅ Backend search + thumbnail normalization
 - ✅ Bug fixes: comment stats sync, sharing cover_image_url, test isolation
-- ✅ Continue Listening seek-to-position — `play(track, { startPosition })` in audio store; home.js passes `item.position`. Resume jumps mid-episode. (PR #39)
-- ✅ loadContinueListening URL normalization — audio_url + thumbnail_url normalized via `toAbsoluteUrl`. (PR #40)
-- ✅ loadContinueListening decoupled — fires independently; never blocks main-feed repaint. (PR #40)
-- ✅ Hotfix: duplicate `loadContinueListening` declaration removed (SyntaxError crash from merging #32 + #40)
+- ✅ Continue Listening seek-to-position — `play(track, { startPosition })` in audio store (PR #39)
+- ✅ loadContinueListening URL normalization + decoupled from main-feed repaint (PR #40)
+- ✅ Hotfix: duplicate `loadContinueListening` declaration removed (SyntaxError from merging #32 + #40)
+- ✅ Deep link handling `volo://podcast/{id}` with auth-race guard (PR #41, merged by Fay)
+- ✅ Native Google Sign-In hardened — server-side token validation + stale-test fix (PR #42, PR #44, merged by Fay)
 
 ### What's open / in-progress
-- PR #41: `feat: wire volo://podcast/{id} deep link handling`
-- Deep link wiring in `frontend/app/_layout.js` now guards against auth redirect races on cold start (pending merge)
-- PR #42: `fix(auth): secure native Google sign-in flow`
-- Native Google Sign-In replaced the old Expo AuthSession-based Google flow on mobile (pending merge)
-- Backend Google auth now validates the Google access token against Google before login-or-signup (pending merge)
-- Focused Google auth tests now cover invalid token rejection and verified profile mapping (pending merge)
-- Manual regression guide added at `docs/testing/MANUAL_REGRESSION_REENTRY_GUIDE.md` (local docs update; not yet merged)
+- **PR #45**: `feat: notifications backend + API wiring` — https://github.com/iamfatihay/proPod/pull/45
+  - `Notification` model (user_id, actor_id, podcast_id, type, title, message, read, created_at)
+  - Auto-created on like/comment (skips self-events; failure-safe via `_safe_create_notification`)
+  - REST: `GET /notifications/`, `PATCH /notifications/{id}/read`, `POST /notifications/mark-all-read`
+  - Frontend: `apiService` methods + store `fetchNotifications`/`markAsReadWithSync`/`markAllAsReadWithSync`
+  - Screen fetches on mount and pull-to-refresh; tapping a notification navigates to podcast detail
 
 ### Known issues / tech debt
-- Full backend suite currently has one unrelated failure in `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`
-- No Alembic migration for Playlist tables (dev uses `create_all`, prod needs migration)
-- Backend heavily tested; frontend has very few tests
-- Deep link handling (`volo://` scheme) is implemented in PR #41 and still needs manual regression coverage after merge
-- Notifications and chat screens use mock/dummy data
-- Several old feature branches still exist on remote (`feature/home-scroll-to-top`, `feature/ai-processing-enhancement`, `feature/microsoft-clarity-analytics`, etc.) — audit and close if abandoned
+- No Alembic migration for `notifications` table (or Playlist tables) — dev uses `create_all`, prod needs migration before deploy
+- Frontend has very few automated tests (backend well-covered at 334 tests)
+- Notification tab bar badge count not yet wired (badge shows local unread count but doesn't reflect server state until first mount)
+- Chat screen still uses dummy/mock data — no backend for it yet
+- Several old feature branches still exist on remote and likely abandoned — audit if needed
 
 ---
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **Fix sharing regression** — restore a clean full backend suite by resolving `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`
-2. **Merge and regression-test open auth/navigation PRs** — prioritize PR #41 (deep links) and PR #42 (Google sign-in hardening)
-3. **Notifications screen** — replace mock data with real backend events
-4. **Backend: Alembic migration** for Playlist tables
-5. **Frontend tests** — coverage is still thin outside service-level tests
+1. **Alembic migrations** — add migration for `notifications` + `playlists` tables so prod deployment is safe
+2. **Notification tab badge** — wire unread count from server to the tab bar icon badge
+3. **Frontend tests** — coverage is thin; add service-level tests for notificationsService / apiService methods
+4. **Chat screen** — replace dummy data with a real backend (or decide to scope it out)
+5. **Push notifications** — APNs/FCM integration for out-of-app delivery of like/comment events
 
 ---
 
@@ -74,6 +73,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 **The terminal sandbox proxy blocks all outbound HTTPS to `api.github.com`.**
 Do not rely on terminal REST calls to GitHub. `git` commands still work.
+
+Use `mcp__Claude_in_Chrome__javascript_tool` with `fetch()` after navigating to github.com.
 
 If browser tooling is unavailable, push the branch and document the manual PR URL.
 
@@ -104,8 +105,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[BACKEND] Fix `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`** — restore green full-suite backend CI.
+1. **[BACKEND] Add Alembic migrations for `notifications` + `playlists` tables** — required before any production deployment. Files: `backend/alembic/` (create if absent). This unblocks safe prod deploys.
 
-2. **[PR] Merge and manually verify PR #41** — after merge, confirm cold-start and warm-start deep links both land on podcast details without being overridden by the auth redirect.
+2. **[FRONTEND] Wire notification badge count to server unread_count** — after PR #45 merges, call `fetchNotifications` in the app's root layout (`frontend/app/_layout.js`) on auth state change so the tab bar badge reflects real server state immediately on login.
 
-3. **[FRONTEND] Notifications screen — real data** — `frontend/app/(main)/notifications.js` still uses mock data; wire to backend activity events.
+3. **[FRONTEND] Add unit tests for `apiService` notification methods** — `frontend/src/services/api/__tests__/` already exists; add `notificationsApi.test.js` covering `getNotifications`, `markNotificationRead`, `markAllNotificationsRead` with mocked fetch.
