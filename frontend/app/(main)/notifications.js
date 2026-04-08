@@ -322,7 +322,7 @@ export default function NotificationsScreen() {
                         <NotificationCard
                             notification={item}
                             onPress={() => handleNotificationPress(item)}
-                            onMarkRead={() => markAsRead(item.id)}
+                            onMarkRead={() => markAsReadWithSync(item.id)}
                         />
                     )}
                     refreshControl={

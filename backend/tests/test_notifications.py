@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app import crud, models
-from app.database import SessionLocal
 from app.auth import create_access_token, get_password_hash
 
 client = TestClient(app)

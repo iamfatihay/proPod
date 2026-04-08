@@ -5,8 +5,11 @@ from passlib.context import CryptContext
 from fastapi import HTTPException, status
 import secrets
 import datetime
+import logging
 from datetime import timezone
 from typing import Optional, List, Dict, Tuple, Any
+
+logger = logging.getLogger(__name__)
 
 from . import models, schemas
 
@@ -563,8 +566,13 @@ def _safe_create_notification(db: Session, **kwargs) -> None:
         notification = models.Notification(**kwargs, read=False)
         db.add(notification)
         db.commit()
-    except Exception:
+    except Exception as exc:
         db.rollback()
+        logger.warning(
+            "Notification creation failed (non-fatal): %s | kwargs=%s",
+            exc,
+            {k: v for k, v in kwargs.items() if k not in ("user_id",)},
+        )
 
 
 def like_podcast(db: Session, user_id: int, podcast_id: int) -> models.PodcastLike:

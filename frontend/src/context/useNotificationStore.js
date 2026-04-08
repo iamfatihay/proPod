@@ -191,6 +191,12 @@ const useNotificationStore = create((set, get) => ({
      * Call this on mount and on pull-to-refresh.
      */
     fetchNotifications: async () => {
+        // Ensure local cache is loaded first so offline mode shows cached data
+        // even before the network request completes or if it fails.
+        if (!get().isLoaded) {
+            await get().loadFromStorage();
+        }
+
         try {
             const response = await apiService.getNotifications({ limit: 50 });
             if (!response || !Array.isArray(response.notifications)) {
@@ -207,8 +213,9 @@ const useNotificationStore = create((set, get) => ({
                 title: n.title,
                 message: n.message,
                 // Allow navigation to the podcast detail when tapped
+                // 'details' matches the existing frontend/app/(main)/details.js screen
                 action: n.podcast_id
-                    ? { type: 'navigate', screen: 'podcast-detail', params: { id: n.podcast_id } }
+                    ? { type: 'navigate', screen: 'details', params: { id: n.podcast_id } }
                     : null,
             }));
 
