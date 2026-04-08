@@ -209,7 +209,7 @@ export default function TabLayout() {
         });
 
         return () => subscription.remove();
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps -- intentional mount-only
+    }, [fetchNotifications]);
 
     // Actions (stable)
     const play = useAudioStore((state) => state.play);

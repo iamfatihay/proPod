@@ -42,7 +42,7 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Notifications backend + API wiring — model, CRUD, REST endpoints, frontend store + screen (PR #45, merged by Fay)
 
 ### What's open / in-progress
-- **Branch `feature/notification-badge-server-sync`** pushed — PR not yet opened (Chrome MCP unavailable this session). Open at: https://github.com/iamfatihay/proPod/compare/feature/notification-badge-server-sync
+- **PR #46**: `feat: wire notification badge to server unread_count on login and foreground` — https://github.com/iamfatihay/proPod/pull/46
   - Adds `fetchNotifications` call on mount in `(main)/_layout.js` so badge shows real count immediately after login
   - Adds `AppState` listener to refresh badge when app returns to foreground
   - Pure frontend change — 1 file, ~25 lines added
