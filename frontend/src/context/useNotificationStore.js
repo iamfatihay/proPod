@@ -251,24 +251,25 @@ const useNotificationStore = create((set, get) => ({
      * @param {string} id - Notification id (may be "srv_<n>" or a local uuid)
      */
     markAsReadWithSync: async (id) => {
-        // Optimistically update local state first for immediate UI response
-        set((state) => {
-            const notification = state.notifications.find((n) => n.id === id);
-            if (!notification || notification.read) return state;
-            return {
-                notifications: state.notifications.map((n) =>
-                    n.id === id ? { ...n, read: true } : n
-                ),
-                unreadCount: Math.max(0, state.unreadCount - 1),
-            };
-        });
+        // Capture existing notification before mutating — needed for API call guard
+        const existing = get().notifications.find((n) => n.id === id);
+
+        // No-op if notification is already read or not found
+        if (!existing || existing.read) return;
+
+        // Optimistically update local state for immediate UI response
+        set((state) => ({
+            notifications: state.notifications.map((n) =>
+                n.id === id ? { ...n, read: true } : n
+            ),
+            unreadCount: Math.max(0, state.unreadCount - 1),
+        }));
         await get().saveToStorage();
 
-        // If this is a server-backed notification, persist via API
-        const notification = get().notifications.find((n) => n.id === id);
-        if (notification?._serverId) {
+        // If this is a server-backed notification, persist the read status via API
+        if (existing._serverId) {
             try {
-                await apiService.markNotificationRead(notification._serverId);
+                await apiService.markNotificationRead(existing._serverId);
             } catch (error) {
                 Logger.warn('markAsReadWithSync: API call failed, local state already updated', error?.message);
             }
