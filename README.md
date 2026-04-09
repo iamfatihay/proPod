@@ -28,7 +28,7 @@ Backend tests require a dedicated test database. If you run pytest manually, set
 ```bash
 cd backend
 source venv/bin/activate
-DATABASE_URL=sqlite:///./test.db pytest tests/ -q
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/propod_test pytest tests/ -q
 ```
 
 ## Recent Updates
@@ -61,7 +61,7 @@ DATABASE_URL=sqlite:///./test.db pytest tests/ -q
 - SQLAlchemy
 - Alembic
 - JWT via python-jose
-- PostgreSQL / SQLite
+- PostgreSQL for local and production runtime; SQLite only for isolated test scenarios
 - AI services for transcription and analysis
 
 ## Quick Start
@@ -106,6 +106,12 @@ npm run start:dev:tunnel
 
 Use a development build. Expo Go is not supported.
 
+## Admin and Database Inspection
+
+- Application data: use the SQLAdmin panel at `http://localhost:8000/admin` with an `admin` or `super_admin` account.
+- Raw PostgreSQL access: use pgAdmin, DBeaver, or `psql` with the connection values from `backend/.env`.
+- Treat `backend/.env.example` as the canonical configuration template for backend setup.
+
 ## Project Structure
 
 ```text
@@ -144,7 +150,7 @@ Last updated: 2026-04-05
 
 -   All environment variables are managed via `.env` files (never commit them!)
 -   Only one `.gitignore` at the project root is used
--   Use SQLite for local development; PostgreSQL for production
+-   Use PostgreSQL for local development and production-like environments; keep tests on a separate disposable database
 -   For Android emulator, use `10.0.2.2` as API base URL; for real device, use your computer's local IP
 -   **Schema vs Model inconsistencies should be checked** - Check Schema when making Model changes
 -   **Use Alembic migrations regularly** - Create migrations for model changes

@@ -254,6 +254,36 @@ class PodcastCommentAdmin(ModelView, model=models.PodcastComment):
     page_size = 100
 
 
+class NotificationAdmin(ModelView, model=models.Notification):
+    """Admin view for in-app notifications."""
+
+    name = "Notification"
+    name_plural = "Notifications"
+    icon = "fa-solid fa-bell"
+
+    column_list = [
+        models.Notification.id,
+        models.Notification.user_id,
+        models.Notification.actor_id,
+        models.Notification.podcast_id,
+        models.Notification.type,
+        models.Notification.title,
+        models.Notification.read,
+        models.Notification.created_at,
+    ]
+
+    column_searchable_list = [
+        models.Notification.title,
+        models.Notification.message,
+    ]
+
+    column_default_sort = ("created_at", True)
+    page_size = 100
+
+    def can_create(self) -> bool:
+        return False
+
+
 def setup_admin(app):
     """
     Setup admin panel for the FastAPI application.
@@ -282,5 +312,6 @@ def setup_admin(app):
     admin.add_view(PodcastBookmarkAdmin)
     admin.add_view(ListeningHistoryAdmin)
     admin.add_view(PodcastCommentAdmin)
+    admin.add_view(NotificationAdmin)
     
     return admin

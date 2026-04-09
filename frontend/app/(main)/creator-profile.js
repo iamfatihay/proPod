@@ -7,9 +7,8 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     StatusBar,
-    Platform,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Avatar from "../../src/components/Avatar";
 import PodcastCard from "../../src/components/PodcastCard";
@@ -29,6 +28,7 @@ const toTrack = (p) => ({
 });
 import { COLORS } from "../../src/constants/theme";
 import Logger from "../../src/utils/logger";
+import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOptions";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -272,23 +272,16 @@ export default function CreatorProfile() {
         return (
             <SafeAreaView
                 className="flex-1 bg-background"
-                style={Platform.OS === "android" ? { paddingTop: StatusBar.currentHeight } : {}}
+                
             >
+                <Stack.Screen
+                    options={buildSecondaryScreenOptions({
+                        router,
+                        title: "Creator Profile",
+                        backgroundColor: COLORS.background,
+                    })}
+                />
                 <StatusBar barStyle="light-content" />
-                {/* Back button */}
-                <TouchableOpacity
-                    onPress={() => router.back()}
-                    className="p-4"
-                    accessible
-                    accessibilityLabel="Go back"
-                    accessibilityRole="button"
-                >
-                    <Ionicons
-                        name="arrow-back"
-                        size={24}
-                        color={COLORS.text.primary}
-                    />
-                </TouchableOpacity>
                 <View className="flex-1 items-center justify-center px-8">
                     <Ionicons
                         name="person-outline"
@@ -320,22 +313,16 @@ export default function CreatorProfile() {
         return (
             <SafeAreaView
                 className="flex-1 bg-background"
-                style={Platform.OS === "android" ? { paddingTop: StatusBar.currentHeight } : {}}
+                
             >
+                <Stack.Screen
+                    options={buildSecondaryScreenOptions({
+                        router,
+                        title: "Creator Profile",
+                        backgroundColor: COLORS.background,
+                    })}
+                />
                 <StatusBar barStyle="light-content" />
-                <TouchableOpacity
-                    onPress={() => router.back()}
-                    className="p-4"
-                    accessible
-                    accessibilityLabel="Go back"
-                    accessibilityRole="button"
-                >
-                    <Ionicons
-                        name="arrow-back"
-                        size={24}
-                        color={COLORS.text.primary}
-                    />
-                </TouchableOpacity>
                 <View className="flex-1 items-center justify-center">
                     <ActivityIndicator size="large" color={COLORS.primary} />
                     <Text className="text-text-secondary mt-3">
@@ -350,32 +337,16 @@ export default function CreatorProfile() {
     return (
         <SafeAreaView
             className="flex-1 bg-background"
-            style={Platform.OS === "android" ? { paddingTop: StatusBar.currentHeight } : {}}
+            
         >
+            <Stack.Screen
+                options={buildSecondaryScreenOptions({
+                    router,
+                    title: profile?.name || "Creator Profile",
+                    backgroundColor: COLORS.background,
+                })}
+            />
             <StatusBar barStyle="light-content" />
-
-            {/* Header bar */}
-            <View className="flex-row items-center px-4 py-3">
-                <TouchableOpacity
-                    onPress={() => router.back()}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    accessible
-                    accessibilityLabel="Go back"
-                    accessibilityRole="button"
-                >
-                    <Ionicons
-                        name="arrow-back"
-                        size={24}
-                        color={COLORS.text.primary}
-                    />
-                </TouchableOpacity>
-                <Text
-                    className="text-text-primary font-semibold text-base ml-3"
-                    numberOfLines={1}
-                >
-                    {profile?.name || "Creator"}
-                </Text>
-            </View>
 
             <FlatList
                 data={podcasts}

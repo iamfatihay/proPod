@@ -36,6 +36,8 @@ Step-by-step guides for common tasks and configurations.
 
 **Topics:**
 - Admin role setup
+- SQLAdmin access at `/admin`
+- App-level inspection vs raw PostgreSQL tooling
 - Permission configuration
 - UI customization
 - Feature toggles

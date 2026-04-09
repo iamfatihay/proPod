@@ -338,7 +338,7 @@ Add screenshots here
 ### .env.example (Always keep updated)
 ```bash
 # Database
-DATABASE_URL=sqlite:///./app.db
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/propod_db
 
 # API Keys (never commit real keys!)
 OPENAI_API_KEY=your_key_here
@@ -353,11 +353,13 @@ ENABLE_AUDIO_ENHANCEMENT=false
 ```bash
 # Development
 cp .env.example .env
-# Edit .env with real values
+# Edit .env with real PostgreSQL connection values
 
 # Production
 # Use environment variables, never commit secrets
 ```
+
+For app-level inspection in development, use `http://localhost:8000/admin`. For raw schema browsing or SQL queries, use an external PostgreSQL client such as pgAdmin, DBeaver, or `psql`.
 
 ---
 

@@ -960,6 +960,61 @@ class ApiService {
         return this.request(endpoint);
     }
 
+    async getCreatorCommentInbox({ podcastLimit = 8, commentsPerPodcast = 10 } = {}) {
+        const podcastsResponse = await this.getMyPodcasts({ limit: podcastLimit });
+        const podcasts = this.normalizePodcasts(podcastsResponse?.podcasts || podcastsResponse || []);
+
+        if (!podcasts.length) {
+            return [];
+        }
+
+        const commentResults = await Promise.allSettled(
+            podcasts.map(async (podcast) => {
+                const comments = await this.getPodcastComments(podcast.id, {
+                    limit: commentsPerPodcast,
+                });
+
+                return (comments || [])
+                    .filter((comment) => comment.user_id !== podcast.owner_id)
+                    .map((comment) => ({
+                        id: `comment_${comment.id}`,
+                        commentId: comment.id,
+                        podcastId: podcast.id,
+                        podcastTitle: podcast.title,
+                        podcastThumbnailUrl: podcast.thumbnail_url || null,
+                        podcastOwnerId: podcast.owner_id,
+                        authorName: comment.user?.name || "Listener",
+                        authorPhotoUrl: comment.user?.photo_url || null,
+                        content: comment.content,
+                        timestampSeconds: comment.timestamp || 0,
+                        createdAt: comment.created_at,
+                        updatedAt: comment.updated_at,
+                    }));
+            })
+        );
+
+        // Log any rejected podcast comment fetches so partial-inbox failures are visible
+        commentResults.forEach((result, idx) => {
+            if (result.status === "rejected") {
+                const podcast = podcasts[idx];
+                Logger.warn(
+                    `getCreatorCommentInbox: failed to fetch comments for podcast ` +
+                    `"${podcast?.title}" (id=${podcast?.id}):`,
+                    result.reason?.message || result.reason
+                );
+            }
+        });
+
+        return commentResults
+            .filter((result) => result.status === "fulfilled")
+            .flatMap((result) => result.value)
+            .sort((left, right) => {
+                const leftTime = new Date(left.createdAt).getTime();
+                const rightTime = new Date(right.createdAt).getTime();
+                return rightTime - leftTime;
+            });
+    }
+
     // Analytics methods (for podcast owners)
     async getPodcastAnalytics(podcastId) {
         return this.request(`/podcasts/${podcastId}/analytics`);

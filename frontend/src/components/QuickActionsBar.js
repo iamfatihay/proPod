@@ -55,7 +55,7 @@ const ACTION_SETS = {
             color: "#10B981",
         },
         {
-            id: "comments",
+            id: "messages",
             icon: "message-reply-text-outline",
             label: "Messages",
             color: "#3B82F6",
@@ -67,9 +67,9 @@ const ACTION_SETS = {
             color: "#F59E0B",
         },
         {
-            id: "notifications",
+            id: "activity",
             icon: "bell-outline",
-            label: "Alerts",
+            label: "Activity",
             color: "#8B5CF6",
         },
     ],

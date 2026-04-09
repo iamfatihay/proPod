@@ -6,6 +6,7 @@ This guide covers the current development setup for ProPod.
 
 - Python for the FastAPI backend
 - Node.js and npm for the Expo frontend
+- A running PostgreSQL instance for the backend dev database
 - An installed development build on a device or emulator
 - Expo Go is not supported
 
@@ -16,9 +17,12 @@ cd backend
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env
 python -m app.init_db
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+Set `DATABASE_URL` in `.env` to your PostgreSQL instance before starting the API. Use [../../backend/.env.example](../../backend/.env.example) as the canonical template.
 
 Windows PowerShell:
 
@@ -86,8 +90,10 @@ That is expected if `DATABASE_URL` points to the normal dev DB. Use a disposable
 ```bash
 cd backend
 source venv/bin/activate
-DATABASE_URL=sqlite:///./test.db pytest tests/ -q
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/propod_test pytest tests/ -q
 ```
+
+For application-level inspection, open `http://localhost:8000/admin`. For raw schema or SQL browsing, use pgAdmin, DBeaver, or `psql` against the same PostgreSQL server.
 
 ### Google sign-in still behaves like the old build
 

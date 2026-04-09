@@ -23,6 +23,13 @@ Most endpoints require authentication via JWT token in the Authorization header:
 Authorization: Bearer <access_token>
 ```
 
+## Admin Access and Database Inspection
+
+- SQLAdmin UI is available at `/admin` when the backend is running.
+- Login requires a normal user email/password backed by an account with `admin` or `super_admin` role.
+- Use the SQLAdmin UI for application records and model-level inspection.
+- Use pgAdmin, DBeaver, or `psql` for raw PostgreSQL schema access, ad-hoc SQL, and broader database administration.
+
 ## Error Responses
 
 All endpoints return consistent error responses:

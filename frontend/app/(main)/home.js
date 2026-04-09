@@ -32,6 +32,7 @@ import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
 import Logger from "../../src/utils/logger";
 import { COLORS, BORDER_RADIUS } from "../../src/constants/theme";
+import protectionService from "../../src/services/recording/protectionService";
 
 // Removed mock episodes; will fetch from API
 
@@ -66,42 +67,6 @@ const FALLBACK_CATEGORIES = [
     { id: "Business", label: "Business", icon: "briefcase-outline" },
     { id: "Education", label: "Education", icon: "school-outline" },
     { id: "Entertainment", label: "Entertainment", icon: "film-outline" },
-];
-
-const chats = [
-    {
-        id: "1",
-        name: "Daniel",
-        message: "Hello!",
-        time: "2h ago",
-    },
-    {
-        id: "2",
-        name: "Anna",
-        message: "That was an interesting episode.",
-        time: "3h ago",
-    },
-];
-
-const activities = [
-    {
-        id: "1",
-        type: "comment",
-        text: "User XY commented on your episode",
-        time: "4h ago",
-    },
-    {
-        id: "2",
-        type: "livestream",
-        text: "Livestream started by @PodcastStar",
-        time: "3h ago",
-    },
-    {
-        id: "3",
-        type: "message",
-        text: "New message from Anna",
-        time: "2h ago",
-    },
 ];
 
 export default function HomeScreen() {
@@ -141,6 +106,8 @@ export default function HomeScreen() {
     // the API responds.
     const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
     const [continueListening, setContinueListening] = useState([]);
+    const [hasActiveDraft, setHasActiveDraft] = useState(false);
+    const [recentCommentCount, setRecentCommentCount] = useState(0);
 
     // Load notifications from storage on mount
     // Note: loadFromStorage is a stable Zustand action, safe in dependency array
@@ -268,8 +235,40 @@ export default function HomeScreen() {
     // so it never blocks the main-feed repaint when returning to this screen.
     useFocusEffect(
         useCallback(() => {
+            let isActive = true;
+
             loadContinueListening(); // fire-and-forget — has own loading state
             load(); // main feed; triggers setLoading via its own effect
+
+            protectionService
+                .getDraft()
+                .then((draft) => {
+                    if (isActive) {
+                        setHasActiveDraft(Boolean(draft?.segments?.length));
+                    }
+                })
+                .catch(() => {
+                    if (isActive) {
+                        setHasActiveDraft(false);
+                    }
+                });
+
+            apiService
+                .getCreatorDashboard()
+                .then((dashboard) => {
+                    if (isActive) {
+                        setRecentCommentCount(dashboard?.recent_comments || 0);
+                    }
+                })
+                .catch(() => {
+                    if (isActive) {
+                        setRecentCommentCount(0);
+                    }
+                });
+
+            return () => {
+                isActive = false;
+            };
         }, [load, loadContinueListening])
     );
 
@@ -382,7 +381,7 @@ export default function HomeScreen() {
     );
 
     // Quick action handler
-    const handleQuickAction = (actionId) => {
+    const handleQuickAction = async (actionId) => {
         switch (actionId) {
             case "record":
             case "quick-record":
@@ -406,6 +405,40 @@ export default function HomeScreen() {
             case "bookmarks":
                 router.push("/(main)/library");
                 break;
+            case "categories":
+                router.push("/(main)/search");
+                break;
+            case "messages":
+            case "comments":
+                router.push("/(main)/messages");
+                break;
+            case "activity":
+                router.push("/(main)/activity");
+                break;
+            case "drafts": {
+                const draft = await protectionService.getDraft();
+
+                if (draft?.segments?.length) {
+                    router.push({
+                        pathname: "/(main)/create",
+                        params: {
+                            mode: "resume-draft",
+                            draftId: String(draft.id),
+                        },
+                    });
+                    break;
+                }
+
+                showToast(
+                    "No active draft found. Starting a new quick recording instead.",
+                    "info"
+                );
+                router.push({
+                    pathname: "/(main)/create",
+                    params: { mode: "quick-record" },
+                });
+                break;
+            }
             case "history":
                 showToast("Listening history coming soon! 🕐", "info");
                 break;
@@ -513,9 +546,10 @@ export default function HomeScreen() {
                         <QuickActionsBar
                             onActionPress={handleQuickAction}
                             notifications={{
-                                comments: 3,
+                                messages: recentCommentCount,
                                 analytics: 0,
-                                notifications: unreadCount,
+                                activity: unreadCount,
+                                drafts: hasActiveDraft ? 1 : 0,
                             }}
                         />
                     </View>

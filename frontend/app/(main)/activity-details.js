@@ -8,67 +8,32 @@ import {
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import React from "react";
 import { Surface } from "react-native-paper";
-import { Ionicons } from "@expo/vector-icons";
 import { COLORS, BORDER_RADIUS } from "../../src/constants/theme";
-
-const activities = [
-    {
-        id: "1",
-        type: "comment",
-        text: "User XY hat deine Episode kommentiert",
-        time: "4h ago",
-    },
-    {
-        id: "2",
-        type: "livestream",
-        text: "Livestream gestartet von @PodcastStar",
-        time: "3h ago",
-    },
-    {
-        id: "3",
-        type: "message",
-        text: "Neue Nachricht von Anna",
-        time: "2h ago",
-    },
-];
+import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOptions";
 
 export default function ActivityDetails() {
-    const { id } = useLocalSearchParams();
+    const params = useLocalSearchParams();
+    const rawTitle = Array.isArray(params.title) ? params.title[0] : params.title;
+    const rawText = Array.isArray(params.text) ? params.text[0] : params.text;
+    const rawType = Array.isArray(params.type) ? params.type[0] : params.type;
+    const rawTime = Array.isArray(params.time) ? params.time[0] : params.time;
+    const rawPodcastId = Array.isArray(params.podcastId) ? params.podcastId[0] : params.podcastId;
     const router = useRouter();
-    const activity = activities.find((a) => a.id === id);
+    const activity = {
+        title: rawTitle || "Activity",
+        text: rawText,
+        type: rawType,
+        time: rawTime,
+        podcastId: rawPodcastId,
+    };
 
     return (
         <SafeAreaView className="flex-1 bg-background">
             <Stack.Screen
-                options={{
+                options={buildSecondaryScreenOptions({
+                    router,
                     title: "Activity Details",
-                    headerShown: true,
-                    headerStyle: {
-                        backgroundColor: COLORS.card,
-                    },
-                    headerTintColor: COLORS.text.primary,
-                    headerTitleStyle: {
-                        fontWeight: "500",
-                    },
-                    headerLeft: () => (
-                        <TouchableOpacity
-                            onPress={() => router.back()}
-                            style={{ marginLeft: 16 }}
-                            hitSlop={{
-                                top: 10,
-                                bottom: 10,
-                                left: 10,
-                                right: 10,
-                            }}
-                        >
-                            <Ionicons
-                                name="arrow-back"
-                                size={24}
-                                color={COLORS.text.primary}
-                            />
-                        </TouchableOpacity>
-                    ),
-                }}
+                })}
             />
             <View className="flex-1 px-4 pt-6">
                 <Surface
@@ -89,10 +54,10 @@ export default function ActivityDetails() {
                         backgroundColor: COLORS.card,
                     }}
                 >
-                    {activity ? (
+                    {rawText ? (
                         <>
                             <Text className="text-2xl font-bold text-text-primary mb-2">
-                                Activity
+                                {activity.title}
                             </Text>
                             <Text className="text-base text-text-secondary mb-2">
                                 {activity.text}
@@ -104,8 +69,24 @@ export default function ActivityDetails() {
                                 Time: {activity.time}
                             </Text>
                             <Text className="text-base text-text-primary mt-4">
-                                Activity details coming soon...
+                                This event came from your live notification feed.
                             </Text>
+                            {activity.podcastId ? (
+                                <TouchableOpacity
+                                    onPress={() =>
+                                        router.push({
+                                            pathname: "/(main)/details",
+                                            params: { id: activity.podcastId },
+                                        })
+                                    }
+                                    className="mt-5 bg-primary rounded-xl px-4 py-3 items-center"
+                                    activeOpacity={0.8}
+                                >
+                                    <Text className="text-white font-semibold">
+                                        Open Related Podcast
+                                    </Text>
+                                </TouchableOpacity>
+                            ) : null}
                         </>
                     ) : (
                         <Text className="mt-8 text-lg text-red-500">
