@@ -51,13 +51,13 @@ Platforms: iOS, Android
 ```bash
 cd backend
 source venv/bin/activate
-DATABASE_URL=sqlite:///./test.db pytest tests/ -q
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/propod_test pytest tests/ -q
 pytest tests/test_ai_service.py -q
 pytest -v
 pytest --cov=app
 ```
 
-Note: backend tests intentionally refuse to run against the normal dev database.
+Note: backend tests intentionally refuse to run against the normal dev database. In-memory SQLite remains acceptable for isolated unit scenarios, but the documented default is a disposable PostgreSQL test database.
 
 ### Frontend Tests
 ```bash

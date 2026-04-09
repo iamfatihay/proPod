@@ -30,6 +30,20 @@ import useNotificationStore from "../../src/context/useNotificationStore";
 import Logger from "../../src/utils/logger";
 import { COLORS, FONT_SIZES, BORDER_RADIUS, addAlpha, getNotificationColors } from "../../src/constants/theme";
 
+const formatTimeAgo = (timestamp) => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return "Just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    return new Date(timestamp).toLocaleDateString();
+};
+
 // Notification type configuration
 const NOTIFICATION_TYPES = {
     ai_complete: {
@@ -57,21 +71,6 @@ const NOTIFICATION_TYPES = {
 const NotificationCard = ({ notification, onPress, onMarkRead }) => {
     const type = NOTIFICATION_TYPES[notification.type] || NOTIFICATION_TYPES.system;
     const isUnread = !notification.read;
-
-    // Format time
-    const getTimeAgo = (timestamp) => {
-        const now = Date.now();
-        const diff = now - timestamp;
-        const minutes = Math.floor(diff / 60000);
-        const hours = Math.floor(diff / 3600000);
-        const days = Math.floor(diff / 86400000);
-
-        if (minutes < 1) return "Just now";
-        if (minutes < 60) return `${minutes}m ago`;
-        if (hours < 24) return `${hours}h ago`;
-        if (days < 7) return `${days}d ago`;
-        return new Date(timestamp).toLocaleDateString();
-    };
 
     return (
         <TouchableOpacity
@@ -130,7 +129,7 @@ const NotificationCard = ({ notification, onPress, onMarkRead }) => {
                             color: COLORS.text.muted,
                         }}
                     >
-                        {getTimeAgo(notification.created_at)}
+                        {formatTimeAgo(notification.created_at)}
                     </Text>
                 </View>
 
@@ -237,8 +236,23 @@ export default function NotificationsScreen() {
                     pathname: `/(main)/${cleanScreen}`,
                     params: params || {},
                 });
+                return;
             }
         }
+
+        router.push({
+            pathname: "/(main)/activity-details",
+            params: {
+                id: notification.id,
+                title: notification.title,
+                text: notification.message,
+                type: notification.type,
+                time: formatTimeAgo(notification.created_at),
+                podcastId: notification.action?.params?.id
+                    ? String(notification.action.params.id)
+                    : "",
+            },
+        });
     };
 
     const handleMarkAllRead = () => {

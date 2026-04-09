@@ -753,5 +753,123 @@ describe("ApiService", () => {
                 status: 404,
             });
         });
+
+        test("getCreatorCommentInbox() should aggregate and sort comments across owned podcasts", async () => {
+            const getMyPodcastsSpy = jest
+                .spyOn(apiService, "getMyPodcasts")
+                .mockResolvedValue([
+                    {
+                        id: 10,
+                        title: "Alpha",
+                        owner_id: 7,
+                        thumbnail_url: "/media/alpha.png",
+                    },
+                    {
+                        id: 11,
+                        title: "Beta",
+                        owner_id: 7,
+                        thumbnail_url: "/media/beta.png",
+                    },
+                ]);
+            const getPodcastCommentsSpy = jest
+                .spyOn(apiService, "getPodcastComments")
+                .mockImplementation(async (podcastId) => {
+                    if (podcastId === 10) {
+                        return [
+                            {
+                                id: 201,
+                                user_id: 22,
+                                content: "Newest comment",
+                                timestamp: 32,
+                                created_at: "2026-04-09T12:00:00Z",
+                                updated_at: "2026-04-09T12:00:00Z",
+                                user: { name: "Anna", photo_url: null },
+                            },
+                        ];
+                    }
+
+                    return [
+                        {
+                            id: 101,
+                            user_id: 21,
+                            content: "Older comment",
+                            timestamp: 5,
+                            created_at: "2026-04-09T09:00:00Z",
+                            updated_at: "2026-04-09T09:00:00Z",
+                            user: { name: "Daniel", photo_url: null },
+                        },
+                        {
+                            id: 102,
+                            user_id: 7,
+                            content: "Owner comment should be excluded",
+                            timestamp: 8,
+                            created_at: "2026-04-09T11:00:00Z",
+                            updated_at: "2026-04-09T11:00:00Z",
+                            user: { name: "Owner", photo_url: null },
+                        },
+                    ];
+                });
+
+            const result = await apiService.getCreatorCommentInbox();
+
+            expect(getMyPodcastsSpy).toHaveBeenCalledWith({ limit: 8 });
+            expect(getPodcastCommentsSpy).toHaveBeenCalledTimes(2);
+            expect(result.map((item) => item.commentId)).toEqual([201, 101]);
+            expect(result[0]).toMatchObject({
+                podcastId: 10,
+                podcastTitle: "Alpha",
+                authorName: "Anna",
+                content: "Newest comment",
+            });
+            expect(result[1]).toMatchObject({
+                podcastId: 11,
+                podcastTitle: "Beta",
+                authorName: "Daniel",
+                content: "Older comment",
+            });
+
+            getMyPodcastsSpy.mockRestore();
+            getPodcastCommentsSpy.mockRestore();
+        });
+
+        test("getCreatorCommentInbox() should skip failed comment fetches and keep successful podcasts", async () => {
+            const getMyPodcastsSpy = jest
+                .spyOn(apiService, "getMyPodcasts")
+                .mockResolvedValue([
+                    { id: 99, title: "Working", owner_id: 5 },
+                    { id: 100, title: "Broken", owner_id: 5 },
+                ]);
+            const getPodcastCommentsSpy = jest
+                .spyOn(apiService, "getPodcastComments")
+                .mockImplementation(async (podcastId) => {
+                    if (podcastId === 100) {
+                        throw new Error("boom");
+                    }
+
+                    return [
+                        {
+                            id: 301,
+                            user_id: 8,
+                            content: "Still works",
+                            timestamp: 1,
+                            created_at: "2026-04-09T10:00:00Z",
+                            updated_at: "2026-04-09T10:00:00Z",
+                            user: { name: "Listener", photo_url: null },
+                        },
+                    ];
+                });
+
+            const result = await apiService.getCreatorCommentInbox();
+
+            expect(result).toHaveLength(1);
+            expect(result[0]).toMatchObject({
+                podcastId: 99,
+                commentId: 301,
+                authorName: "Listener",
+            });
+
+            getMyPodcastsSpy.mockRestore();
+            getPodcastCommentsSpy.mockRestore();
+        });
     });
 });

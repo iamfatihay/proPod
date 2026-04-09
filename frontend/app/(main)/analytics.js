@@ -19,11 +19,11 @@ import {
     ActivityIndicator,
     RefreshControl,
 } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Stack, useRouter, useFocusEffect } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import apiService from "../../src/services/api/apiService";
 import { COLORS } from "../../src/constants/theme";
+import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOptions";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -329,7 +329,6 @@ const DAY_OPTIONS = [
 
 const AnalyticsScreen = () => {
     const router = useRouter();
-    const insets = useSafeAreaInsets();
 
     const [days, setDays] = useState(30);
     const [data, setData] = useState(null);
@@ -372,41 +371,15 @@ const AnalyticsScreen = () => {
                 style={{
                     flex: 1,
                     backgroundColor: COLORS.background,
-                    paddingTop: insets.top,
                 }}
             >
-                {/* Header */}
-                <View
-                    style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        paddingHorizontal: 16,
-                        paddingVertical: 14,
-                        borderBottomWidth: 1,
-                        borderBottomColor: COLORS.border,
-                    }}
-                >
-                    <TouchableOpacity
-                        onPress={() => router.back()}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        style={{ marginRight: 12 }}
-                    >
-                        <Ionicons
-                            name="arrow-back"
-                            size={24}
-                            color={COLORS.text.primary}
-                        />
-                    </TouchableOpacity>
-                    <Text
-                        style={{
-                            color: COLORS.text.primary,
-                            fontSize: 20,
-                            fontWeight: "700",
-                        }}
-                    >
-                        Creator Analytics
-                    </Text>
-                </View>
+                <Stack.Screen
+                    options={buildSecondaryScreenOptions({
+                        router,
+                        title: "Creator Analytics",
+                        backgroundColor: COLORS.background,
+                    })}
+                />
 
                 <View
                     style={{
@@ -480,42 +453,15 @@ const AnalyticsScreen = () => {
             style={{
                 flex: 1,
                 backgroundColor: COLORS.background,
-                paddingTop: insets.top,
             }}
         >
-            {/* Header */}
-            <View
-                style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    paddingHorizontal: 16,
-                    paddingVertical: 14,
-                    borderBottomWidth: 1,
-                    borderBottomColor: COLORS.border,
-                }}
-            >
-                <TouchableOpacity
-                    onPress={() => router.back()}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    style={{ marginRight: 12 }}
-                >
-                    <Ionicons
-                        name="arrow-back"
-                        size={24}
-                        color={COLORS.text.primary}
-                    />
-                </TouchableOpacity>
-                <Text
-                    style={{
-                        flex: 1,
-                        color: COLORS.text.primary,
-                        fontSize: 20,
-                        fontWeight: "700",
-                    }}
-                >
-                    Creator Analytics
-                </Text>
-            </View>
+            <Stack.Screen
+                options={buildSecondaryScreenOptions({
+                    router,
+                    title: "Creator Analytics",
+                    backgroundColor: COLORS.background,
+                })}
+            />
 
             {/* Day range picker */}
             <View

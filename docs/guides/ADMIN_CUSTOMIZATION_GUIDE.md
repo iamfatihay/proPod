@@ -1,5 +1,13 @@
 # 🎨 Admin Panel Customization Guide
 
+## 🔐 Access & Scope
+
+- SQLAdmin UI is mounted at `http://localhost:8000/admin` when the backend is running.
+- Login uses the normal email/password flow, but only users with `admin` or `super_admin` role can access the panel.
+- Use this panel for application-level data inspection and model administration.
+- Use pgAdmin, DBeaver, or `psql` when you need raw PostgreSQL schema browsing, direct SQL queries, or server-level administration.
+- Keep `backend/.env.example` as the setup template and use `DATABASE_URL` from your local `.env` for external PostgreSQL clients.
+
 ## 📋 Ne Kontrol Edebilirsin?
 
 SQLAdmin'de `ModelView` class'ında kullanabileceğin tüm parametreler:

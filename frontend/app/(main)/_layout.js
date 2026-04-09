@@ -363,7 +363,19 @@ export default function TabLayout() {
                     }}
                 />
                 <Tabs.Screen
+                    name="activity"
+                    options={{
+                        href: null,
+                    }}
+                />
+                <Tabs.Screen
                     name="activity-details"
+                    options={{
+                        href: null,
+                    }}
+                />
+                <Tabs.Screen
+                    name="messages"
                     options={{
                         href: null,
                     }}
@@ -382,6 +394,12 @@ export default function TabLayout() {
                 />
                 <Tabs.Screen
                     name="profile"
+                    options={{
+                        href: null,
+                    }}
+                />
+                <Tabs.Screen
+                    name="creator-profile"
                     options={{
                         href: null,
                     }}

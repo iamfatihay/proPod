@@ -75,7 +75,7 @@ Implementation plan for Faster-Whisper integration and AI-first editing:
 └────────┬────────┘
          │
 ┌────────▼────────┐
-│   SQLite DB     │  Persistent storage
+│ PostgreSQL DB   │  Persistent storage
 └─────────────────┘
 ```
 
