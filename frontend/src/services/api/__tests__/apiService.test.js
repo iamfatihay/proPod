@@ -629,4 +629,129 @@ describe("ApiService", () => {
             expect(result).toEqual(mockResponse);
         });
     });
+
+    // ── Notification Methods ────────────────────────────────────────────────
+
+    describe("Notification Methods", () => {
+        // Reset the in-memory token cache so 401-retry tests do not bleed state
+        beforeEach(() => { apiService.clearToken(); });
+        test("getNotifications() should fetch notifications with default pagination", async () => {
+            const mockResponse = {
+                notifications: [
+                    {
+                        id: 1,
+                        type: "like",
+                        title: "New like",
+                        message: "Someone liked your podcast",
+                        read: false,
+                        created_at: "2026-04-09T10:00:00Z",
+                        podcast_id: 42,
+                    },
+                ],
+                total: 1,
+                unread_count: 1,
+                limit: 30,
+                offset: 0,
+                has_more: false,
+            };
+
+            global.mockApiResponse(mockResponse);
+
+            const result = await apiService.getNotifications();
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                "http://localhost:8000/notifications/?skip=0&limit=30",
+                expect.objectContaining({
+                    headers: expect.objectContaining({
+                        Authorization: "Bearer mock-access-token",
+                    }),
+                })
+            );
+
+            expect(result).toEqual(mockResponse);
+        });
+
+        test("getNotifications() should pass custom skip and limit as query params", async () => {
+            const mockResponse = {
+                notifications: [],
+                total: 0,
+                unread_count: 0,
+                limit: 5,
+                offset: 20,
+                has_more: false,
+            };
+
+            global.mockApiResponse(mockResponse);
+
+            const result = await apiService.getNotifications({ skip: 20, limit: 5 });
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                "http://localhost:8000/notifications/?skip=20&limit=5",
+                expect.any(Object)
+            );
+
+            expect(result).toEqual(mockResponse);
+        });
+
+        test("markNotificationRead() should send PATCH request to correct endpoint", async () => {
+            const mockResponse = {
+                id: 7,
+                type: "comment",
+                title: "New comment",
+                message: "Someone commented on your podcast",
+                read: true,
+                created_at: "2026-04-09T10:00:00Z",
+            };
+
+            global.mockApiResponse(mockResponse);
+
+            const result = await apiService.markNotificationRead(7);
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                "http://localhost:8000/notifications/7/read",
+                expect.objectContaining({
+                    method: "PATCH",
+                    headers: expect.objectContaining({
+                        Authorization: "Bearer mock-access-token",
+                    }),
+                })
+            );
+
+            expect(result).toEqual(mockResponse);
+        });
+
+        test("markAllNotificationsRead() should send POST request to mark-all-read endpoint", async () => {
+            const mockResponse = {
+                message: "All notifications marked as read",
+            };
+
+            global.mockApiResponse(mockResponse);
+
+            const result = await apiService.markAllNotificationsRead();
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                "http://localhost:8000/notifications/mark-all-read",
+                expect.objectContaining({
+                    method: "POST",
+                    headers: expect.objectContaining({
+                        Authorization: "Bearer mock-access-token",
+                    }),
+                })
+            );
+
+            expect(result.message).toBe("All notifications marked as read");
+        });
+
+        test("markNotificationRead() should handle 404 when notification does not exist", async () => {
+            global.fetch.mockResolvedValueOnce({
+                ok: false,
+                status: 404,
+                json: async () => ({ detail: "Notification not found" }),
+            });
+
+            await expect(apiService.markNotificationRead(9999)).rejects.toMatchObject({
+                status: 404,
+            });
+        });
+    });
 });
