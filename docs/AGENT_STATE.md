@@ -16,8 +16,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-08
-**Last session:** Wired notification badge to server unread_count — `fetchNotifications` now called on mount + app foreground in `(main)/_layout.js`. PR #46 opened.
-**Test suite baseline:** 334 backend tests — all passing (0 failures). Full suite run confirmed last session.
+**Last session:** Added Alembic migrations for `playlists`, `playlist_items`, and `notifications` tables — migration `a1b2c3d4e5f6`. Upgrade + downgrade both validated. PR opened. Test suite: 334 passed.
+**Test suite baseline:** 334 backend tests — all passing (0 failures). Confirmed this session.
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -40,15 +40,16 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Deep link handling `volo://podcast/{id}` with auth-race guard (PR #41, merged by Fay)
 - ✅ Native Google Sign-In hardened — server-side token validation + stale-test fix (PR #42, PR #44, merged by Fay)
 - ✅ Notifications backend + API wiring — model, CRUD, REST endpoints, frontend store + screen (PR #45, merged by Fay)
+- ✅ Notification badge wired to server unread_count — `fetchNotifications` on mount + AppState foreground refresh (PR #46, merged by Fay)
 
 ### What's open / in-progress
-- **PR #46**: `feat: wire notification badge to server unread_count on login and foreground` — https://github.com/iamfatihay/proPod/pull/46
-  - Adds `fetchNotifications` call on mount in `(main)/_layout.js` so badge shows real count immediately after login
-  - Adds `AppState` listener to refresh badge when app returns to foreground
-  - Pure frontend change — 1 file, ~25 lines added
+- **PR #47**: `feat: add Alembic migrations for playlists, playlist_items, and notifications tables` — https://github.com/iamfatihay/proPod/pull/47 — branch `feat/alembic-migrations-playlists-notifications`
+  - Migration `a1b2c3d4e5f6` — creates `playlists`, `playlist_items`, `notifications` tables with all indexes and constraints
+  - Upstream: `788d6da0a208` (Add RTC participants and live status)
+  - Upgrade + downgrade both tested on SQLite, 334 backend tests pass
 
 ### Known issues / tech debt
-- No Alembic migration for `notifications` table (or Playlist tables) — dev uses `create_all`, prod needs migration before deploy
+- ~~No Alembic migration for `notifications` table (or Playlist tables)~~ — fixed this session (PR #47)
 - Frontend has very few automated tests (backend well-covered at 334 tests)
 - Chat screen still uses dummy/mock data — no backend for it yet
 - Several old feature branches still exist on remote and likely abandoned — audit if needed
@@ -102,8 +103,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[BACKEND] Add Alembic migrations for `notifications` + `playlists` tables** — required before any production deployment. Files: `backend/alembic/` (create if absent). This unblocks safe prod deploys.
+1. **[FRONTEND] Add unit tests for `apiService` notification methods** — `frontend/src/services/api/__tests__/` already exists; add `notificationsApi.test.js` covering `getNotifications`, `markNotificationRead`, `markAllNotificationsRead` with mocked fetch. Directly improves frontend code confidence.
 
-2. **[FRONTEND] Add unit tests for `apiService` notification methods** — `frontend/src/services/api/__tests__/` already exists; add `notificationsApi.test.js` covering `getNotifications`, `markNotificationRead`, `markAllNotificationsRead` with mocked fetch.
+2. **[FRONTEND] Chat screen backend** — replace dummy data in `frontend/app/(main)/chat-details.js` with real messages API. Scope: design a simple chat model in backend, REST endpoint, and wire the frontend screen. High user-facing value.
 
-3. **[FRONTEND] Chat screen backend** — replace dummy data in `frontend/app/(main)/chat-details.js` with real messages API. Scope: design a simple chat model in backend, REST endpoint, and wire the frontend screen.
+3. **[BACKEND] Push notifications (APNs/FCM)** — out-of-app delivery of like/comment events using Expo's push notification service. Requires adding `expo_push_token` field to User model + a new migration + Expo SDK integration in frontend. Very high user value for engagement.
