@@ -16,8 +16,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-09
-**Last session:** Merged PR #47 and PR #48 into `master`, then opened PR #49 for navigation wiring, real creator inbox/activity flows, secondary screen header consistency, Notification admin visibility, and related API test coverage. Verified: `npx jest src/services/api/__tests__/apiService.test.js --runInBand` passes, `DATABASE_URL=sqlite:///./propod_test.sqlite pytest tests/test_notifications.py -q` passes. Pre-commit full backend suite is currently blocked by an existing sharing test failure: `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`.
-**Test suite baseline:** 185 frontend tests — passing on latest verified run. Backend targeted notification suite passes; full backend suite needs re-baselining because of the known sharing test failure above.
+**Last session:** Reconciled state — PR #49 (`feature/navigation-wiring-inbox-consistency`) was merged by Fay. Sharing regression test (`test_relative_audio_url_gets_base_url_prefix`) now passes on its own — full backend suite is green: **334 passed**. Implemented sleep timer feature (PR #50): `setSleepTimer(minutes)` / `cancelSleepTimer()` in audio store, `SleepTimerModal` component with 5–60 min presets and live countdown, moon-crescent button in `ModernAudioPlayer` secondary controls. All three changed files pass `node --check`.
+**Test suite baseline:** Backend: 334 passed (full suite, SQLite). Frontend: node_modules not installed in sandbox — `node --check` used for syntax validation on changed files.
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -43,31 +43,30 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Notification badge wired to server unread_count — `fetchNotifications` on mount + AppState foreground refresh (PR #46, merged by Fay)
 - ✅ Alembic migrations for `playlists`, `playlist_items`, and `notifications` tables (PR #47, merged by Fay)
 - ✅ Notification store + API coverage; `markAsReadWithSync` no-op guard fix (PR #48, merged by Fay)
+- ✅ Navigation wiring, creator inbox/activity flows, secondary-screen header consistency, NotificationAdmin (PR #49, merged by Fay)
 
 ### What's open / in-progress
-- **PR #49**: `feat(navigation): wire studio flows, inbox, and secondary headers` — https://github.com/iamfatihay/proPod/pull/49 — branch `feature/navigation-wiring-inbox-consistency`
-  - Fixes extra bottom-tab leak by hiding `creator-profile` and other secondary routes with `href: null`
-  - Adds `messages.js` and `activity.js` as real parent screens wired from Studio quick actions
-  - Replaces mock inbox data with `apiService.getCreatorCommentInbox()` aggregated from real podcast comments
-  - Unifies back navigation with `buildSecondaryScreenOptions()` across analytics/activity/messages/detail screens
-  - Adds `NotificationAdmin` to SQLAdmin and extends `apiService.test.js` for creator inbox aggregation
-  - Keeps `docs/testing/MANUAL_REGRESSION_REENTRY_GUIDE.md` local-only via `.git/info/exclude`
+- **PR #50**: `feat(player): sleep timer — auto-pause after chosen duration` — https://github.com/iamfatihay/proPod/pull/50 — branch `feature/sleep-timer`
+  - `useAudioStore`: `sleepTimerActive`, `sleepTimerEndTime`, `sleepTimerRemaining` state; `setSleepTimer(minutes)` / `cancelSleepTimer()` actions; cleanup cancels any running timer
+  - `SleepTimerModal`: new bottom-sheet with 5/10/15/30/45/60 min presets, live countdown, Cancel Timer button
+  - `ModernAudioPlayer`: moon-crescent icon in secondary controls; red tint + remaining minutes when active; opens modal on tap
 
 ### Known issues / tech debt
-- No real DM/user-to-user messaging backend yet; `messages.js` now shows real comment inbox data, but `chat-details.js` is still a comment-detail surface rather than a true chat thread
-- Full backend pre-commit currently hits an existing failure in `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`
-- Frontend tests growing but component-level coverage is still thin
-- Several old feature branches still exist on remote and likely abandoned
+- No real DM/user-to-user messaging backend yet; `messages.js` shows real comment inbox data, but `chat-details.js` is still a comment-detail surface rather than a true chat thread
+- Full backend suite is now green (334 passed) — the sharing test failure is resolved
+- Frontend tests: node_modules not installed in sandbox; jest suite unknown; component-level coverage still thin
+- Several old feature branches on remote are likely abandoned (pre-PR #39 era)
+- Sleep timer relies on `setInterval` — should smoke-test on device to verify accuracy and no battery drain
 
 ---
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **Review and merge PR #49** — navigation wiring, creator inbox, activity feed, and secondary-header consistency are user-visible and nearly complete
-2. **Investigate/fix sharing test failure** — restore a green full-backend pre-commit baseline
-3. **DM/chat backend** — add a real messages model/router if true creator-listener or user-to-user messaging is still desired
-4. **Push notifications** — APNs/FCM for out-of-app delivery of like/comment events
-5. **Frontend component tests** — PodcastCard, NotificationsScreen interactions
+1. **Review and merge PR #50** — sleep timer is low-risk, pure-frontend, and immediately useful
+2. **DM/chat backend** — real `messages` model + router if product still wants true user-to-user messaging
+3. **Push notifications (APNs/FCM)** — out-of-app delivery for likes/comments; high user impact
+4. **Frontend component tests** — PodcastCard, NotificationsScreen, SleepTimerModal interactions
+5. **Playback: "End of episode" sleep option** — natural follow-up to sleep timer; stop when track ends
 
 ---
 
@@ -113,8 +112,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[REVIEW] Land PR #49** — Review and merge the navigation/inbox/activity work if manual smoke testing on device looks clean. Focus on Studio quick actions, creator profile navigation, and secondary-screen back behavior.
+1. **[REVIEW] Land PR #50 (sleep timer)** — Smoke-test on device: set a 1-min timer, verify audio stops, verify countdown updates in the player UI, verify Cancel Timer works. Merge if clean. Focus on `ModernAudioPlayer` secondary controls and `SleepTimerModal`.
 
-2. **[BACKEND] Fix the sharing regression test** — Investigate `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`, patch the root cause, and restore a green pre-commit backend baseline.
+2. **[FEATURE] "End of episode" sleep option** — Extend `SleepTimerModal` with a special "End of episode" option that stops playback when the current track reaches its end (listen for track-finished event in `onPlaybackStatusUpdate`, check a `sleepOnEpisodeEnd` flag). File: `useAudioStore.js` + `SleepTimerModal.js`.
 
-3. **[FRONTEND+BACKEND] Real chat/messages backend** — If product still wants true messaging, design a dedicated `messages` model and REST API instead of continuing to overload comment-detail UI.
+3. **[FRONTEND+BACKEND] Real DM / chat backend** — Design a `messages` table (sender_id, recipient_id, body, created_at) and REST router (`/messages`), then wire `chat-details.js` to it instead of the comment-detail surface. Start with the backend model + two endpoints: `POST /messages` and `GET /messages/thread/{user_id}`.
