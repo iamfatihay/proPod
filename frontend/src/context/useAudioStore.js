@@ -30,6 +30,12 @@ const useAudioStore = create(
         miniPlayerPosition: { x: 16, y: 200 },
         lastPlayedAt: null,
 
+        // Sleep Timer
+        sleepTimerActive: false,
+        sleepTimerEndTime: null,   // absolute ms timestamp when audio should stop
+        sleepTimerRemaining: 0,    // ms remaining — updated each second for UI countdown
+        _sleepTimerIntervalId: null,
+
         // Error Handling
         error: null,
 
@@ -809,13 +815,92 @@ const useAudioStore = create(
             }
         },
 
+        // Sleep Timer
+        setSleepTimer: (minutes) => {
+            const { _sleepTimerIntervalId } = get();
+
+            // Cancel any existing timer first
+            if (_sleepTimerIntervalId) {
+                clearInterval(_sleepTimerIntervalId);
+            }
+
+            if (!minutes || minutes <= 0) {
+                // Cancellation — turn timer off
+                set({
+                    sleepTimerActive: false,
+                    sleepTimerEndTime: null,
+                    sleepTimerRemaining: 0,
+                    _sleepTimerIntervalId: null,
+                });
+                Logger.log("[SleepTimer] Cancelled");
+                return;
+            }
+
+            const endTime = Date.now() + minutes * 60 * 1000;
+
+            const intervalId = setInterval(() => {
+                const remaining = endTime - Date.now();
+
+                if (remaining <= 0) {
+                    // Timer fired — pause and clean up
+                    clearInterval(intervalId);
+                    const state = get();
+                    if (state.sound) {
+                        try {
+                            state.sound.pause();
+                        } catch (e) {
+                            Logger.error("[SleepTimer] Failed to pause:", e);
+                        }
+                    }
+                    set({
+                        isPlaying: false,
+                        sleepTimerActive: false,
+                        sleepTimerEndTime: null,
+                        sleepTimerRemaining: 0,
+                        _sleepTimerIntervalId: null,
+                    });
+                    Logger.log("[SleepTimer] Fired — audio paused");
+                } else {
+                    set({ sleepTimerRemaining: remaining });
+                }
+            }, 1000);
+
+            set({
+                sleepTimerActive: true,
+                sleepTimerEndTime: endTime,
+                sleepTimerRemaining: minutes * 60 * 1000,
+                _sleepTimerIntervalId: intervalId,
+            });
+
+            Logger.log(`[SleepTimer] Set for ${minutes} minutes`);
+        },
+
+        cancelSleepTimer: () => {
+            const { _sleepTimerIntervalId } = get();
+            if (_sleepTimerIntervalId) {
+                clearInterval(_sleepTimerIntervalId);
+            }
+            set({
+                sleepTimerActive: false,
+                sleepTimerEndTime: null,
+                sleepTimerRemaining: 0,
+                _sleepTimerIntervalId: null,
+            });
+            Logger.log("[SleepTimer] Cancelled");
+        },
+
         // Cleanup
         cleanup: async () => {
-            const { sound, isLoadingTimeout } = get();
+            const { sound, isLoadingTimeout, _sleepTimerIntervalId } = get();
 
             // Clear loading timeout
             if (isLoadingTimeout) {
                 clearTimeout(isLoadingTimeout);
+            }
+
+            // Clear sleep timer interval
+            if (_sleepTimerIntervalId) {
+                clearInterval(_sleepTimerIntervalId);
             }
 
             if (sound) {
@@ -835,7 +920,11 @@ const useAudioStore = create(
                 showMiniPlayer: false,
                 error: null,
                 isLoadingTimeout: null,
-                isSeeking: false, // Reset seeking flag
+                isSeeking: false,
+                sleepTimerActive: false,
+                sleepTimerEndTime: null,
+                sleepTimerRemaining: 0,
+                _sleepTimerIntervalId: null,
             });
         },
     }))
