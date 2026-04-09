@@ -65,6 +65,8 @@ describe("useNotificationStore", () => {
     beforeEach(() => {
         resetStore();
         jest.clearAllMocks();
+        // Clear the AsyncStorage in-memory backing store so tests are independent
+        AsyncStorage.__clearMockStorage();
     });
 
     // ── fetchNotifications ────────────────────────────────────────────────────
