@@ -1,4 +1,5 @@
 /**
+import { formatTimeAgo } from "../../src/utils/formatTimeAgo";
  * Notifications Screen
  * 
  * Displays all in-app notifications with:
@@ -30,19 +31,6 @@ import useNotificationStore from "../../src/context/useNotificationStore";
 import Logger from "../../src/utils/logger";
 import { COLORS, FONT_SIZES, BORDER_RADIUS, addAlpha, getNotificationColors } from "../../src/constants/theme";
 
-const formatTimeAgo = (timestamp) => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return "Just now";
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-    return new Date(timestamp).toLocaleDateString();
-};
 
 // Notification type configuration
 const NOTIFICATION_TYPES = {

@@ -7,7 +7,6 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     StatusBar,
-    Platform,
 } from "react-native";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -273,7 +272,7 @@ export default function CreatorProfile() {
         return (
             <SafeAreaView
                 className="flex-1 bg-background"
-                style={Platform.OS === "android" ? { paddingTop: StatusBar.currentHeight } : {}}
+                
             >
                 <Stack.Screen
                     options={buildSecondaryScreenOptions({
@@ -314,7 +313,7 @@ export default function CreatorProfile() {
         return (
             <SafeAreaView
                 className="flex-1 bg-background"
-                style={Platform.OS === "android" ? { paddingTop: StatusBar.currentHeight } : {}}
+                
             >
                 <Stack.Screen
                     options={buildSecondaryScreenOptions({
@@ -338,7 +337,7 @@ export default function CreatorProfile() {
     return (
         <SafeAreaView
             className="flex-1 bg-background"
-            style={Platform.OS === "android" ? { paddingTop: StatusBar.currentHeight } : {}}
+            
         >
             <Stack.Screen
                 options={buildSecondaryScreenOptions({

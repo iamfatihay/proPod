@@ -54,7 +54,7 @@ export default function ActivityDetails() {
                         backgroundColor: COLORS.card,
                     }}
                 >
-                    {activity ? (
+                    {rawText ? (
                         <>
                             <Text className="text-2xl font-bold text-text-primary mb-2">
                                 {activity.title}

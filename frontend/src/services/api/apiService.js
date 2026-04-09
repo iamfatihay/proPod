@@ -993,6 +993,18 @@ class ApiService {
             })
         );
 
+        // Log any rejected podcast comment fetches so partial-inbox failures are visible
+        commentResults.forEach((result, idx) => {
+            if (result.status === "rejected") {
+                const podcast = podcasts[idx];
+                Logger.warn(
+                    `getCreatorCommentInbox: failed to fetch comments for podcast ` +
+                    `"${podcast?.title}" (id=${podcast?.id}):`,
+                    result.reason?.message || result.reason
+                );
+            }
+        });
+
         return commentResults
             .filter((result) => result.status === "fulfilled")
             .flatMap((result) => result.value)
