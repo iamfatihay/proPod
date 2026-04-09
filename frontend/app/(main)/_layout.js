@@ -12,12 +12,18 @@ import {
     DeviceEventEmitter,
     AppState,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BottomMiniPlayer from "../../src/components/audio/BottomMiniPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
 import useNotificationStore from "../../src/context/useNotificationStore";
 import { COLORS, FONT_SIZES, BORDER_RADIUS } from "../../src/constants/theme";
 
 const { width: screenWidth } = Dimensions.get("window");
+
+const getCreateTabMetrics = () => ({
+    tabSize: Platform.OS === "ios" ? 64 : 60,
+    topOffset: Platform.OS === "ios" ? -28 : -26,
+});
 
 const TabIcon = ({ icon, color, focused, badge }) => {
     return (
@@ -64,8 +70,7 @@ const CreateTab = () => {
     const [open, setOpen] = useState(false);
 
     // Responsive tab button size
-    const tabSize = Platform.OS === "ios" ? 64 : 60;
-    const topOffset = Platform.OS === "ios" ? -28 : -26;
+    const { tabSize, topOffset } = getCreateTabMetrics();
 
     const handleCreatePress = () => setOpen(true);
 
@@ -101,10 +106,6 @@ const CreateTab = () => {
                     borderWidth: 4,
                     borderColor: COLORS.background,
                     overflow: 'hidden',
-                    // Android elevation
-                    ...(Platform.OS === "android" && {
-                        elevation: 8,
-                    }),
                 }}
             >
                 <Image
@@ -123,7 +124,7 @@ const CreateTab = () => {
                 animationType="fade"
                 onRequestClose={() => setOpen(false)}
             >
-                <View className="flex-1 bg-black/60 items-center justify-center px-6">
+                <View className="flex-1 bg-black/80 items-center justify-center px-6">
                     <View className="w-full bg-panel rounded-2xl p-5 border border-border">
                         <Text className="text-text-primary text-lg font-semibold mb-2">
                             Create Content
@@ -174,9 +175,14 @@ const CreateTab = () => {
     );
 };
 
+const CreateTabPlaceholder = ({ style }) => {
+    return <View pointerEvents="none" style={style} />;
+};
+
 export default function TabLayout() {
     const router = useRouter();
     const pathname = usePathname();
+    const insets = useSafeAreaInsets();
 
     // PERFORMANCE FIX: Use selective subscriptions for mini player
     // Avoid subscribing to fast-changing position/duration in tab layout
@@ -220,7 +226,12 @@ export default function TabLayout() {
 
     // Responsive tab bar height
     const tabBarHeight =
-        Platform.OS === "ios" ? (screenWidth > 375 ? 90 : 84) : 84;
+        Platform.OS === "ios" ? (screenWidth > 375 ? 92 : 88) : 100;
+    const tabBarPaddingBottom =
+        Platform.OS === "ios" ? Math.max(insets.bottom, 8) : 12;
+    const tabBarPaddingTop = Platform.OS === "ios" ? 8 : 8;
+    const createTabBottomOffset =
+        Platform.OS === "ios" ? tabBarPaddingBottom + 40 : tabBarPaddingBottom + 44;
 
     const handleMiniPlayerExpand = () => {
         if (currentTrack) {
@@ -265,164 +276,181 @@ export default function TabLayout() {
 
     return (
         <View style={{ flex: 1 }}>
-            <Tabs
-                screenOptions={{
-                    headerShown: false,
-                    tabBarShowLabel: false,
-                    tabBarActiveTintColor: COLORS.primary,
-                    tabBarInactiveTintColor: COLORS.text.muted,
-                    tabBarStyle: {
-                        backgroundColor: COLORS.background,
-                        borderTopWidth: 1,
-                        borderTopColor: COLORS.border,
-                        height: tabBarHeight,
-                        paddingBottom: Platform.OS === "ios" ? 6 : 0,
+            <View style={{ flex: 1 }}>
+                <Tabs
+                    screenOptions={{
+                        headerShown: false,
+                        tabBarShowLabel: false,
+                        tabBarActiveTintColor: COLORS.primary,
+                        tabBarInactiveTintColor: COLORS.text.muted,
+                        tabBarStyle: {
+                            backgroundColor: COLORS.background,
+                            borderTopWidth: 1,
+                            borderTopColor: COLORS.border,
+                            height: tabBarHeight,
+                            paddingBottom: tabBarPaddingBottom,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            paddingHorizontal: 8,
+                            paddingTop: tabBarPaddingTop,
+                        },
+                    }}
+                >
+                    <Tabs.Screen
+                        name="home"
+                        options={{
+                            tabBarIcon: ({ color, focused }) => (
+                                <TabIcon
+                                    icon={focused ? "home" : "home-outline"}
+                                    color={color}
+                                    focused={focused}
+                                />
+                            ),
+                            tabBarButton: (props) => (
+                                <TouchableOpacity
+                                    {...props}
+                                    onPress={() => handleHomePress(props.onPress)}
+                                    activeOpacity={0.7}
+                                />
+                            ),
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="library"
+                        options={{
+                            tabBarIcon: ({ color, focused }) => (
+                                <TabIcon
+                                    icon={focused ? "library" : "library-outline"}
+                                    color={color}
+                                    focused={focused}
+                                />
+                            ),
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="create"
+                        options={{
+                            tabBarButton: (props) => (
+                                <CreateTabPlaceholder style={props.style} />
+                            ),
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="search"
+                        options={{
+                            tabBarIcon: ({ color, focused }) => (
+                                <TabIcon
+                                    icon={focused ? "search" : "search-outline"}
+                                    color={color}
+                                    focused={focused}
+                                />
+                            ),
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="notifications"
+                        options={{
+                            tabBarIcon: ({ color, focused }) => (
+                                <TabIcon
+                                    icon={
+                                        focused
+                                            ? "notifications"
+                                            : "notifications-outline"
+                                    }
+                                    color={color}
+                                    focused={focused}
+                                    badge={unreadCount}
+                                />
+                            ),
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="details"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="edit-podcast"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="activity"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="activity-details"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="messages"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="chat-details"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="settings"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="profile"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="creator-profile"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="analytics"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="playlists"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="playlist-detail"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                </Tabs>
+
+                <View
+                    pointerEvents="box-none"
+                    style={{
+                        position: "absolute",
+                        left: 0,
+                        right: 0,
+                        bottom: createTabBottomOffset,
                         alignItems: "center",
-                        justifyContent: "center",
-                        paddingHorizontal: 8,
-                        paddingTop: 6,
-                    },
-                }}
-            >
-                <Tabs.Screen
-                    name="home"
-                    options={{
-                        tabBarIcon: ({ color, focused }) => (
-                            <TabIcon
-                                icon={focused ? "home" : "home-outline"}
-                                color={color}
-                                focused={focused}
-                            />
-                        ),
-                        tabBarButton: (props) => (
-                            <TouchableOpacity
-                                {...props}
-                                onPress={() => handleHomePress(props.onPress)}
-                                activeOpacity={0.7}
-                            />
-                        ),
                     }}
-                />
-                <Tabs.Screen
-                    name="library"
-                    options={{
-                        tabBarIcon: ({ color, focused }) => (
-                            <TabIcon
-                                icon={focused ? "library" : "library-outline"}
-                                color={color}
-                                focused={focused}
-                            />
-                        ),
-                    }}
-                />
-                <Tabs.Screen
-                    name="create"
-                    options={{
-                        tabBarButton: () => <CreateTab />,
-                    }}
-                />
-                <Tabs.Screen
-                    name="search"
-                    options={{
-                        tabBarIcon: ({ color, focused }) => (
-                            <TabIcon
-                                icon={focused ? "search" : "search-outline"}
-                                color={color}
-                                focused={focused}
-                            />
-                        ),
-                    }}
-                />
-                <Tabs.Screen
-                    name="notifications"
-                    options={{
-                        tabBarIcon: ({ color, focused }) => (
-                            <TabIcon
-                                icon={
-                                    focused
-                                        ? "notifications"
-                                        : "notifications-outline"
-                                }
-                                color={color}
-                                focused={focused}
-                                badge={unreadCount}
-                            />
-                        ),
-                    }}
-                />
-                <Tabs.Screen
-                    name="details"
-                    options={{
-                        href: null,
-                    }}
-                />
-                <Tabs.Screen
-                    name="edit-podcast"
-                    options={{
-                        href: null,
-                    }}
-                />
-                <Tabs.Screen
-                    name="activity"
-                    options={{
-                        href: null,
-                    }}
-                />
-                <Tabs.Screen
-                    name="activity-details"
-                    options={{
-                        href: null,
-                    }}
-                />
-                <Tabs.Screen
-                    name="messages"
-                    options={{
-                        href: null,
-                    }}
-                />
-                <Tabs.Screen
-                    name="chat-details"
-                    options={{
-                        href: null,
-                    }}
-                />
-                <Tabs.Screen
-                    name="settings"
-                    options={{
-                        href: null,
-                    }}
-                />
-                <Tabs.Screen
-                    name="profile"
-                    options={{
-                        href: null,
-                    }}
-                />
-                <Tabs.Screen
-                    name="creator-profile"
-                    options={{
-                        href: null,
-                    }}
-                />
-                <Tabs.Screen
-                    name="analytics"
-                    options={{
-                        href: null,
-                    }}
-                />
-                <Tabs.Screen
-                    name="playlists"
-                    options={{
-                        href: null,
-                    }}
-                />
-                <Tabs.Screen
-                    name="playlist-detail"
-                    options={{
-                        href: null,
-                    }}
-                />
-            </Tabs>
+                >
+                    <CreateTab />
+                </View>
+            </View>
 
             {/* Debug MiniPlayer State */}
             {/* {__DEV__ && (
@@ -453,6 +481,7 @@ export default function TabLayout() {
                 isVisible={showMiniPlayer}
                 track={currentTrack}
                 isPlaying={isPlaying}
+                bottomOffset={tabBarHeight}
                 onPlayPause={handleMiniPlayerPlayPause}
                 onNext={next}
                 onClose={handleMiniPlayerClose}

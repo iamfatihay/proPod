@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import useAudioStore from "../../context/useAudioStore";
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -29,6 +28,7 @@ const BottomMiniPlayer = ({
     isVisible = false,
     track = null,
     isPlaying = false,
+    bottomOffset = 84,
     onPlayPause,
     onNext,
     onClose,
@@ -39,7 +39,6 @@ const BottomMiniPlayer = ({
     // Subscribe to fast-changing state only in this component
     const position = useAudioStore((state) => state.position);
     const duration = useAudioStore((state) => state.duration);
-    const insets = useSafeAreaInsets();
     const [slideAnim] = useState(new Animated.Value(100));
     const [progressAnim] = useState(new Animated.Value(0));
 
@@ -85,11 +84,10 @@ const BottomMiniPlayer = ({
         <Animated.View
             style={{
                 position: "absolute",
-                bottom: 37 + insets.bottom, // Tab bar height (60) + safe area
+                bottom: bottomOffset,
                 left: 0,
                 right: 0,
                 transform: [{ translateY: slideAnim }],
-                zIndex: 1000,
                 // Shadow for elevation
                 ...(Platform.OS === "ios"
                     ? {
@@ -98,9 +96,7 @@ const BottomMiniPlayer = ({
                         shadowOpacity: 0.3,
                         shadowRadius: 8,
                     }
-                    : {
-                        elevation: 16,
-                    }),
+                    : {}),
             }}
         >
             {/* Progress Bar */}

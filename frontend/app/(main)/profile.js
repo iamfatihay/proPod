@@ -26,6 +26,7 @@ import Logger from "../../src/utils/logger";
 import PhotoOptionsModal from "../../src/components/PhotoOptionsModal";
 import PermissionModal from "../../src/components/PermissionModal";
 import InfoModal from "../../src/components/InfoModal";
+import { useToast } from "../../src/components/Toast";
 
 const dummyPodcasts = [
     { id: 1, title: "My First Podcast" },
@@ -37,6 +38,7 @@ export default function Profile() {
     const user = useAuthStore((state) => state.user);
     const logout = useAuthStore((state) => state.logout);
     const router = useRouter();
+    const { showToast } = useToast();
     const [modalVisible, setModalVisible] = React.useState(false);
     const [avatarPreviewVisible, setAvatarPreviewVisible] =
         React.useState(false);
@@ -232,12 +234,13 @@ export default function Profile() {
         setLoading(true);
         setError("");
         try {
-            // Backend'e güncelleme isteği at
             const updated = await apiService.updateProfile({ name: editName });
-            setUser(updated.user);
+            setUser(updated);
+            setEditName(updated.name || editName.trim());
             setModalVisible(false);
+            showToast("Profile updated successfully", "success");
         } catch (e) {
-            setError("Update failed. Please try again.");
+            setError(e?.detail || e?.message || "Update failed. Please try again.");
         } finally {
             setLoading(false);
         }

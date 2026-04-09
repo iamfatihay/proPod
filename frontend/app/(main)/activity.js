@@ -14,10 +14,6 @@ import { COLORS, FONT_SIZES, BORDER_RADIUS } from "../../src/constants/theme";
 import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOptions";
 import { formatTimeAgo } from "../../src/utils/formatTimeAgo";
 
- ago`;
-    return new Date(timestamp).toLocaleDateString();
-};
-
 const typeIconMap = {
     comment: "chatbubble-outline",
     like: "heart-outline",
