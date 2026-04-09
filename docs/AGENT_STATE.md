@@ -15,9 +15,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-08
-**Last session:** Added Alembic migrations for `playlists`, `playlist_items`, and `notifications` tables — migration `a1b2c3d4e5f6`. Upgrade + downgrade both validated. PR opened. Test suite: 334 passed.
-**Test suite baseline:** 334 backend tests — all passing (0 failures). Confirmed this session.
+**Last updated:** 2026-04-09
+**Last session:** Added 25-test `useNotificationStore.test.js` + 5 notification API tests in `apiService.test.js`. Also fixed bug in `markAsReadWithSync` (API was called even for already-read notifications). PR #48 opened. Full suite: 185 frontend tests, all passing.
+**Test suite baseline:** 334 backend tests — all passing. 185 frontend tests — all passing.
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -45,23 +45,28 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ### What's open / in-progress
 - **PR #47**: `feat: add Alembic migrations for playlists, playlist_items, and notifications tables` — https://github.com/iamfatihay/proPod/pull/47 — branch `feat/alembic-migrations-playlists-notifications`
   - Migration `a1b2c3d4e5f6` — creates `playlists`, `playlist_items`, `notifications` tables with all indexes and constraints
-  - Upstream: `788d6da0a208` (Add RTC participants and live status)
-  - Upgrade + downgrade both tested on SQLite, 334 backend tests pass
+  - No review comments — awaiting Fay's merge
+
+- **PR #48**: `test: notification store + API coverage + fix markAsReadWithSync no-op bug` — https://github.com/iamfatihay/proPod/pull/48 — branch `test/notification-store-and-api-coverage`
+  - New `useNotificationStore.test.js` — 25 tests (fetchNotifications merge logic, markAsReadWithSync guards, markAllAsReadWithSync resilience, local mutations)
+  - Extended `apiService.test.js` — 5 notification API tests (getNotifications, markNotificationRead, markAllNotificationsRead)
+  - Bug fix: `markAsReadWithSync` now early-returns if notification already read; no spurious PATCH call
+  - 185/185 frontend tests pass
 
 ### Known issues / tech debt
-- ~~No Alembic migration for `notifications` table (or Playlist tables)~~ — fixed this session (PR #47)
-- Frontend has very few automated tests (backend well-covered at 334 tests)
+- No Alembic migration for `notifications` + `playlists` tables on prod (PR #47 pending merge)
 - Chat screen still uses dummy/mock data — no backend for it yet
-- Several old feature branches still exist on remote and likely abandoned — audit if needed
+- Frontend tests growing but component-level coverage is still thin
+- Several old feature branches still exist on remote and likely abandoned
 
 ---
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **Alembic migrations** — add migration for `notifications` + `playlists` tables so prod deployment is safe
-2. **Frontend tests** — coverage is thin; add service-level tests for notificationsService / apiService methods
-3. **Chat screen** — replace dummy data with a real backend (or decide to scope it out)
-4. **Push notifications** — APNs/FCM integration for out-of-app delivery of like/comment events
+1. **Alembic migrations** (PR #47) — merge unblocks safe prod deploys
+2. **Chat screen backend** — replace dummy data with real messages API (simple model, REST endpoint, wire frontend)
+3. **Push notifications** — APNs/FCM for out-of-app delivery of like/comment events
+4. **Frontend component tests** — PodcastCard, NotificationsScreen interactions
 
 ---
 
@@ -84,6 +89,10 @@ grep -n "const funcName" frontend/app/(main)/home.js
 ```
 A `const` redeclaration in the same scope = SyntaxError crash. Fix immediately on master.
 
+### apiService token cache
+
+`ApiService` keeps an in-memory `this.token` cache. In tests, after the 401-retry test sets a new token, subsequent tests see a stale token. Fix: call `apiService.clearToken()` in a `beforeEach` inside any `describe` block added after the Error Handling section.
+
 ---
 
 ## 🧠 Agent Instructions: How to Use This File
@@ -103,8 +112,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FRONTEND] Add unit tests for `apiService` notification methods** — `frontend/src/services/api/__tests__/` already exists; add `notificationsApi.test.js` covering `getNotifications`, `markNotificationRead`, `markAllNotificationsRead` with mocked fetch. Directly improves frontend code confidence.
+1. **[FRONTEND] Chat screen backend** — Replace dummy data in `frontend/app/(main)/chat-details.js`. Design a simple `messages` model in `backend/app/models.py`, add a REST router at `backend/app/routers/messages.py`, add `apiService.getMessages(chatId)` + `sendMessage()`, and wire the frontend screen. This completes a visible placeholder and unblocks real user-to-user messaging.
 
-2. **[FRONTEND] Chat screen backend** — replace dummy data in `frontend/app/(main)/chat-details.js` with real messages API. Scope: design a simple chat model in backend, REST endpoint, and wire the frontend screen. High user-facing value.
+2. **[BACKEND] Check & merge PR #47** (Alembic migrations) — If Fay has not merged, verify the migration still applies cleanly on top of master. Required before any production deployment.
 
-3. **[BACKEND] Push notifications (APNs/FCM)** — out-of-app delivery of like/comment events using Expo's push notification service. Requires adding `expo_push_token` field to User model + a new migration + Expo SDK integration in frontend. Very high user value for engagement.
+3. **[FRONTEND] NotificationsScreen integration tests** — Add a test in `frontend/src/context/__tests__/` that mounts `NotificationsScreen`, fires `fetchNotifications` with mocked API, and asserts the notification cards render. Raises confidence for the full notification user flow.
