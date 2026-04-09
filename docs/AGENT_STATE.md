@@ -9,15 +9,15 @@
 
 **proPod** is a cross-platform (iOS + Android) mobile application for creating, broadcasting, and editing podcasts — with AI assistance. The primary users are podcast creators and listeners. The app must work smoothly on real devices, feel polished, and support the full creator workflow: record → edit → publish → share → live broadcast.
 
-Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · PostgreSQL (prod) / SQLite (dev/test)
+Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · PostgreSQL (runtime/dev/prod) · SQLite only for isolated test scenarios
 
 ---
 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-09
-**Last session:** Added 25-test `useNotificationStore.test.js` + 5 notification API tests in `apiService.test.js`. Also fixed bug in `markAsReadWithSync` (API was called even for already-read notifications). PR #48 opened. Full suite: 185 frontend tests, all passing.
-**Test suite baseline:** 334 backend tests — all passing. 185 frontend tests — all passing.
+**Last session:** Merged PR #47 and PR #48 into `master`, then opened PR #49 for navigation wiring, real creator inbox/activity flows, secondary screen header consistency, Notification admin visibility, and related API test coverage. Verified: `npx jest src/services/api/__tests__/apiService.test.js --runInBand` passes, `DATABASE_URL=sqlite:///./propod_test.sqlite pytest tests/test_notifications.py -q` passes. Pre-commit full backend suite is currently blocked by an existing sharing test failure: `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`.
+**Test suite baseline:** 185 frontend tests — passing on latest verified run. Backend targeted notification suite passes; full backend suite needs re-baselining because of the known sharing test failure above.
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -41,21 +41,21 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Native Google Sign-In hardened — server-side token validation + stale-test fix (PR #42, PR #44, merged by Fay)
 - ✅ Notifications backend + API wiring — model, CRUD, REST endpoints, frontend store + screen (PR #45, merged by Fay)
 - ✅ Notification badge wired to server unread_count — `fetchNotifications` on mount + AppState foreground refresh (PR #46, merged by Fay)
+- ✅ Alembic migrations for `playlists`, `playlist_items`, and `notifications` tables (PR #47, merged by Fay)
+- ✅ Notification store + API coverage; `markAsReadWithSync` no-op guard fix (PR #48, merged by Fay)
 
 ### What's open / in-progress
-- **PR #47**: `feat: add Alembic migrations for playlists, playlist_items, and notifications tables` — https://github.com/iamfatihay/proPod/pull/47 — branch `feat/alembic-migrations-playlists-notifications`
-  - Migration `a1b2c3d4e5f6` — creates `playlists`, `playlist_items`, `notifications` tables with all indexes and constraints
-  - No review comments — awaiting Fay's merge
-
-- **PR #48**: `test: notification store + API coverage + fix markAsReadWithSync no-op bug` — https://github.com/iamfatihay/proPod/pull/48 — branch `test/notification-store-and-api-coverage`
-  - New `useNotificationStore.test.js` — 25 tests (fetchNotifications merge logic, markAsReadWithSync guards, markAllAsReadWithSync resilience, local mutations)
-  - Extended `apiService.test.js` — 5 notification API tests (getNotifications, markNotificationRead, markAllNotificationsRead)
-  - Bug fix: `markAsReadWithSync` now early-returns if notification already read; no spurious PATCH call
-  - 185/185 frontend tests pass
+- **PR #49**: `feat(navigation): wire studio flows, inbox, and secondary headers` — https://github.com/iamfatihay/proPod/pull/49 — branch `feature/navigation-wiring-inbox-consistency`
+  - Fixes extra bottom-tab leak by hiding `creator-profile` and other secondary routes with `href: null`
+  - Adds `messages.js` and `activity.js` as real parent screens wired from Studio quick actions
+  - Replaces mock inbox data with `apiService.getCreatorCommentInbox()` aggregated from real podcast comments
+  - Unifies back navigation with `buildSecondaryScreenOptions()` across analytics/activity/messages/detail screens
+  - Adds `NotificationAdmin` to SQLAdmin and extends `apiService.test.js` for creator inbox aggregation
+  - Keeps `docs/testing/MANUAL_REGRESSION_REENTRY_GUIDE.md` local-only via `.git/info/exclude`
 
 ### Known issues / tech debt
-- No Alembic migration for `notifications` + `playlists` tables on prod (PR #47 pending merge)
-- Chat screen still uses dummy/mock data — no backend for it yet
+- No real DM/user-to-user messaging backend yet; `messages.js` now shows real comment inbox data, but `chat-details.js` is still a comment-detail surface rather than a true chat thread
+- Full backend pre-commit currently hits an existing failure in `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`
 - Frontend tests growing but component-level coverage is still thin
 - Several old feature branches still exist on remote and likely abandoned
 
@@ -63,10 +63,11 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **Alembic migrations** (PR #47) — merge unblocks safe prod deploys
-2. **Chat screen backend** — replace dummy data with real messages API (simple model, REST endpoint, wire frontend)
-3. **Push notifications** — APNs/FCM for out-of-app delivery of like/comment events
-4. **Frontend component tests** — PodcastCard, NotificationsScreen interactions
+1. **Review and merge PR #49** — navigation wiring, creator inbox, activity feed, and secondary-header consistency are user-visible and nearly complete
+2. **Investigate/fix sharing test failure** — restore a green full-backend pre-commit baseline
+3. **DM/chat backend** — add a real messages model/router if true creator-listener or user-to-user messaging is still desired
+4. **Push notifications** — APNs/FCM for out-of-app delivery of like/comment events
+5. **Frontend component tests** — PodcastCard, NotificationsScreen interactions
 
 ---
 
@@ -112,8 +113,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FRONTEND] Chat screen backend** — Replace dummy data in `frontend/app/(main)/chat-details.js`. Design a simple `messages` model in `backend/app/models.py`, add a REST router at `backend/app/routers/messages.py`, add `apiService.getMessages(chatId)` + `sendMessage()`, and wire the frontend screen. This completes a visible placeholder and unblocks real user-to-user messaging.
+1. **[REVIEW] Land PR #49** — Review and merge the navigation/inbox/activity work if manual smoke testing on device looks clean. Focus on Studio quick actions, creator profile navigation, and secondary-screen back behavior.
 
-2. **[BACKEND] Check & merge PR #47** (Alembic migrations) — If Fay has not merged, verify the migration still applies cleanly on top of master. Required before any production deployment.
+2. **[BACKEND] Fix the sharing regression test** — Investigate `tests/test_sharing.py::TestSharePodcastPublic::test_relative_audio_url_gets_base_url_prefix`, patch the root cause, and restore a green pre-commit backend baseline.
 
-3. **[FRONTEND] NotificationsScreen integration tests** — Add a test in `frontend/src/context/__tests__/` that mounts `NotificationsScreen`, fires `fetchNotifications` with mocked API, and asserts the notification cards render. Raises confidence for the full notification user flow.
+3. **[FRONTEND+BACKEND] Real chat/messages backend** — If product still wants true messaging, design a dedicated `messages` model and REST API instead of continuing to overload comment-detail UI.
