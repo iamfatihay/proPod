@@ -58,6 +58,9 @@ class User(Base):
     listening_history = relationship("ListeningHistory", back_populates="user", cascade="all, delete-orphan")
     comments = relationship("PodcastComment", back_populates="user", cascade="all, delete-orphan")
     playlists = relationship("Playlist", back_populates="owner", cascade="all, delete-orphan")
+    # Following relationships — who this user follows and who follows them
+    following = relationship("UserFollow", foreign_keys="UserFollow.follower_id", back_populates="follower", cascade="all, delete-orphan")
+    followers = relationship("UserFollow", foreign_keys="UserFollow.followed_id", back_populates="followed", cascade="all, delete-orphan")
 
 
 class Podcast(Base):
@@ -486,4 +489,34 @@ class Notification(Base):
     __table_args__ = (
         Index("idx_notifications_user_read", "user_id", "read"),
         Index("idx_notifications_created", "created_at"),
+    )
+
+
+class UserFollow(Base):
+    """
+    Tracks which users follow which creators.
+
+    follower: the user who pressed "Follow"
+    followed: the creator being followed
+    """
+    __tablename__ = "user_follows"
+
+    id = Column(Integer, primary_key=True, index=True)
+    follower_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    followed_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+        nullable=False,
+    )
+
+    # Relationships
+    follower = relationship("User", foreign_keys=[follower_id], back_populates="following")
+    followed = relationship("User", foreign_keys=[followed_id], back_populates="followers")
+
+    __table_args__ = (
+        # One follow per (follower, followed) pair
+        UniqueConstraint("follower_id", "followed_id", name="unique_user_follow"),
+        Index("idx_user_follows_follower", "follower_id"),
+        Index("idx_user_follows_followed", "followed_id"),
     )

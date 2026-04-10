@@ -431,6 +431,40 @@ class ApiService {
     }
 
     /**
+     * Follow a creator.
+     *
+     * @param {number} userId - ID of the creator to follow
+     * @returns {Promise<Object>} { detail: "Now following" }
+     * @throws {Error} If already following (400) or user not found (404)
+     */
+    async followCreator(userId) {
+        return this.request(`/users/${userId}/follow`, { method: "POST" });
+    }
+
+    /**
+     * Unfollow a creator.
+     *
+     * @param {number} userId - ID of the creator to unfollow
+     * @returns {Promise<Object>} { detail: "Unfollowed" }
+     * @throws {Error} If not following (404)
+     */
+    async unfollowCreator(userId) {
+        return this.request(`/users/${userId}/follow`, { method: "DELETE" });
+    }
+
+    /**
+     * Get the list of creators the current user is following.
+     *
+     * @param {Object} [params] - Pagination
+     * @param {number} [params.skip=0]
+     * @param {number} [params.limit=50]
+     * @returns {Promise<{ following: FollowedCreatorItem[], total: number }>}
+     */
+    async getFollowingList({ skip = 0, limit = 50 } = {}) {
+        return this.request(`/users/me/following?skip=${skip}&limit=${limit}`);
+    }
+
+    /**
      * Update user profile
      *
      * @param {Object} profileData - Profile data to update
