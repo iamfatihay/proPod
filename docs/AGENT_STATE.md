@@ -15,9 +15,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-09
-**Last session:** Reconciled state — PR #49 (`feature/navigation-wiring-inbox-consistency`) was merged by Fay. Sharing regression test (`test_relative_audio_url_gets_base_url_prefix`) now passes on its own — full backend suite is green: **334 passed**. Implemented sleep timer feature (PR #50): `setSleepTimer(minutes)` / `cancelSleepTimer()` in audio store, `SleepTimerModal` component with 5–60 min presets and live countdown, moon-crescent button in `ModernAudioPlayer` secondary controls. All three changed files pass `node --check`.
-**Test suite baseline:** Backend: 334 passed (full suite, SQLite). Frontend: node_modules not installed in sandbox — `node --check` used for syntax validation on changed files.
+**Last updated:** 2026-04-10
+**Last session:** Reconciled state — PR #49 already merged by Fay; full backend suite green (**334 passed**); sharing regression resolved. Added **21 Jest tests** for the sleep timer store logic (`useAudioStore.sleepTimer.test.js`) covering `setSleepTimer`, `cancelSleepTimer`, timer expiry (auto-pause), cleanup, and edge cases. Pushed to `feature/sleep-timer` (PR #50) and updated PR description. Frontend suite: **208 passed, 0 failed** (↑ from 185 baseline; +21 sleep timer tests + 2 from prior sessions).
+**Test suite baseline:** Backend: 334 passed (full suite, SQLite). Frontend: 208 passed (Jest, node_modules installed in sandbox this session).
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -50,11 +50,12 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
   - `useAudioStore`: `sleepTimerActive`, `sleepTimerEndTime`, `sleepTimerRemaining` state; `setSleepTimer(minutes)` / `cancelSleepTimer()` actions; cleanup cancels any running timer
   - `SleepTimerModal`: new bottom-sheet with 5/10/15/30/45/60 min presets, live countdown, Cancel Timer button
   - `ModernAudioPlayer`: moon-crescent icon in secondary controls; red tint + remaining minutes when active; opens modal on tap
+  - `useAudioStore.sleepTimer.test.js`: **21 Jest tests** — state, countdown, expiry, edge cases, cleanup (added this session)
 
 ### Known issues / tech debt
 - No real DM/user-to-user messaging backend yet; `messages.js` shows real comment inbox data, but `chat-details.js` is still a comment-detail surface rather than a true chat thread
 - Full backend suite is now green (334 passed) — the sharing test failure is resolved
-- Frontend tests: node_modules not installed in sandbox; jest suite unknown; component-level coverage still thin
+- Frontend tests: 208 passing (jest suite now verified in sandbox); component-level coverage still thin — component tests are excluded from the default jest run via `testPathIgnorePatterns`
 - Several old feature branches on remote are likely abandoned (pre-PR #39 era)
 - Sleep timer relies on `setInterval` — should smoke-test on device to verify accuracy and no battery drain
 
@@ -112,8 +113,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[REVIEW] Land PR #50 (sleep timer)** — Smoke-test on device: set a 1-min timer, verify audio stops, verify countdown updates in the player UI, verify Cancel Timer works. Merge if clean. Focus on `ModernAudioPlayer` secondary controls and `SleepTimerModal`.
+1. **[REVIEW] Land PR #50 (sleep timer)** — Smoke-test on device: set a 1-min timer, verify audio stops, verify countdown updates in the player UI, verify Cancel Timer works. Merge if clean. The store logic now has 21 passing Jest tests for confidence. Focus on `ModernAudioPlayer` secondary controls and `SleepTimerModal`.
 
-2. **[FEATURE] "End of episode" sleep option** — Extend `SleepTimerModal` with a special "End of episode" option that stops playback when the current track reaches its end (listen for track-finished event in `onPlaybackStatusUpdate`, check a `sleepOnEpisodeEnd` flag). File: `useAudioStore.js` + `SleepTimerModal.js`.
+2. **[FEATURE] "End of episode" sleep option** — Extend `SleepTimerModal` with a special "End of episode" option that stops playback when the current track reaches its end (check `sleepOnEpisodeEnd` flag in `onPlaybackStatusUpdate`). Files: `useAudioStore.js` + `SleepTimerModal.js`. This is a natural follow-up and very low risk.
 
 3. **[FRONTEND+BACKEND] Real DM / chat backend** — Design a `messages` table (sender_id, recipient_id, body, created_at) and REST router (`/messages`), then wire `chat-details.js` to it instead of the comment-detail surface. Start with the backend model + two endpoints: `POST /messages` and `GET /messages/thread/{user_id}`.
