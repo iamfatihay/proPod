@@ -66,6 +66,7 @@ const ModernAudioPlayer = React.memo(
         // Sleep timer — subscribe here so the indicator stays in sync
         const sleepTimerActive = useAudioStore((state) => state.sleepTimerActive);
         const sleepTimerRemaining = useAudioStore((state) => state.sleepTimerRemaining);
+        const sleepOnEpisodeEnd = useAudioStore((state) => state.sleepOnEpisodeEnd);
 
         // Modal state
         const [sleepTimerModalVisible, setSleepTimerModalVisible] = useState(false);
@@ -482,13 +483,19 @@ const ModernAudioPlayer = React.memo(
                             accessibilityLabel={
                                 sleepTimerActive
                                     ? `Sleep timer: ${sleepTimerLabel()} remaining`
+                                    : sleepOnEpisodeEnd
+                                    ? "Sleep timer: end of episode"
                                     : "Set sleep timer"
                             }
                         >
                             <MaterialCommunityIcons
                                 name="moon-waning-crescent"
                                 size={22}
-                                color={sleepTimerActive ? "#D32F2F" : "#888888"}
+                                color={
+                                    sleepTimerActive || sleepOnEpisodeEnd
+                                        ? "#D32F2F"
+                                        : "#888888"
+                                }
                             />
                             {sleepTimerActive && (
                                 <Text
@@ -499,6 +506,17 @@ const ModernAudioPlayer = React.memo(
                                     }}
                                 >
                                     {sleepTimerLabel()}
+                                </Text>
+                            )}
+                            {sleepOnEpisodeEnd && (
+                                <Text
+                                    style={{
+                                        color: "#D32F2F",
+                                        fontSize: 12,
+                                        fontWeight: "600",
+                                    }}
+                                >
+                                    End
                                 </Text>
                             )}
                         </TouchableOpacity>

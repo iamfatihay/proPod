@@ -35,6 +35,7 @@ const useAudioStore = create(
         sleepTimerEndTime: null,   // absolute ms timestamp when audio should stop
         sleepTimerRemaining: 0,    // ms remaining — updated each second for UI countdown
         _sleepTimerIntervalId: null,
+        sleepOnEpisodeEnd: false,  // stop playback when the current episode finishes
 
         // Error Handling
         error: null,
@@ -747,6 +748,20 @@ const useAudioStore = create(
                             currentTime >= totalDuration - 100) // 100ms tolerance
                     ) {
                         const state = get();
+
+                        // Sleep-on-episode-end: stop instead of advancing
+                        if (state.sleepOnEpisodeEnd) {
+                            Logger.log("[SleepTimer] Episode ended — stopping playback (sleepOnEpisodeEnd)");
+                            if (state.sound) {
+                                try { state.sound.pause(); } catch (e) { /* ignore */ }
+                            }
+                            set({
+                                isPlaying: false,
+                                sleepOnEpisodeEnd: false,
+                            });
+                            return;
+                        }
+
                         const hasNext =
                             state.currentIndex < state.queue.length - 1;
                         const willRepeat = state.repeatMode === "all";
@@ -870,6 +885,7 @@ const useAudioStore = create(
                 sleepTimerEndTime: endTime,
                 sleepTimerRemaining: minutes * 60 * 1000,
                 _sleepTimerIntervalId: intervalId,
+                sleepOnEpisodeEnd: false, // time-based timer supersedes episode-end mode
             });
 
             Logger.log(`[SleepTimer] Set for ${minutes} minutes`);
@@ -885,8 +901,37 @@ const useAudioStore = create(
                 sleepTimerEndTime: null,
                 sleepTimerRemaining: 0,
                 _sleepTimerIntervalId: null,
+                sleepOnEpisodeEnd: false,
             });
             Logger.log("[SleepTimer] Cancelled");
+        },
+
+        /**
+         * setSleepOnEpisodeEnd(enabled)
+         *
+         * When enabled, the next time the current episode finishes, playback
+         * stops instead of advancing to the next track.  Cancels any active
+         * time-based sleep timer since they are mutually exclusive.
+         */
+        setSleepOnEpisodeEnd: (enabled) => {
+            if (enabled) {
+                // Cancel any running time-based timer — the two modes are mutually exclusive
+                const { _sleepTimerIntervalId } = get();
+                if (_sleepTimerIntervalId) {
+                    clearInterval(_sleepTimerIntervalId);
+                }
+                set({
+                    sleepOnEpisodeEnd: true,
+                    sleepTimerActive: false,
+                    sleepTimerEndTime: null,
+                    sleepTimerRemaining: 0,
+                    _sleepTimerIntervalId: null,
+                });
+                Logger.log("[SleepTimer] Sleep-on-episode-end enabled");
+            } else {
+                set({ sleepOnEpisodeEnd: false });
+                Logger.log("[SleepTimer] Sleep-on-episode-end disabled");
+            }
         },
 
         // Cleanup
@@ -925,6 +970,7 @@ const useAudioStore = create(
                 sleepTimerEndTime: null,
                 sleepTimerRemaining: 0,
                 _sleepTimerIntervalId: null,
+                sleepOnEpisodeEnd: false,
             });
         },
     }))

@@ -15,7 +15,11 @@ import { COLORS } from "../constants/theme";
  * SleepTimerModal
  *
  * Allows the user to set a sleep timer so audio stops automatically after a
- * chosen number of minutes.  Shows a live countdown when a timer is active.
+ * chosen number of minutes, or stops automatically when the current episode ends.
+ *
+ * Modes:
+ *  - Time-based: presets 5/10/15/30/45/60 min → countdown then pause
+ *  - Episode-end: stops when the current episode finishes (no countdown)
  *
  * Usage:
  *   <SleepTimerModal visible={show} onClose={() => setShow(false)} />
@@ -38,13 +42,27 @@ const formatCountdown = (ms) => {
 const SleepTimerModal = ({ visible, onClose }) => {
     const setSleepTimer = useAudioStore((state) => state.setSleepTimer);
     const cancelSleepTimer = useAudioStore((state) => state.cancelSleepTimer);
+    const setSleepOnEpisodeEnd = useAudioStore(
+        (state) => state.setSleepOnEpisodeEnd
+    );
     const sleepTimerActive = useAudioStore((state) => state.sleepTimerActive);
     const sleepTimerRemaining = useAudioStore(
         (state) => state.sleepTimerRemaining
     );
+    const sleepOnEpisodeEnd = useAudioStore(
+        (state) => state.sleepOnEpisodeEnd
+    );
+
+    // Any sleep mode active (time-based OR episode-end)
+    const anyActive = sleepTimerActive || sleepOnEpisodeEnd;
 
     const handlePreset = (minutes) => {
         setSleepTimer(minutes);
+        onClose();
+    };
+
+    const handleEpisodeEnd = () => {
+        setSleepOnEpisodeEnd(true);
         onClose();
     };
 
@@ -72,7 +90,7 @@ const SleepTimerModal = ({ visible, onClose }) => {
                         <Text style={styles.title}>Sleep Timer</Text>
                     </View>
 
-                    {/* Active countdown */}
+                    {/* Active countdown — time-based */}
                     {sleepTimerActive && (
                         <View style={styles.countdownBox}>
                             <Text style={styles.countdownLabel}>
@@ -80,6 +98,21 @@ const SleepTimerModal = ({ visible, onClose }) => {
                             </Text>
                             <Text style={styles.countdown}>
                                 {formatCountdown(sleepTimerRemaining)}
+                            </Text>
+                        </View>
+                    )}
+
+                    {/* Active indicator — episode-end mode */}
+                    {sleepOnEpisodeEnd && (
+                        <View style={styles.countdownBox}>
+                            <MaterialCommunityIcons
+                                name="skip-next-circle-outline"
+                                size={28}
+                                color={COLORS.primary}
+                                style={{ marginBottom: 4 }}
+                            />
+                            <Text style={styles.countdownLabel}>
+                                Pausing after this episode
                             </Text>
                         </View>
                     )}
@@ -103,9 +136,40 @@ const SleepTimerModal = ({ visible, onClose }) => {
                         ))}
                     </View>
 
+                    {/* End-of-episode option */}
+                    <TouchableOpacity
+                        style={[
+                            styles.episodeEndButton,
+                            sleepOnEpisodeEnd && styles.episodeEndButtonActive,
+                        ]}
+                        onPress={handleEpisodeEnd}
+                        accessible
+                        accessibilityRole="button"
+                        accessibilityLabel="Stop after this episode ends"
+                    >
+                        <MaterialCommunityIcons
+                            name="skip-next-circle-outline"
+                            size={18}
+                            color={
+                                sleepOnEpisodeEnd
+                                    ? COLORS.surface || "#fff"
+                                    : COLORS.text.primary
+                            }
+                        />
+                        <Text
+                            style={[
+                                styles.episodeEndText,
+                                sleepOnEpisodeEnd &&
+                                    styles.episodeEndTextActive,
+                            ]}
+                        >
+                            End of episode
+                        </Text>
+                    </TouchableOpacity>
+
                     {/* Cancel / Close buttons */}
                     <View style={styles.footer}>
-                        {sleepTimerActive ? (
+                        {anyActive ? (
                             <TouchableOpacity
                                 style={styles.cancelButton}
                                 onPress={handleCancel}
@@ -187,7 +251,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         flexWrap: "wrap",
         gap: 12,
-        marginBottom: 20,
+        marginBottom: 16,
     },
     presetButton: {
         flex: 1,
@@ -208,6 +272,30 @@ const styles = StyleSheet.create({
         color: COLORS.text.muted,
         fontSize: 12,
         marginTop: 2,
+    },
+    episodeEndButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        backgroundColor: COLORS.card,
+        borderRadius: 12,
+        paddingVertical: 14,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+    },
+    episodeEndButtonActive: {
+        backgroundColor: COLORS.primary,
+        borderColor: COLORS.primary,
+    },
+    episodeEndText: {
+        color: COLORS.text.primary,
+        fontSize: 15,
+        fontWeight: "600",
+    },
+    episodeEndTextActive: {
+        color: COLORS.surface || "#fff",
     },
     footer: {
         alignItems: "center",
