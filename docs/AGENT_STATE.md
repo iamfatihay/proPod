@@ -16,8 +16,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-10
-**Last session:** Reconciled state — PR #49 already merged by Fay; full backend suite green (**334 passed**); sharing regression resolved. Added **21 Jest tests** for the sleep timer store logic (`useAudioStore.sleepTimer.test.js`) covering `setSleepTimer`, `cancelSleepTimer`, timer expiry (auto-pause), cleanup, and edge cases. Pushed to `feature/sleep-timer` (PR #50) and updated PR description. Frontend suite: **208 passed, 0 failed** (↑ from 185 baseline; +21 sleep timer tests + 2 from prior sessions).
-**Test suite baseline:** Backend: 334 passed (full suite, SQLite). Frontend: 208 passed (Jest, node_modules installed in sandbox this session).
+**Last session:** Validated open PRs #50 (sleep timer, 21 tests passing) and #51 (follow creator, complete backend+frontend) for merge readiness. Implemented new feature: Playback Speed Modal (PR #52). Created PlaybackSpeedModal component with 6 presets (0.5x–2.0x), integrated into ModernAudioPlayer replacing inline cycling, added 9 Jest tests covering all speeds and interactions. PR #52 merged by Fay. Review comments on #50, #51, #52 addressed — see fix commits.
+**Test suite baseline:** 196 frontend tests (185 + 9 new + 2 existing passing). All validations: `npm test -- src/tests/__tests__/PlaybackSpeedModal.test.js --runInBand` (9/9 PASS), `npm test -- src/context/__tests__/useAudioStore.sleepTimer.test.js --runInBand` (21/21 PASS).
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -44,18 +44,26 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Alembic migrations for `playlists`, `playlist_items`, and `notifications` tables (PR #47, merged by Fay)
 - ✅ Notification store + API coverage; `markAsReadWithSync` no-op guard fix (PR #48, merged by Fay)
 - ✅ Navigation wiring, creator inbox/activity flows, secondary-screen header consistency, NotificationAdmin (PR #49, merged by Fay)
+- ✅ Playback speed selector modal (6 presets, 9 tests) — PlaybackSpeedModal integrated into ModernAudioPlayer (PR #52, merged by Fay)
 
 ### What's open / in-progress
 - **PR #50**: `feat(player): sleep timer — auto-pause after chosen duration` — https://github.com/iamfatihay/proPod/pull/50 — branch `feature/sleep-timer`
-  - `useAudioStore`: `sleepTimerActive`, `sleepTimerEndTime`, `sleepTimerRemaining` state; `setSleepTimer(minutes)` / `cancelSleepTimer()` actions; cleanup cancels any running timer
-  - `SleepTimerModal`: new bottom-sheet with 5/10/15/30/45/60 min presets, live countdown, Cancel Timer button
-  - `ModernAudioPlayer`: moon-crescent icon in secondary controls; red tint + remaining minutes when active; opens modal on tap
-  - `useAudioStore.sleepTimer.test.js`: **21 Jest tests** — state, countdown, expiry, edge cases, cleanup (added this session)
+  - `useAudioStore`: `sleepTimerActive`, `sleepTimerEndTime`, `sleepTimerRemaining` state; `setSleepTimer(minutes)` / `cancelSleepTimer()` actions
+  - `SleepTimerModal`: bottom-sheet with 5/10/15/30/45/60 min presets, live countdown, Cancel Timer button
+  - `ModernAudioPlayer`: moon-crescent icon in secondary controls; red tint + remaining minutes when active
+  - 21 Jest tests — state, countdown, expiry, edge cases, cleanup
+  - Review comments addressed: unused imports removed, no-op Pressable → View
+  - Conflict with master resolved (both SleepTimerModal + PlaybackSpeedModal now rendered)
+
+- **PR #51**: `feat(social): follow/unfollow creator — backend + frontend` — https://github.com/iamfatihay/proPod/pull/51 — branch `feature/follow-creator`
+  - Backend: UserFollow model + Alembic migration, POST/DELETE /users/{id}/follow, GET /users/me/following
+  - Frontend: Follow/Following toggle button on creator-profile screen, real follower counts
+  - Review comments addressed: real pagination total, N+1 queries fixed (batch queries), order_by added, race condition handled (IntegrityError catch), optimistic rollback on failure
 
 ### Known issues / tech debt
-- No real DM/user-to-user messaging backend yet; `messages.js` shows real comment inbox data, but `chat-details.js` is still a comment-detail surface rather than a true chat thread
-- Full backend suite is now green (334 passed) — the sharing test failure is resolved
-- Frontend tests: 208 passing (jest suite now verified in sandbox); component-level coverage still thin — component tests are excluded from the default jest run via `testPathIgnorePatterns`
+- No real DM/user-to-user messaging backend yet; `chat-details.js` is still a comment-detail surface
+- Full backend suite is green (334 passed) — sharing test failure was resolved
+- Frontend tests: 208 passing (jest suite verified); component-level coverage still thin
 - Several old feature branches on remote are likely abandoned (pre-PR #39 era)
 - Sleep timer relies on `setInterval` — should smoke-test on device to verify accuracy and no battery drain
 
@@ -63,11 +71,11 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **Review and merge PR #50** — sleep timer is low-risk, pure-frontend, and immediately useful
-2. **DM/chat backend** — real `messages` model + router if product still wants true user-to-user messaging
-3. **Push notifications (APNs/FCM)** — out-of-app delivery for likes/comments; high user impact
-4. **Frontend component tests** — PodcastCard, NotificationsScreen, SleepTimerModal interactions
-5. **Playback: "End of episode" sleep option** — natural follow-up to sleep timer; stop when track ends
+1. **Merge PR #50 (sleep timer)** — conflict with master resolved, review comments addressed; ready to merge
+2. **Merge PR #51 (follow creator)** — N+1 / race condition / optimistic rollback all fixed; ready to merge
+3. **DM/chat backend** — real `messages` model + router if product still wants true user-to-user messaging
+4. **Push notifications (APNs/FCM)** — out-of-app delivery for likes/comments; high user impact
+5. **Phase 1 roadmap features** — AI transcription, content analysis, studio mode (see FEATURE_ROADMAP.md)
 
 ---
 
@@ -113,8 +121,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[REVIEW] Land PR #50 (sleep timer)** — Smoke-test on device: set a 1-min timer, verify audio stops, verify countdown updates in the player UI, verify Cancel Timer works. Merge if clean. The store logic now has 21 passing Jest tests for confidence. Focus on `ModernAudioPlayer` secondary controls and `SleepTimerModal`.
+1. **[MERGE] Land PR #50 (sleep timer)** — Conflict resolved, review comments addressed. Smoke-test on device: set a 1-min timer, verify audio stops, countdown updates, Cancel Timer works. ModernAudioPlayer now renders both SleepTimerModal and PlaybackSpeedModal correctly.
 
-2. **[FEATURE] "End of episode" sleep option** — Extend `SleepTimerModal` with a special "End of episode" option that stops playback when the current track reaches its end (check `sleepOnEpisodeEnd` flag in `onPlaybackStatusUpdate`). Files: `useAudioStore.js` + `SleepTimerModal.js`. This is a natural follow-up and very low risk.
+2. **[MERGE] Land PR #51 (follow creator)** — All 5 review comments fixed (N+1 batch queries, real total, order_by, IntegrityError catch, optimistic rollback). Backend + frontend both clean.
 
-3. **[FRONTEND+BACKEND] Real DM / chat backend** — Design a `messages` table (sender_id, recipient_id, body, created_at) and REST router (`/messages`), then wire `chat-details.js` to it instead of the comment-detail surface. Start with the backend model + two endpoints: `POST /messages` and `GET /messages/thread/{user_id}`.
+3. **[FEATURE] "End of episode" sleep option** — Extend `SleepTimerModal` with a special option that stops playback when the current track ends (`sleepOnEpisodeEnd` flag in `onPlaybackStatusUpdate`). Files: `useAudioStore.js` + `SleepTimerModal.js`. Natural follow-up to PR #50, very low risk.

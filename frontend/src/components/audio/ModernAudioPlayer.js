@@ -13,6 +13,7 @@ import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import Logger from "../../utils/logger";
 import useAudioStore from "../../context/useAudioStore";
 import SleepTimerModal from "../SleepTimerModal";
+import PlaybackSpeedModal from "../PlaybackSpeedModal";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -29,7 +30,6 @@ const { width: screenWidth } = Dimensions.get("window");
  * - onSeek: Callback when seek is requested (position in milliseconds)
  * - onSkipForward: Callback for skip forward
  * - onSkipBackward: Callback for skip backward
- * - onPlaybackRateChange: Callback when playback rate changes
  * - onVolumeChange: Callback when volume changes
  * - showProgress: Whether to show progress bar
  * - showControls: Whether to show controls
@@ -50,7 +50,6 @@ const ModernAudioPlayer = React.memo(
         onSeek,
         onSkipForward,
         onSkipBackward,
-        onPlaybackRateChange,
         onVolumeChange,
         style,
         compact = false,
@@ -82,6 +81,7 @@ const ModernAudioPlayer = React.memo(
         // Progress bar interaction
         const [isDragging, setIsDragging] = useState(false);
         const [tempPosition, setTempPosition] = useState(0);
+        const [showSpeedModal, setShowSpeedModal] = useState(false);
 
         // Update progress animation when position changes (only if not dragging)
         // Use refs to avoid unnecessary re-renders and prevent infinite loops
@@ -161,21 +161,8 @@ const ModernAudioPlayer = React.memo(
         };
 
         const handleSpeedChange = () => {
-            // Make non-blocking - remove await
-            if (!onPlaybackRateChange) {
-                if (__DEV__) {
-                    Logger.warn(
-                        "⚠️ [SPEED] onPlaybackRateChange prop not provided!"
-                    );
-                }
-                return;
-            }
-
-            const rates = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
-            const currentIndex = rates.indexOf(playbackRate);
-            const nextRate = rates[(currentIndex + 1) % rates.length];
-
-            onPlaybackRateChange(nextRate);
+            // Open the playback speed modal
+            setShowSpeedModal(true);
         };
 
         const handleVolumeToggle = () => {
@@ -523,6 +510,12 @@ const ModernAudioPlayer = React.memo(
                     visible={sleepTimerModalVisible}
                     onClose={() => setSleepTimerModalVisible(false)}
                 />
+
+                {/* Playback Speed Modal */}
+                <PlaybackSpeedModal
+                    visible={showSpeedModal}
+                    onClose={() => setShowSpeedModal(false)}
+                />
             </View>
         );
     },
@@ -535,7 +528,7 @@ const ModernAudioPlayer = React.memo(
         if (__DEV__) {
             const callbackProps = [
                 'onPlay', 'onPause', 'onSeek', 'onSkipForward',
-                'onSkipBackward', 'onPlaybackRateChange', 'onVolumeChange'
+                'onSkipBackward', 'onVolumeChange'
             ];
 
             callbackProps.forEach(prop => {
