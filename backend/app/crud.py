@@ -1,6 +1,7 @@
 """CRUD (Create, Read, Update, Delete) operations for database models."""
 from sqlalchemy.orm import Session, joinedload, contains_eager
 from sqlalchemy import case, func, desc, and_, or_, select, union
+from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
 import secrets
@@ -1805,7 +1806,14 @@ def follow_creator(db: Session, follower_id: int, followed_id: int) -> models.Us
 
     follow = models.UserFollow(follower_id=follower_id, followed_id=followed_id)
     db.add(follow)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Already following this creator",
+        )
     db.refresh(follow)
     return follow
 
@@ -1874,6 +1882,7 @@ def get_following_list(db: Session, follower_id: int, skip: int = 0, limit: int 
             models.UserFollow.follower_id == follower_id,
             models.User.is_active == True,
         )
+        .order_by(models.UserFollow.created_at.desc(), models.User.id)
         .offset(skip)
         .limit(limit)
         .all()

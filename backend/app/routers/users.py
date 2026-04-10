@@ -391,15 +391,54 @@ def get_my_following(
     current_user: models.User = Depends(auth.get_current_user),
 ):
     """Return the list of creators the current user is following."""
+    from sqlalchemy import func as _func
+    from . import models as _models
+
+    # Real total count (not page-size)
+    total = (
+        db.query(_func.count(_models.UserFollow.id))
+        .filter(
+            _models.UserFollow.follower_id == current_user.id,
+            _models.User.is_active == True,
+        )
+        .join(_models.User, _models.UserFollow.followed_id == _models.User.id)
+        .scalar()
+    ) or 0
+
     users = crud.get_following_list(db=db, follower_id=current_user.id, skip=skip, limit=limit)
-    total = len(users)  # For now, total == len because limit is generous; add COUNT query if paginating further
+
+    if not users:
+        return {"following": [], "total": total}
+
+    user_ids = [u.id for u in users]
+
+    # Batch podcast counts — one query for all users
+    podcast_counts = dict(
+        db.query(_models.Podcast.owner_id, _func.count(_models.Podcast.id))
+        .filter(
+            _models.Podcast.owner_id.in_(user_ids),
+            _models.Podcast.is_deleted == False,
+            _models.Podcast.is_public == True,
+        )
+        .group_by(_models.Podcast.owner_id)
+        .all()
+    )
+
+    # Batch follower counts — one query for all users
+    follower_counts = dict(
+        db.query(_models.UserFollow.followed_id, _func.count(_models.UserFollow.id))
+        .filter(_models.UserFollow.followed_id.in_(user_ids))
+        .group_by(_models.UserFollow.followed_id)
+        .all()
+    )
+
     following = [
         {
             "id": u.id,
             "name": u.name,
             "photo_url": u.photo_url,
-            "podcast_count": len([p for p in u.podcasts if not p.is_deleted and p.is_public]),
-            "total_followers": crud.get_follower_count(db, u.id),
+            "podcast_count": podcast_counts.get(u.id, 0),
+            "total_followers": follower_counts.get(u.id, 0),
         }
         for u in users
     ]

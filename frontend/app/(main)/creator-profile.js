@@ -203,17 +203,22 @@ export default function CreatorProfile() {
     const handleFollowToggle = useCallback(async () => {
         if (followLoading) return;
         setFollowLoading(true);
+
+        // Optimistic update
+        const wasFollowing = isFollowing;
+        setIsFollowing(!wasFollowing);
+        setFollowerCount((c) => wasFollowing ? Math.max(0, c - 1) : c + 1);
+
         try {
-            if (isFollowing) {
+            if (wasFollowing) {
                 await apiService.unfollowCreator(userId);
-                setIsFollowing(false);
-                setFollowerCount((c) => Math.max(0, c - 1));
             } else {
                 await apiService.followCreator(userId);
-                setIsFollowing(true);
-                setFollowerCount((c) => c + 1);
             }
         } catch (e) {
+            // Rollback on failure
+            setIsFollowing(wasFollowing);
+            setFollowerCount((c) => wasFollowing ? c + 1 : Math.max(0, c - 1));
             Logger.error("CreatorProfile: follow toggle failed", e);
         } finally {
             setFollowLoading(false);
