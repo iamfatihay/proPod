@@ -46,7 +46,7 @@ const PlaybackSpeedModal = ({ visible, onClose }) => {
             onRequestClose={onClose}
         >
             <Pressable style={styles.backdrop} onPress={onClose}>
-                <Pressable style={styles.sheet} onPress={() => {}}>
+                <View style={styles.sheet}>
                     {/* Header */}
                     <View style={styles.header}>
                         <MaterialCommunityIcons
@@ -81,7 +81,7 @@ const PlaybackSpeedModal = ({ visible, onClose }) => {
                                     onPress={() => handleSpeedSelect(speed)}
                                     accessible
                                     accessibilityRole="button"
-                                    accessibilityLabel={`Set playback speed to ${formatSpeed(speed)}`}
+                                    accessibilityLabel={speed === 1.0 ? "Set playback speed to Normal (1.00x)" : `Set playback speed to ${formatSpeed(speed)}`}
                                     accessibilityState={{
                                         selected: isSelected,
                                     }}
@@ -117,7 +117,7 @@ const PlaybackSpeedModal = ({ visible, onClose }) => {
                     >
                         <Text style={styles.closeButtonText}>Done</Text>
                     </TouchableOpacity>
-                </Pressable>
+                </View>
             </Pressable>
         </Modal>
     );

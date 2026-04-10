@@ -28,13 +28,16 @@ describe("PlaybackSpeedModal", () => {
     });
 
     it("displays 'Normal' for 1.0 speed in current speed display", () => {
-        const { getByText } = render(
+        const { getByText, getAllByText } = render(
             <PlaybackSpeedModal visible={true} onClose={jest.fn()} />
         );
 
-        // The current speed display shows "Normal" for 1.0x
-        const currentSpeedElements = getByText("Current Speed");
-        expect(currentSpeedElements).toBeTruthy();
+        // The current speed label is present
+        expect(getByText("Current Speed")).toBeTruthy();
+        // The current speed value renders as "Normal" for 1.0x
+        // (also appears in the preset grid, so getAllByText is used)
+        const normalElements = getAllByText("Normal");
+        expect(normalElements.length).toBeGreaterThanOrEqual(1);
     });
 
     it("renders speed preset buttons", () => {

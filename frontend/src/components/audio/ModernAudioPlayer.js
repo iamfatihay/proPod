@@ -29,7 +29,6 @@ const { width: screenWidth } = Dimensions.get("window");
  * - onSeek: Callback when seek is requested (position in milliseconds)
  * - onSkipForward: Callback for skip forward
  * - onSkipBackward: Callback for skip backward
- * - onPlaybackRateChange: Callback when playback rate changes
  * - onVolumeChange: Callback when volume changes
  * - showProgress: Whether to show progress bar
  * - showControls: Whether to show controls
@@ -50,7 +49,6 @@ const ModernAudioPlayer = React.memo(
         onSeek,
         onSkipForward,
         onSkipBackward,
-        onPlaybackRateChange,
         onVolumeChange,
         style,
         compact = false,
@@ -469,7 +467,7 @@ const ModernAudioPlayer = React.memo(
         if (__DEV__) {
             const callbackProps = [
                 'onPlay', 'onPause', 'onSeek', 'onSkipForward',
-                'onSkipBackward', 'onPlaybackRateChange', 'onVolumeChange'
+                'onSkipBackward', 'onVolumeChange'
             ];
 
             callbackProps.forEach(prop => {
