@@ -63,9 +63,29 @@ class PublicUserProfile(BaseModel):
     podcast_count: int = 0
     total_plays: int = 0
     total_likes: int = 0
-    total_followers: int = 0  # Placeholder for future follower feature
+    total_followers: int = 0
+    # Whether the requesting user is already following this creator.
+    # Defaults to False for unauthenticated requests.
+    is_following: bool = False
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class FollowedCreatorItem(BaseModel):
+    """Compact creator summary used in the /users/me/following list."""
+    id: int
+    name: str
+    photo_url: Optional[str] = None
+    podcast_count: int = 0
+    total_followers: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FollowingListResponse(BaseModel):
+    """Response for GET /users/me/following."""
+    following: List["FollowedCreatorItem"]
+    total: int
 
 
 class User(UserBase):

@@ -14,6 +14,7 @@ import Avatar from "../../src/components/Avatar";
 import PodcastCard from "../../src/components/PodcastCard";
 import apiService from "../../src/services/api/apiService";
 import useAudioStore from "../../src/context/useAudioStore";
+import useAuthStore from "../../src/context/useAuthStore";
 import { normalizePodcasts, toAbsoluteUrl } from "../../src/utils/urlHelper";
 
 // Maps a normalised podcast API object to the track shape required by useAudioStore
@@ -76,7 +77,15 @@ export default function CreatorProfile() {
     const [error, setError] = useState(null);
     const [page, setPage] = useState(0);
 
+    // Follow state — seeded from the profile API response
+    const [isFollowing, setIsFollowing] = useState(false);
+    const [followerCount, setFollowerCount] = useState(0);
+    const [followLoading, setFollowLoading] = useState(false);
+
     const PAGE_SIZE = 20;
+
+    // Auth — needed to decide whether to show the follow button
+    const currentUser = useAuthStore((state) => state.user);
 
     // Audio store actions
     const currentTrack = useAudioStore((state) => state.currentTrack);
@@ -108,6 +117,8 @@ export default function CreatorProfile() {
                 }),
             ]);
             setProfile(profileData);
+            setIsFollowing(profileData.is_following ?? false);
+            setFollowerCount(profileData.total_followers ?? 0);
             const normalized = normalizePodcasts(
                 podcastData.podcasts || podcastData || []
             );
@@ -188,6 +199,32 @@ export default function CreatorProfile() {
 
     const keyExtractor = useCallback((item) => String(item.id), []);
 
+    // ── Follow / Unfollow ─────────────────────────────────────────────────
+    const handleFollowToggle = useCallback(async () => {
+        if (followLoading) return;
+        setFollowLoading(true);
+
+        // Optimistic update
+        const wasFollowing = isFollowing;
+        setIsFollowing(!wasFollowing);
+        setFollowerCount((c) => wasFollowing ? Math.max(0, c - 1) : c + 1);
+
+        try {
+            if (wasFollowing) {
+                await apiService.unfollowCreator(userId);
+            } else {
+                await apiService.followCreator(userId);
+            }
+        } catch (e) {
+            // Rollback on failure
+            setIsFollowing(wasFollowing);
+            setFollowerCount((c) => wasFollowing ? c + 1 : Math.max(0, c - 1));
+            Logger.error("CreatorProfile: follow toggle failed", e);
+        } finally {
+            setFollowLoading(false);
+        }
+    }, [followLoading, isFollowing, userId]);
+
     const ListHeader = () => (
         <View>
             {/* Profile card */}
@@ -204,6 +241,37 @@ export default function CreatorProfile() {
                     <Text className="text-text-secondary text-sm mt-1">
                         Creator since {formatDate(profile.created_at)}
                     </Text>
+                )}
+
+                {/* Follow button — only shown to authenticated users viewing another user's profile */}
+                {currentUser && String(currentUser.id) !== String(userId) && (
+                    <TouchableOpacity
+                        onPress={handleFollowToggle}
+                        disabled={followLoading}
+                        accessible={true}
+                        accessibilityRole="button"
+                        accessibilityLabel={isFollowing ? "Unfollow creator" : "Follow creator"}
+                        style={{
+                            marginTop: 16,
+                            paddingHorizontal: 28,
+                            paddingVertical: 8,
+                            borderRadius: 20,
+                            borderWidth: 1.5,
+                            borderColor: COLORS.primary,
+                            backgroundColor: isFollowing ? "transparent" : COLORS.primary,
+                            opacity: followLoading ? 0.6 : 1,
+                        }}
+                    >
+                        <Text
+                            style={{
+                                color: isFollowing ? COLORS.primary : "#FFFFFF",
+                                fontWeight: "600",
+                                fontSize: 14,
+                            }}
+                        >
+                            {followLoading ? "…" : isFollowing ? "Following" : "Follow"}
+                        </Text>
+                    </TouchableOpacity>
                 )}
             </View>
 
@@ -228,6 +296,18 @@ export default function CreatorProfile() {
                     icon="heart-outline"
                     value={profile?.total_likes}
                     label="Likes"
+                />
+                <View
+                    style={{
+                        width: 1,
+                        backgroundColor: COLORS.border,
+                        marginHorizontal: 8,
+                    }}
+                />
+                <StatItem
+                    icon="people-outline"
+                    value={followerCount}
+                    label="Followers"
                 />
                 <View
                     style={{

@@ -1,6 +1,7 @@
 """CRUD (Create, Read, Update, Delete) operations for database models."""
 from sqlalchemy.orm import Session, joinedload, contains_eager
 from sqlalchemy import case, func, desc, and_, or_, select, union
+from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
 import secrets
@@ -1273,7 +1274,11 @@ def get_recommended_podcasts(db: Session, user_id: int, limit: int = 10):
 
 # ==================== Public User Profile ====================
 
-def get_public_user_profile(db: Session, user_id: int) -> Optional[Dict]:
+def get_public_user_profile(
+    db: Session,
+    user_id: int,
+    requesting_user_id: Optional[int] = None,
+) -> Optional[Dict]:
     """
     Get a user's public profile with aggregate creator statistics.
 
@@ -1284,6 +1289,8 @@ def get_public_user_profile(db: Session, user_id: int) -> Optional[Dict]:
     Args:
         db: Database session
         user_id: ID of the user whose profile to retrieve
+        requesting_user_id: Optional ID of the authenticated user making the
+            request.  Used to populate the ``is_following`` field.
 
     Returns:
         Dict with user info and aggregate stats, or None if user not found
@@ -1310,6 +1317,16 @@ def get_public_user_profile(db: Session, user_id: int) -> Optional[Dict]:
         models.Podcast.is_public == True,
     ).first()
 
+    # Real follower count from user_follows table
+    follower_count = get_follower_count(db, user_id)
+
+    # Whether the requesting user is already following this profile
+    following = (
+        is_following_creator(db, requesting_user_id, user_id)
+        if requesting_user_id and requesting_user_id != user_id
+        else False
+    )
+
     return {
         "id": user.id,
         "name": user.name,
@@ -1318,7 +1335,8 @@ def get_public_user_profile(db: Session, user_id: int) -> Optional[Dict]:
         "podcast_count": stats.podcast_count if stats else 0,
         "total_plays": int(stats.total_plays) if stats else 0,
         "total_likes": int(stats.total_likes) if stats else 0,
-        "total_followers": 0,  # Placeholder for future follower feature
+        "total_followers": follower_count,
+        "is_following": following,
     }
 
 
@@ -1742,3 +1760,130 @@ def mark_all_notifications_read(db: Session, user_id: int) -> int:
     )
     db.commit()
     return result
+
+
+# ==================== Creator Follow CRUD Operations ====================
+
+def follow_creator(db: Session, follower_id: int, followed_id: int) -> models.UserFollow:
+    """
+    Follow a creator.
+
+    Args:
+        db: Database session
+        follower_id: The user pressing "Follow"
+        followed_id: The creator being followed
+
+    Returns:
+        models.UserFollow: Created follow record
+
+    Raises:
+        HTTPException 400 if the follow already exists or user tries to follow themselves
+    """
+    if follower_id == followed_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot follow yourself",
+        )
+
+    # Check if followed user exists
+    followed_user = db.query(models.User).filter(
+        models.User.id == followed_id,
+        models.User.is_active == True,
+    ).first()
+    if not followed_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # Check for existing follow
+    existing = db.query(models.UserFollow).filter(
+        models.UserFollow.follower_id == follower_id,
+        models.UserFollow.followed_id == followed_id,
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Already following this creator",
+        )
+
+    follow = models.UserFollow(follower_id=follower_id, followed_id=followed_id)
+    db.add(follow)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Already following this creator",
+        )
+    db.refresh(follow)
+    return follow
+
+
+def unfollow_creator(db: Session, follower_id: int, followed_id: int) -> bool:
+    """
+    Unfollow a creator.
+
+    Args:
+        db: Database session
+        follower_id: The user pressing "Unfollow"
+        followed_id: The creator being unfollowed
+
+    Returns:
+        bool: True if unfollow was successful
+
+    Raises:
+        HTTPException 404 if the follow record does not exist
+    """
+    follow = db.query(models.UserFollow).filter(
+        models.UserFollow.follower_id == follower_id,
+        models.UserFollow.followed_id == followed_id,
+    ).first()
+    if not follow:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="You are not following this creator",
+        )
+    db.delete(follow)
+    db.commit()
+    return True
+
+
+def is_following_creator(db: Session, follower_id: int, followed_id: int) -> bool:
+    """Return True if follower_id is currently following followed_id."""
+    return db.query(models.UserFollow).filter(
+        models.UserFollow.follower_id == follower_id,
+        models.UserFollow.followed_id == followed_id,
+    ).first() is not None
+
+
+def get_follower_count(db: Session, user_id: int) -> int:
+    """Return the number of followers a user has."""
+    return db.query(models.UserFollow).filter(
+        models.UserFollow.followed_id == user_id,
+    ).count()
+
+
+def get_following_list(db: Session, follower_id: int, skip: int = 0, limit: int = 50) -> List[models.User]:
+    """
+    Return the list of users that follower_id is following.
+
+    Args:
+        db: Database session
+        follower_id: The user whose following list we want
+        skip: Pagination offset
+        limit: Max results
+
+    Returns:
+        List of User objects (the creators being followed)
+    """
+    return (
+        db.query(models.User)
+        .join(models.UserFollow, models.UserFollow.followed_id == models.User.id)
+        .filter(
+            models.UserFollow.follower_id == follower_id,
+            models.User.is_active == True,
+        )
+        .order_by(models.UserFollow.created_at.desc(), models.User.id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )

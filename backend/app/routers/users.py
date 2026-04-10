@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Path, Query
 from sqlalchemy.orm import Session
 from pathlib import Path as SysPath
-from typing import Dict
+from typing import Dict, Optional
 import os
 import asyncio
 import secrets
@@ -336,20 +336,113 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
 def get_user_profile(
     user_id: int = Path(..., description="The ID of the user"),
     db: Session = Depends(get_db),
+    current_user: Optional[models.User] = Depends(auth.get_current_user_optional),
 ):
     """
     Get a user's public profile with aggregate creator statistics.
 
     Returns non-sensitive profile information including podcast count,
-    total plays, and total likes. Does not require authentication.
+    total plays, total likes, total followers, and whether the requesting
+    user is already following this creator.  Authentication is optional —
+    unauthenticated requests receive ``is_following: false``.
     """
-    profile = crud.get_public_user_profile(db=db, user_id=user_id)
+    requesting_user_id = current_user.id if current_user else None
+    profile = crud.get_public_user_profile(
+        db=db, user_id=user_id, requesting_user_id=requesting_user_id
+    )
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
         )
     return profile
+
+
+# ==================== Follow / Unfollow ====================
+
+
+@router.post("/{user_id}/follow", status_code=status.HTTP_201_CREATED)
+def follow_creator(
+    user_id: int = Path(..., description="ID of the creator to follow"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """Follow a creator.  Returns 201 on success, 400 if already following."""
+    crud.follow_creator(db=db, follower_id=current_user.id, followed_id=user_id)
+    return {"detail": "Now following"}
+
+
+@router.delete("/{user_id}/follow", status_code=status.HTTP_200_OK)
+def unfollow_creator(
+    user_id: int = Path(..., description="ID of the creator to unfollow"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """Unfollow a creator.  Returns 200 on success, 404 if not following."""
+    crud.unfollow_creator(db=db, follower_id=current_user.id, followed_id=user_id)
+    return {"detail": "Unfollowed"}
+
+
+@router.get("/me/following", response_model=schemas.FollowingListResponse)
+def get_my_following(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """Return the list of creators the current user is following."""
+    from sqlalchemy import func as _func
+    from . import models as _models
+
+    # Real total count (not page-size)
+    total = (
+        db.query(_func.count(_models.UserFollow.id))
+        .filter(
+            _models.UserFollow.follower_id == current_user.id,
+            _models.User.is_active == True,
+        )
+        .join(_models.User, _models.UserFollow.followed_id == _models.User.id)
+        .scalar()
+    ) or 0
+
+    users = crud.get_following_list(db=db, follower_id=current_user.id, skip=skip, limit=limit)
+
+    if not users:
+        return {"following": [], "total": total}
+
+    user_ids = [u.id for u in users]
+
+    # Batch podcast counts — one query for all users
+    podcast_counts = dict(
+        db.query(_models.Podcast.owner_id, _func.count(_models.Podcast.id))
+        .filter(
+            _models.Podcast.owner_id.in_(user_ids),
+            _models.Podcast.is_deleted == False,
+            _models.Podcast.is_public == True,
+        )
+        .group_by(_models.Podcast.owner_id)
+        .all()
+    )
+
+    # Batch follower counts — one query for all users
+    follower_counts = dict(
+        db.query(_models.UserFollow.followed_id, _func.count(_models.UserFollow.id))
+        .filter(_models.UserFollow.followed_id.in_(user_ids))
+        .group_by(_models.UserFollow.followed_id)
+        .all()
+    )
+
+    following = [
+        {
+            "id": u.id,
+            "name": u.name,
+            "photo_url": u.photo_url,
+            "podcast_count": podcast_counts.get(u.id, 0),
+            "total_followers": follower_counts.get(u.id, 0),
+        }
+        for u in users
+    ]
+    return {"following": following, "total": total}
 
 
 @router.get("/{user_id}/podcasts", response_model=schemas.PodcastListResponse)
