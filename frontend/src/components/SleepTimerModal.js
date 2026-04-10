@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import {
     View,
     Text,
@@ -61,7 +61,7 @@ const SleepTimerModal = ({ visible, onClose }) => {
             onRequestClose={onClose}
         >
             <Pressable style={styles.backdrop} onPress={onClose}>
-                <Pressable style={styles.sheet} onPress={() => {}}>
+                <View style={styles.sheet}>
                     {/* Header */}
                     <View style={styles.header}>
                         <MaterialCommunityIcons
@@ -134,7 +134,7 @@ const SleepTimerModal = ({ visible, onClose }) => {
                             </TouchableOpacity>
                         )}
                     </View>
-                </Pressable>
+                </View>
             </Pressable>
         </Modal>
     );
