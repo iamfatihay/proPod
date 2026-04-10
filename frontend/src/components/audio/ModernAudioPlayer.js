@@ -12,6 +12,7 @@ import {
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import Logger from "../../utils/logger";
 import useAudioStore from "../../context/useAudioStore";
+import SleepTimerModal from "../SleepTimerModal";
 import PlaybackSpeedModal from "../PlaybackSpeedModal";
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -61,6 +62,14 @@ const ModernAudioPlayer = React.memo(
         const currentPosition = useAudioStore((state) => state.position);
         const playbackRate = useAudioStore((state) => state.playbackRate);
         const volume = useAudioStore((state) => state.volume);
+
+        // Sleep timer — subscribe here so the indicator stays in sync
+        const sleepTimerActive = useAudioStore((state) => state.sleepTimerActive);
+        const sleepTimerRemaining = useAudioStore((state) => state.sleepTimerRemaining);
+
+        // Modal state
+        const [sleepTimerModalVisible, setSleepTimerModalVisible] = useState(false);
+
         // Animation values
         const progressAnimation = useRef(new Animated.Value(0)).current;
         const volumeAnimation = useRef(new Animated.Value(1)).current;
@@ -162,6 +171,18 @@ const ModernAudioPlayer = React.memo(
 
             const newVolume = volume > 0.5 ? 0.5 : 1.0;
             onVolumeChange(newVolume); // Don't await
+        };
+
+        // Returns a compact label for the sleep timer button: "30m", "1h", etc.
+        const sleepTimerLabel = () => {
+            if (!sleepTimerActive || sleepTimerRemaining <= 0) return null;
+            const totalMinutes = Math.ceil(sleepTimerRemaining / 60000);
+            if (totalMinutes >= 60) {
+                const h = Math.floor(totalMinutes / 60);
+                const m = totalMinutes % 60;
+                return m > 0 ? `${h}h${m}m` : `${h}h`;
+            }
+            return `${totalMinutes}m`;
         };
 
         const formatTime = (milliseconds) => {
@@ -447,8 +468,48 @@ const ModernAudioPlayer = React.memo(
                                 />
                             </TouchableOpacity>
                         </Animated.View>
+
+                        {/* Sleep Timer */}
+                        <TouchableOpacity
+                            onPress={() => setSleepTimerModalVisible(true)}
+                            style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 4,
+                            }}
+                            accessible={true}
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                                sleepTimerActive
+                                    ? `Sleep timer: ${sleepTimerLabel()} remaining`
+                                    : "Set sleep timer"
+                            }
+                        >
+                            <MaterialCommunityIcons
+                                name="moon-waning-crescent"
+                                size={22}
+                                color={sleepTimerActive ? "#D32F2F" : "#888888"}
+                            />
+                            {sleepTimerActive && (
+                                <Text
+                                    style={{
+                                        color: "#D32F2F",
+                                        fontSize: 12,
+                                        fontWeight: "600",
+                                    }}
+                                >
+                                    {sleepTimerLabel()}
+                                </Text>
+                            )}
+                        </TouchableOpacity>
                     </View>
                 )}
+
+                {/* Sleep Timer Modal */}
+                <SleepTimerModal
+                    visible={sleepTimerModalVisible}
+                    onClose={() => setSleepTimerModalVisible(false)}
+                />
 
                 {/* Playback Speed Modal */}
                 <PlaybackSpeedModal
