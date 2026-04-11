@@ -453,9 +453,6 @@ def search_podcasts(
     )
 
 
-
-
-
 @router.get("/", response_model=schemas.PodcastListResponse)
 def get_podcasts(
     skip: int = Query(0, ge=0, description="Number of podcasts to skip"),

@@ -1917,6 +1917,7 @@ def get_following_feed(
 
     query = (
         db.query(models.Podcast)
+        .join(models.User, models.Podcast.owner_id == models.User.id)
         .options(
             joinedload(models.Podcast.owner),
             joinedload(models.Podcast.stats),
@@ -1926,10 +1927,16 @@ def get_following_feed(
             models.Podcast.owner_id.in_(followed_ids_sq),
             models.Podcast.is_public == True,
             models.Podcast.is_deleted == False,
+            models.User.is_active == True,
         )
         .order_by(models.Podcast.created_at.desc())
     )
 
     total = query.count()
     podcasts = query.offset(skip).limit(limit).all()
+
+    # Populate transient stats/AI fields so callers get play_count, like_count, etc.
+    for podcast in podcasts:
+        enrich_podcast_with_stats(podcast)
+
     return podcasts, total
