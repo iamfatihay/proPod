@@ -16,8 +16,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-11
-**Last session:** Reconciled stale AGENT_STATE (PRs #50 sleep-timer and #51 follow-creator were already merged by Fay). Implemented new feature: "End of Episode" sleep timer option (PR #53). Added `sleepOnEpisodeEnd` flag to useAudioStore with mutual exclusion against time-based timer, intercept in `onPlaybackStatusUpdate`, new button in SleepTimerModal, active indicator in ModernAudioPlayer. 12 Jest tests passing, 21 existing sleep timer tests unaffected.
-**Test suite baseline:** 220 frontend tests (208 + 12 new). Validations: `npx jest src/context/__tests__/useAudioStore.sleepOnEpisodeEnd.test.js --runInBand` (12/12 PASS), `npx jest src/context/__tests__/useAudioStore.sleepTimer.test.js --runInBand` (21/21 PASS).
+**Last session:** Reconciled stale AGENT_STATE (PRs #50, #51, #52 all already merged by Fay; PR #53 end-of-episode sleep is open). Implemented new feature: Following Feed (PR #54). Added `GET /podcasts/following-feed` backend endpoint (single JOIN query, newest-first, paginated), `FOLLOWING_CATEGORY` pill in home.js, `getFollowingFeed()` in apiService, dedicated empty state with Discover Creators CTA. 10 backend tests, all passing.
+**Test suite baseline:** 220 frontend tests (208 + 12 from PR #53). Backend: 10 new tests in test_following_feed.py (10/10 PASS). Pre-existing failure: `test_follow.py::TestGetFollowingList` (3 tests) — ImportError in users.py:395, unrelated to any agent session.
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -54,10 +54,18 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
   - `SleepTimerModal`: "End of episode" full-width button below presets; active highlight (primary background); `anyActive` guard for Cancel Timer vs Dismiss
   - `ModernAudioPlayer`: subscribes to `sleepOnEpisodeEnd`; moon icon + "End" label turn red when armed
   - 12 Jest tests — all state transitions, mutual exclusion, episode-end interception, no-op guard
+  - No review comments — ready to merge
+
+- **PR #54**: `feat(feed): Following Feed — personalised podcast feed from followed creators` — https://github.com/iamfatihay/proPod/pull/54 — branch `feature/following-feed`
+  - `backend/app/crud.py`: `get_following_feed()` — single JOIN (UserFollow → Podcast), public + non-deleted, newest-first, skip/limit paginated
+  - `backend/app/routers/podcasts.py`: `GET /podcasts/following-feed` (auth required); placed before `/{podcast_id}` route to avoid shadowing
+  - `frontend/src/services/api/apiService.js`: `getFollowingFeed({ skip, limit })`
+  - `frontend/app/(main)/home.js`: `FOLLOWING_CATEGORY` pill after "All"; `load()` branches on `selectedCategory === "following"`; dedicated empty state with Discover Creators CTA
+  - `backend/tests/test_following_feed.py`: 10 tests (10/10 PASS)
 
 ### Known issues / tech debt
 - No real DM/user-to-user messaging backend yet; `chat-details.js` is still a comment-detail surface
-- Full backend suite is green (334 passed)
+- Full backend suite is green (334+ passed); pre-existing `TestGetFollowingList` ImportError (3 tests) in `users.py:395` — `from . import models as _models` inside function body; not introduced by agent
 - Frontend tests: 220 passing (jest suite verified); component-level coverage still thin
 - Several old feature branches on remote are likely abandoned (pre-PR #39 era)
 - Sleep timer relies on `setInterval` — should smoke-test on device to verify accuracy and no battery drain
@@ -67,10 +75,11 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **Merge PR #53 (end-of-episode sleep)** — 12 tests passing, no regression; ready to review
-2. **DM/chat backend** — real `messages` model + router if product still wants true user-to-user messaging
-3. **Push notifications (APNs/FCM)** — out-of-app delivery for likes/comments; high user impact
-4. **Phase 1 roadmap features** — AI transcription, content analysis, studio mode (see FEATURE_ROADMAP.md)
+1. **Merge PR #53 (end-of-episode sleep)** — 12 tests passing, no review comments; ready
+2. **Merge PR #54 (following feed)** — 10 tests passing, no review comments; ready
+3. **Fix pre-existing `TestGetFollowingList` ImportError** — 1-line fix in `users.py:395`: remove `from . import models as _models`, use `models` already imported at top of file
+4. **DM/chat backend** — real `messages` model + router so `chat-details.js` becomes a true conversation surface
+5. **Push notifications (APNs/FCM)** — out-of-app delivery for likes/comments; high user impact
 
 ---
 
@@ -97,6 +106,10 @@ A `const` redeclaration in the same scope = SyntaxError crash. Fix immediately o
 
 `ApiService` keeps an in-memory `this.token` cache. In tests, after the 401-retry test sets a new token, subsequent tests see a stale token. Fix: call `apiService.clearToken()` in a `beforeEach` inside any `describe` block added after the Error Handling section.
 
+### Route ordering in podcasts router
+
+Literal-path routes (e.g. `/following-feed`, `/search`, `/discover/categories`) MUST be declared BEFORE parameterized routes (e.g. `/{podcast_id}`) in `backend/app/routers/podcasts.py`. FastAPI matches routes in definition order; a parameterized route will capture literal paths and return 422 instead of falling through.
+
 ---
 
 ## 🧠 Agent Instructions: How to Use This File
@@ -116,8 +129,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[MERGE] Land PR #53 (end-of-episode sleep)** — 12 tests passing, no regression. Smoke-test on device: arm "End of episode", let episode finish, verify audio stops and moon icon resets to grey.
+1. **[FIX] Pre-existing `TestGetFollowingList` ImportError** — One-line fix: in `backend/app/routers/users.py` at the `get_my_following` function, remove the `from . import models as _models` line (around line 395) and replace `_models.UserFollow` / `_models.User` with the already-imported `models.UserFollow` / `models.User`. 3 tests will go from FAILED → PASSED. Very low risk.
 
-2. **[FEATURE] Persist `sleepOnEpisodeEnd` across restarts** — Small AsyncStorage addition in `useAudioStore`: read flag on hydration, write on `setSleepOnEpisodeEnd`. Files: `frontend/src/context/useAudioStore.js` only. Low risk, high polish.
+2. **[FEATURE] DM / direct messaging backend** — Real `messages` model + POST/GET router so `chat-details.js` can become a true conversation surface. Files: `backend/app/models.py` (new DirectMessage model), `backend/app/routers/messages.py` (new), Alembic migration. High user impact for the social layer.
 
-3. **[FEATURE] DM / direct messaging backend** — Real `messages` model + POST/GET router so `chat-details.js` can become a true conversation surface. Files: `backend/app/models/message.py` (new), `backend/app/routers/messages.py` (new), Alembic migration. High user impact for the social layer.
+3. **[FEATURE] Persist `sleepOnEpisodeEnd` across restarts** — Small AsyncStorage addition in `useAudioStore`: read flag on hydration, write on `setSleepOnEpisodeEnd`. Files: `frontend/src/context/useAudioStore.js` only. Low risk, high polish for the sleep timer feature.
