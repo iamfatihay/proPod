@@ -371,6 +371,33 @@ async def process_podcast_with_ai(
         )
 
 
+@router.get("/following-feed", response_model=schemas.PodcastListResponse)
+def get_following_feed(
+    skip: int = Query(0, ge=0, description="Number of podcasts to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Number of podcasts to return"),
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return public podcasts from creators the current user follows, newest first.
+
+    Requires authentication. Returns an empty list (not 404) when the user has
+    no followed creators or those creators have no public podcasts yet.
+    """
+    podcasts, total = crud.get_following_feed(
+        db=db,
+        user_id=current_user.id,
+        skip=skip,
+        limit=limit,
+    )
+    return schemas.PodcastListResponse(
+        podcasts=podcasts,
+        total=total,
+        limit=limit,
+        offset=skip,
+        has_more=total > skip + limit,
+    )
+
+
 @router.get("/{podcast_id}", response_model=schemas.Podcast)
 def get_podcast(
     podcast_id: int = Path(...,
@@ -424,6 +451,9 @@ def search_podcasts(
         offset=skip,
         has_more=total > skip + limit
     )
+
+
+
 
 
 @router.get("/", response_model=schemas.PodcastListResponse)

@@ -1887,3 +1887,49 @@ def get_following_list(db: Session, follower_id: int, skip: int = 0, limit: int 
         .limit(limit)
         .all()
     )
+
+
+def get_following_feed(
+    db: Session,
+    user_id: int,
+    skip: int = 0,
+    limit: int = 20,
+) -> Tuple[List[models.Podcast], int]:
+    """
+    Return public podcasts from creators that ``user_id`` follows, newest first.
+
+    Uses a single JOIN query instead of N individual user-podcast lookups so it
+    stays efficient regardless of following-list size.
+
+    Args:
+        db: Database session
+        user_id: The authenticated user whose following list drives the filter
+        skip: Pagination offset
+        limit: Max results per page (capped at 100 by the router)
+
+    Returns:
+        Tuple[List[Podcast], int]: Matching podcasts and the total count
+    """
+    from sqlalchemy import select as _select
+    followed_ids_sq = _select(models.UserFollow.followed_id).where(
+        models.UserFollow.follower_id == user_id
+    )
+
+    query = (
+        db.query(models.Podcast)
+        .options(
+            joinedload(models.Podcast.owner),
+            joinedload(models.Podcast.stats),
+            joinedload(models.Podcast.ai_data),
+        )
+        .filter(
+            models.Podcast.owner_id.in_(followed_ids_sq),
+            models.Podcast.is_public == True,
+            models.Podcast.is_deleted == False,
+        )
+        .order_by(models.Podcast.created_at.desc())
+    )
+
+    total = query.count()
+    podcasts = query.offset(skip).limit(limit).all()
+    return podcasts, total
