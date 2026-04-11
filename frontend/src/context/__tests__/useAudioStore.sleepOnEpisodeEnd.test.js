@@ -260,7 +260,7 @@ describe("useAudioStore — sleepOnEpisodeEnd", () => {
         });
 
         it("advances to next track normally when sleepOnEpisodeEnd is false", () => {
-            const nextTrack = { id: 2, title: "Episode 2", audioUrl: "http://example.com/2.mp3" };
+            const nextTrack = { id: 2, title: "Episode 2", uri: "http://example.com/2.mp3" };
             const mockSound = fakeSoundWith({ playing: true });
 
             useAudioStore.setState({
@@ -270,7 +270,7 @@ describe("useAudioStore — sleepOnEpisodeEnd", () => {
                 position: 59900,
                 duration: 60000,
                 queue: [
-                    { id: 1, title: "Episode 1", audioUrl: "http://example.com/1.mp3" },
+                    { id: 1, title: "Episode 1", uri: "http://example.com/1.mp3" },
                     nextTrack,
                 ],
                 currentIndex: 0,

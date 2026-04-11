@@ -152,7 +152,7 @@ const SleepTimerModal = ({ visible, onClose }) => {
                             size={18}
                             color={
                                 sleepOnEpisodeEnd
-                                    ? COLORS.surface || "#fff"
+                                    ? "#fff"
                                     : COLORS.text.primary
                             }
                         />
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
         fontWeight: "600",
     },
     episodeEndTextActive: {
-        color: COLORS.surface || "#fff",
+        color: "#fff",
     },
     footer: {
         alignItems: "center",

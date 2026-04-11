@@ -752,13 +752,8 @@ const useAudioStore = create(
                         // Sleep-on-episode-end: stop instead of advancing
                         if (state.sleepOnEpisodeEnd) {
                             Logger.log("[SleepTimer] Episode ended — stopping playback (sleepOnEpisodeEnd)");
-                            if (state.sound) {
-                                try { state.sound.pause(); } catch (e) { /* ignore */ }
-                            }
-                            set({
-                                isPlaying: false,
-                                sleepOnEpisodeEnd: false,
-                            });
+                            get().pause(); // reuses pause action — handles error logging & isPlaying revert
+                            set({ sleepOnEpisodeEnd: false });
                             return;
                         }
 
