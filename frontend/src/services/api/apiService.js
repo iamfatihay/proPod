@@ -465,6 +465,19 @@ class ApiService {
     }
 
     /**
+     * Get the personalized "Following" feed — public podcasts from creators
+     * the current user follows, ordered newest-first.
+     *
+     * @param {Object} params
+     * @param {number} [params.skip=0]  - Pagination offset
+     * @param {number} [params.limit=20] - Max results per page
+     * @returns {Promise<{podcasts: Array, total: number, has_more: boolean}>}
+     */
+    async getFollowingFeed({ skip = 0, limit = 20 } = {}) {
+        return this.request(`/podcasts/following-feed?skip=${skip}&limit=${limit}`);
+    }
+
+    /**
      * Update user profile
      *
      * @param {Object} profileData - Profile data to update

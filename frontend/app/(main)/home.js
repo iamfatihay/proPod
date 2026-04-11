@@ -59,10 +59,13 @@ const CATEGORY_ICON_MAP = {
 
 // The "All" pill is always the first entry and never comes from the backend.
 const ALL_CATEGORY = { id: "all", label: "All", icon: "apps" };
+// "Following" is a special pill that loads the personalised feed.
+const FOLLOWING_CATEGORY = { id: "following", label: "Following", icon: "people" };
 
 // Fallback list shown while the API call is in-flight.
 const FALLBACK_CATEGORIES = [
     ALL_CATEGORY,
+    FOLLOWING_CATEGORY,
     { id: "Technology", label: "Technology", icon: "laptop-outline" },
     { id: "Business", label: "Business", icon: "briefcase-outline" },
     { id: "Education", label: "Education", icon: "school-outline" },
@@ -132,7 +135,7 @@ export default function HomeScreen() {
                     icon: CATEGORY_ICON_MAP[c.category] || "grid-outline",
                     podcast_count: c.podcast_count,
                 }));
-                setCategories([ALL_CATEGORY, ...enriched]);
+                setCategories([ALL_CATEGORY, FOLLOWING_CATEGORY, ...enriched]);
             })
             .catch((err) => {
                 // Non-critical — keep showing the fallback list
@@ -186,12 +189,20 @@ export default function HomeScreen() {
 
     const load = useCallback(async () => {
         try {
-            const params = { limit: 20 };
-            if (selectedCategory && selectedCategory !== "all") {
-                params.category = selectedCategory;
+            let res;
+            if (selectedCategory === "following") {
+                // Personalised feed: podcasts from creators the user follows
+                res = await apiService.getFollowingFeed({ limit: 20 });
+            } else {
+                const params = { limit: 20 };
+                if (selectedCategory && selectedCategory !== "all") {
+                    params.category = selectedCategory;
+                }
+                res = await apiService.getPodcasts(params);
             }
-            const res = await apiService.getPodcasts(params);
-            const normalized = (res || []).map((p) => {
+            // getPodcasts returns an array; getFollowingFeed returns {podcasts, total, ...}
+            const rawList = Array.isArray(res) ? res : (res?.podcasts ?? []);
+            const normalized = rawList.map((p) => {
                 // Convert duration from seconds to milliseconds for display
                 const durationMs =
                     (typeof p.duration === "number" && p.duration * 1000) || 0;
@@ -731,9 +742,39 @@ export default function HomeScreen() {
                                 </TouchableOpacity>
                             </View>
                         ) : podcasts.length === 0 ? (
-                            // Empty State - Mode-specific
+                            // Empty State - mode-specific or following-specific
                             <View className="py-12 items-center px-6">
-                                {viewMode === "studio" ? (
+                                {selectedCategory === "following" ? (
+                                    <>
+                                        <View className="w-32 h-32 rounded-full bg-primary/10 items-center justify-center mb-6">
+                                            <Ionicons
+                                                name="people-outline"
+                                                size={64}
+                                                color={COLORS.primary}
+                                            />
+                                        </View>
+                                        <Text className="text-headline text-text-primary font-semibold mb-2 text-center">
+                                            Your Feed is Empty
+                                        </Text>
+                                        <Text className="text-body text-text-secondary text-center mb-6 px-4">
+                                            Follow some creators to see their latest podcasts here.
+                                        </Text>
+                                        <TouchableOpacity
+                                            onPress={() => router.push("/(main)/search")}
+                                            className="bg-primary px-8 py-4 rounded-full flex-row items-center"
+                                            activeOpacity={0.8}
+                                        >
+                                            <Ionicons
+                                                name="search-outline"
+                                                size={20}
+                                                color="white"
+                                            />
+                                            <Text className="text-white font-semibold text-base ml-2">
+                                                Discover Creators
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </>
+                                ) : viewMode === "studio" ? (
                                     <>
                                         <View className="w-32 h-32 rounded-full bg-primary/10 items-center justify-center mb-6">
                                             <MaterialCommunityIcons
