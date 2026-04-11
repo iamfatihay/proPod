@@ -127,7 +127,7 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FIX] Pre-existing `TestGetFollowingList` ImportError** — In `backend/app/routers/users.py` around line 395, remove the `from . import models as _models` line inside the `get_my_following` function body and replace `_models.UserFollow`/`_models.User` with the already-imported `models.*`. Fixes 3 failing tests. Zero risk.
+1. **[FIX] Pre-existing `TestGetFollowingList` ImportError** — In `backend/app/routers/users.py` around line 395, remove `from . import models as _models` inside the `get_my_following` function body; replace `_models.*` with the top-level `models.*`. Fixes 3 failing tests. Zero risk.
 
 2. **[FEATURE] DM / direct messaging backend** — `DirectMessage` model in `backend/app/models.py`, new `backend/app/routers/messages.py` (POST/GET), Alembic migration. Transforms `chat-details.js` from a comment-detail view into a real conversation surface. High social-layer impact.
 
