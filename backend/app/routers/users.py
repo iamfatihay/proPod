@@ -1,6 +1,7 @@
 """User authentication and profile management endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Path, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from pathlib import Path as SysPath
 from typing import Dict, Optional
 import os
@@ -391,17 +392,14 @@ def get_my_following(
     current_user: models.User = Depends(auth.get_current_user),
 ):
     """Return the list of creators the current user is following."""
-    from sqlalchemy import func as _func
-    from . import models as _models
-
     # Real total count (not page-size)
     total = (
-        db.query(_func.count(_models.UserFollow.id))
+        db.query(func.count(models.UserFollow.id))
         .filter(
-            _models.UserFollow.follower_id == current_user.id,
-            _models.User.is_active == True,
+            models.UserFollow.follower_id == current_user.id,
+            models.User.is_active == True,
         )
-        .join(_models.User, _models.UserFollow.followed_id == _models.User.id)
+        .join(models.User, models.UserFollow.followed_id == models.User.id)
         .scalar()
     ) or 0
 
@@ -414,21 +412,21 @@ def get_my_following(
 
     # Batch podcast counts — one query for all users
     podcast_counts = dict(
-        db.query(_models.Podcast.owner_id, _func.count(_models.Podcast.id))
+        db.query(models.Podcast.owner_id, func.count(models.Podcast.id))
         .filter(
-            _models.Podcast.owner_id.in_(user_ids),
-            _models.Podcast.is_deleted == False,
-            _models.Podcast.is_public == True,
+            models.Podcast.owner_id.in_(user_ids),
+            models.Podcast.is_deleted == False,
+            models.Podcast.is_public == True,
         )
-        .group_by(_models.Podcast.owner_id)
+        .group_by(models.Podcast.owner_id)
         .all()
     )
 
     # Batch follower counts — one query for all users
     follower_counts = dict(
-        db.query(_models.UserFollow.followed_id, _func.count(_models.UserFollow.id))
-        .filter(_models.UserFollow.followed_id.in_(user_ids))
-        .group_by(_models.UserFollow.followed_id)
+        db.query(models.UserFollow.followed_id, func.count(models.UserFollow.id))
+        .filter(models.UserFollow.followed_id.in_(user_ids))
+        .group_by(models.UserFollow.followed_id)
         .all()
     )
 
