@@ -29,6 +29,18 @@ import PermissionModal from "../../src/components/PermissionModal";
 import InfoModal from "../../src/components/InfoModal";
 import { useToast } from "../../src/components/Toast";
 import useAudioStore from "../../src/context/useAudioStore";
+import { normalizePodcasts, toAbsoluteUrl } from "../../src/utils/urlHelper";
+
+// Maps a normalised podcast object to the track shape expected by useAudioStore
+const toTrack = (p) => ({
+    id: p.id,
+    uri: p.audio_url, // already absolute after normalizePodcasts
+    title: p.title,
+    artist: p.owner?.name || "Unknown Artist",
+    artwork: p.thumbnail_url, // already absolute after normalizePodcasts
+    duration: (p.duration || 0) * 1000, // backend returns seconds → store expects ms
+    category: p.category,
+});
 
 export default function Profile() {
     const user = useAuthStore((state) => state.user);
@@ -60,11 +72,16 @@ export default function Profile() {
     // ── Real profile stats ────────────────────────────────────────────────────
     const [followerCount, setFollowerCount] = React.useState(0);
     const [followingCount, setFollowingCount] = React.useState(0);
+    const [podcastCount, setPodcastCount] = React.useState(0); // server-side total (not capped by page limit)
     const [myPodcasts, setMyPodcasts] = React.useState([]);
     const [statsLoading, setStatsLoading] = React.useState(true);
 
     const loadProfileStats = useCallback(async () => {
-        if (!user?.id) return;
+        if (!user?.id) {
+            // Clear loading state so the screen doesn't stay stuck on spinner
+            setStatsLoading(false);
+            return;
+        }
         setStatsLoading(true);
         try {
             const [publicProfile, followingData, podcastsData] =
@@ -76,12 +93,16 @@ export default function Profile() {
 
             if (publicProfile.status === "fulfilled") {
                 setFollowerCount(publicProfile.value?.total_followers ?? 0);
+                // Use server-provided total instead of page-capped array length
+                setPodcastCount(publicProfile.value?.podcast_count ?? 0);
             }
             if (followingData.status === "fulfilled") {
                 setFollowingCount(followingData.value?.total ?? 0);
             }
             if (podcastsData.status === "fulfilled") {
-                setMyPodcasts(podcastsData.value?.podcasts ?? []);
+                // Normalize URLs to absolute + duration seconds → ms before storing
+                const raw = podcastsData.value?.podcasts ?? [];
+                setMyPodcasts(normalizePodcasts(raw));
             }
         } catch (e) {
             Logger.error("Profile: failed to load stats", e);
@@ -97,23 +118,28 @@ export default function Profile() {
     );
 
     // ── Audio store (for play-in-place from profile) ──────────────────────────
-    const { currentPodcast, isPlaying, loadAndPlay, togglePlayback } =
-        useAudioStore((s) => ({
-            currentPodcast: s.currentPodcast,
-            isPlaying: s.isPlaying,
-            loadAndPlay: s.loadAndPlay,
-            togglePlayback: s.togglePlayback,
-        }));
+    // Use the same selectors as home.js / creator-profile.js
+    const currentTrack = useAudioStore((s) => s.currentTrack);
+    const isPlaying = useAudioStore((s) => s.isPlaying);
+    const setQueue = useAudioStore((s) => s.setQueue);
+    const play = useAudioStore((s) => s.play);
+    const pause = useAudioStore((s) => s.pause);
 
     const handlePodcastPlay = useCallback(
         (podcast) => {
-            if (currentPodcast?.id === podcast.id) {
-                togglePlayback();
+            const isCurrentTrack = currentTrack?.id === podcast.id;
+            if (isCurrentTrack) {
+                // Toggle play/pause for the already-loaded track
+                isPlaying ? pause() : play();
             } else {
-                loadAndPlay(podcast);
+                // Load the whole list as a queue so Next/Prev works
+                const tracks = myPodcasts.map(toTrack);
+                const startIdx = tracks.findIndex((t) => t.id === podcast.id);
+                setQueue(tracks, startIdx >= 0 ? startIdx : 0);
+                play(tracks[startIdx >= 0 ? startIdx : 0]);
             }
         },
-        [currentPodcast, isPlaying, loadAndPlay, togglePlayback]
+        [currentTrack, isPlaying, myPodcasts, setQueue, play, pause]
     );
 
     const handleLogout = async () => {
@@ -533,7 +559,7 @@ export default function Profile() {
                     <ProfileStats
                         followers={followerCount}
                         following={followingCount}
-                        posts={myPodcasts.length}
+                        posts={podcastCount}
                     />
                 )}
                 {/* My Podcasts */}
@@ -570,7 +596,7 @@ export default function Profile() {
                                 }
                                 onPlayPress={() => handlePodcastPlay(podcast)}
                                 isPlaying={
-                                    currentPodcast?.id === podcast.id && isPlaying
+                                    currentTrack?.id === podcast.id && isPlaying
                                 }
                             />
                         ))
