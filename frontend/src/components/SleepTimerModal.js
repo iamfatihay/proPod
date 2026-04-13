@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
     View,
     Text,
@@ -45,6 +45,7 @@ const SleepTimerModal = ({ visible, onClose }) => {
     const setSleepOnEpisodeEnd = useAudioStore(
         (state) => state.setSleepOnEpisodeEnd
     );
+    const loadSleepSettings = useAudioStore((state) => state.loadSleepSettings);
     const sleepTimerActive = useAudioStore((state) => state.sleepTimerActive);
     const sleepTimerRemaining = useAudioStore(
         (state) => state.sleepTimerRemaining
@@ -52,6 +53,11 @@ const SleepTimerModal = ({ visible, onClose }) => {
     const sleepOnEpisodeEnd = useAudioStore(
         (state) => state.sleepOnEpisodeEnd
     );
+
+    // Restore persisted sleepOnEpisodeEnd preference on first render
+    useEffect(() => {
+        loadSleepSettings();
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Any sleep mode active (time-based OR episode-end)
     const anyActive = sleepTimerActive || sleepOnEpisodeEnd;

@@ -1,8 +1,12 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Logger from "../utils/logger";
 // import AudioService from "../services/audio"; // Temporarily disabled
+
+// AsyncStorage key for persisted sleep-on-episode-end preference
+const SLEEP_EOE_KEY = "@propod/sleepOnEpisodeEnd";
 
 const useAudioStore = create(
     subscribeWithSelector((set, get) => ({
@@ -922,10 +926,40 @@ const useAudioStore = create(
                     sleepTimerRemaining: 0,
                     _sleepTimerIntervalId: null,
                 });
+                // Persist so the preference survives app restarts
+                AsyncStorage.setItem(SLEEP_EOE_KEY, "1").catch((e) =>
+                    Logger.error("[SleepTimer] Failed to persist sleepOnEpisodeEnd", e)
+                );
                 Logger.log("[SleepTimer] Sleep-on-episode-end enabled");
             } else {
                 set({ sleepOnEpisodeEnd: false });
+                // Clear persisted preference
+                AsyncStorage.setItem(SLEEP_EOE_KEY, "0").catch((e) =>
+                    Logger.error("[SleepTimer] Failed to clear sleepOnEpisodeEnd", e)
+                );
                 Logger.log("[SleepTimer] Sleep-on-episode-end disabled");
+            }
+        },
+
+        /**
+         * loadSleepSettings()
+         *
+         * Reads the persisted sleepOnEpisodeEnd preference from AsyncStorage and
+         * restores it into the store.  Call once on app launch (e.g. from
+         * SleepTimerModal or the root layout) so the user's choice survives restarts.
+         *
+         * Safe to call multiple times — no-ops if nothing is stored yet.
+         */
+        loadSleepSettings: async () => {
+            try {
+                const stored = await AsyncStorage.getItem(SLEEP_EOE_KEY);
+                if (stored === "1") {
+                    set({ sleepOnEpisodeEnd: true });
+                    Logger.log("[SleepTimer] Restored sleepOnEpisodeEnd from storage");
+                }
+                // "0" or null → leave the default (false) untouched
+            } catch (e) {
+                Logger.error("[SleepTimer] Failed to load sleepOnEpisodeEnd from storage", e);
             }
         },
 
