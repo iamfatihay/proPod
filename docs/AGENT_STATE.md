@@ -16,8 +16,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-13
-**Last session (reconciliation):** PR #53 (sleep-on-episode-end) and PR #54 (following-feed) confirmed merged to master by Fay. Open PRs: #55 (fix/following-list-import-error — trivial Copilot comment pending), #56 (feature/profile-real-stats — wrong apiService method names: `getPublicProfile`→`getPublicUserProfile`, `getMyFollowing`→`getFollowingList`). Both branches will be patched this session. New feature: `sleepOnEpisodeEnd` AsyncStorage persistence (PR #57, branch `feature/persist-sleep-on-episode-end`).
-**Test suite baseline:** 228 frontend tests (220 + 8 from PR #57). Backend: unchanged.
+**Last session (Copilot review fixes):** Addressed all Copilot review comments across PRs #55, #56, #57. PR #55: removed line-number reference from AGENT_STATE doc. PR #56: fixed wrong store selectors (currentPodcast/loadAndPlay/togglePlayback → currentTrack/setQueue/play/pause), added normalizePodcasts(), used server podcast_count instead of array.length for posts, cleared statsLoading on early return. PR #57: added write-sequence counter to prevent race conditions, added sleepTimerActive guard in loadSleepSettings, replaced eslint-disable with useRef pattern, added missing false+setItem-rejection test and guard tests.
+**Test suite baseline:** 229 frontend tests (PR #57 now has 12 tests in the storage suite). Backend: unchanged.
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -53,16 +53,25 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Profile screen wired to real API data — real follower/following/podcast counts, PodcastCard list, `useFocusEffect` refresh — PR #56
 
 ### What's open / in-progress
-- **PR #57**: `feat(player): persist sleepOnEpisodeEnd across app restarts via AsyncStorage` — branch `feature/persist-sleep-on-episode-end`
-  - `useAudioStore.js`: `setSleepOnEpisodeEnd` now writes `"1"`/`"0"` to `@propod/sleepOnEpisodeEnd`; new `loadSleepSettings()` reads and restores the flag on app launch
-  - `SleepTimerModal.js`: calls `loadSleepSettings()` on mount via `useEffect`
-  - 9 new Jest tests covering persist-on-enable, persist-on-disable, restore-on-load, no-op-on-null, no-op-on-"0", getItem-error, setItem-error (enable/disable)
+- **PR #55**: `fix(users): remove relative import inside function body in get_my_following` — https://github.com/iamfatihay/proPod/pull/55 — **Copilot review addressed** (line-number ref removed from AGENT_STATE doc)
+
+- **PR #56**: `feat(profile): wire profile screen to real API data` — https://github.com/iamfatihay/proPod/pull/56 — **Copilot review addressed**
+  - Fixed wrong store selectors: `currentPodcast`/`loadAndPlay`/`togglePlayback` → `currentTrack`/`setQueue`/`play`/`pause` (matching home.js/creator-profile.js)
+  - `handlePodcastPlay` now uses `toTrack()` helper, loads full list as queue
+  - `normalizePodcasts()` applied before `setMyPodcasts` (absolute URLs, duration seconds→ms)
+  - `podcastCount` from server `publicProfile.podcast_count` (not page-capped `myPodcasts.length`)
+  - `setStatsLoading(false)` on early return when `user?.id` is missing (avoids permanent spinner)
+
+- **PR #57**: `feat(player): persist sleepOnEpisodeEnd across app restarts via AsyncStorage` — https://github.com/iamfatihay/proPod/pull/57 — **Copilot review addressed**
+  - `_sleepEoeWriteSeq` write-sequence counter: only the last toggle's write survives, preventing race conditions on rapid enable/disable
+  - `loadSleepSettings` guards against restoring when `sleepTimerActive=true` — active timer takes precedence
+  - `SleepTimerModal`: replaced `eslint-disable-line` with explicit `useRef` pattern for stable dep
+  - 12 Jest tests (was 9): added false+setItem-rejection test and two guard tests (45/45 passing)
 
 ### Known issues / tech debt
 - No real DM/user-to-user messaging backend yet; `chat-details.js` is still a comment-detail surface
-- Frontend tests: 228 passing; component-level coverage still thin
+- Frontend tests: 229 passing; component-level coverage still thin
 - Sleep timer uses `setInterval` — verify accuracy on real device
-- Profile screen uses `getFollowingList` which returns `{ following, total }` — `total` confirmed present in backend `FollowingListResponse` schema
 
 ---
 
