@@ -69,8 +69,8 @@ export default function Profile() {
         try {
             const [publicProfile, followingData, podcastsData] =
                 await Promise.allSettled([
-                    apiService.getPublicProfile(user.id),
-                    apiService.getMyFollowing({ skip: 0, limit: 1 }),
+                    apiService.getPublicUserProfile(user.id),
+                    apiService.getFollowingList({ skip: 0, limit: 1 }),
                     apiService.getPublicUserPodcasts(user.id, { limit: 20 }),
                 ]);
 
