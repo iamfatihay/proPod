@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import {
     View,
     Text,
@@ -54,10 +54,16 @@ const SleepTimerModal = ({ visible, onClose }) => {
         (state) => state.sleepOnEpisodeEnd
     );
 
+    // Stable ref so the useEffect dep array is satisfied without re-running on
+    // every render. Zustand store actions are stable references, but using a ref
+    // keeps the linter happy and documents the intent clearly.
+    const loadSleepSettingsRef = useRef(loadSleepSettings);
+    loadSleepSettingsRef.current = loadSleepSettings;
+
     // Restore persisted sleepOnEpisodeEnd preference on first render
     useEffect(() => {
-        loadSleepSettings();
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+        loadSleepSettingsRef.current();
+    }, []); // loadSleepSettingsRef.current is stable — intentionally omitted
 
     // Any sleep mode active (time-based OR episode-end)
     const anyActive = sleepTimerActive || sleepOnEpisodeEnd;

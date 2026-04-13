@@ -2,14 +2,15 @@
  * useAudioStore — sleepOnEpisodeEnd AsyncStorage Persistence Tests
  *
  * Covers:
- *   - setSleepOnEpisodeEnd(true)   writes "1" to AsyncStorage
- *   - setSleepOnEpisodeEnd(false)  writes "0" to AsyncStorage
- *   - loadSleepSettings()          restores sleepOnEpisodeEnd=true when "1" is stored
- *   - loadSleepSettings()          no-ops when null (nothing stored yet)
- *   - loadSleepSettings()          no-ops when "0" is stored
- *   - loadSleepSettings()          handles AsyncStorage.getItem rejection gracefully
- *   - setSleepOnEpisodeEnd(true)   handles AsyncStorage.setItem rejection gracefully
- *   - setSleepOnEpisodeEnd(false)  handles AsyncStorage.setItem rejection gracefully
+ *   - setSleepOnEpisodeEnd(true)    writes "1" to AsyncStorage
+ *   - setSleepOnEpisodeEnd(false)   writes "0" to AsyncStorage
+ *   - loadSleepSettings()           restores sleepOnEpisodeEnd=true when "1" is stored
+ *   - loadSleepSettings()           no-ops when null (nothing stored yet)
+ *   - loadSleepSettings()           no-ops when "0" is stored
+ *   - loadSleepSettings()           does NOT restore when sleepTimerActive is true (guard)
+ *   - loadSleepSettings()           handles AsyncStorage.getItem rejection gracefully
+ *   - setSleepOnEpisodeEnd(true)    handles AsyncStorage.setItem rejection gracefully
+ *   - setSleepOnEpisodeEnd(false)   handles AsyncStorage.setItem rejection gracefully
  */
 
 import { act } from "@testing-library/react-native";
@@ -160,7 +161,7 @@ describe("useAudioStore — sleepOnEpisodeEnd AsyncStorage persistence", () => {
             expect(useAudioStore.getState().sleepOnEpisodeEnd).toBe(false);
         });
 
-        it("does not throw when setSleepOnEpisodeEnd AsyncStorage.setItem rejects", async () => {
+        it("does not throw when setSleepOnEpisodeEnd(true) AsyncStorage.setItem rejects", async () => {
             AsyncStorage.setItem.mockRejectedValueOnce(new Error("storage full"));
 
             await expect(
@@ -171,6 +172,51 @@ describe("useAudioStore — sleepOnEpisodeEnd AsyncStorage persistence", () => {
             ).resolves.not.toThrow();
 
             // State is still updated even when storage fails
+            expect(useAudioStore.getState().sleepOnEpisodeEnd).toBe(true);
+        });
+
+        it("does not throw when setSleepOnEpisodeEnd(false) AsyncStorage.setItem rejects", async () => {
+            // Start armed so there's a meaningful state transition
+            useAudioStore.setState({ sleepOnEpisodeEnd: true });
+            AsyncStorage.setItem.mockRejectedValueOnce(new Error("storage full"));
+
+            await expect(
+                act(async () => {
+                    useAudioStore.getState().setSleepOnEpisodeEnd(false);
+                    await Promise.resolve();
+                })
+            ).resolves.not.toThrow();
+
+            // State is cleared even when storage fails to persist the change
+            expect(useAudioStore.getState().sleepOnEpisodeEnd).toBe(false);
+        });
+    });
+
+    // ── loadSleepSettings guard — active timer takes precedence ───────────────
+
+    describe("loadSleepSettings guard", () => {
+        it("does NOT restore sleepOnEpisodeEnd when a time-based timer is active", async () => {
+            // Simulate: user set a time-based timer, then cold-restarted before
+            // the stored "1" was cleared — the active timer must win.
+            AsyncStorage.__setMockStorage({ [SLEEP_EOE_KEY]: "1" });
+            useAudioStore.setState({ sleepTimerActive: true });
+
+            await act(async () => {
+                await useAudioStore.getState().loadSleepSettings();
+            });
+
+            // Active timer state takes precedence; sleepOnEpisodeEnd stays false
+            expect(useAudioStore.getState().sleepOnEpisodeEnd).toBe(false);
+        });
+
+        it("restores sleepOnEpisodeEnd when no timer is active", async () => {
+            AsyncStorage.__setMockStorage({ [SLEEP_EOE_KEY]: "1" });
+            // sleepTimerActive is false by default (see resetState)
+
+            await act(async () => {
+                await useAudioStore.getState().loadSleepSettings();
+            });
+
             expect(useAudioStore.getState().sleepOnEpisodeEnd).toBe(true);
         });
     });

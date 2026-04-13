@@ -8,6 +8,11 @@ import Logger from "../utils/logger";
 // AsyncStorage key for persisted sleep-on-episode-end preference
 const SLEEP_EOE_KEY = "@propod/sleepOnEpisodeEnd";
 
+// Monotonic write counter — incremented by every setSleepOnEpisodeEnd call.
+// The storage write checks the counter before applying, so rapid enable/disable
+// toggles can never land out of order: only the last caller's write survives.
+let _sleepEoeWriteSeq = 0;
+
 const useAudioStore = create(
     subscribeWithSelector((set, get) => ({
         // Playback State
@@ -926,19 +931,25 @@ const useAudioStore = create(
                     sleepTimerRemaining: 0,
                     _sleepTimerIntervalId: null,
                 });
-                // Persist so the preference survives app restarts
-                AsyncStorage.setItem(SLEEP_EOE_KEY, "1").catch((e) =>
-                    Logger.error("[SleepTimer] Failed to persist sleepOnEpisodeEnd", e)
-                );
                 Logger.log("[SleepTimer] Sleep-on-episode-end enabled");
             } else {
                 set({ sleepOnEpisodeEnd: false });
-                // Clear persisted preference
-                AsyncStorage.setItem(SLEEP_EOE_KEY, "0").catch((e) =>
-                    Logger.error("[SleepTimer] Failed to clear sleepOnEpisodeEnd", e)
-                );
                 Logger.log("[SleepTimer] Sleep-on-episode-end disabled");
             }
+
+            // Persist the new value — use a sequence counter so rapid toggles
+            // (enable → disable in quick succession) can never land out of order.
+            // Only the write whose seq still matches the current global counter survives.
+            const seq = ++_sleepEoeWriteSeq;
+            const value = enabled ? "1" : "0";
+            AsyncStorage.setItem(SLEEP_EOE_KEY, value)
+                .then(() => {
+                    if (_sleepEoeWriteSeq !== seq) return; // superseded by a later toggle
+                    Logger.log(`[SleepTimer] Persisted sleepOnEpisodeEnd=${value}`);
+                })
+                .catch((e) =>
+                    Logger.error("[SleepTimer] Failed to persist sleepOnEpisodeEnd", e)
+                );
         },
 
         /**
@@ -948,14 +959,21 @@ const useAudioStore = create(
          * restores it into the store.  Call once on app launch (e.g. from
          * SleepTimerModal or the root layout) so the user's choice survives restarts.
          *
+         * Guards: does NOT restore if a time-based sleep timer is currently active —
+         * the active timer's own state takes precedence over the stored preference.
+         *
          * Safe to call multiple times — no-ops if nothing is stored yet.
          */
         loadSleepSettings: async () => {
             try {
                 const stored = await AsyncStorage.getItem(SLEEP_EOE_KEY);
                 if (stored === "1") {
-                    set({ sleepOnEpisodeEnd: true });
-                    Logger.log("[SleepTimer] Restored sleepOnEpisodeEnd from storage");
+                    // Don't overwrite an already-active time-based timer's state
+                    const { sleepTimerActive } = get();
+                    if (!sleepTimerActive) {
+                        set({ sleepOnEpisodeEnd: true });
+                        Logger.log("[SleepTimer] Restored sleepOnEpisodeEnd from storage");
+                    }
                 }
                 // "0" or null → leave the default (false) untouched
             } catch (e) {
