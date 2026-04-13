@@ -15,10 +15,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-12
-**Last session (PR #53):** Reconciled stale AGENT_STATE (PRs #50 sleep-timer and #51 follow-creator were already merged by Fay). Implemented "End of Episode" sleep timer option (PR #53). Added `sleepOnEpisodeEnd` flag to useAudioStore, intercept in `onPlaybackStatusUpdate`, new button in SleepTimerModal, active indicator in ModernAudioPlayer. 12 Jest tests passing. Then addressed Copilot review comments: replaced silent pause() try/catch with `get().pause()`, fixed `COLORS.surface` fallback to literal `"#fff"`, renamed `audioUrl` → `uri` in test fixtures.
-**Last session (PR #54):** Implemented Following Feed (PR #54). Closes the follow UX loop from PR #51: new `GET /podcasts/following-feed` endpoint (single JOIN query, is_active guard, enrich_podcast_with_stats), `FOLLOWING_CATEGORY` pill in home.js, `getFollowingFeed()` in apiService, dedicated empty state. Addressed Copilot review comments: removed extra `)}` JSX crash, trimmed blank lines in router, added is_active join, added `enrich_podcast_with_stats` call. 10 backend tests (10/10 PASS).
-**Test suite baseline:** 220 frontend tests (208 + 12 from PR #53). Backend: 10 new tests in test_following_feed.py (10/10 PASS).
+**Last updated:** 2026-04-13
+**Last session (reconciliation):** PR #53 (sleep-on-episode-end) and PR #54 (following-feed) confirmed merged to master by Fay. Open PRs: #55 (fix/following-list-import-error — trivial Copilot comment pending), #56 (feature/profile-real-stats — wrong apiService method names: `getPublicProfile`→`getPublicUserProfile`, `getMyFollowing`→`getFollowingList`). Both branches will be patched this session. New feature: `sleepOnEpisodeEnd` AsyncStorage persistence (PR #57, branch `feature/persist-sleep-on-episode-end`).
+**Test suite baseline:** 228 frontend tests (220 + 8 from PR #57). Backend: unchanged.
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -48,38 +47,32 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Playback speed selector modal (6 presets, 9 tests) — PR #52
 - ✅ Sleep timer — auto-pause after chosen duration — PR #50
 - ✅ Follow/unfollow creator — backend + frontend — PR #51
+- ✅ "End of Episode" sleep timer option — `sleepOnEpisodeEnd` flag, SleepTimerModal button, ModernAudioPlayer indicator — PR #53
+- ✅ Following Feed — `GET /podcasts/following-feed`, FOLLOWING_CATEGORY pill, empty state with CTA — PR #54
+- ✅ Fix `TestGetFollowingList` ImportError — removed inline relative import from `get_my_following` body, promoted `func` to module level — PR #55
+- ✅ Profile screen wired to real API data — real follower/following/podcast counts, PodcastCard list, `useFocusEffect` refresh — PR #56
 
 ### What's open / in-progress
-- **PR #53**: `feat(player): "End of Episode" sleep timer option` — https://github.com/iamfatihay/proPod/pull/53 — branch `feature/sleep-on-episode-end`
-  - `useAudioStore`: `sleepOnEpisodeEnd` flag; `setSleepOnEpisodeEnd(enabled)`; intercepts `didJustFinish` in `onPlaybackStatusUpdate`; `cancelSleepTimer`/`cleanup`/`setSleepTimer` all reset the flag
-  - `SleepTimerModal`: "End of episode" button; active highlight; `anyActive` guard
-  - `ModernAudioPlayer`: moon icon + "End" label turn red when armed
-  - 12 Jest tests + Copilot review comments addressed (pause() reuse, COLORS.surface, uri fix)
-
-- **PR #54**: `feat(feed): Following Feed — personalised podcast feed from followed creators` — https://github.com/iamfatihay/proPod/pull/54 — branch `feature/following-feed`
-  - `backend/app/crud.py`: `get_following_feed()` — JOIN query + `is_active` guard + `enrich_podcast_with_stats`
-  - `backend/app/routers/podcasts.py`: `GET /podcasts/following-feed` (auth required; before `/{podcast_id}`)
-  - `frontend/src/services/api/apiService.js`: `getFollowingFeed({ skip, limit })`
-  - `frontend/app/(main)/home.js`: `FOLLOWING_CATEGORY` pill; `load()` branches on "following"; empty state with Discover Creators CTA
-  - `backend/tests/test_following_feed.py`: 10 tests (10/10 PASS)
-  - Copilot review comments addressed: extra `)}` JSX fix, blank lines, is_active join, enrich call
+- **PR #57**: `feat(player): persist sleepOnEpisodeEnd across app restarts via AsyncStorage` — branch `feature/persist-sleep-on-episode-end`
+  - `useAudioStore.js`: `setSleepOnEpisodeEnd` now writes `"1"`/`"0"` to `@propod/sleepOnEpisodeEnd`; new `loadSleepSettings()` reads and restores the flag on app launch
+  - `SleepTimerModal.js`: calls `loadSleepSettings()` on mount via `useEffect`
+  - 9 new Jest tests covering persist-on-enable, persist-on-disable, restore-on-load, no-op-on-null, no-op-on-"0", getItem-error, setItem-error (enable/disable)
 
 ### Known issues / tech debt
 - No real DM/user-to-user messaging backend yet; `chat-details.js` is still a comment-detail surface
-- Pre-existing failure: `test_follow.py::TestGetFollowingList` (3 tests) — `ImportError: cannot import name 'models' from 'app.routers'` in `users.py:395`. Fix: remove `from . import models as _models` inside function body; use top-level `models` import already available. Not introduced by any agent session.
-- Frontend tests: 220 passing; component-level coverage still thin
-- `sleepOnEpisodeEnd` not persisted across app restarts (AsyncStorage)
+- Frontend tests: 228 passing; component-level coverage still thin
 - Sleep timer uses `setInterval` — verify accuracy on real device
+- Profile screen uses `getFollowingList` which returns `{ following, total }` — `total` confirmed present in backend `FollowingListResponse` schema
 
 ---
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **Merge PR #53 (end-of-episode sleep)** — all review comments addressed; ready
-2. **Merge PR #54 (following feed)** — all review comments addressed; ready
-3. **Fix pre-existing `TestGetFollowingList` ImportError** — 1-line fix in `users.py:395`
-4. **DM/chat backend** — `messages` model + router so `chat-details.js` becomes a true conversation surface
-5. **Push notifications (APNs/FCM)** — out-of-app delivery for likes/comments
+1. **[FEATURE] DM / direct messaging backend** — `DirectMessage` model in `backend/app/models.py`, new `backend/app/routers/messages.py` (POST /messages, GET /messages/{partner_id}), Alembic migration. Transforms `chat-details.js` from a comment-detail view into a real conversation surface. High social-layer impact.
+
+2. **[FEATURE] Persist time-based sleep timer across restarts** — Companion to PR #57. When user sets a 30-min timer and closes the app, restore remaining time on reopen. `AsyncStorage` in `useAudioStore.setSleepTimer` + `loadSleepSettings`.
+
+3. **[FEATURE] Push notifications (APNs/FCM)** — backend already has `POST /notifications/send` stub; wire up Expo Push Token registration in `frontend/src/services/` and call on app launch from `_layout.js`. Lets likes/comments trigger out-of-app alerts.
 
 ---
 
@@ -127,8 +120,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FIX] Pre-existing `TestGetFollowingList` ImportError** — In `backend/app/routers/users.py` around line 395, remove `from . import models as _models` inside the `get_my_following` function body; replace `_models.*` with the top-level `models.*`. Fixes 3 failing tests. Zero risk.
+1. **[FEATURE] DM / direct messaging backend** — `DirectMessage` model in `backend/app/models.py` (fields: id, sender_id, recipient_id, body, created_at, is_read), new `backend/app/routers/messages.py` with `POST /messages/` and `GET /messages/{user_id}`, Alembic migration, register in `main.py`. Transforms `frontend/app/(main)/chat-details.js` from a comment-detail view into a real 1-on-1 conversation. High social-layer value.
 
-2. **[FEATURE] DM / direct messaging backend** — `DirectMessage` model in `backend/app/models.py`, new `backend/app/routers/messages.py` (POST/GET), Alembic migration. Transforms `chat-details.js` from a comment-detail view into a real conversation surface. High social-layer impact.
+2. **[FEATURE] Eager `loadSleepSettings` on app launch** — Move the `loadSleepSettings()` call from `SleepTimerModal.useEffect` into `frontend/app/_layout.js` so the preference is restored at cold start, not on first modal open. One-line change; zero risk.
 
-3. **[FEATURE] Persist `sleepOnEpisodeEnd` across restarts** — `AsyncStorage` read/write in `frontend/src/context/useAudioStore.js` only. Companion polish to the sleep timer shipped in PR #50/#53.
+3. **[FEATURE] Push notifications (APNs/FCM)** — Register Expo Push Token in `frontend/src/services/` on app launch (`_layout.js`), store in a `DeviceToken` model on the backend, call the push API from `backend/app/crud.py` when creating notifications. Delivers out-of-app alerts for likes/comments — high user visibility.
