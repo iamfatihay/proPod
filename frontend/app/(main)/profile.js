@@ -13,12 +13,13 @@ import {
     Platform,
     StatusBar,
 } from "react-native";
-import React from "react";
+import React, { useCallback } from "react";
 import { COLORS } from "../../src/constants/theme";
 import useAuthStore from "../../src/context/useAuthStore";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import Avatar from "../../src/components/Avatar";
 import ProfileStats from "../../src/components/ProfileStats";
+import PodcastCard from "../../src/components/PodcastCard";
 import { Ionicons } from "@expo/vector-icons";
 import apiService from "../../src/services/api/apiService";
 import * as ImagePicker from "expo-image-picker";
@@ -27,12 +28,19 @@ import PhotoOptionsModal from "../../src/components/PhotoOptionsModal";
 import PermissionModal from "../../src/components/PermissionModal";
 import InfoModal from "../../src/components/InfoModal";
 import { useToast } from "../../src/components/Toast";
+import useAudioStore from "../../src/context/useAudioStore";
+import { normalizePodcasts, toAbsoluteUrl } from "../../src/utils/urlHelper";
 
-const dummyPodcasts = [
-    { id: 1, title: "My First Podcast" },
-    { id: 2, title: "Tips for Beginners" },
-    { id: 3, title: "Advanced Techniques" },
-];
+// Maps a normalised podcast object to the track shape expected by useAudioStore
+const toTrack = (p) => ({
+    id: p.id,
+    uri: p.audio_url, // already absolute after normalizePodcasts
+    title: p.title,
+    artist: p.owner?.name || "Unknown Artist",
+    artwork: p.thumbnail_url, // already absolute after normalizePodcasts
+    duration: (p.duration || 0) * 1000, // backend returns seconds → store expects ms
+    category: p.category,
+});
 
 export default function Profile() {
     const user = useAuthStore((state) => state.user);
@@ -60,6 +68,79 @@ export default function Profile() {
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState("");
     const setUser = useAuthStore((state) => state.setUser);
+
+    // ── Real profile stats ────────────────────────────────────────────────────
+    const [followerCount, setFollowerCount] = React.useState(0);
+    const [followingCount, setFollowingCount] = React.useState(0);
+    const [podcastCount, setPodcastCount] = React.useState(0); // server-side total (not capped by page limit)
+    const [myPodcasts, setMyPodcasts] = React.useState([]);
+    const [statsLoading, setStatsLoading] = React.useState(true);
+
+    const loadProfileStats = useCallback(async () => {
+        if (!user?.id) {
+            // Clear loading state so the screen doesn't stay stuck on spinner
+            setStatsLoading(false);
+            return;
+        }
+        setStatsLoading(true);
+        try {
+            const [publicProfile, followingData, podcastsData] =
+                await Promise.allSettled([
+                    apiService.getPublicUserProfile(user.id),
+                    apiService.getFollowingList({ skip: 0, limit: 1 }),
+                    apiService.getPublicUserPodcasts(user.id, { limit: 20 }),
+                ]);
+
+            if (publicProfile.status === "fulfilled") {
+                setFollowerCount(publicProfile.value?.total_followers ?? 0);
+                // Use server-provided total instead of page-capped array length
+                setPodcastCount(publicProfile.value?.podcast_count ?? 0);
+            }
+            if (followingData.status === "fulfilled") {
+                setFollowingCount(followingData.value?.total ?? 0);
+            }
+            if (podcastsData.status === "fulfilled") {
+                // Normalize URLs to absolute + duration seconds → ms before storing
+                const raw = podcastsData.value?.podcasts ?? [];
+                setMyPodcasts(normalizePodcasts(raw));
+            }
+        } catch (e) {
+            Logger.error("Profile: failed to load stats", e);
+        } finally {
+            setStatsLoading(false);
+        }
+    }, [user?.id]);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadProfileStats();
+        }, [loadProfileStats])
+    );
+
+    // ── Audio store (for play-in-place from profile) ──────────────────────────
+    // Use the same selectors as home.js / creator-profile.js
+    const currentTrack = useAudioStore((s) => s.currentTrack);
+    const isPlaying = useAudioStore((s) => s.isPlaying);
+    const setQueue = useAudioStore((s) => s.setQueue);
+    const play = useAudioStore((s) => s.play);
+    const pause = useAudioStore((s) => s.pause);
+
+    const handlePodcastPlay = useCallback(
+        (podcast) => {
+            const isCurrentTrack = currentTrack?.id === podcast.id;
+            if (isCurrentTrack) {
+                // Toggle play/pause for the already-loaded track
+                isPlaying ? pause() : play();
+            } else {
+                // Load the whole list as a queue so Next/Prev works
+                const tracks = myPodcasts.map(toTrack);
+                const startIdx = tracks.findIndex((t) => t.id === podcast.id);
+                setQueue(tracks, startIdx >= 0 ? startIdx : 0);
+                play(tracks[startIdx >= 0 ? startIdx : 0]);
+            }
+        },
+        [currentTrack, isPlaying, myPodcasts, setQueue, play, pause]
+    );
 
     const handleLogout = async () => {
         await logout();
@@ -470,26 +551,56 @@ export default function Profile() {
                     </TouchableOpacity>
                 </View>
                 {/* User Stats */}
-                <ProfileStats
-                    followers={123} // dummy
-                    following={80} // dummy
-                    posts={12} // dummy
-                />
-                {/* User Content List (Podcasts) */}
+                {statsLoading ? (
+                    <View className="my-md items-center">
+                        <ActivityIndicator size="small" color={COLORS.primary} />
+                    </View>
+                ) : (
+                    <ProfileStats
+                        followers={followerCount}
+                        following={followingCount}
+                        posts={podcastCount}
+                    />
+                )}
+                {/* My Podcasts */}
                 <View className="mt-lg px-md">
                     <Text className="text-headline text-text-primary mb-md">
                         My Podcasts
                     </Text>
-                    {dummyPodcasts.map((podcast) => (
-                        <View
-                            key={podcast.id}
-                            className="bg-card rounded-md px-md py-sm mb-sm"
-                        >
-                            <Text className="text-body text-text-primary">
-                                {podcast.title}
+                    {statsLoading ? (
+                        <ActivityIndicator color={COLORS.primary} style={{ marginTop: 16 }} />
+                    ) : myPodcasts.length === 0 ? (
+                        <View className="items-center py-lg">
+                            <Ionicons
+                                name="mic-outline"
+                                size={40}
+                                color={COLORS.text.muted}
+                            />
+                            <Text
+                                className="text-text-secondary text-base mt-2 text-center"
+                                style={{ maxWidth: 220 }}
+                            >
+                                You haven't published any podcasts yet.
                             </Text>
                         </View>
-                    ))}
+                    ) : (
+                        myPodcasts.map((podcast) => (
+                            <PodcastCard
+                                key={podcast.id}
+                                podcast={podcast}
+                                onPress={() =>
+                                    router.push({
+                                        pathname: "/(main)/details",
+                                        params: { id: podcast.id },
+                                    })
+                                }
+                                onPlayPress={() => handlePodcastPlay(podcast)}
+                                isPlaying={
+                                    currentTrack?.id === podcast.id && isPlaying
+                                }
+                            />
+                        ))
+                    )}
                 </View>
                 {/* Go to Settings Button */}
                 <View className="px-md">
