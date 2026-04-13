@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import {
     View,
     Text,
@@ -45,6 +45,7 @@ const SleepTimerModal = ({ visible, onClose }) => {
     const setSleepOnEpisodeEnd = useAudioStore(
         (state) => state.setSleepOnEpisodeEnd
     );
+    const loadSleepSettings = useAudioStore((state) => state.loadSleepSettings);
     const sleepTimerActive = useAudioStore((state) => state.sleepTimerActive);
     const sleepTimerRemaining = useAudioStore(
         (state) => state.sleepTimerRemaining
@@ -52,6 +53,17 @@ const SleepTimerModal = ({ visible, onClose }) => {
     const sleepOnEpisodeEnd = useAudioStore(
         (state) => state.sleepOnEpisodeEnd
     );
+
+    // Stable ref so the useEffect dep array is satisfied without re-running on
+    // every render. Zustand store actions are stable references, but using a ref
+    // keeps the linter happy and documents the intent clearly.
+    const loadSleepSettingsRef = useRef(loadSleepSettings);
+    loadSleepSettingsRef.current = loadSleepSettings;
+
+    // Restore persisted sleepOnEpisodeEnd preference on first render
+    useEffect(() => {
+        loadSleepSettingsRef.current();
+    }, []); // loadSleepSettingsRef.current is stable — intentionally omitted
 
     // Any sleep mode active (time-based OR episode-end)
     const anyActive = sleepTimerActive || sleepOnEpisodeEnd;
