@@ -15,9 +15,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-13
-**Last session (Copilot review fixes):** Addressed all Copilot review comments across PRs #55, #56, #57. PR #55: removed line-number reference from AGENT_STATE doc. PR #56: fixed wrong store selectors (currentPodcast/loadAndPlay/togglePlayback → currentTrack/setQueue/play/pause), added normalizePodcasts(), used server podcast_count instead of array.length for posts, cleared statsLoading on early return. PR #57: added write-sequence counter to prevent race conditions, added sleepTimerActive guard in loadSleepSettings, replaced eslint-disable with useRef pattern, added missing false+setItem-rejection test and guard tests.
-**Test suite baseline:** 229 frontend tests (PR #57 now has 12 tests in the storage suite). Backend: unchanged.
+**Last updated:** 2026-04-14
+**Last session (DM feature):** Implemented full 1-on-1 direct messaging — `DirectMessage` model, Alembic migration, CRUD, router (`POST /messages/`, `GET /messages/inbox`, `GET /messages/{partner_id}`), registered in `main.py`. Frontend: `chat-details.js` rewritten as a real conversation screen with bubbles/compose/read-receipts/pagination; `messages.js` updated to call `getDMInbox()`; `creator-profile.js` gets a "Message" button. All 367 backend tests pass. PR #58 opened.
+**Test suite baseline:** 367 backend tests. Frontend: syntax-checked only; unit tests thin.
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -49,39 +49,35 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Follow/unfollow creator — backend + frontend — PR #51
 - ✅ "End of Episode" sleep timer option — `sleepOnEpisodeEnd` flag, SleepTimerModal button, ModernAudioPlayer indicator — PR #53
 - ✅ Following Feed — `GET /podcasts/following-feed`, FOLLOWING_CATEGORY pill, empty state with CTA — PR #54
-- ✅ Fix `TestGetFollowingList` ImportError — removed inline relative import from `get_my_following` body, promoted `func` to module level — PR #55
+- ✅ Fix `TestGetFollowingList` ImportError — removed inline relative import from `get_my_following` body — PR #55
 - ✅ Profile screen wired to real API data — real follower/following/podcast counts, PodcastCard list, `useFocusEffect` refresh — PR #56
+- ✅ Persist sleepOnEpisodeEnd across app restarts via AsyncStorage — PR #57
 
 ### What's open / in-progress
-- **PR #55**: `fix(users): remove relative import inside function body in get_my_following` — https://github.com/iamfatihay/proPod/pull/55 — **Copilot review addressed** (line-number ref removed from AGENT_STATE doc)
-
-- **PR #56**: `feat(profile): wire profile screen to real API data` — https://github.com/iamfatihay/proPod/pull/56 — **Copilot review addressed**
-  - Fixed wrong store selectors: `currentPodcast`/`loadAndPlay`/`togglePlayback` → `currentTrack`/`setQueue`/`play`/`pause` (matching home.js/creator-profile.js)
-  - `handlePodcastPlay` now uses `toTrack()` helper, loads full list as queue
-  - `normalizePodcasts()` applied before `setMyPodcasts` (absolute URLs, duration seconds→ms)
-  - `podcastCount` from server `publicProfile.podcast_count` (not page-capped `myPodcasts.length`)
-  - `setStatsLoading(false)` on early return when `user?.id` is missing (avoids permanent spinner)
-
-- **PR #57**: `feat(player): persist sleepOnEpisodeEnd across app restarts via AsyncStorage` — https://github.com/iamfatihay/proPod/pull/57 — **Copilot review addressed**
-  - `_sleepEoeWriteSeq` write-sequence counter: only the last toggle's write survives, preventing race conditions on rapid enable/disable
-  - `loadSleepSettings` guards against restoring when `sleepTimerActive=true` — active timer takes precedence
-  - `SleepTimerModal`: replaced `eslint-disable-line` with explicit `useRef` pattern for stable dep
-  - 12 Jest tests (was 9): added false+setItem-rejection test and two guard tests (45/45 passing)
+- **PR #58**: `feat(messages): direct messaging between users` — https://github.com/iamfatihay/proPod/pull/58
+  - `DirectMessage` model + Alembic migration `a2b3c4d5e6f7`
+  - `POST /messages/`, `GET /messages/inbox`, `GET /messages/{partner_id}`
+  - `chat-details.js` rewritten as full DM conversation UI (bubbles, compose bar, read receipts, pagination)
+  - `messages.js` updated to DM inbox with unread badges (was creator comment inbox)
+  - `creator-profile.js`: "Message" button added
+  - 367/367 backend tests passing
 
 ### Known issues / tech debt
-- No real DM/user-to-user messaging backend yet; `chat-details.js` is still a comment-detail surface
-- Frontend tests: 229 passing; component-level coverage still thin
+- No push notifications for new DMs — backend stub exists (`/notifications/send`), needs Expo Push Token wired at app launch
+- DM inbox has no server-side pagination — fine for now, add if thread count grows large
+- DM text-only — no image/file attachments yet
+- Frontend unit test coverage still thin
 - Sleep timer uses `setInterval` — verify accuracy on real device
 
 ---
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **[FEATURE] DM / direct messaging backend** — `DirectMessage` model in `backend/app/models.py`, new `backend/app/routers/messages.py` (POST /messages, GET /messages/{partner_id}), Alembic migration. Transforms `chat-details.js` from a comment-detail view into a real conversation surface. High social-layer impact.
+1. **[FEATURE] Push notifications (APNs/FCM)** — Register Expo Push Token on app launch, persist to `DeviceToken` model, call Expo Push API from `crud.create_notification`. Delivers out-of-app alerts for likes/comments/DMs.
 
-2. **[FEATURE] Persist time-based sleep timer across restarts** — Companion to PR #57. When user sets a 30-min timer and closes the app, restore remaining time on reopen. `AsyncStorage` in `useAudioStore.setSleepTimer` + `loadSleepSettings`.
+2. **[FEATURE] Eager `loadSleepSettings` on app launch** — Move `loadSleepSettings()` from `SleepTimerModal.useEffect` into `frontend/app/_layout.js`. One-line change; zero risk.
 
-3. **[FEATURE] Push notifications (APNs/FCM)** — backend already has `POST /notifications/send` stub; wire up Expo Push Token registration in `frontend/src/services/` and call on app launch from `_layout.js`. Lets likes/comments trigger out-of-app alerts.
+3. **[FEATURE] DM unread badge in tab bar** — Wire `getDMInbox()` unread count into the Messages tab badge, same pattern as the notification bell in `frontend/app/(main)/_layout.js`.
 
 ---
 
@@ -108,7 +104,11 @@ A `const` redeclaration in the same scope = SyntaxError crash. Fix immediately o
 
 ### Route ordering in podcasts router
 
-Literal-path routes (`/following-feed`, `/search`, `/discover/categories`) MUST be declared BEFORE parameterized routes (`/{podcast_id}`) in `backend/app/routers/podcasts.py`. FastAPI matches in definition order; a parameterized int route returns 422 (not 404) for non-integer segments, blocking subsequent literal routes.
+Literal-path routes (`/following-feed`, `/search`, `/discover/categories`) MUST be declared BEFORE parameterized routes (`/{podcast_id}`) in `backend/app/routers/podcasts.py`. FastAPI matches in definition order.
+
+### DM inbox aggregation
+
+`crud.get_dm_inbox` does Python-side aggregation (not SQL GROUP BY) for SQLite/PostgreSQL compatibility. On large datasets, switch to a SQL query with `MAX(created_at)` per conversation pair.
 
 ---
 
@@ -129,8 +129,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FEATURE] DM / direct messaging backend** — `DirectMessage` model in `backend/app/models.py` (fields: id, sender_id, recipient_id, body, created_at, is_read), new `backend/app/routers/messages.py` with `POST /messages/` and `GET /messages/{user_id}`, Alembic migration, register in `main.py`. Transforms `frontend/app/(main)/chat-details.js` from a comment-detail view into a real 1-on-1 conversation. High social-layer value.
+1. **[FEATURE] Push notifications (APNs/FCM)** — Create `frontend/src/services/pushNotifications.js` (register Expo Push Token via `expo-notifications`, call `POST /users/me/device-token`). Add `DeviceToken` model to `backend/app/models.py` (fields: id, user_id, token, platform, created_at), new CRUD + endpoint, Alembic migration. Call Expo Push API from `crud.create_notification` for likes/comments/DMs. High user visibility.
 
-2. **[FEATURE] Eager `loadSleepSettings` on app launch** — Move the `loadSleepSettings()` call from `SleepTimerModal.useEffect` into `frontend/app/_layout.js` so the preference is restored at cold start, not on first modal open. One-line change; zero risk.
+2. **[FEATURE] Eager loadSleepSettings at cold start** — In `frontend/app/_layout.js`, import `useAudioStore` and call `loadSleepSettings()` inside the root `useEffect` (after auth is restored). One-line addition that eliminates the edge case where sleep preference isn't applied until the modal opens.
 
-3. **[FEATURE] Push notifications (APNs/FCM)** — Register Expo Push Token in `frontend/src/services/` on app launch (`_layout.js`), store in a `DeviceToken` model on the backend, call the push API from `backend/app/crud.py` when creating notifications. Delivers out-of-app alerts for likes/comments — high user visibility.
+3. **[FEATURE] DM unread badge in tab bar** — In `frontend/app/(main)/_layout.js`, fetch `getDMInbox()` on focus, sum `unread_count` across threads, and apply it as the badge on the Messages tab icon — same pattern as the `unread_count` bell on the Notifications tab. Makes new messages discoverable without opening the inbox.
