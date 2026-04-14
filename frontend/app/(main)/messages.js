@@ -18,7 +18,7 @@ import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, FONT_SIZES, BORDER_RADIUS } from "../../src/constants/theme";
 import apiService from "../../src/services/api/apiService";
-import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOptions";
+import useDMStore from "../../src/context/useDMStore";
 import { formatTimeAgo } from "../../src/utils/formatTimeAgo";
 
 // ─── Thread row ───────────────────────────────────────────────────────────────
@@ -117,6 +117,9 @@ export default function MessagesScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState(null);
 
+    // Clear the tab-bar badge the moment the user opens the inbox
+    const resetDMUnread = useDMStore((state) => state.resetDMUnread);
+
     const loadInbox = useCallback(async (signal = { cancelled: false }) => {
         try {
             const data = await apiService.getDMInbox();
@@ -131,6 +134,9 @@ export default function MessagesScreen() {
 
     useFocusEffect(
         useCallback(() => {
+            // Immediately clear badge when user focuses the Messages screen
+            resetDMUnread();
+
             const signal = { cancelled: false };
             setLoading(true);
             loadInbox(signal).finally(() => {
@@ -139,7 +145,7 @@ export default function MessagesScreen() {
             return () => {
                 signal.cancelled = true;
             };
-        }, [loadInbox])
+        }, [loadInbox, resetDMUnread])
     );
 
     const onRefresh = useCallback(async () => {
@@ -164,11 +170,10 @@ export default function MessagesScreen() {
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
             <Stack.Screen
-                options={buildSecondaryScreenOptions({
-                    router,
+                options={{
                     title: "Messages",
-                    backgroundColor: COLORS.background,
-                })}
+                    headerShown: false,
+                }}
             />
 
             {loading ? (
