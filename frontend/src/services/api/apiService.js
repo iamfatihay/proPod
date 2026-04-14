@@ -1380,6 +1380,53 @@ class ApiService {
             method: "POST",
         });
     }
+
+    // ─── Direct Messages ──────────────────────────────────────────────────
+
+    /**
+     * Fetch the DM inbox for the authenticated user.
+     * Returns one thread entry per conversation partner, newest-thread first.
+     *
+     * Maps to GET /messages/inbox
+     *
+     * @returns {Promise<{threads: Array, total: number}>}
+     */
+    async getDMInbox() {
+        return this.request("/messages/inbox");
+    }
+
+    /**
+     * Fetch the conversation with a specific partner (newest messages first).
+     * Also marks all unread messages from that partner as read.
+     *
+     * Maps to GET /messages/{partner_id}
+     *
+     * @param {number} partnerId - User ID of the conversation partner
+     * @param {Object} [params]
+     * @param {number} [params.skip=0]
+     * @param {number} [params.limit=50]
+     * @returns {Promise<{messages: Array, total: number, has_more: boolean}>}
+     */
+    async getConversation(partnerId, { skip = 0, limit = 50 } = {}) {
+        const q = new URLSearchParams({ skip, limit }).toString();
+        return this.request(`/messages/${partnerId}?${q}`);
+    }
+
+    /**
+     * Send a direct message to another user.
+     *
+     * Maps to POST /messages/
+     *
+     * @param {number} recipientId - ID of the target user
+     * @param {string} body - Message text (1–2 000 characters)
+     * @returns {Promise<Object>} Created message
+     */
+    async sendDirectMessage(recipientId, body) {
+        return this.request("/messages/", {
+            method: "POST",
+            body: JSON.stringify({ recipient_id: recipientId, body }),
+        });
+    }
 }
 
 export default new ApiService();
