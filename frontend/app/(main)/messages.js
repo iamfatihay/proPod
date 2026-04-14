@@ -117,25 +117,27 @@ export default function MessagesScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState(null);
 
-    const loadInbox = useCallback(async () => {
+    const loadInbox = useCallback(async (signal = { cancelled: false }) => {
         try {
             const data = await apiService.getDMInbox();
+            if (signal.cancelled) return;
             setThreads(data.threads || []);
             setError(null);
         } catch (err) {
+            if (signal.cancelled) return;
             setError(err?.detail || err?.message || "Failed to load messages");
         }
     }, []);
 
     useFocusEffect(
         useCallback(() => {
-            let isActive = true;
+            const signal = { cancelled: false };
             setLoading(true);
-            loadInbox().finally(() => {
-                if (isActive) setLoading(false);
+            loadInbox(signal).finally(() => {
+                if (!signal.cancelled) setLoading(false);
             });
             return () => {
-                isActive = false;
+                signal.cancelled = true;
             };
         }, [loadInbox])
     );

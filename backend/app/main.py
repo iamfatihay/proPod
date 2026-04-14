@@ -60,10 +60,24 @@ admin_panel = setup_admin(app)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
-    """Handle Pydantic validation errors with detailed error messages."""
+    """Handle Pydantic validation errors with detailed error messages.
+
+    Pydantic v2 field_validators can place non-serializable objects (e.g. raw
+    ValueError instances) into the 'ctx' dict.  Stringify those values so that
+    JSONResponse never encounters an unserializable object.
+    """
+    safe_errors = []
+    for e in exc.errors():
+        err = dict(e)
+        if "ctx" in err:
+            err["ctx"] = {
+                k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+                for k, v in err["ctx"].items()
+            }
+        safe_errors.append(err)
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": exc.errors()},
+        content={"detail": safe_errors},
     )
 
 

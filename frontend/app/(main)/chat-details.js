@@ -126,13 +126,14 @@ export default function ChatDetails() {
     // ── Load conversation ──────────────────────────────────────────────────
 
     const loadConversation = useCallback(
-        async (currentOffset, append) => {
+        async (currentOffset, append, getIsActive = () => true) => {
             if (!partnerId) return;
             try {
                 const data = await apiService.getConversation(partnerId, {
                     skip: currentOffset,
                     limit: LIMIT,
                 });
+                if (!getIsActive()) return;
                 // Server returns newest-first; reverse so oldest is at top
                 const reversed = [...(data.messages || [])].reverse();
                 setMessages((prev) => (append ? [...reversed, ...prev] : reversed));
@@ -140,6 +141,7 @@ export default function ChatDetails() {
                 setFetchOffset(currentOffset + (data.messages || []).length);
                 setError(null);
             } catch (err) {
+                if (!getIsActive()) return;
                 setError(err?.detail || err?.message || "Failed to load conversation");
             }
         },
@@ -147,8 +149,12 @@ export default function ChatDetails() {
     );
 
     useEffect(() => {
+        let isActive = true;
         setLoading(true);
-        loadConversation(0, false).finally(() => setLoading(false));
+        loadConversation(0, false, () => isActive).finally(() => {
+            if (isActive) setLoading(false);
+        });
+        return () => { isActive = false; };
     }, [loadConversation]);
 
     // ── Load older messages ────────────────────────────────────────────────
@@ -171,6 +177,7 @@ export default function ChatDetails() {
         try {
             const sent = await apiService.sendDirectMessage(partnerId, text);
             setMessages((prev) => [...prev, sent]);
+            setFetchOffset((prev) => prev + 1);
             setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
         } catch (sendErr) {
             setDraft(text); // restore on failure

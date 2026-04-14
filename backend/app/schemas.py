@@ -1,6 +1,6 @@
 """Pydantic schemas for request/response validation."""
 from __future__ import annotations
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 import datetime
 from typing import Optional, List, TYPE_CHECKING
 from enum import Enum
@@ -716,6 +716,14 @@ class DirectMessageCreate(BaseModel):
     """Payload for sending a new direct message."""
     recipient_id: int = Field(..., description="ID of the user to send the message to")
     body: str = Field(..., min_length=1, max_length=2000, description="Message content")
+
+    @field_validator("body")
+    @classmethod
+    def body_not_blank(cls, v: str) -> str:
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("body must not be blank or whitespace-only")
+        return stripped
 
 
 class DirectMessageResponse(BaseModel):

@@ -1969,13 +1969,19 @@ def send_direct_message(
         is_read=False,
     )
     db.add(msg)
+    db.flush()
+    message_id = msg.id
     db.commit()
-    db.refresh(msg)
-    # Eager-load sender/recipient so callers can access .sender.name etc.
-    db.refresh(msg)
-    _ = msg.sender
-    _ = msg.recipient
-    return msg
+    # Re-query with eager-loaded relationships in one round-trip
+    return (
+        db.query(models.DirectMessage)
+        .options(
+            joinedload(models.DirectMessage.sender),
+            joinedload(models.DirectMessage.recipient),
+        )
+        .filter(models.DirectMessage.id == message_id)
+        .one()
+    )
 
 
 def _enrich_dm(msg: models.DirectMessage) -> models.DirectMessage:
@@ -2007,22 +2013,25 @@ def get_conversation(
     Returns:
         (messages, total)
     """
-    from sqlalchemy import or_, and_
-    base_q = db.query(models.DirectMessage).filter(
-        or_(
-            and_(
-                models.DirectMessage.sender_id == user_a_id,
-                models.DirectMessage.recipient_id == user_b_id,
-            ),
-            and_(
-                models.DirectMessage.sender_id == user_b_id,
-                models.DirectMessage.recipient_id == user_a_id,
-            ),
-        )
+    thread_filter = or_(
+        and_(
+            models.DirectMessage.sender_id == user_a_id,
+            models.DirectMessage.recipient_id == user_b_id,
+        ),
+        and_(
+            models.DirectMessage.sender_id == user_b_id,
+            models.DirectMessage.recipient_id == user_a_id,
+        ),
     )
-    total = base_q.count()
+    total = db.query(models.DirectMessage).filter(thread_filter).count()
     messages = (
-        base_q.order_by(models.DirectMessage.created_at.desc())
+        db.query(models.DirectMessage)
+        .options(
+            joinedload(models.DirectMessage.sender),
+            joinedload(models.DirectMessage.recipient),
+        )
+        .filter(thread_filter)
+        .order_by(models.DirectMessage.created_at.desc())
         .offset(skip)
         .limit(limit)
         .all()
@@ -2070,9 +2079,12 @@ def get_dm_inbox(
     Returns:
         List of dicts matching the DirectMessageThread schema, newest-thread first.
     """
-    from sqlalchemy import or_
     messages = (
         db.query(models.DirectMessage)
+        .options(
+            joinedload(models.DirectMessage.sender),
+            joinedload(models.DirectMessage.recipient),
+        )
         .filter(
             or_(
                 models.DirectMessage.sender_id == user_id,
@@ -2089,11 +2101,15 @@ def get_dm_inbox(
         partner_id = msg.recipient_id if msg.sender_id == user_id else msg.sender_id
         partner_user = msg.recipient if msg.sender_id == user_id else msg.sender
 
+        # Skip threads with inactive or deleted partners to keep inbox actionable
+        if partner_user is None or not getattr(partner_user, "is_active", True):
+            continue
+
         if partner_id not in threads:
             threads[partner_id] = {
                 "partner_id": partner_id,
-                "partner_name": partner_user.name if partner_user else f"User {partner_id}",
-                "partner_photo_url": partner_user.photo_url if partner_user else None,
+                "partner_name": partner_user.name,
+                "partner_photo_url": partner_user.photo_url,
                 "last_message_body": msg.body,
                 "last_message_at": msg.created_at,
                 "unread_count": 0,
