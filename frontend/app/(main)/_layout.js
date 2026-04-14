@@ -26,7 +26,9 @@ const getCreateTabMetrics = () => ({
     topOffset: Platform.OS === "ios" ? -28 : -26,
 });
 
-const TabIcon = ({ icon, color, focused, badge }) => {
+// badgeLabel: singular noun used in the accessibility string, e.g. "notification" or "message".
+// Defaults to "notification" so existing callers (Notifications tab) are unaffected.
+const TabIcon = ({ icon, color, focused, badge, badgeLabel = "notification" }) => {
     return (
         <View className="items-center justify-center">
             <Ionicons name={icon} size={focused ? 30 : 28} color={color} />
@@ -47,7 +49,7 @@ const TabIcon = ({ icon, color, focused, badge }) => {
                         borderColor: COLORS.background,
                     }}
                     accessible={true}
-                    accessibilityLabel={`${badge} unread notification${badge > 1 ? 's' : ''}`}
+                    accessibilityLabel={`${badge} unread ${badgeLabel}${badge > 1 ? 's' : ''}`}
                     accessibilityRole="text"
                 >
                     <Text
@@ -367,6 +369,7 @@ export default function TabLayout() {
                                     color={color}
                                     focused={focused}
                                     badge={unreadDMCount}
+                                    badgeLabel="message"
                                 />
                             ),
                             tabBarAccessibilityLabel: unreadDMCount > 0
