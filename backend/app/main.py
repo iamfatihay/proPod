@@ -13,7 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 import os
 
-from app.routers import users, podcasts, ai, admin as admin_router, rtc, sharing, analytics, playlists, notifications
+from app.routers import users, podcasts, ai, admin as admin_router, rtc, sharing, analytics, playlists, notifications, messages
 from app.admin import setup_admin
 
 # Load environment variables
@@ -52,6 +52,7 @@ app.include_router(sharing.router)  # Web sharing & deep linking (Phase 2-4)
 app.include_router(analytics.router)  # Creator analytics dashboard (Phase 3)
 app.include_router(playlists.router)  # User playlists for organizing podcasts
 app.include_router(notifications.router)  # In-app notifications (likes, comments)
+app.include_router(messages.router)      # Direct messages between users
 
 # Setup admin panel (accessible at /admin)
 admin_panel = setup_admin(app)
@@ -59,10 +60,24 @@ admin_panel = setup_admin(app)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
-    """Handle Pydantic validation errors with detailed error messages."""
+    """Handle Pydantic validation errors with detailed error messages.
+
+    Pydantic v2 field_validators can place non-serializable objects (e.g. raw
+    ValueError instances) into the 'ctx' dict.  Stringify those values so that
+    JSONResponse never encounters an unserializable object.
+    """
+    safe_errors = []
+    for e in exc.errors():
+        err = dict(e)
+        if "ctx" in err:
+            err["ctx"] = {
+                k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+                for k, v in err["ctx"].items()
+            }
+        safe_errors.append(err)
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": exc.errors()},
+        content={"detail": safe_errors},
     )
 
 

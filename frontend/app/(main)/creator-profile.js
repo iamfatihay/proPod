@@ -273,6 +273,43 @@ export default function CreatorProfile() {
                         </Text>
                     </TouchableOpacity>
                 )}
+
+                {/* Message button — let any logged-in user start a DM with this creator */}
+                {currentUser && String(currentUser.id) !== String(userId) && (
+                    <TouchableOpacity
+                        onPress={() =>
+                            router.push({
+                                pathname: "/(main)/chat-details",
+                                params: {
+                                    partnerId: String(userId),
+                                    partnerName: profile?.name || "Creator",
+                                },
+                            })
+                        }
+                        accessible={true}
+                        accessibilityRole="button"
+                        accessibilityLabel="Send a direct message"
+                        style={{
+                            marginTop: 10,
+                            paddingHorizontal: 28,
+                            paddingVertical: 8,
+                            borderRadius: 20,
+                            borderWidth: 1.5,
+                            borderColor: COLORS.border,
+                            backgroundColor: "transparent",
+                        }}
+                    >
+                        <Text
+                            style={{
+                                color: COLORS.text.secondary,
+                                fontWeight: "600",
+                                fontSize: 14,
+                            }}
+                        >
+                            Message
+                        </Text>
+                    </TouchableOpacity>
+                )}
             </View>
 
             {/* Stats row */}

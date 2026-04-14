@@ -61,6 +61,9 @@ class User(Base):
     # Following relationships — who this user follows and who follows them
     following = relationship("UserFollow", foreign_keys="UserFollow.follower_id", back_populates="follower", cascade="all, delete-orphan")
     followers = relationship("UserFollow", foreign_keys="UserFollow.followed_id", back_populates="followed", cascade="all, delete-orphan")
+    # DM relationships — messages sent and received
+    sent_messages = relationship("DirectMessage", foreign_keys="DirectMessage.sender_id", back_populates="sender", cascade="all, delete-orphan")
+    received_messages = relationship("DirectMessage", foreign_keys="DirectMessage.recipient_id", back_populates="recipient", cascade="all, delete-orphan")
 
 
 class Podcast(Base):
@@ -519,4 +522,43 @@ class UserFollow(Base):
         UniqueConstraint("follower_id", "followed_id", name="unique_user_follow"),
         Index("idx_user_follows_follower", "follower_id"),
         Index("idx_user_follows_followed", "followed_id"),
+    )
+
+
+class DirectMessage(Base):
+    """
+    Direct message sent from one user to another.
+
+    A conversation between two users is defined by the (sender_id, recipient_id)
+    pair, regardless of direction.  All messages between user A and user B share
+    the same logical thread; the client groups them by the *partner* user.
+    """
+    __tablename__ = "direct_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    recipient_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    # Message content (max 2 000 chars enforced at API layer)
+    body = Column(Text, nullable=False)
+
+    # Has the recipient seen this message?
+    is_read = Column(Boolean, default=False, nullable=False)
+
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+        nullable=False,
+    )
+
+    # Relationships
+    sender = relationship("User", foreign_keys=[sender_id], back_populates="sent_messages")
+    recipient = relationship("User", foreign_keys=[recipient_id], back_populates="received_messages")
+
+    __table_args__ = (
+        # Efficient lookup of the conversation thread for two users
+        Index("idx_dm_sender_recipient", "sender_id", "recipient_id"),
+        Index("idx_dm_recipient_read", "recipient_id", "is_read"),
+        Index("idx_dm_created", "created_at"),
     )

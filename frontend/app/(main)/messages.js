@@ -1,5 +1,10 @@
+/**
+ * messages.js — DM Inbox screen
+ *
+ * Shows one thread entry per conversation partner, sorted by most-recent
+ * message first. Tapping a thread opens chat-details.js with that partner.
+ */
 import React, { useCallback, useState } from "react";
-import { formatTimeAgo } from "../../src/utils/formatTimeAgo";
 import {
     View,
     Text,
@@ -14,9 +19,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { COLORS, FONT_SIZES, BORDER_RADIUS } from "../../src/constants/theme";
 import apiService from "../../src/services/api/apiService";
 import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOptions";
+import { formatTimeAgo } from "../../src/utils/formatTimeAgo";
 
+// ─── Thread row ───────────────────────────────────────────────────────────────
 
-const MessageRow = ({ item, onPress }) => (
+const ThreadRow = ({ item, onPress }) => (
     <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.7}
@@ -41,38 +48,67 @@ const MessageRow = ({ item, onPress }) => (
                 marginRight: 14,
             }}
         >
-            <Ionicons name="chatbubble-ellipses-outline" size={22} color="#3B82F6" />
+            <Ionicons name="person-outline" size={22} color="#3B82F6" />
         </View>
+
         <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 3 }}>
+                <Text
+                    style={{
+                        color: COLORS.text.primary,
+                        fontSize: FONT_SIZES.md,
+                        fontWeight: "700",
+                        flex: 1,
+                    }}
+                >
+                    {item.partner_name}
+                </Text>
+                {item.unread_count > 0 && (
+                    <View
+                        style={{
+                            backgroundColor: COLORS.primary,
+                            borderRadius: 10,
+                            minWidth: 20,
+                            height: 20,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            paddingHorizontal: 5,
+                        }}
+                    >
+                        <Text
+                            style={{
+                                color: "#fff",
+                                fontSize: FONT_SIZES.xs,
+                                fontWeight: "700",
+                            }}
+                        >
+                            {item.unread_count}
+                        </Text>
+                    </View>
+                )}
+            </View>
             <Text
                 style={{
-                    color: COLORS.text.primary,
-                    fontSize: FONT_SIZES.md,
-                    fontWeight: "700",
-                    marginBottom: 4,
-                }}
-            >
-                {item.authorName}
-            </Text>
-            <Text
-                style={{
-                    color: COLORS.text.secondary,
+                    color:
+                        item.unread_count > 0 ? COLORS.text.primary : COLORS.text.secondary,
                     fontSize: FONT_SIZES.base,
-                    marginBottom: 4,
+                    fontWeight: item.unread_count > 0 ? "600" : "400",
                 }}
-                numberOfLines={2}
+                numberOfLines={1}
             >
-                {item.content}
-            </Text>
-            <Text style={{ color: COLORS.text.muted, fontSize: FONT_SIZES.sm }}>
-                {item.podcastTitle}
+                {item.last_message_body}
             </Text>
         </View>
-        <Text style={{ color: COLORS.text.muted, fontSize: FONT_SIZES.sm }}>
-            {formatTimeAgo(item.createdAt)}
+
+        <Text
+            style={{ color: COLORS.text.muted, fontSize: FONT_SIZES.sm, marginLeft: 8 }}
+        >
+            {formatTimeAgo(item.last_message_at)}
         </Text>
     </TouchableOpacity>
 );
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function MessagesScreen() {
     const router = useRouter();
@@ -81,52 +117,44 @@ export default function MessagesScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState(null);
 
-    const loadThreads = useCallback(async () => {
+    const loadInbox = useCallback(async (signal = { cancelled: false }) => {
         try {
-            const inbox = await apiService.getCreatorCommentInbox();
-            setThreads(inbox);
+            const data = await apiService.getDMInbox();
+            if (signal.cancelled) return;
+            setThreads(data.threads || []);
             setError(null);
-        } catch (loadError) {
-            setError(loadError?.detail || loadError?.message || "Failed to load messages");
+        } catch (err) {
+            if (signal.cancelled) return;
+            setError(err?.detail || err?.message || "Failed to load messages");
         }
     }, []);
 
     useFocusEffect(
         useCallback(() => {
-            let isActive = true;
-
+            const signal = { cancelled: false };
             setLoading(true);
-            loadThreads().finally(() => {
-                if (isActive) {
-                    setLoading(false);
-                }
+            loadInbox(signal).finally(() => {
+                if (!signal.cancelled) setLoading(false);
             });
-
             return () => {
-                isActive = false;
+                signal.cancelled = true;
             };
-        }, [loadThreads])
+        }, [loadInbox])
     );
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await loadThreads();
+        await loadInbox();
         setRefreshing(false);
-    }, [loadThreads]);
+    }, [loadInbox]);
 
     const handlePress = useCallback(
         (thread) => {
             router.push({
                 pathname: "/(main)/chat-details",
                 params: {
-                    id: thread.id,
-                    commentId: String(thread.commentId),
-                    authorName: thread.authorName,
-                    content: thread.content,
-                    createdAt: thread.createdAt,
-                    podcastId: String(thread.podcastId),
-                    podcastTitle: thread.podcastTitle,
-                    timestampSeconds: String(thread.timestampSeconds || 0),
+                    partnerId: String(thread.partner_id),
+                    partnerName: thread.partner_name,
                 },
             });
         },
@@ -142,54 +170,82 @@ export default function MessagesScreen() {
                     backgroundColor: COLORS.background,
                 })}
             />
+
             {loading ? (
                 <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
                     <ActivityIndicator color={COLORS.primary} />
                 </View>
             ) : error ? (
                 <View style={{ padding: 20 }}>
-                    <Text style={{ color: COLORS.text.secondary, fontSize: FONT_SIZES.base }}>
+                    <Text
+                        style={{ color: COLORS.text.secondary, fontSize: FONT_SIZES.base }}
+                    >
                         {error}
                     </Text>
                 </View>
             ) : (
-            <FlatList
-                data={threads}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        tintColor={COLORS.primary}
-                    />
-                }
-                renderItem={({ item }) => (
-                    <MessageRow item={item} onPress={() => handlePress(item)} />
-                )}
-                ListHeaderComponent={
-                    <View style={{ marginBottom: 20 }}>
-                        <Text
+                <FlatList
+                    data={threads}
+                    keyExtractor={(item) => String(item.partner_id)}
+                    contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            tintColor={COLORS.primary}
+                        />
+                    }
+                    renderItem={({ item }) => (
+                        <ThreadRow item={item} onPress={() => handlePress(item)} />
+                    )}
+                    ListHeaderComponent={
+                        <View style={{ marginBottom: 20 }}>
+                            <Text
+                                style={{
+                                    color: COLORS.text.primary,
+                                    fontSize: FONT_SIZES.xl,
+                                    fontWeight: "700",
+                                    marginBottom: 6,
+                                }}
+                            >
+                                Direct Messages
+                            </Text>
+                            <Text
+                                style={{
+                                    color: COLORS.text.secondary,
+                                    fontSize: FONT_SIZES.base,
+                                }}
+                            >
+                                Your private conversations with other users.
+                            </Text>
+                        </View>
+                    }
+                    ListEmptyComponent={
+                        <View
                             style={{
-                                color: COLORS.text.primary,
-                                fontSize: FONT_SIZES.xl,
-                                fontWeight: "700",
-                                marginBottom: 6,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                paddingTop: 60,
                             }}
                         >
-                            Comments on your podcasts
-                        </Text>
-                        <Text style={{ color: COLORS.text.secondary, fontSize: FONT_SIZES.base }}>
-                            Built from real listener comments across the podcasts you created.
-                        </Text>
-                    </View>
-                }
-                ListEmptyComponent={
-                    <Text style={{ color: COLORS.text.secondary, fontSize: FONT_SIZES.base }}>
-                        No one has commented on your podcasts yet.
-                    </Text>
-                }
-            />
+                            <Ionicons
+                                name="chatbubbles-outline"
+                                size={48}
+                                color={COLORS.text.muted}
+                            />
+                            <Text
+                                style={{
+                                    color: COLORS.text.secondary,
+                                    fontSize: FONT_SIZES.base,
+                                    marginTop: 12,
+                                    textAlign: "center",
+                                }}
+                            >
+                                {"No conversations yet.\nSend a message from a creator profile!"}
+                            </Text>
+                        </View>
+                    }
+                />
             )}
         </SafeAreaView>
     );

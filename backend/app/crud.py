@@ -1940,3 +1940,182 @@ def get_following_feed(
         enrich_podcast_with_stats(podcast)
 
     return podcasts, total
+
+
+# ==================== Direct Message CRUD Operations ====================
+
+def send_direct_message(
+    db: Session,
+    sender_id: int,
+    recipient_id: int,
+    body: str,
+) -> models.DirectMessage:
+    """
+    Persist a new direct message from sender to recipient.
+
+    Args:
+        db: Database session
+        sender_id: ID of the sending user
+        recipient_id: ID of the target user
+        body: Message text (max 2 000 chars enforced at router level)
+
+    Returns:
+        models.DirectMessage: Persisted message
+    """
+    msg = models.DirectMessage(
+        sender_id=sender_id,
+        recipient_id=recipient_id,
+        body=body,
+        is_read=False,
+    )
+    db.add(msg)
+    db.flush()
+    message_id = msg.id
+    db.commit()
+    # Re-query with eager-loaded relationships in one round-trip
+    return (
+        db.query(models.DirectMessage)
+        .options(
+            joinedload(models.DirectMessage.sender),
+            joinedload(models.DirectMessage.recipient),
+        )
+        .filter(models.DirectMessage.id == message_id)
+        .one()
+    )
+
+
+def _enrich_dm(msg: models.DirectMessage) -> models.DirectMessage:
+    """Attach convenience name/photo fields from related User rows."""
+    msg.sender_name = msg.sender.name if msg.sender else None
+    msg.sender_photo_url = msg.sender.photo_url if msg.sender else None
+    msg.recipient_name = msg.recipient.name if msg.recipient else None
+    msg.recipient_photo_url = msg.recipient.photo_url if msg.recipient else None
+    return msg
+
+
+def get_conversation(
+    db: Session,
+    user_a_id: int,
+    user_b_id: int,
+    skip: int = 0,
+    limit: int = 50,
+) -> tuple[list[models.DirectMessage], int]:
+    """
+    Return paginated messages between two users, newest first.
+
+    Args:
+        db: Database session
+        user_a_id: One participant's ID
+        user_b_id: The other participant's ID
+        skip: Pagination offset
+        limit: Max messages to return
+
+    Returns:
+        (messages, total)
+    """
+    thread_filter = or_(
+        and_(
+            models.DirectMessage.sender_id == user_a_id,
+            models.DirectMessage.recipient_id == user_b_id,
+        ),
+        and_(
+            models.DirectMessage.sender_id == user_b_id,
+            models.DirectMessage.recipient_id == user_a_id,
+        ),
+    )
+    total = db.query(models.DirectMessage).filter(thread_filter).count()
+    messages = (
+        db.query(models.DirectMessage)
+        .options(
+            joinedload(models.DirectMessage.sender),
+            joinedload(models.DirectMessage.recipient),
+        )
+        .filter(thread_filter)
+        .order_by(models.DirectMessage.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    for msg in messages:
+        _enrich_dm(msg)
+    return messages, total
+
+
+def mark_conversation_read(
+    db: Session,
+    reader_id: int,
+    partner_id: int,
+) -> int:
+    """
+    Mark all unread messages from partner_id → reader_id as read.
+
+    Returns:
+        Number of messages updated
+    """
+    result = (
+        db.query(models.DirectMessage)
+        .filter(
+            models.DirectMessage.sender_id == partner_id,
+            models.DirectMessage.recipient_id == reader_id,
+            models.DirectMessage.is_read == False,
+        )
+        .update({"is_read": True}, synchronize_session=False)
+    )
+    db.commit()
+    return result
+
+
+def get_dm_inbox(
+    db: Session,
+    user_id: int,
+) -> list[dict]:
+    """
+    Build the DM inbox: one entry per conversation partner, showing the
+    most-recent message and unread count.
+
+    This does a Python-side aggregation instead of complex SQL so it stays
+    compatible with both SQLite (test) and PostgreSQL (production).
+
+    Returns:
+        List of dicts matching the DirectMessageThread schema, newest-thread first.
+    """
+    messages = (
+        db.query(models.DirectMessage)
+        .options(
+            joinedload(models.DirectMessage.sender),
+            joinedload(models.DirectMessage.recipient),
+        )
+        .filter(
+            or_(
+                models.DirectMessage.sender_id == user_id,
+                models.DirectMessage.recipient_id == user_id,
+            )
+        )
+        .order_by(models.DirectMessage.created_at.desc())
+        .all()
+    )
+
+    # Group by conversation partner
+    threads: dict[int, dict] = {}
+    for msg in messages:
+        partner_id = msg.recipient_id if msg.sender_id == user_id else msg.sender_id
+        partner_user = msg.recipient if msg.sender_id == user_id else msg.sender
+
+        # Skip threads with inactive or deleted partners to keep inbox actionable
+        if partner_user is None or not getattr(partner_user, "is_active", True):
+            continue
+
+        if partner_id not in threads:
+            threads[partner_id] = {
+                "partner_id": partner_id,
+                "partner_name": partner_user.name,
+                "partner_photo_url": partner_user.photo_url,
+                "last_message_body": msg.body,
+                "last_message_at": msg.created_at,
+                "unread_count": 0,
+            }
+        # Count unread messages sent TO this user by that partner
+        if msg.sender_id == partner_id and not msg.is_read:
+            threads[partner_id]["unread_count"] += 1
+
+    return list(threads.values())

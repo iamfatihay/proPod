@@ -1,6 +1,6 @@
 """Pydantic schemas for request/response validation."""
 from __future__ import annotations
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 import datetime
 from typing import Optional, List, TYPE_CHECKING
 from enum import Enum
@@ -706,3 +706,70 @@ class NotificationListResponse(BaseModel):
     limit: int
     offset: int
     has_more: bool
+
+
+# ---------------------------------------------------------------------------
+# Direct Message schemas
+# ---------------------------------------------------------------------------
+
+class DirectMessageCreate(BaseModel):
+    """Payload for sending a new direct message."""
+    recipient_id: int = Field(..., description="ID of the user to send the message to")
+    body: str = Field(..., min_length=1, max_length=2000, description="Message content")
+
+    @field_validator("body")
+    @classmethod
+    def body_not_blank(cls, v: str) -> str:
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("body must not be blank or whitespace-only")
+        return stripped
+
+
+class DirectMessageResponse(BaseModel):
+    """A single direct message."""
+    id: int
+    sender_id: int
+    recipient_id: int
+    body: str
+    is_read: bool
+    created_at: datetime.datetime
+
+    # Convenience: include the partner's basic info so the client can render
+    # sender/recipient names without extra requests.
+    sender_name: Optional[str] = None
+    sender_photo_url: Optional[str] = None
+    recipient_name: Optional[str] = None
+    recipient_photo_url: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DirectMessageThread(BaseModel):
+    """
+    Summary of a conversation thread with one other user.
+
+    Returned by the inbox listing endpoint; represents the most
+    recent message in each conversation.
+    """
+    partner_id: int
+    partner_name: str
+    partner_photo_url: Optional[str] = None
+    last_message_body: str
+    last_message_at: datetime.datetime
+    unread_count: int
+
+
+class ConversationResponse(BaseModel):
+    """Paginated conversation messages between two users."""
+    messages: List[DirectMessageResponse]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+
+class DMInboxResponse(BaseModel):
+    """Inbox: one thread entry per conversation partner."""
+    threads: List[DirectMessageThread]
+    total: int
