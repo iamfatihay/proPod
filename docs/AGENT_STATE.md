@@ -16,8 +16,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-14
-**Last session (DM feature):** Implemented full 1-on-1 direct messaging — `DirectMessage` model, Alembic migration, CRUD, router (`POST /messages/`, `GET /messages/inbox`, `GET /messages/{partner_id}`), registered in `main.py`. Frontend: `chat-details.js` rewritten as a real conversation screen with bubbles/compose/read-receipts/pagination; `messages.js` updated to call `getDMInbox()`; `creator-profile.js` gets a "Message" button. All 367 backend tests pass. PR #58 opened.
-**Test suite baseline:** 367 backend tests. Frontend: syntax-checked only; unit tests thin.
+**Last session (DM Copilot review fixes):** Addressed all 7 Copilot comments on PR #58. Backend: `send_direct_message` now uses flush→commit→joinedload re-query (no duplicate refresh); `get_conversation` separates count from data query and adds joinedload; `get_dm_inbox` adds joinedload and skips inactive partners. `DirectMessageCreate` validator rejects whitespace-only body. `validation_exception_handler` stringifies non-serializable `ctx` values. Added `test_messages.py` (17 new tests: send, inbox, conversation, pagination, read-marking side effect, inactive-partner filtering). Frontend: `messages.js` `loadInbox` guards all state updates with cancellation signal; `chat-details.js` `loadConversation` has isActive guard and `handleSend` increments `fetchOffset` on local append. All 384 backend tests pass.
+**Test suite baseline:** 384 backend tests (+17 new in test_messages.py). Frontend: syntax-checked only; unit tests thin.
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -54,13 +54,16 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Persist sleepOnEpisodeEnd across app restarts via AsyncStorage — PR #57
 
 ### What's open / in-progress
-- **PR #58**: `feat(messages): direct messaging between users` — https://github.com/iamfatihay/proPod/pull/58
+- **PR #58**: `feat(messages): direct messaging between users` — https://github.com/iamfatihay/proPod/pull/58 — **Copilot review addressed**
   - `DirectMessage` model + Alembic migration `a2b3c4d5e6f7`
   - `POST /messages/`, `GET /messages/inbox`, `GET /messages/{partner_id}`
   - `chat-details.js` rewritten as full DM conversation UI (bubbles, compose bar, read receipts, pagination)
   - `messages.js` updated to DM inbox with unread badges (was creator comment inbox)
   - `creator-profile.js`: "Message" button added
-  - 367/367 backend tests passing
+  - N+1 queries eliminated (joinedload on all DM queries)
+  - Inactive-partner filtering in inbox
+  - `test_messages.py`: 17 tests (send, inbox, conversation, pagination, read-marking, inactive)
+  - 384/384 backend tests passing
 
 ### Known issues / tech debt
 - No push notifications for new DMs — backend stub exists (`/notifications/send`), needs Expo Push Token wired at app launch
