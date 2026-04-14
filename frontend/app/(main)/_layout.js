@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BottomMiniPlayer from "../../src/components/audio/BottomMiniPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
 import useNotificationStore from "../../src/context/useNotificationStore";
+import useDMStore from "../../src/context/useDMStore";
 import { COLORS, FONT_SIZES, BORDER_RADIUS } from "../../src/constants/theme";
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -194,6 +195,10 @@ export default function TabLayout() {
     const unreadCount = useNotificationStore((state) => state.unreadCount);
     const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
 
+    // DM unread count and server fetch for Messages tab badge
+    const unreadDMCount = useDMStore((state) => state.unreadDMCount);
+    const fetchDMUnreadCount = useDMStore((state) => state.fetchDMUnreadCount);
+
     // Fetch server notifications on mount so the badge is accurate from first
     // render — without this, the badge only populates when the user visits the
     // notifications screen for the first time.
@@ -201,8 +206,9 @@ export default function TabLayout() {
     useEffect(() => {
         // Initial fetch on login (this component mounts only in the authed group)
         fetchNotifications();
+        fetchDMUnreadCount();
 
-        // Refresh badge when the app returns to the foreground (e.g. user
+        // Refresh badges when the app returns to the foreground (e.g. user
         // background/foregrounds the app between sessions).
         const subscription = AppState.addEventListener('change', (nextState) => {
             if (
@@ -210,12 +216,13 @@ export default function TabLayout() {
                 nextState === 'active'
             ) {
                 fetchNotifications();
+                fetchDMUnreadCount();
             }
             appStateRef.current = nextState;
         });
 
         return () => subscription.remove();
-    }, [fetchNotifications]);
+    }, [fetchNotifications, fetchDMUnreadCount]);
 
     // Actions (stable)
     const play = useAudioStore((state) => state.play);
@@ -348,6 +355,26 @@ export default function TabLayout() {
                         }}
                     />
                     <Tabs.Screen
+                        name="messages"
+                        options={{
+                            tabBarIcon: ({ color, focused }) => (
+                                <TabIcon
+                                    icon={
+                                        focused
+                                            ? "chatbubbles"
+                                            : "chatbubbles-outline"
+                                    }
+                                    color={color}
+                                    focused={focused}
+                                    badge={unreadDMCount}
+                                />
+                            ),
+                            tabBarAccessibilityLabel: unreadDMCount > 0
+                                ? `Messages, ${unreadDMCount} unread`
+                                : "Messages",
+                        }}
+                    />
+                    <Tabs.Screen
                         name="notifications"
                         options={{
                             tabBarIcon: ({ color, focused }) => (
@@ -384,12 +411,6 @@ export default function TabLayout() {
                     />
                     <Tabs.Screen
                         name="activity-details"
-                        options={{
-                            href: null,
-                        }}
-                    />
-                    <Tabs.Screen
-                        name="messages"
                         options={{
                             href: null,
                         }}
