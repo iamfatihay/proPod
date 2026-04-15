@@ -1704,8 +1704,8 @@ def create_notification(
     db.commit()
     db.refresh(notification)
 
-    # Send Expo push notification to all registered devices for this user.
-    # This is fire-and-forget — a push failure must never break the in-app flow.
+    # Best-effort synchronous push to all registered devices for this user.
+    # Errors are caught so a push failure never breaks the in-app notification flow.
     try:
         device_tokens = get_device_tokens_for_user(db=db, user_id=user_id)
         token_strings = [dt.token for dt in device_tokens]
@@ -2214,13 +2214,21 @@ def remove_device_token(db: Session, user_id: int, token: str) -> bool:
     return True
 
 
+_EXPO_PUSH_BATCH_SIZE = 100  # Expo enforces a 100-message-per-request limit
+
+
 def _send_expo_push(tokens: List[str], title: str, body: str, data: dict | None = None) -> None:
     """
-    Fire-and-forget Expo Push API call.  Never raises — failures are logged.
+    Best-effort synchronous Expo Push API call.  Never raises — failures are logged.
+
+    The call is synchronous and blocks the caller for up to the request timeout
+    (3 s). For the current scale this is acceptable; migrate to a background
+    task queue (e.g. Celery, FastAPI BackgroundTasks) if latency becomes a concern.
 
     Expo Push API: https://docs.expo.dev/push-notifications/sending-notifications/
     Endpoint:      POST https://exp.host/--/api/v2/push/send
     Auth:          None required for basic delivery.
+    Batch limit:   100 messages per request.
 
     Args:
         tokens: List of Expo push token strings.
@@ -2231,25 +2239,45 @@ def _send_expo_push(tokens: List[str], title: str, body: str, data: dict | None 
     if not tokens:
         return
 
-    messages = [
-        {
-            "to": t,
-            "sound": "default",
-            "title": title,
-            "body": body,
-            "data": data or {},
-        }
-        for t in tokens
-    ]
+    payload_data = data or {}
 
-    try:
-        resp = httpx.post(
-            "https://exp.host/--/api/v2/push/send",
-            json=messages,
-            headers={"Accept": "application/json", "Content-Type": "application/json"},
-            timeout=5.0,
-        )
-        if resp.status_code != 200:
-            logger.warning("Expo Push API returned %s: %s", resp.status_code, resp.text[:200])
-    except Exception as exc:  # network error, timeout, etc.
-        logger.warning("Expo Push send failed (non-blocking): %s", exc)
+    # Chunk into batches of 100 to respect Expo's per-request limit.
+    for i in range(0, len(tokens), _EXPO_PUSH_BATCH_SIZE):
+        batch = tokens[i : i + _EXPO_PUSH_BATCH_SIZE]
+        messages = [
+            {
+                "to": t,
+                "sound": "default",
+                "title": title,
+                "body": body,
+                "data": payload_data,
+            }
+            for t in batch
+        ]
+
+        try:
+            resp = httpx.post(
+                "https://exp.host/--/api/v2/push/send",
+                json=messages,
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+                timeout=3.0,
+            )
+            if resp.status_code != 200:
+                logger.warning("Expo Push API HTTP %s: %s", resp.status_code, resp.text[:200])
+                continue
+
+            # Expo returns HTTP 200 even when individual tokens are invalid.
+            # Inspect per-message statuses and log any errors.
+            try:
+                result = resp.json()
+                for ticket in result.get("data", []):
+                    if ticket.get("status") == "error":
+                        logger.warning(
+                            "Expo Push ticket error — details: %s",
+                            ticket.get("details", ticket.get("message", "unknown")),
+                        )
+            except Exception as parse_exc:
+                logger.warning("Expo Push response parse error: %s", parse_exc)
+
+        except Exception as exc:  # network error, timeout, etc.
+            logger.warning("Expo Push send failed: %s", exc)

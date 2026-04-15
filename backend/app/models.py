@@ -596,6 +596,6 @@ class DeviceToken(Base):
     user = relationship("User", back_populates="device_tokens")
 
     __table_args__ = (
+        # token already has a unique constraint which implicitly creates an index.
         Index("idx_device_tokens_user_id", "user_id"),
-        Index("idx_device_tokens_token", "token"),
     )

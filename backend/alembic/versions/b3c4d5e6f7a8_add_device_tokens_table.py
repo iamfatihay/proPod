@@ -31,12 +31,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('token'),
     )
+    # token's UniqueConstraint already provides an index — no extra index needed.
     op.create_index('idx_device_tokens_user_id', 'device_tokens', ['user_id'])
-    op.create_index('idx_device_tokens_token', 'device_tokens', ['token'])
 
 
 def downgrade() -> None:
     """Drop device_tokens table."""
-    op.drop_index('idx_device_tokens_token', table_name='device_tokens')
     op.drop_index('idx_device_tokens_user_id', table_name='device_tokens')
     op.drop_table('device_tokens')
