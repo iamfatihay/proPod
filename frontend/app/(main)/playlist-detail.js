@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import apiService from "../../src/services/api/apiService";
 import ConfirmationModal from "../../src/components/ConfirmationModal";
 import { useToast } from "../../src/components/Toast";
-import { COLORS } from "../../src/constants/theme";
+import { COLORS, addAlpha } from "../../src/constants/theme";
 import useAudioStore from "../../src/context/useAudioStore";
 import Logger from "../../src/utils/logger";
 
@@ -64,12 +64,20 @@ const EpisodeRow = ({ item, onPress, onRemove }) => {
             );
             animRef.current.start();
         } else {
-            // Stop looping and reset to fully opaque
-            if (animRef.current) animRef.current.stop();
-            pulseAnim.setValue(1);
+            // Only stop and reset if a loop was actually started — avoids
+            // unnecessary setValue() calls on every isPlaying/isActive change
+            // for rows that were never animated.
+            if (animRef.current) {
+                animRef.current.stop();
+                animRef.current = null;
+                pulseAnim.setValue(1);
+            }
         }
         return () => {
-            if (animRef.current) animRef.current.stop();
+            if (animRef.current) {
+                animRef.current.stop();
+                animRef.current = null;
+            }
         };
     }, [isActive, isPlaying, pulseAnim]);
 
@@ -154,18 +162,18 @@ const styles = StyleSheet.create({
     thumbnailContainer: {
         width: 48,
         height: 48,
-        backgroundColor: COLORS.primary + "1A", // primary at ~10% opacity
+        backgroundColor: addAlpha(COLORS.primary, 0.1),
         borderRadius: 12,
         overflow: "hidden",
         alignItems: "center",
         justifyContent: "center",
         marginRight: 12,
         borderWidth: 1,
-        borderColor: COLORS.primary + "33", // primary at ~20% opacity
+        borderColor: addAlpha(COLORS.primary, 0.2),
     },
     activeOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: COLORS.primary + "B3", // primary at ~70% opacity
+        backgroundColor: addAlpha(COLORS.primary, 0.7),
         alignItems: "center",
         justifyContent: "center",
     },
