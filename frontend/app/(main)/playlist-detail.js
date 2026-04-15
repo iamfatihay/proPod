@@ -18,6 +18,7 @@ import ConfirmationModal from "../../src/components/ConfirmationModal";
 import { useToast } from "../../src/components/Toast";
 import { COLORS } from "../../src/constants/theme";
 import useAudioStore from "../../src/context/useAudioStore";
+import Logger from "../../src/utils/logger";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -160,14 +161,14 @@ const PlaylistDetail = () => {
 
     // Share the playlist as a text list of episode titles + deep link
     const handleShare = useCallback(async () => {
-        const items = playlist?.items || [];
+        const shareItems = playlist?.items || [];
         const name = playlist?.name || "Playlist";
-        const episodeLines = items
+        const episodeLines = shareItems
             .map((item, i) => `${i + 1}. ${item.podcast?.title || "Unknown"}`)
             .join("\n");
         const shareText = episodeLines.length > 0
-            ? `🎧 ${name}\n\n${episodeLines}\n\nListen on proPod!`
-            : `🎧 ${name}\n\nListen on proPod!`;
+            ? `🎧 ${name}\n\n${episodeLines}\n\nListen on Volo App!`
+            : `🎧 ${name}\n\nListen on Volo App!`;
         const deepLink = `volo://playlist/${playlistId}`;
         try {
             if (Platform.OS === "ios") {
@@ -175,13 +176,15 @@ const PlaylistDetail = () => {
             } else {
                 await Share.share({ message: `${shareText}\n\n${deepLink}` });
             }
-        } catch {
-            // User dismissed the sheet — not an error
+        } catch (error) {
+            Logger.error("Share failed:", error);
         }
     }, [playlist, playlistId]);
 
     const title = playlist?.name || params.name || "Playlist";
     const items = playlist?.items || [];
+    // Derive playable count once so both the button guard and handlePlayAll agree
+    const playableCount = items.filter((item) => item.podcast?.audio_url).length;
 
     return (
         <SafeAreaView className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
@@ -214,8 +217,8 @@ const PlaylistDetail = () => {
                 >
                     <MaterialCommunityIcons name="share-outline" size={22} color={COLORS.text.primary} />
                 </TouchableOpacity>
-                {/* Play All button — only shown when there are playable episodes */}
-                {items.length > 0 && !loading ? (
+                {/* Play All button — only shown when there are actually playable episodes */}
+                {playableCount > 0 && !loading ? (
                     <TouchableOpacity
                         onPress={handlePlayAll}
                         hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
