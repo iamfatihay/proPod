@@ -1718,6 +1718,9 @@ def create_notification(
                     "type": type,
                     "notificationId": notification.id,
                     **({"podcastId": podcast_id} if podcast_id is not None else {}),
+                    # actorId lets the frontend deep-link to the right screen
+                    # (e.g. chat-details with partnerId for 'dm' notifications)
+                    **({"actorId": actor_id} if actor_id is not None else {}),
                 },
             )
     except Exception as exc:
@@ -2018,6 +2021,7 @@ def send_direct_message(
             actor_id=sender_id,
         )
     except Exception as exc:
+        db.rollback()
         logger.warning("DM notification dispatch failed (non-fatal): %s", exc)
 
     return result

@@ -156,8 +156,14 @@ export default function Layout() {
                         router.push('/(main)/notifications');
                     }
                 } else if (data?.type === 'dm') {
-                    // Route to the DM inbox
-                    router.push('/(main)/messages');
+                    // Deep-link to the specific conversation if we have the sender's ID,
+                    // otherwise fall back to the DM inbox.
+                    const partnerId = data?.actorId;
+                    if (partnerId) {
+                        router.push({ pathname: '/(main)/chat-details', params: { partnerId } });
+                    } else {
+                        router.push('/(main)/messages');
+                    }
                 } else if (data?.type) {
                     // Unknown future type — open notifications as safe fallback
                     router.push('/(main)/notifications');
