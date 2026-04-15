@@ -13,6 +13,7 @@ import * as Notifications from 'expo-notifications';
 import * as Linking from 'expo-linking';
 import Logger from "../src/utils/logger";
 import { registerPushToken } from "../src/services/pushNotifications";
+import useAudioStore from "../src/context/useAudioStore";
 
 // Set once at the root level — controls how push notifications appear while the
 // app is in the foreground.  Centralised here to avoid import-order conflicts
@@ -115,6 +116,11 @@ export default function Layout() {
         // Load tokens and user data from SecureStore when the app starts
         initAuth();
 
+        // Eagerly restore persisted sleep settings so they're ready before the
+        // player mounts (avoids a race on cold start where sleepOnEpisodeEnd
+        // reads as false before AsyncStorage resolves).
+        useAudioStore.getState().loadSleepSettings();
+
         // Register session expired handler - will automatically redirect to login
         apiService.setSessionExpiredHandler(() => {
             logout();
@@ -140,6 +146,21 @@ export default function Layout() {
                 if (data?.type === 'recording') {
                     // Navigate to create screen - router is ready at this point
                     router.push('/(main)/create');
+                } else if (data?.type === 'like' || data?.type === 'comment') {
+                    // Route to the podcast details screen if we have an ID
+                    const podcastId = data?.podcastId ?? data?.podcast_id;
+                    if (podcastId) {
+                        router.push({ pathname: '/(main)/details', params: { id: podcastId } });
+                    } else {
+                        // Fallback: open notification inbox
+                        router.push('/(main)/notifications');
+                    }
+                } else if (data?.type === 'dm') {
+                    // Route to the DM inbox
+                    router.push('/(main)/messages');
+                } else if (data?.type) {
+                    // Unknown future type — open notifications as safe fallback
+                    router.push('/(main)/notifications');
                 }
             });
         }
