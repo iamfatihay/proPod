@@ -4,8 +4,10 @@ Covers:
 - POST /messages/       — send DM (happy path, self-message rejection, inactive recipient)
 - GET  /messages/inbox  — inbox listing, unread counts, user isolation
 - GET  /messages/{id}   — conversation retrieval, pagination, ordering, read-marking side effect
+- DM push notifications — in-app Notification created for recipient on send
 """
 import pytest
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -254,3 +256,74 @@ class TestGetConversation:
         # Verify newest-first ordering on first page
         bodies = [m["body"] for m in data1["messages"]]
         assert bodies[0] == "Msg 5"  # newest
+
+
+# ---------------------------------------------------------------------------
+# DM push notifications — Notification record created for recipient
+# ---------------------------------------------------------------------------
+
+class TestDMNotifications:
+    def test_send_dm_creates_notification_for_recipient(self, db_session):
+        """Sending a DM must create an in-app Notification with type='dm' for the recipient."""
+        sender = _make_user(db_session, "notif_sender@example.com", "NotifSender")
+        recip  = _make_user(db_session, "notif_recip@example.com",  "NotifRecip")
+
+        # Suppress actual Expo HTTP calls in test environment
+        with patch("app.crud._send_expo_push"):
+            crud.send_direct_message(db_session, sender.id, recip.id, "Hello, notification test!")
+
+        notification = (
+            db_session.query(models.Notification)
+            .filter(
+                models.Notification.user_id == recip.id,
+                models.Notification.type == "dm",
+                models.Notification.actor_id == sender.id,
+            )
+            .order_by(models.Notification.created_at.desc())
+            .first()
+        )
+        assert notification is not None, "Expected a 'dm' Notification for the recipient"
+        assert notification.read is False
+        assert "NotifSender" in notification.title
+        assert "Hello, notification test!" in notification.message
+
+    def test_send_dm_notification_preview_truncated(self, db_session):
+        """Body longer than 80 chars must be truncated with ellipsis in the notification message."""
+        sender = _make_user(db_session, "notif_long_sender@example.com", "LongSender")
+        recip  = _make_user(db_session, "notif_long_recip@example.com",  "LongRecip")
+        long_body = "A" * 100  # 100 chars — exceeds 80-char preview limit
+
+        with patch("app.crud._send_expo_push"):
+            crud.send_direct_message(db_session, sender.id, recip.id, long_body)
+
+        notification = (
+            db_session.query(models.Notification)
+            .filter(
+                models.Notification.user_id == recip.id,
+                models.Notification.type == "dm",
+                models.Notification.actor_id == sender.id,
+            )
+            .order_by(models.Notification.created_at.desc())
+            .first()
+        )
+        assert notification is not None
+        # Preview must be 80 chars of body + ellipsis character
+        assert notification.message == "A" * 80 + "…"
+
+    def test_dm_does_not_notify_sender(self, db_session):
+        """The sender must NOT receive a notification for their own DM."""
+        sender = _make_user(db_session, "notif_noself_sender@example.com", "NoSelfSender")
+        recip  = _make_user(db_session, "notif_noself_recip@example.com",  "NoSelfRecip")
+
+        with patch("app.crud._send_expo_push"):
+            crud.send_direct_message(db_session, sender.id, recip.id, "Only recip notified")
+
+        sender_notif = (
+            db_session.query(models.Notification)
+            .filter(
+                models.Notification.user_id == sender.id,
+                models.Notification.type == "dm",
+            )
+            .first()
+        )
+        assert sender_notif is None, "Sender must not receive a dm notification for their own message"

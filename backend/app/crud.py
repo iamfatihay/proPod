@@ -1718,6 +1718,9 @@ def create_notification(
                     "type": type,
                     "notificationId": notification.id,
                     **({"podcastId": podcast_id} if podcast_id is not None else {}),
+                    # actorId lets the frontend deep-link to the right screen
+                    # (e.g. chat-details with partnerId for 'dm' notifications)
+                    **({"actorId": actor_id} if actor_id is not None else {}),
                 },
             )
     except Exception as exc:
@@ -1994,7 +1997,7 @@ def send_direct_message(
     message_id = msg.id
     db.commit()
     # Re-query with eager-loaded relationships in one round-trip
-    return (
+    result = (
         db.query(models.DirectMessage)
         .options(
             joinedload(models.DirectMessage.sender),
@@ -2003,6 +2006,25 @@ def send_direct_message(
         .filter(models.DirectMessage.id == message_id)
         .one()
     )
+
+    # ── Notify recipient of incoming DM (in-app + push) ──────────────────
+    # Wrap in try/except so a notification or push failure never blocks the DM.
+    try:
+        sender_name = result.sender.name if result.sender else "Someone"
+        preview = body[:80] + ("…" if len(body) > 80 else "")
+        create_notification(
+            db=db,
+            user_id=recipient_id,
+            type="dm",
+            title=f"New message from {sender_name}",
+            message=preview,
+            actor_id=sender_id,
+        )
+    except Exception as exc:
+        db.rollback()
+        logger.warning("DM notification dispatch failed (non-fatal): %s", exc)
+
+    return result
 
 
 def _enrich_dm(msg: models.DirectMessage) -> models.DirectMessage:
