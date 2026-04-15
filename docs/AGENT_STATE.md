@@ -16,10 +16,11 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-15
-**Last session (playlist Play All + Share):** Opened PR #63 — `Play All` button + `Share` sheet in `playlist-detail.js`. Play All queues all audio-able episodes via `setQueue/play`; Share invokes native `Share.share` with episode list + `volo://playlist/{id}` deep link. Syntax-checked; no backend changes. 402 backend tests baseline unchanged.
+**Last session (playlist shuffle play):** Opened PR #64 — `Shuffle` button in `playlist-detail.js`. Refactored `handlePlayAll` into a shared `buildTracks` helper, added Fisher-Yates shuffle in `handleShuffle`, rendered an outlined Shuffle button next to the filled Play All button. Syntax-checked; no backend changes. 402 backend tests baseline unchanged.
 **Test suite baseline:** 402 backend tests. Frontend: syntax-checked only; unit tests thin.
 
 ### What's shipped (merged to master)
+- ✅ Playlist Play All + Share sheet — Play All queues ordered tracks; Share invokes native Share.share with deep link (PR #63)
 - ✅ DM push notifications — `create_notification(type='dm')` wired into `send_direct_message`, 3 new tests (PR #62)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
 - ✅ Podcast CRUD (create, edit, delete, list, search)
@@ -63,7 +64,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ### What's open / in-progress
 - ✅ PR #62 `feature/dm-push-notifications` — merged to master
-- 🔄 PR #63 `feature/playlist-play-all-and-share` — Play All button + Share sheet in playlist-detail.js. Awaiting Fay's merge.
+- ✅ PR #63 `feature/playlist-play-all-and-share` — merged to master
+- 🔄 PR #64 `feature/playlist-shuffle-play` — Shuffle button in playlist-detail.js. Awaiting Fay's merge.
 
 ### Known issues / tech debt
 - Push: no receipt polling — Expo Push API returns ticket IDs; check receipts at `https://exp.host/--/api/v2/push/getReceipts` to detect expired/invalid tokens and prune `device_tokens` table
@@ -132,8 +134,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FEATURE] Playlist shuffle play** — In `frontend/app/(main)/playlist-detail.js`, add a "Shuffle" button next to the existing "Play All" button. Shuffle the `tracks` array (Fisher-Yates) before calling `setQueue(shuffledTracks, 0)`. ~10 lines, no backend needed. Completes the playlist playback experience.
+1. **[FEATURE] Currently-playing indicator on playlist rows** — In `playlist-detail.js` `EpisodeRow`, subscribe to `useAudioStore` `currentTrack` and `isPlaying`; highlight the active row with a pulsing waveform icon (`name="waveform"`) when `podcast.id === currentTrack?.id`. Pure frontend, no API needed. Makes shuffle/play-all immediately visible to the user.
 
 2. **[FEATURE] Expo push receipt polling** — In `backend/app/crud.py`, extend `_send_expo_push` to store returned ticket IDs in a new `push_tickets` table, then add a `POST /admin/push-receipts/check` endpoint (admin-only) that calls `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` tokens from `device_tokens`. Requires Alembic migration for `push_tickets`.
 
-3. **[FEATURE] Currently-playing indicator on playlist rows** — In `playlist-detail.js` `EpisodeRow`, subscribe to `useAudioStore` `currentTrack` and `isPlaying`; highlight the active row with a pulsing waveform icon when its `podcast.id === currentTrack?.id`. Pure frontend, no API needed.
+3. **[FEATURE] Podcast share sheet on details screen** — In `frontend/app/(main)/details.js`, add a share icon button in the header that invokes `Share.share({ url: 'volo://podcast/${id}', message: 'Listen to this on proPod!' })`. Import `Share` from `react-native`. Deep links already work end-to-end (PR #41).
