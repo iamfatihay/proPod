@@ -16,8 +16,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-15
-**Last session (push routing + logout cleanup):** Shipped PR #61 — notification tap routing by type (`like`/`comment` → podcast details, `dm` → DM inbox, unknown → notifications), `podcastId` in push data payload, `unregisterPushToken()` on logout, eager `loadSleepSettings()` at cold start. PR #60 (push notifications) confirmed merged to master. 397 backend tests pass, 0 regressions.
-**Test suite baseline:** 397 backend tests. Frontend: syntax-checked only; unit tests thin.
+**Last session (DM push notifications):** Opened PR #62 — wire `create_notification(type='dm')` into `send_direct_message` in `crud.py` so recipients get an in-app + push notification when a DM arrives. 3 new tests in `TestDMNotifications`. 402 backend tests pass (was 397), 0 regressions.
+**Test suite baseline:** 402 backend tests. Frontend: syntax-checked only; unit tests thin.
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -61,11 +61,10 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
   - `frontend/src/context/useAuthStore.js` — `unregisterPushToken()` called best-effort at logout start
 
 ### What's open / in-progress
-*(none — all PRs merged or submitted)*
+- 🔄 PR #62 `feature/dm-push-notifications` — DM push notification wiring (`crud.send_direct_message` → `create_notification`), 3 new tests. Awaiting Fay's merge.
 
 ### Known issues / tech debt
 - Push: no receipt polling — Expo Push API returns ticket IDs; check receipts at `https://exp.host/--/api/v2/push/getReceipts` to detect expired/invalid tokens and prune `device_tokens` table
-- Push: DM notifications — `send_direct_message` in `crud.py` does not yet call `create_notification`; the `dm` tap routing in `_layout.js` won't trigger until this is wired
 - DM inbox has no server-side pagination — fine for now, add if thread count grows large
 - DM text-only — no image/file attachments yet
 - Frontend unit test coverage still thin
@@ -75,11 +74,11 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **[FOLLOW-UP] DM push notifications** — Wire `create_notification(type='dm', ...)` into `send_direct_message` in `backend/app/crud.py` so recipients actually receive a push when a DM arrives. The frontend routing for `dm` taps is already in place (PR #61).
+1. **[FEATURE] Podcast share sheet** — Add a native share button to the podcast details screen (`/(main)/details.js`) that invokes `Share.share({ url: 'volo://podcast/${id}', message: 'Listen to this on proPod!' })`. Import `Share` from `react-native`. No backend changes needed — deep links already work end-to-end (PR #41).
 
-2. **[FEATURE] Expo push receipt polling** — After firing pushes, Expo returns ticket IDs. A background job (or lazy cleanup on next push) should call `https://exp.host/--/api/v2/push/getReceipts` and prune tokens with `DeviceNotRegistered` status from `device_tokens`.
+2. **[FEATURE] Expo push receipt polling** — After firing pushes, Expo returns ticket IDs. Extend `_send_expo_push` in `crud.py` to store ticket IDs, then add a `POST /admin/push-receipts/check` endpoint (admin-only) that calls `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` tokens from `device_tokens`.
 
-3. **[FEATURE] Podcast share sheet** — Add a native share button to the podcast details screen (`/(main)/details.js`) that invokes `Share.share({ url: 'volo://podcast/{id}', message: '...' })`. Deep links already work end-to-end (PR #41).
+3. **[FEATURE] Playlist share / export** — Allow creators to share a playlist as a deep link (`volo://playlist/{id}`) or export it as a list of episode titles. Frontend work in `frontend/app/(main)/playlist-detail.js`.
 
 ---
 
@@ -131,8 +130,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FOLLOW-UP] DM push notifications** — In `backend/app/crud.py`, inside `send_direct_message`, after the message is committed call `create_notification(db=db, user_id=recipient_id, type='dm', title='New message', message=f'{sender.display_name}: {body[:80]}', actor_id=sender_id)`. This makes the `dm` tap routing in `_layout.js` (PR #61) actually reachable. Add 1-2 tests in `test_direct_messages.py`.
+1. **[FEATURE] Podcast share sheet** — In `frontend/app/(main)/details.js`, add a Share button (top-right header or below the episode title) that calls `Share.share({ url: 'volo://podcast/${id}', message: 'Listen to this on proPod!' })`. Import `Share` from `react-native`. No backend changes needed — deep links are already wired (PR #41).
 
-2. **[FEATURE] Podcast share sheet** — In `frontend/app/(main)/details.js`, add a Share button (top-right header or below the episode title) that calls `Share.share({ url: 'volo://podcast/${id}', message: 'Listen to this on proPod!' })`. Import `Share` from `react-native`. No backend changes needed — deep links are already wired.
+2. **[FEATURE] Expo push receipt polling** — In `backend/app/crud.py`, extend `_send_expo_push` to store returned ticket IDs, then add a `POST /admin/push-receipts/check` endpoint (admin-only) that calls `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` tokens from `device_tokens`.
 
-3. **[FEATURE] Expo push receipt polling** — In `backend/app/crud.py`, extend `_send_expo_push` to store returned ticket IDs, then add a `POST /admin/push-receipts/check` endpoint (admin-only) that calls `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` tokens from `device_tokens`.
+3. **[FEATURE] Playlist share / export** — In `frontend/app/(main)/playlist-detail.js`, add a share button that invokes `Share.share({ message: episodeList })`. No backend changes needed — a simple native share sheet with episode titles/deep links is enough for v1.
