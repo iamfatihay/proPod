@@ -15,9 +15,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-14
-**Last session (DM unread badge):** Created `useDMStore.js` (Zustand) with `unreadDMCount`, `fetchDMUnreadCount`, `resetDMUnread`. Made Messages tab visible in the bottom tab bar with chatbubbles icon and red badge (was `href: null`). Tab bar now: Home | Library | [Create] | Search | Messages | Notifications. Badge fetched on mount + AppState foreground; clears immediately when user opens inbox (`resetDMUnread` in `useFocusEffect`). PR #59 open — no backend changes, 3 frontend files changed, all syntax checks pass.
-**Test suite baseline:** 384 backend tests. Frontend: syntax-checked only; unit tests thin.
+**Last updated:** 2026-04-15
+**Last session (push notifications):** Added full Expo push notification stack. DeviceToken model + Alembic migration `b3c4d5e6f7a8`, `register_device_token` CRUD (upsert), `_send_expo_push` fire-and-forget httpx helper, `create_notification` extended to dispatch push after DB insert, `POST /DELETE /users/me/device-token` endpoints, `pushNotifications.js` frontend service, `registerPushToken()` wired into `_layout.js` on user session, `apiService.registerDeviceToken/removeDeviceToken`. 13 new tests → 397 total, 0 regressions. PR #60 open.
+**Test suite baseline:** 397 backend tests. Frontend: syntax-checked only; unit tests thin.
 
 ### What's shipped (merged to master)
 - ✅ Auth (login, register, Google OAuth, forgot/reset password)
@@ -53,16 +53,24 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Profile screen wired to real API data — real follower/following/podcast counts, PodcastCard list, `useFocusEffect` refresh — PR #56
 - ✅ Persist sleepOnEpisodeEnd across app restarts via AsyncStorage — PR #57
 - ✅ Direct messaging between users — `DirectMessage` model + Alembic migration, `POST /messages/`, `GET /messages/inbox`, `GET /messages/{partner_id}`, `chat-details.js` conversation UI, `messages.js` inbox, `creator-profile.js` "Message" button, 17 backend tests — PR #58
+- ✅ DM unread badge in tab bar — `useDMStore.js`, Messages tab visible + red badge, `resetDMUnread` on focus — PR #59
 
 ### What's open / in-progress
-- **PR #59**: `feat(messages): DM unread badge in tab bar` — https://github.com/iamfatihay/proPod/pull/59
-  - `useDMStore.js` — new Zustand store (unreadDMCount, fetchDMUnreadCount, resetDMUnread)
-  - `_layout.js` — Messages tab now visible with chatbubbles icon + badge; badge fetched on mount + foreground
-  - `messages.js` — calls resetDMUnread on focus; removed secondary-screen back-arrow header
-  - No backend changes; all 3 files syntax-check clean
+- **PR #60**: `feat(push): Expo push notifications` — https://github.com/iamfatihay/proPod/pull/60
+  - `backend/app/models.py` — `DeviceToken` model + `device_tokens` relationship on `User`
+  - `backend/alembic/versions/b3c4d5e6f7a8_...` — Alembic migration for `device_tokens` table
+  - `backend/app/schemas.py` — `DeviceTokenRegister`, `DeviceTokenResponse`
+  - `backend/app/crud.py` — `register_device_token` (upsert), `get_device_tokens_for_user`, `remove_device_token`, `_send_expo_push`; `create_notification` extended with push dispatch
+  - `backend/app/routers/users.py` — `POST /users/me/device-token` + `DELETE /users/me/device-token`
+  - `backend/tests/test_device_tokens.py` — 13 new tests (397 total)
+  - `frontend/src/services/pushNotifications.js` — new push registration service
+  - `frontend/src/services/api/apiService.js` — `registerDeviceToken` + `removeDeviceToken`
+  - `frontend/app/_layout.js` — `registerPushToken()` wired on user session established
 
 ### Known issues / tech debt
-- No push notifications for new DMs — backend stub exists (`/notifications/send`), needs Expo Push Token wired at app launch
+- Push: `unregisterPushToken()` not yet called on logout — stale tokens will be silently rejected by Expo but never cleaned up; wire into `useAuthStore.logout`
+- Push: no receipt polling — Expo Push API returns ticket IDs; check receipts at `https://exp.host/--/api/v2/push/getReceipts` to detect expired/invalid tokens and prune `device_tokens` table
+- Push: notification tap routing in `_layout.js` only handles `type === 'recording'`; needs branches for `like`, `comment`, `dm` to deep-link into the right screen
 - DM inbox has no server-side pagination — fine for now, add if thread count grows large
 - DM text-only — no image/file attachments yet
 - Frontend unit test coverage still thin
@@ -72,11 +80,11 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **[FEATURE] Push notifications (APNs/FCM)** — Register Expo Push Token on app launch, persist to `DeviceToken` model, call Expo Push API from `crud.create_notification`. Delivers out-of-app alerts for likes/comments/DMs.
+1. **[FOLLOW-UP] Push notification tap routing** — In `_layout.js` `addNotificationResponseReceivedListener`, branch on `data.type`: `like`/`comment` → `/(main)/details?id={podcast_id}`, `dm` → `/(main)/messages`. Currently only `recording` type is handled.
 
-2. **[FEATURE] Eager `loadSleepSettings` on app launch** — Move `loadSleepSettings()` from `SleepTimerModal.useEffect` into `frontend/app/_layout.js`. One-line change; zero risk.
+2. **[FOLLOW-UP] Logout token cleanup** — In `useAuthStore.logout`, call `unregisterPushToken()` from `pushNotifications.js` before clearing the stored auth tokens.
 
-3. **[FEATURE] DM unread badge in tab bar** — Wire `getDMInbox()` unread count into the Messages tab badge, same pattern as the notification bell in `frontend/app/(main)/_layout.js`.
+3. **[FEATURE] Eager `loadSleepSettings` at cold start** — In `frontend/app/_layout.js`, import `useAudioStore` and call `loadSleepSettings()` inside the root `useEffect`. One-line; zero risk.
 
 ---
 
@@ -128,8 +136,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FEATURE] Push notifications (APNs/FCM)** — Create `frontend/src/services/pushNotifications.js`: register Expo Push Token via `expo-notifications`, call new `POST /users/me/device-token` endpoint. Add `DeviceToken` model to `backend/app/models.py` (id, user_id, token, platform, created_at), CRUD fn, router endpoint, Alembic migration. In `crud.create_notification`, after inserting the DB record, call Expo Push API (`https://exp.host/--/api/v2/push/send`) with the stored token. High user visibility — badge-only is silent; push delivers out-of-app alerts for likes/comments/DMs.
+1. **[FOLLOW-UP] Push notification tap routing** — In `frontend/app/_layout.js`, extend `addNotificationResponseReceivedListener` callback: `if (data.type === 'like' || data.type === 'comment') router.push({ pathname: '/(main)/details', params: { id: data.podcastId } }); if (data.type === 'dm') router.push('/(main)/messages');`. Requires `notificationId` and `podcastId` to be in the `data` payload (already sent by `_send_expo_push` in crud).
 
-2. **[FEATURE] Eager `loadSleepSettings` at cold start** — In `frontend/app/_layout.js`, import `useAudioStore` and call `loadSleepSettings()` inside the root `useEffect` (after auth is restored). One-line addition; eliminates the edge case where sleep preference isn't applied until SleepTimerModal opens.
+2. **[FOLLOW-UP] Logout push token cleanup** — In `frontend/src/context/useAuthStore.js`, at the start of `logout()`, import and call `unregisterPushToken()` from `../services/pushNotifications`. Prevents stale-token accumulation in `device_tokens` table.
 
-3. **[FEATURE] DM badge polling** — After PR #59 merges, add a lightweight `setInterval` (every 60s when app is active) inside `useDMStore` or in `_layout.js` to call `fetchDMUnreadCount` so the badge stays fresh during long sessions without relying solely on mount + foreground events.
+3. **[FEATURE] Eager `loadSleepSettings` at cold start** — In `frontend/app/_layout.js` root `useEffect`, add `useAudioStore.getState().loadSleepSettings()` after `initAuth()`. One-line; eliminates sleep-preference race condition on cold start.
