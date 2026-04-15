@@ -16,10 +16,9 @@ const storeConfig = (set) => ({
     logout: async () => {
         // Remove device push token from backend before clearing credentials so
         // the user stops receiving out-of-app notifications after signing out.
-        // This is best-effort — a failure here must never block the logout flow.
-        await unregisterPushToken().catch((err) =>
-            Logger.warn("Push token unregister on logout failed:", err?.message ?? err)
-        );
+        // unregisterPushToken() already catches and logs all errors internally,
+        // so a simple await is sufficient — failure never blocks the logout flow.
+        await unregisterPushToken();
 
         await deleteToken("accessToken");
         await deleteToken("refreshToken");
