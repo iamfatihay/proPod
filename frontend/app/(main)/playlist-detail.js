@@ -137,16 +137,12 @@ const PlaylistDetail = () => {
         }
     };
 
-    // Play all episodes in the playlist as an ordered queue
-    const handlePlayAll = useCallback(() => {
+    // Build a track list from the playlist's playable items
+    const buildTracks = useCallback(() => {
         const playableItems = (playlist?.items || []).filter(
             (item) => item.podcast?.audio_url
         );
-        if (playableItems.length === 0) {
-            showToast("No playable episodes in this playlist", "warning");
-            return;
-        }
-        const tracks = playableItems.map((item) => ({
+        return playableItems.map((item) => ({
             id: item.podcast.id,
             uri: item.podcast.audio_url,
             title: item.podcast.title,
@@ -154,10 +150,36 @@ const PlaylistDetail = () => {
             duration: (item.podcast.duration || 0) * 1000,
             artwork: item.podcast.thumbnail_url,
         }));
+    }, [playlist]);
+
+    // Play all episodes in the playlist as an ordered queue
+    const handlePlayAll = useCallback(() => {
+        const tracks = buildTracks();
+        if (tracks.length === 0) {
+            showToast("No playable episodes in this playlist", "warning");
+            return;
+        }
         setQueue(tracks, 0);
         play(tracks[0]);
         showToast(`Playing ${tracks.length} episode${tracks.length !== 1 ? "s" : ""}`, "success");
-    }, [playlist, setQueue, play, showToast]);
+    }, [buildTracks, setQueue, play, showToast]);
+
+    // Shuffle episodes using Fisher-Yates and start from the first shuffled track
+    const handleShuffle = useCallback(() => {
+        const tracks = buildTracks();
+        if (tracks.length === 0) {
+            showToast("No playable episodes in this playlist", "warning");
+            return;
+        }
+        const shuffled = [...tracks];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        setQueue(shuffled, 0);
+        play(shuffled[0]);
+        showToast(`Shuffling ${shuffled.length} episode${shuffled.length !== 1 ? "s" : ""}`, "success");
+    }, [buildTracks, setQueue, play, showToast]);
 
     // Share the playlist as a text list of episode titles + deep link
     const handleShare = useCallback(async () => {
@@ -217,17 +239,28 @@ const PlaylistDetail = () => {
                 >
                     <MaterialCommunityIcons name="share-outline" size={22} color={COLORS.text.primary} />
                 </TouchableOpacity>
-                {/* Play All button — only shown when there are actually playable episodes */}
+                {/* Shuffle + Play All buttons — only shown when there are actually playable episodes */}
                 {playableCount > 0 && !loading ? (
-                    <TouchableOpacity
-                        onPress={handlePlayAll}
-                        hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
-                        className="ml-1 flex-row items-center bg-primary px-3 py-1.5 rounded-xl"
-                        accessibilityLabel="Play all episodes"
-                    >
-                        <MaterialCommunityIcons name="play" size={16} color="#fff" />
-                        <Text className="text-white font-semibold text-xs ml-1">Play All</Text>
-                    </TouchableOpacity>
+                    <>
+                        <TouchableOpacity
+                            onPress={handleShuffle}
+                            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                            className="ml-1 flex-row items-center bg-panel border border-border px-3 py-1.5 rounded-xl"
+                            accessibilityLabel="Shuffle play"
+                        >
+                            <MaterialCommunityIcons name="shuffle" size={16} color={COLORS.primary} />
+                            <Text className="text-primary font-semibold text-xs ml-1">Shuffle</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={handlePlayAll}
+                            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                            className="ml-1 flex-row items-center bg-primary px-3 py-1.5 rounded-xl"
+                            accessibilityLabel="Play all episodes"
+                        >
+                            <MaterialCommunityIcons name="play" size={16} color="#fff" />
+                            <Text className="text-white font-semibold text-xs ml-1">Play All</Text>
+                        </TouchableOpacity>
+                    </>
                 ) : null}
             </View>
 
