@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
     View,
     Text,
@@ -9,6 +9,8 @@ import {
     Image,
     Share,
     Platform,
+    Animated,
+    StyleSheet,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
@@ -16,7 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import apiService from "../../src/services/api/apiService";
 import ConfirmationModal from "../../src/components/ConfirmationModal";
 import { useToast } from "../../src/components/Toast";
-import { COLORS } from "../../src/constants/theme";
+import { COLORS, addAlpha } from "../../src/constants/theme";
 import useAudioStore from "../../src/context/useAudioStore";
 import Logger from "../../src/utils/logger";
 
@@ -33,30 +35,96 @@ const formatDuration = (seconds) => {
 
 const EpisodeRow = ({ item, onPress, onRemove }) => {
     const podcast = item.podcast;
+
+    // ── Audio state (hooks must run before any early return) ──────────────────
+    const currentTrack = useAudioStore((state) => state.currentTrack);
+    const isPlaying = useAudioStore((state) => state.isPlaying);
+    const pulseAnim = useRef(new Animated.Value(1)).current;
+    const animRef = useRef(null);
+
+    // True when this row is the currently-loaded track
+    const isActive = podcast ? String(podcast.id) === String(currentTrack?.id) : false;
+
+    useEffect(() => {
+        if (isActive && isPlaying) {
+            // Pulse the waveform icon opacity: 1 → 0.4 → 1, loop
+            animRef.current = Animated.loop(
+                Animated.sequence([
+                    Animated.timing(pulseAnim, {
+                        toValue: 0.4,
+                        duration: 550,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(pulseAnim, {
+                        toValue: 1,
+                        duration: 550,
+                        useNativeDriver: true,
+                    }),
+                ])
+            );
+            animRef.current.start();
+        } else {
+            // Only stop and reset if a loop was actually started — avoids
+            // unnecessary setValue() calls on every isPlaying/isActive change
+            // for rows that were never animated.
+            if (animRef.current) {
+                animRef.current.stop();
+                animRef.current = null;
+                pulseAnim.setValue(1);
+            }
+        }
+        return () => {
+            if (animRef.current) {
+                animRef.current.stop();
+                animRef.current = null;
+            }
+        };
+    }, [isActive, isPlaying, pulseAnim]);
+
     if (!podcast) return null;
 
     return (
         <TouchableOpacity
             onPress={onPress}
             activeOpacity={0.8}
-            className="flex-row items-center bg-panel rounded-2xl px-4 py-3 mb-3 border border-border"
+            style={[
+                styles.episodeRow,
+                isActive && { borderColor: COLORS.primary },
+            ]}
         >
-            {/* Thumbnail */}
-            <View className="w-12 h-12 bg-primary/10 rounded-xl overflow-hidden items-center justify-center mr-3 border border-primary/20">
+            {/* Thumbnail — with active overlay when this track is loaded */}
+            <View style={styles.thumbnailContainer}>
                 {podcast.thumbnail_url ? (
                     <Image
                         source={{ uri: podcast.thumbnail_url }}
-                        style={{ width: "100%", height: "100%" }}
+                        style={StyleSheet.absoluteFill}
                         resizeMode="cover"
                     />
                 ) : (
                     <MaterialCommunityIcons name="waveform" size={24} color={COLORS.primary} />
                 )}
+
+                {/* Active overlay: tinted background + animated waveform / pause icon */}
+                {isActive && (
+                    <View style={styles.activeOverlay}>
+                        <Animated.View style={{ opacity: isPlaying ? pulseAnim : 0.8 }}>
+                            <MaterialCommunityIcons
+                                name={isPlaying ? "waveform" : "pause-circle"}
+                                size={22}
+                                color="#fff"
+                            />
+                        </Animated.View>
+                    </View>
+                )}
             </View>
 
             {/* Info */}
             <View className="flex-1">
-                <Text className="text-text-primary font-semibold text-sm" numberOfLines={2}>
+                <Text
+                    className="font-semibold text-sm"
+                    style={{ color: isActive ? COLORS.primary : COLORS.text.primary }}
+                    numberOfLines={2}
+                >
                     {podcast.title}
                 </Text>
                 <Text className="text-text-secondary text-xs mt-0.5">
@@ -76,6 +144,40 @@ const EpisodeRow = ({ item, onPress, onRemove }) => {
         </TouchableOpacity>
     );
 };
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+    episodeRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: COLORS.panel,
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+    },
+    thumbnailContainer: {
+        width: 48,
+        height: 48,
+        backgroundColor: addAlpha(COLORS.primary, 0.1),
+        borderRadius: 12,
+        overflow: "hidden",
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: 12,
+        borderWidth: 1,
+        borderColor: addAlpha(COLORS.primary, 0.2),
+    },
+    activeOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: addAlpha(COLORS.primary, 0.7),
+        alignItems: "center",
+        justifyContent: "center",
+    },
+});
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
