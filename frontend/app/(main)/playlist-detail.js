@@ -159,8 +159,11 @@ const PlaylistDetail = () => {
             showToast("No playable episodes in this playlist", "warning");
             return;
         }
-        setQueue(tracks, 0);
+        // play() first so useAudioStore detects the track switch (track.id differs
+        // from currentTrack.id at call time) and unloads the old sound before
+        // creating a new player. setQueue() runs after to register queue context.
         play(tracks[0]);
+        setQueue(tracks, 0);
         showToast(`Playing ${tracks.length} episode${tracks.length !== 1 ? "s" : ""}`, "success");
     }, [buildTracks, setQueue, play, showToast]);
 
@@ -176,8 +179,10 @@ const PlaylistDetail = () => {
             const j = Math.floor(Math.random() * (i + 1));
             [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
-        setQueue(shuffled, 0);
+        // Same ordering rationale as handlePlayAll: play() before setQueue() so the
+        // audio store sees a track change and properly unloads any previously-loaded sound.
         play(shuffled[0]);
+        setQueue(shuffled, 0);
         showToast(`Shuffling ${shuffled.length} episode${shuffled.length !== 1 ? "s" : ""}`, "success");
     }, [buildTracks, setQueue, play, showToast]);
 
