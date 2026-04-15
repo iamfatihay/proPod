@@ -64,6 +64,8 @@ class User(Base):
     # DM relationships — messages sent and received
     sent_messages = relationship("DirectMessage", foreign_keys="DirectMessage.sender_id", back_populates="sender", cascade="all, delete-orphan")
     received_messages = relationship("DirectMessage", foreign_keys="DirectMessage.recipient_id", back_populates="recipient", cascade="all, delete-orphan")
+    # Push notification device tokens
+    device_tokens = relationship("DeviceToken", back_populates="user", cascade="all, delete-orphan")
 
 
 class Podcast(Base):
@@ -561,4 +563,39 @@ class DirectMessage(Base):
         Index("idx_dm_sender_recipient", "sender_id", "recipient_id"),
         Index("idx_dm_recipient_read", "recipient_id", "is_read"),
         Index("idx_dm_created", "created_at"),
+    )
+
+
+class DeviceToken(Base):
+    """
+    Expo push notification device token for a user.
+
+    One user may have multiple tokens (different devices / reinstalls).
+    Tokens are platform-tagged ('ios' | 'android') for diagnostics.
+    On duplicate token registration, the existing row is updated (upsert).
+    """
+
+    __tablename__ = "device_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    # Expo push token, e.g. ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
+    token = Column(String(512), nullable=False, unique=True)
+
+    # 'ios' | 'android' | 'unknown'
+    platform = Column(String(16), nullable=False, default="unknown")
+
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+        nullable=False,
+    )
+
+    # Relationship back to the user
+    user = relationship("User", back_populates="device_tokens")
+
+    __table_args__ = (
+        # token already has a unique constraint which implicitly creates an index.
+        Index("idx_device_tokens_user_id", "user_id"),
     )

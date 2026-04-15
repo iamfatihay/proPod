@@ -12,6 +12,18 @@ import DraftRecoveryModal from "../src/components/DraftRecoveryModal";
 import * as Notifications from 'expo-notifications';
 import * as Linking from 'expo-linking';
 import Logger from "../src/utils/logger";
+import { registerPushToken } from "../src/services/pushNotifications";
+
+// Set once at the root level — controls how push notifications appear while the
+// app is in the foreground.  Centralised here to avoid import-order conflicts
+// with the background recording notification handler.
+Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+    }),
+});
 
 export default function Layout() {
     const { user, isInitializing } = useAuthStore();
@@ -182,6 +194,16 @@ export default function Layout() {
         await protectionService.clearDraft();
         setDraft(null);
     };
+
+    // Register Expo push token once per user session (cold start or fresh login).
+    // Depends on user?.id (a stable primitive) rather than the user object so that
+    // unrelated profile updates don't trigger repeated registration calls.
+    const userId = user?.id ?? null;
+    useEffect(() => {
+        if (!isInitializing && userId) {
+            registerPushToken();
+        }
+    }, [isInitializing, userId]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional
 
     useEffect(() => {
         // Don't do anything while initializing

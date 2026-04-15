@@ -9,6 +9,7 @@ import datetime
 import logging
 from datetime import timezone
 from typing import Optional, List, Dict, Tuple, Any
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -1702,6 +1703,22 @@ def create_notification(
     db.add(notification)
     db.commit()
     db.refresh(notification)
+
+    # Best-effort synchronous push to all registered devices for this user.
+    # Errors are caught so a push failure never breaks the in-app notification flow.
+    try:
+        device_tokens = get_device_tokens_for_user(db=db, user_id=user_id)
+        token_strings = [dt.token for dt in device_tokens]
+        if token_strings:
+            _send_expo_push(
+                tokens=token_strings,
+                title=title,
+                body=message,
+                data={"type": type, "notificationId": notification.id},
+            )
+    except Exception as exc:
+        logger.warning("Push dispatch error (non-blocking): %s", exc)
+
     return notification
 
 
@@ -2119,3 +2136,148 @@ def get_dm_inbox(
             threads[partner_id]["unread_count"] += 1
 
     return list(threads.values())
+
+
+# ── Device Token / Push Notification CRUD ────────────────────────────────────
+
+def register_device_token(
+    db: Session,
+    user_id: int,
+    token: str,
+    platform: str = "unknown",
+) -> models.DeviceToken:
+    """
+    Register (upsert) an Expo push notification token for a user.
+
+    If the token already exists in the database (e.g. from a previous session
+    or a different user) it is re-assigned to this user and its platform is
+    updated.  This handles app-reinstall and user-switch scenarios.
+
+    Args:
+        db: Database session
+        user_id: Owner of the token
+        token: Expo push token string
+        platform: 'ios' | 'android' | 'unknown'
+
+    Returns:
+        The persisted DeviceToken row.
+    """
+    existing = (
+        db.query(models.DeviceToken).filter(models.DeviceToken.token == token).first()
+    )
+    if existing:
+        existing.user_id = user_id
+        existing.platform = platform
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    device_token = models.DeviceToken(
+        user_id=user_id,
+        token=token,
+        platform=platform,
+    )
+    db.add(device_token)
+    db.commit()
+    db.refresh(device_token)
+    return device_token
+
+
+def get_device_tokens_for_user(db: Session, user_id: int) -> List[models.DeviceToken]:
+    """Return all push tokens registered for *user_id*."""
+    return (
+        db.query(models.DeviceToken)
+        .filter(models.DeviceToken.user_id == user_id)
+        .all()
+    )
+
+
+def remove_device_token(db: Session, user_id: int, token: str) -> bool:
+    """
+    Remove a specific push token for a user (called on logout).
+
+    Returns:
+        True if a row was deleted, False if not found.
+    """
+    row = (
+        db.query(models.DeviceToken)
+        .filter(
+            models.DeviceToken.user_id == user_id,
+            models.DeviceToken.token == token,
+        )
+        .first()
+    )
+    if not row:
+        return False
+    db.delete(row)
+    db.commit()
+    return True
+
+
+_EXPO_PUSH_BATCH_SIZE = 100  # Expo enforces a 100-message-per-request limit
+
+
+def _send_expo_push(tokens: List[str], title: str, body: str, data: dict | None = None) -> None:
+    """
+    Best-effort synchronous Expo Push API call.  Never raises — failures are logged.
+
+    The call is synchronous and blocks the caller for up to the request timeout
+    (3 s). For the current scale this is acceptable; migrate to a background
+    task queue (e.g. Celery, FastAPI BackgroundTasks) if latency becomes a concern.
+
+    Expo Push API: https://docs.expo.dev/push-notifications/sending-notifications/
+    Endpoint:      POST https://exp.host/--/api/v2/push/send
+    Auth:          None required for basic delivery.
+    Batch limit:   100 messages per request.
+
+    Args:
+        tokens: List of Expo push token strings.
+        title:  Notification heading.
+        body:   Notification body text.
+        data:   Optional extras forwarded to the app (e.g. {'type': 'like'}).
+    """
+    if not tokens:
+        return
+
+    payload_data = data or {}
+
+    # Chunk into batches of 100 to respect Expo's per-request limit.
+    for i in range(0, len(tokens), _EXPO_PUSH_BATCH_SIZE):
+        batch = tokens[i : i + _EXPO_PUSH_BATCH_SIZE]
+        messages = [
+            {
+                "to": t,
+                "sound": "default",
+                "title": title,
+                "body": body,
+                "data": payload_data,
+            }
+            for t in batch
+        ]
+
+        try:
+            resp = httpx.post(
+                "https://exp.host/--/api/v2/push/send",
+                json=messages,
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+                timeout=3.0,
+            )
+            if resp.status_code != 200:
+                logger.warning("Expo Push API HTTP %s: %s", resp.status_code, resp.text[:200])
+                continue
+
+            # Expo returns HTTP 200 even when individual tokens are invalid.
+            # Inspect per-message statuses and log any errors.
+            try:
+                result = resp.json()
+                for ticket in result.get("data", []):
+                    if ticket.get("status") == "error":
+                        logger.warning(
+                            "Expo Push ticket error — details: %s",
+                            ticket.get("details", ticket.get("message", "unknown")),
+                        )
+            except Exception as parse_exc:
+                logger.warning("Expo Push response parse error: %s", parse_exc)
+
+        except Exception as exc:  # network error, timeout, etc.
+            logger.warning("Expo Push send failed: %s", exc)
