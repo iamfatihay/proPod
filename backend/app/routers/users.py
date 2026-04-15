@@ -481,3 +481,40 @@ def get_user_podcasts(
         offset=skip,
         has_more=total > skip + limit,
     )
+
+
+# ── Push Notification Device Tokens ──────────────────────────────────────────
+
+@router.post("/me/device-token", response_model=schemas.DeviceTokenResponse, status_code=201)
+def register_device_token(
+    payload: schemas.DeviceTokenRegister,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """
+    Register an Expo push notification token for the authenticated user.
+
+    Called once after the user grants push permissions on their device.
+    Idempotent — registering the same token twice simply updates the record.
+    """
+    token = crud.register_device_token(
+        db=db,
+        user_id=current_user.id,
+        token=payload.token,
+        platform=payload.platform,
+    )
+    return token
+
+
+@router.delete("/me/device-token", response_model=schemas.SuccessMessage)
+def remove_device_token(
+    payload: schemas.DeviceTokenRegister,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """
+    Unregister a push token (e.g. on logout or when the app detects a stale token).
+    Returns 200 regardless of whether the token existed.
+    """
+    crud.remove_device_token(db=db, user_id=current_user.id, token=payload.token)
+    return schemas.SuccessMessage(message="Device token removed")

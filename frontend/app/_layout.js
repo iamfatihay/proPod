@@ -12,6 +12,7 @@ import DraftRecoveryModal from "../src/components/DraftRecoveryModal";
 import * as Notifications from 'expo-notifications';
 import * as Linking from 'expo-linking';
 import Logger from "../src/utils/logger";
+import { registerPushToken } from "../src/services/pushNotifications";
 
 export default function Layout() {
     const { user, isInitializing } = useAuthStore();
@@ -182,6 +183,15 @@ export default function Layout() {
         await protectionService.clearDraft();
         setDraft(null);
     };
+
+    // Register Expo push token whenever a user session is established.
+    // Runs on cold start (if the user was already logged in) and after a
+    // fresh login.  The call is non-blocking and never throws.
+    useEffect(() => {
+        if (!isInitializing && user) {
+            registerPushToken();
+        }
+    }, [isInitializing, user]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional
 
     useEffect(() => {
         // Don't do anything while initializing

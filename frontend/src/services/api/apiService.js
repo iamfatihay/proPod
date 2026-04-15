@@ -1427,6 +1427,40 @@ class ApiService {
             body: JSON.stringify({ recipient_id: recipientId, body }),
         });
     }
+
+    // ─── Push Notification Device Tokens ─────────────────────────────────────
+
+    /**
+     * Register an Expo push token with the backend.
+     * Idempotent — safe to call on every app launch after login.
+     *
+     * Maps to POST /users/me/device-token
+     *
+     * @param {string} token - Expo push token string
+     * @param {string} [platform='unknown'] - 'ios' | 'android' | 'unknown'
+     * @returns {Promise<{id: number, token: string, platform: string}>}
+     */
+    async registerDeviceToken(token, platform = "unknown") {
+        return this.request("/users/me/device-token", {
+            method: "POST",
+            body: JSON.stringify({ token, platform }),
+        });
+    }
+
+    /**
+     * Remove a push token from the backend (e.g. on logout).
+     *
+     * Maps to DELETE /users/me/device-token
+     *
+     * @param {string} token - Expo push token to remove
+     * @returns {Promise<{message: string}>}
+     */
+    async removeDeviceToken(token) {
+        return this.request("/users/me/device-token", {
+            method: "DELETE",
+            body: JSON.stringify({ token, platform: "unknown" }),
+        });
+    }
 }
 
 export default new ApiService();

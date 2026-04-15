@@ -9,6 +9,7 @@ import datetime
 import logging
 from datetime import timezone
 from typing import Optional, List, Dict, Tuple, Any
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -1702,6 +1703,22 @@ def create_notification(
     db.add(notification)
     db.commit()
     db.refresh(notification)
+
+    # Send Expo push notification to all registered devices for this user.
+    # This is fire-and-forget — a push failure must never break the in-app flow.
+    try:
+        device_tokens = get_device_tokens_for_user(db=db, user_id=user_id)
+        token_strings = [dt.token for dt in device_tokens]
+        if token_strings:
+            _send_expo_push(
+                tokens=token_strings,
+                title=title,
+                body=message,
+                data={"type": type, "notificationId": notification.id},
+            )
+    except Exception as exc:
+        logger.warning("Push dispatch error (non-blocking): %s", exc)
+
     return notification
 
 
@@ -2119,3 +2136,120 @@ def get_dm_inbox(
             threads[partner_id]["unread_count"] += 1
 
     return list(threads.values())
+
+
+# ── Device Token / Push Notification CRUD ────────────────────────────────────
+
+def register_device_token(
+    db: Session,
+    user_id: int,
+    token: str,
+    platform: str = "unknown",
+) -> models.DeviceToken:
+    """
+    Register (upsert) an Expo push notification token for a user.
+
+    If the token already exists in the database (e.g. from a previous session
+    or a different user) it is re-assigned to this user and its platform is
+    updated.  This handles app-reinstall and user-switch scenarios.
+
+    Args:
+        db: Database session
+        user_id: Owner of the token
+        token: Expo push token string
+        platform: 'ios' | 'android' | 'unknown'
+
+    Returns:
+        The persisted DeviceToken row.
+    """
+    existing = (
+        db.query(models.DeviceToken).filter(models.DeviceToken.token == token).first()
+    )
+    if existing:
+        existing.user_id = user_id
+        existing.platform = platform
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    device_token = models.DeviceToken(
+        user_id=user_id,
+        token=token,
+        platform=platform,
+    )
+    db.add(device_token)
+    db.commit()
+    db.refresh(device_token)
+    return device_token
+
+
+def get_device_tokens_for_user(db: Session, user_id: int) -> List[models.DeviceToken]:
+    """Return all push tokens registered for *user_id*."""
+    return (
+        db.query(models.DeviceToken)
+        .filter(models.DeviceToken.user_id == user_id)
+        .all()
+    )
+
+
+def remove_device_token(db: Session, user_id: int, token: str) -> bool:
+    """
+    Remove a specific push token for a user (called on logout).
+
+    Returns:
+        True if a row was deleted, False if not found.
+    """
+    row = (
+        db.query(models.DeviceToken)
+        .filter(
+            models.DeviceToken.user_id == user_id,
+            models.DeviceToken.token == token,
+        )
+        .first()
+    )
+    if not row:
+        return False
+    db.delete(row)
+    db.commit()
+    return True
+
+
+def _send_expo_push(tokens: List[str], title: str, body: str, data: dict | None = None) -> None:
+    """
+    Fire-and-forget Expo Push API call.  Never raises — failures are logged.
+
+    Expo Push API: https://docs.expo.dev/push-notifications/sending-notifications/
+    Endpoint:      POST https://exp.host/--/api/v2/push/send
+    Auth:          None required for basic delivery.
+
+    Args:
+        tokens: List of Expo push token strings.
+        title:  Notification heading.
+        body:   Notification body text.
+        data:   Optional extras forwarded to the app (e.g. {'type': 'like'}).
+    """
+    if not tokens:
+        return
+
+    messages = [
+        {
+            "to": t,
+            "sound": "default",
+            "title": title,
+            "body": body,
+            "data": data or {},
+        }
+        for t in tokens
+    ]
+
+    try:
+        resp = httpx.post(
+            "https://exp.host/--/api/v2/push/send",
+            json=messages,
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+            timeout=5.0,
+        )
+        if resp.status_code != 200:
+            logger.warning("Expo Push API returned %s: %s", resp.status_code, resp.text[:200])
+    except Exception as exc:  # network error, timeout, etc.
+        logger.warning("Expo Push send failed (non-blocking): %s", exc)

@@ -773,3 +773,20 @@ class DMInboxResponse(BaseModel):
     """Inbox: one thread entry per conversation partner."""
     threads: List[DirectMessageThread]
     total: int
+
+
+# ── Push Notification Device Tokens ──────────────────────────────────────────
+
+class DeviceTokenRegister(BaseModel):
+    """Payload for registering an Expo push token."""
+    token: str = Field(..., min_length=10, max_length=512, description="Expo push token")
+    platform: str = Field(default="unknown", pattern=r"^(ios|android|unknown)$", description="Device platform")
+
+
+class DeviceTokenResponse(BaseModel):
+    """Confirmation returned after registering a device token."""
+    id: int
+    token: str
+    platform: str
+
+    model_config = {"from_attributes": True}
