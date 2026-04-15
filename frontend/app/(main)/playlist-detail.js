@@ -7,6 +7,8 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     Image,
+    Share,
+    Platform,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
@@ -15,6 +17,8 @@ import apiService from "../../src/services/api/apiService";
 import ConfirmationModal from "../../src/components/ConfirmationModal";
 import { useToast } from "../../src/components/Toast";
 import { COLORS } from "../../src/constants/theme";
+import useAudioStore from "../../src/context/useAudioStore";
+import Logger from "../../src/utils/logger";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -90,6 +94,10 @@ const PlaylistDetail = () => {
     const [removeTarget, setRemoveTarget] = useState(null); // { podcastId, title }
     const [removing, setRemoving] = useState(false);
 
+    // Audio store actions for Play All
+    const setQueue = useAudioStore((state) => state.setQueue);
+    const play = useAudioStore((state) => state.play);
+
     const loadPlaylist = useCallback(async () => {
         try {
             const data = await apiService.getPlaylist(playlistId);
@@ -129,8 +137,54 @@ const PlaylistDetail = () => {
         }
     };
 
+    // Play all episodes in the playlist as an ordered queue
+    const handlePlayAll = useCallback(() => {
+        const playableItems = (playlist?.items || []).filter(
+            (item) => item.podcast?.audio_url
+        );
+        if (playableItems.length === 0) {
+            showToast("No playable episodes in this playlist", "warning");
+            return;
+        }
+        const tracks = playableItems.map((item) => ({
+            id: item.podcast.id,
+            uri: item.podcast.audio_url,
+            title: item.podcast.title,
+            artist: item.podcast.owner?.name || "Unknown Artist",
+            duration: (item.podcast.duration || 0) * 1000,
+            artwork: item.podcast.thumbnail_url,
+        }));
+        setQueue(tracks, 0);
+        play(tracks[0]);
+        showToast(`Playing ${tracks.length} episode${tracks.length !== 1 ? "s" : ""}`, "success");
+    }, [playlist, setQueue, play, showToast]);
+
+    // Share the playlist as a text list of episode titles + deep link
+    const handleShare = useCallback(async () => {
+        const shareItems = playlist?.items || [];
+        const name = playlist?.name || "Playlist";
+        const episodeLines = shareItems
+            .map((item, i) => `${i + 1}. ${item.podcast?.title || "Unknown"}`)
+            .join("\n");
+        const shareText = episodeLines.length > 0
+            ? `🎧 ${name}\n\n${episodeLines}\n\nListen on Volo App!`
+            : `🎧 ${name}\n\nListen on Volo App!`;
+        const deepLink = `volo://playlist/${playlistId}`;
+        try {
+            if (Platform.OS === "ios") {
+                await Share.share({ message: shareText, url: deepLink });
+            } else {
+                await Share.share({ message: `${shareText}\n\n${deepLink}` });
+            }
+        } catch (error) {
+            Logger.error("Share failed:", error);
+        }
+    }, [playlist, playlistId]);
+
     const title = playlist?.name || params.name || "Playlist";
     const items = playlist?.items || [];
+    // Derive playable count once so both the button guard and handlePlayAll agree
+    const playableCount = items.filter((item) => item.podcast?.audio_url).length;
 
     return (
         <SafeAreaView className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
@@ -154,6 +208,27 @@ const PlaylistDetail = () => {
                         </Text>
                     ) : null}
                 </View>
+                {/* Share button */}
+                <TouchableOpacity
+                    onPress={handleShare}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    className="ml-2 p-2"
+                    accessibilityLabel="Share playlist"
+                >
+                    <MaterialCommunityIcons name="share-outline" size={22} color={COLORS.text.primary} />
+                </TouchableOpacity>
+                {/* Play All button — only shown when there are actually playable episodes */}
+                {playableCount > 0 && !loading ? (
+                    <TouchableOpacity
+                        onPress={handlePlayAll}
+                        hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                        className="ml-1 flex-row items-center bg-primary px-3 py-1.5 rounded-xl"
+                        accessibilityLabel="Play all episodes"
+                    >
+                        <MaterialCommunityIcons name="play" size={16} color="#fff" />
+                        <Text className="text-white font-semibold text-xs ml-1">Play All</Text>
+                    </TouchableOpacity>
+                ) : null}
             </View>
 
             {/* Description */}

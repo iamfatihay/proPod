@@ -44,21 +44,27 @@ export default function Layout() {
      * Parse a deep link URL and navigate to the appropriate screen.
      *
      * Supported patterns:
-     *   volo://podcast/{id}  →  /(main)/details?id={id}
+     *   volo://podcast/{id}   →  /(main)/details?id={id}
+     *   volo://playlist/{id}  →  /(main)/playlist-detail?id={id}
      */
     const handleDeepLink = useCallback((url) => {
         if (!url) return;
         try {
             const parsed = Linking.parse(url);
-            // hostname === 'podcast', path === '{id}'
-            if (parsed.hostname === 'podcast') {
-                const id = parsed.path ? parsed.path.replace(/^\//, '') : null;
-                if (id) {
-                    deepLinkNavigationInProgressRef.current = true;
-                    Logger.info('Deep link: navigating to podcast', id);
-                    router.push({ pathname: '/(main)/details', params: { id } });
-                    return true;
-                }
+            const id = parsed.path ? parsed.path.replace(/^\//, '') : null;
+
+            if (parsed.hostname === 'podcast' && id) {
+                deepLinkNavigationInProgressRef.current = true;
+                Logger.info('Deep link: navigating to podcast', id);
+                router.push({ pathname: '/(main)/details', params: { id } });
+                return true;
+            }
+
+            if (parsed.hostname === 'playlist' && id) {
+                deepLinkNavigationInProgressRef.current = true;
+                Logger.info('Deep link: navigating to playlist', id);
+                router.push({ pathname: '/(main)/playlist-detail', params: { id } });
+                return true;
             }
         } catch (err) {
             Logger.error('Deep link parse error:', err);
