@@ -3,6 +3,7 @@ import { devtools } from "zustand/middleware";
 import { getToken, deleteToken } from "../services/auth/tokenStorage";
 import apiService from "../services/api/apiService";
 import Logger from "../utils/logger";
+import { unregisterPushToken } from "../services/pushNotifications";
 
 const storeConfig = (set) => ({
     user: null,
@@ -13,6 +14,12 @@ const storeConfig = (set) => ({
     setTokens: (accessToken, refreshToken) =>
         set({ accessToken, refreshToken }, false, "auth/setTokens"),
     logout: async () => {
+        // Remove device push token from backend before clearing credentials so
+        // the user stops receiving out-of-app notifications after signing out.
+        // unregisterPushToken() already catches and logs all errors internally,
+        // so a simple await is sufficient — failure never blocks the logout flow.
+        await unregisterPushToken();
+
         await deleteToken("accessToken");
         await deleteToken("refreshToken");
         apiService.clearToken();

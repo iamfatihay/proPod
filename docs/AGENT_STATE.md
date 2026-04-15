@@ -16,7 +16,7 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-15
-**Last session (push notifications):** Added full Expo push notification stack. DeviceToken model + Alembic migration `b3c4d5e6f7a8`, `register_device_token` CRUD (upsert), `_send_expo_push` fire-and-forget httpx helper, `create_notification` extended to dispatch push after DB insert, `POST /DELETE /users/me/device-token` endpoints, `pushNotifications.js` frontend service, `registerPushToken()` wired into `_layout.js` on user session, `apiService.registerDeviceToken/removeDeviceToken`. 13 new tests → 397 total, 0 regressions. PR #60 open.
+**Last session (push routing + logout cleanup):** Shipped PR #61 — notification tap routing by type (`like`/`comment` → podcast details, `dm` → DM inbox, unknown → notifications), `podcastId` in push data payload, `unregisterPushToken()` on logout, eager `loadSleepSettings()` at cold start. PR #60 (push notifications) confirmed merged to master. 397 backend tests pass, 0 regressions.
 **Test suite baseline:** 397 backend tests. Frontend: syntax-checked only; unit tests thin.
 
 ### What's shipped (merged to master)
@@ -54,23 +54,18 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Persist sleepOnEpisodeEnd across app restarts via AsyncStorage — PR #57
 - ✅ Direct messaging between users — `DirectMessage` model + Alembic migration, `POST /messages/`, `GET /messages/inbox`, `GET /messages/{partner_id}`, `chat-details.js` conversation UI, `messages.js` inbox, `creator-profile.js` "Message" button, 17 backend tests — PR #58
 - ✅ DM unread badge in tab bar — `useDMStore.js`, Messages tab visible + red badge, `resetDMUnread` on focus — PR #59
+- ✅ Expo push notifications — `DeviceToken` model + migration, register/remove endpoints, `registerPushToken()` on session, 13 new tests — PR #60
+- ✅ Push notification tap routing + logout cleanup + eager sleep settings — PR #61
+  - `backend/app/crud.py` — `podcastId` included in Expo push data payload when notification has a podcast
+  - `frontend/app/_layout.js` — `addNotificationResponseReceivedListener` branches on type: `like`/`comment` → details screen, `dm` → messages, unknown → notifications; `loadSleepSettings()` called eagerly at cold start
+  - `frontend/src/context/useAuthStore.js` — `unregisterPushToken()` called best-effort at logout start
 
 ### What's open / in-progress
-- **PR #60**: `feat(push): Expo push notifications` — https://github.com/iamfatihay/proPod/pull/60
-  - `backend/app/models.py` — `DeviceToken` model + `device_tokens` relationship on `User`
-  - `backend/alembic/versions/b3c4d5e6f7a8_...` — Alembic migration for `device_tokens` table
-  - `backend/app/schemas.py` — `DeviceTokenRegister`, `DeviceTokenResponse`
-  - `backend/app/crud.py` — `register_device_token` (upsert), `get_device_tokens_for_user`, `remove_device_token`, `_send_expo_push`; `create_notification` extended with push dispatch
-  - `backend/app/routers/users.py` — `POST /users/me/device-token` + `DELETE /users/me/device-token`
-  - `backend/tests/test_device_tokens.py` — 13 new tests (397 total)
-  - `frontend/src/services/pushNotifications.js` — new push registration service
-  - `frontend/src/services/api/apiService.js` — `registerDeviceToken` + `removeDeviceToken`
-  - `frontend/app/_layout.js` — `registerPushToken()` wired on user session established
+*(none — all PRs merged or submitted)*
 
 ### Known issues / tech debt
-- Push: `unregisterPushToken()` not yet called on logout — stale tokens will be silently rejected by Expo but never cleaned up; wire into `useAuthStore.logout`
 - Push: no receipt polling — Expo Push API returns ticket IDs; check receipts at `https://exp.host/--/api/v2/push/getReceipts` to detect expired/invalid tokens and prune `device_tokens` table
-- Push: notification tap routing in `_layout.js` only handles `type === 'recording'`; needs branches for `like`, `comment`, `dm` to deep-link into the right screen
+- Push: DM notifications — `send_direct_message` in `crud.py` does not yet call `create_notification`; the `dm` tap routing in `_layout.js` won't trigger until this is wired
 - DM inbox has no server-side pagination — fine for now, add if thread count grows large
 - DM text-only — no image/file attachments yet
 - Frontend unit test coverage still thin
@@ -80,11 +75,11 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **[FOLLOW-UP] Push notification tap routing** — In `_layout.js` `addNotificationResponseReceivedListener`, branch on `data.type`: `like`/`comment` → `/(main)/details?id={podcast_id}`, `dm` → `/(main)/messages`. Currently only `recording` type is handled.
+1. **[FOLLOW-UP] DM push notifications** — Wire `create_notification(type='dm', ...)` into `send_direct_message` in `backend/app/crud.py` so recipients actually receive a push when a DM arrives. The frontend routing for `dm` taps is already in place (PR #61).
 
-2. **[FOLLOW-UP] Logout token cleanup** — In `useAuthStore.logout`, call `unregisterPushToken()` from `pushNotifications.js` before clearing the stored auth tokens.
+2. **[FEATURE] Expo push receipt polling** — After firing pushes, Expo returns ticket IDs. A background job (or lazy cleanup on next push) should call `https://exp.host/--/api/v2/push/getReceipts` and prune tokens with `DeviceNotRegistered` status from `device_tokens`.
 
-3. **[FEATURE] Eager `loadSleepSettings` at cold start** — In `frontend/app/_layout.js`, import `useAudioStore` and call `loadSleepSettings()` inside the root `useEffect`. One-line; zero risk.
+3. **[FEATURE] Podcast share sheet** — Add a native share button to the podcast details screen (`/(main)/details.js`) that invokes `Share.share({ url: 'volo://podcast/{id}', message: '...' })`. Deep links already work end-to-end (PR #41).
 
 ---
 
@@ -136,8 +131,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FOLLOW-UP] Push notification tap routing** — In `frontend/app/_layout.js`, extend `addNotificationResponseReceivedListener` callback: `if (data.type === 'like' || data.type === 'comment') router.push({ pathname: '/(main)/details', params: { id: data.podcastId } }); if (data.type === 'dm') router.push('/(main)/messages');`. Requires `notificationId` and `podcastId` to be in the `data` payload (already sent by `_send_expo_push` in crud).
+1. **[FOLLOW-UP] DM push notifications** — In `backend/app/crud.py`, inside `send_direct_message`, after the message is committed call `create_notification(db=db, user_id=recipient_id, type='dm', title='New message', message=f'{sender.display_name}: {body[:80]}', actor_id=sender_id)`. This makes the `dm` tap routing in `_layout.js` (PR #61) actually reachable. Add 1-2 tests in `test_direct_messages.py`.
 
-2. **[FOLLOW-UP] Logout push token cleanup** — In `frontend/src/context/useAuthStore.js`, at the start of `logout()`, import and call `unregisterPushToken()` from `../services/pushNotifications`. Prevents stale-token accumulation in `device_tokens` table.
+2. **[FEATURE] Podcast share sheet** — In `frontend/app/(main)/details.js`, add a Share button (top-right header or below the episode title) that calls `Share.share({ url: 'volo://podcast/${id}', message: 'Listen to this on proPod!' })`. Import `Share` from `react-native`. No backend changes needed — deep links are already wired.
 
-3. **[FEATURE] Eager `loadSleepSettings` at cold start** — In `frontend/app/_layout.js` root `useEffect`, add `useAudioStore.getState().loadSleepSettings()` after `initAuth()`. One-line; eliminates sleep-preference race condition on cold start.
+3. **[FEATURE] Expo push receipt polling** — In `backend/app/crud.py`, extend `_send_expo_push` to store returned ticket IDs, then add a `POST /admin/push-receipts/check` endpoint (admin-only) that calls `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` tokens from `device_tokens`.

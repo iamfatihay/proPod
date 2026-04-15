@@ -5,6 +5,7 @@ Covers:
 - DELETE /users/me/device-token — remove token
 - CRUD layer: register_device_token, get_device_tokens_for_user, remove_device_token
 - create_notification push dispatch (fire-and-forget, no crash on failure)
+- push payload content: podcastId included when podcast_id provided, omitted otherwise
 """
 import pytest
 from unittest.mock import patch, MagicMock
@@ -197,3 +198,53 @@ class TestCreateNotificationPushDispatch:
             message="Someone commented",
         )
         assert notif.id is not None
+
+    def test_push_payload_includes_podcast_id_when_provided(self, db_session):
+        """podcastId must appear in the Expo push data when podcast_id is set.
+
+        _send_expo_push calls httpx.post with json=list_of_messages, where each
+        message dict has a 'data' key forwarded to the Expo recipient app.
+        """
+        user = _make_user(db_session, "push_payload_with@test.com", "Payload With")
+        crud.register_device_token(db_session, user.id, "ExponentPushToken[payload_with]", "android")
+
+        mock_post = MagicMock()
+        mock_post.return_value.status_code = 200
+        with patch("app.crud.httpx.post", mock_post):
+            crud.create_notification(
+                db=db_session,
+                user_id=user.id,
+                type="like",
+                title="Liked",
+                message="Someone liked your podcast",
+                podcast_id=42,
+            )
+
+        assert mock_post.called
+        # json= kwarg is a list of Expo message objects (one per device token)
+        messages = mock_post.call_args.kwargs["json"]
+        assert isinstance(messages, list) and len(messages) == 1
+        assert messages[0]["data"]["podcastId"] == 42
+        assert messages[0]["data"]["type"] == "like"
+
+    def test_push_payload_omits_podcast_id_when_not_provided(self, db_session):
+        """podcastId must NOT appear in the Expo push data when podcast_id is None."""
+        user = _make_user(db_session, "push_payload_without@test.com", "Payload Without")
+        crud.register_device_token(db_session, user.id, "ExponentPushToken[payload_without]", "ios")
+
+        mock_post = MagicMock()
+        mock_post.return_value.status_code = 200
+        with patch("app.crud.httpx.post", mock_post):
+            crud.create_notification(
+                db=db_session,
+                user_id=user.id,
+                type="comment",
+                title="New comment",
+                message="Someone commented",
+                # podcast_id intentionally omitted
+            )
+
+        assert mock_post.called
+        messages = mock_post.call_args.kwargs["json"]
+        assert isinstance(messages, list) and len(messages) == 1
+        assert "podcastId" not in messages[0]["data"]

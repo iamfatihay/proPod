@@ -1714,7 +1714,11 @@ def create_notification(
                 tokens=token_strings,
                 title=title,
                 body=message,
-                data={"type": type, "notificationId": notification.id},
+                data={
+                    "type": type,
+                    "notificationId": notification.id,
+                    **({"podcastId": podcast_id} if podcast_id is not None else {}),
+                },
             )
     except Exception as exc:
         logger.warning("Push dispatch error (non-blocking): %s", exc)
