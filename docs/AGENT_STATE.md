@@ -15,8 +15,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-15
-**Last session (playlist now-playing indicator):** Opened PR #65 — `feature/playlist-now-playing-indicator`. Enhanced `EpisodeRow` in `playlist-detail.js` to subscribe to `useAudioStore` (`currentTrack`, `isPlaying`). Active row shows: red border, red overlay on thumbnail, pulsing waveform icon while playing / static pause-circle while paused, title in primary color. Syntax-checked ✅; no backend changes. 402 backend tests baseline unchanged.
+**Last updated:** 2026-04-16
+**Last session (listening history screen):** Opened PR #66 — `feature/listening-history-screen`. New `history.js` screen backed by `GET /podcasts/my/history`: thumbnail, progress bar, completion badge, relative timestamp, infinite scroll, empty state, error+retry. `HistoryRow` wrapped in `React.memo`. `home.js` history quick-action now navigates to the screen instead of showing "coming soon". Syntax-checked ✅; no backend changes. 402 backend tests baseline unchanged.
 **Test suite baseline:** 402 backend tests. Frontend: syntax-checked only; unit tests thin.
 
 ### What's shipped (merged to master)
@@ -62,14 +62,16 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
   - `frontend/app/_layout.js` — `addNotificationResponseReceivedListener` branches on type: `like`/`comment` → details screen, `dm` → messages, unknown → notifications; `loadSleepSettings()` called eagerly at cold start
   - `frontend/src/context/useAuthStore.js` — `unregisterPushToken()` called best-effort at logout start
 - ✅ Playlist shuffle play — Fisher-Yates shuffle, Shuffle button alongside Play All — PR #64
+- ✅ Playlist now-playing indicator — active EpisodeRow shows red border + waveform animation in playlist-detail.js — PR #65
 - ✅ Playlist Play All + Share sheet — PR #63
 - ✅ DM push notifications — PR #62
 
 ### What's open / in-progress
 - ✅ PR #62 `feature/dm-push-notifications` — merged to master
 - ✅ PR #63 `feature/playlist-play-all-and-share` — merged to master
-- ✅ PR #64 `feature/playlist-shuffle-play` — merged to master (confirmed this session)
-- 🔄 PR #65 `feature/playlist-now-playing-indicator` — Currently-playing row indicator in playlist-detail.js. Awaiting Fay's merge.
+- ✅ PR #64 `feature/playlist-shuffle-play` — merged to master
+- ✅ PR #65 `feature/playlist-now-playing-indicator` — merged to master
+- 🔄 PR #66 `feature/listening-history-screen` — Listening history screen with progress, completion badge, pagination. Awaiting Fay's merge.
 
 ### Known issues / tech debt
 - Push: no receipt polling — Expo Push API returns ticket IDs; check receipts at `https://exp.host/--/api/v2/push/getReceipts` to detect expired/invalid tokens and prune `device_tokens` table
@@ -138,8 +140,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FEATURE] Podcast share sheet on details screen** — In `frontend/app/(main)/details.js`, add a share icon button in the header right area that invokes `Share.share({ url: 'volo://podcast/${id}', message: 'Listen to this on proPod!' })`. Import `Share` from `react-native`. No backend changes — deep links already work end-to-end (PR #41). Look at the existing header pattern in `details.js` to match style (likely a `TouchableOpacity` with `share-outline` icon).
+1. **[PERF/UX] Optimise EpisodeRow Zustand selector** — In `frontend/app/(main)/playlist-detail.js`, `EpisodeRow` subscribes to `state.currentTrack` (whole object). When any track changes ALL visible rows re-render. Fix: change to a derived boolean selector `state => String(state.currentTrack?.id) === String(podcast?.id)` and a separate `isActivePlaying` selector. This reduces O(n) re-renders on track change to O(2). The existing `React.memo` wrapper is already in place.
 
 2. **[FEATURE] Expo push receipt polling** — In `backend/app/crud.py`, extend `_send_expo_push` to store returned ticket IDs in a new `push_tickets` table (id, ticket_id, device_token_id, created_at), then add `POST /admin/push-receipts/check` endpoint (admin-only) that POSTs ticket IDs to `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` device tokens. Requires Alembic migration for `push_tickets`.
 
-3. **[PERF/UX] React.memo on EpisodeRow** — Now that EpisodeRow subscribes to the audio store, each Zustand emit re-runs all visible rows. Wrap with `React.memo` and a comparator that checks `item.id`, `onPress`, `onRemove` identity — this prevents unnecessary re-renders on rows that aren't the active track. File: `frontend/app/(main)/playlist-detail.js`.
+3. **[FEATURE] History clear / delete entry** — Add a `DELETE /podcasts/{podcast_id}/history` backend endpoint + CRUD function. In `history.js`, add a swipe-to-delete or a long-press context menu on each row to remove that entry. Users frequently want to clear watched history.

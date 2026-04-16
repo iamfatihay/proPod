@@ -451,7 +451,7 @@ export default function HomeScreen() {
                 break;
             }
             case "history":
-                showToast("Listening history coming soon! 🕐", "info");
+                router.push("/(main)/history");
                 break;
             case "trending":
                 setSelectedCategory("all");
