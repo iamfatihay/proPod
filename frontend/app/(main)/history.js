@@ -8,6 +8,7 @@ import {
     Image,
     ActivityIndicator,
     StyleSheet,
+    RefreshControl,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -45,93 +46,115 @@ function formatDuration(seconds) {
 
 // ─── History Row ──────────────────────────────────────────────────────────────
 
-const HistoryRow = React.memo(function HistoryRow({ entry, onPress }) {
-    const podcast = entry.podcast;
-    if (!podcast) return null;
+const HistoryRow = React.memo(
+    function HistoryRow({ entry, onPress }) {
+        const podcast = entry.podcast;
+        if (!podcast) return null;
 
-    const durationSec = podcast.duration || 0;
-    const positionSec = entry.position || 0;
-    const progressPercent =
-        durationSec > 0
-            ? Math.min(100, Math.round((positionSec / durationSec) * 100))
-            : 0;
-    const completed = entry.completed || progressPercent >= 95;
+        const durationSec = podcast.duration || 0;
+        const positionSec = entry.position || 0;
+        const progressPercent =
+            durationSec > 0
+                ? Math.min(100, Math.round((positionSec / durationSec) * 100))
+                : 0;
+        const completed = entry.completed || progressPercent >= 95;
 
-    return (
-        <TouchableOpacity
-            onPress={onPress}
-            activeOpacity={0.8}
-            style={styles.row}
-            accessibilityLabel={`${podcast.title}, ${progressPercent}% listened`}
-        >
-            {/* Thumbnail */}
-            <View style={styles.thumbnailWrap}>
-                {podcast.thumbnail_url ? (
-                    <Image
-                        source={{ uri: podcast.thumbnail_url }}
-                        style={StyleSheet.absoluteFill}
-                        resizeMode="cover"
-                    />
-                ) : (
-                    <MaterialCommunityIcons
-                        name="waveform"
-                        size={24}
-                        color={COLORS.primary}
-                    />
-                )}
-                {completed && (
-                    <View style={styles.completedBadge}>
+        // FIX #3: accessibilityLabel must reflect completed status — a row with
+        // entry.completed=true but duration=0 would previously read "0% listened"
+        // which contradicts the visible "Completed" badge.
+        const a11yLabel = completed
+            ? `${podcast.title}, Completed`
+            : progressPercent > 0
+            ? `${podcast.title}, ${progressPercent}% listened`
+            : `${podcast.title}, not started`;
+
+        return (
+            <TouchableOpacity
+                onPress={onPress}
+                activeOpacity={0.8}
+                style={styles.row}
+                accessibilityLabel={a11yLabel}
+            >
+                {/* Thumbnail */}
+                <View style={styles.thumbnailWrap}>
+                    {podcast.thumbnail_url ? (
+                        <Image
+                            source={{ uri: podcast.thumbnail_url }}
+                            style={StyleSheet.absoluteFill}
+                            resizeMode="cover"
+                        />
+                    ) : (
                         <MaterialCommunityIcons
-                            name="check"
-                            size={12}
-                            color="#fff"
+                            name="waveform"
+                            size={24}
+                            color={COLORS.primary}
                         />
-                    </View>
-                )}
-            </View>
+                    )}
+                    {completed && (
+                        <View style={styles.completedBadge}>
+                            <MaterialCommunityIcons
+                                name="check"
+                                size={12}
+                                color="#fff"
+                            />
+                        </View>
+                    )}
+                </View>
 
-            {/* Info */}
-            <View style={styles.info}>
-                <Text
-                    style={[
-                        styles.title,
-                        completed && { color: COLORS.text.secondary },
-                    ]}
-                    numberOfLines={2}
-                >
-                    {podcast.title}
-                </Text>
-                <Text style={styles.meta} numberOfLines={1}>
-                    {podcast.owner?.name || "Unknown"} ·{" "}
-                    {formatDuration(durationSec)}
-                </Text>
+                {/* Info */}
+                <View style={styles.info}>
+                    <Text
+                        style={[
+                            styles.title,
+                            completed && { color: COLORS.text.secondary },
+                        ]}
+                        numberOfLines={2}
+                    >
+                        {podcast.title}
+                    </Text>
+                    <Text style={styles.meta} numberOfLines={1}>
+                        {podcast.owner?.name || "Unknown"} ·{" "}
+                        {formatDuration(durationSec)}
+                    </Text>
 
-                {/* Progress bar — only for in-progress episodes */}
-                {!completed && durationSec > 0 && progressPercent > 0 && (
-                    <View style={styles.progressTrack}>
-                        <View
-                            style={[
-                                styles.progressFill,
-                                { width: `${progressPercent}%` },
-                            ]}
-                        />
-                    </View>
-                )}
+                    {/* Progress bar — only for in-progress episodes */}
+                    {!completed && durationSec > 0 && progressPercent > 0 && (
+                        <View style={styles.progressTrack}>
+                            <View
+                                style={[
+                                    styles.progressFill,
+                                    { width: `${progressPercent}%` },
+                                ]}
+                            />
+                        </View>
+                    )}
 
-                {/* Status / timestamp */}
-                <Text style={styles.status}>
-                    {completed
-                        ? "Completed"
-                        : progressPercent > 0
-                        ? `${progressPercent}% listened`
-                        : "Started"}
-                    {"  ·  "}
-                    {formatRelativeTime(entry.updated_at)}
-                </Text>
-            </View>
-        </TouchableOpacity>
-    );
-}, (prev, next) => prev.entry.id === next.entry.id);
+                    {/* Status / timestamp */}
+                    <Text style={styles.status}>
+                        {completed
+                            ? "Completed"
+                            : progressPercent > 0
+                            ? `${progressPercent}% listened`
+                            : "Started"}
+                        {"  ·  "}
+                        {formatRelativeTime(entry.updated_at)}
+                    </Text>
+                </View>
+            </TouchableOpacity>
+        );
+    },
+    // FIX #1: Compare all fields that affect rendering, not just entry.id.
+    // History entries share their id across sessions but their position,
+    // completed flag, updated_at, and even the podcast's title/thumbnail can
+    // change between focuses (e.g. after listening more, or after a podcast edit).
+    (prev, next) =>
+        prev.entry.position === next.entry.position &&
+        prev.entry.completed === next.entry.completed &&
+        prev.entry.updated_at === next.entry.updated_at &&
+        prev.entry.podcast?.title === next.entry.podcast?.title &&
+        prev.entry.podcast?.thumbnail_url === next.entry.podcast?.thumbnail_url &&
+        prev.onPress === next.onPress
+);
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
@@ -143,7 +166,9 @@ export default function HistoryScreen() {
 
     const [entries, setEntries] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
+    const [loadMoreError, setLoadMoreError] = useState(null); // FIX #2
     const [error, setError] = useState(null);
     const [hasMore, setHasMore] = useState(true);
     const [currentSkip, setCurrentSkip] = useState(0);
@@ -160,65 +185,79 @@ export default function HistoryScreen() {
         return normalized;
     }, []);
 
-    // Reload whenever screen comes into focus
-    useFocusEffect(
-        useCallback(() => {
-            let active = true;
-            setLoading(true);
+    /** Full reload — used on focus and pull-to-refresh. */
+    const loadFresh = useCallback(
+        (opts = {}) => {
+            const { isRefresh = false } = opts;
+            if (isRefresh) setRefreshing(true);
+            else setLoading(true);
+
             setCurrentSkip(0);
             setHasMore(true);
-            fetchPage(0)
+            setLoadMoreError(null);
+
+            return fetchPage(0)
                 .then((normalized) => {
-                    if (!active) return;
                     setEntries(normalized);
                     setCurrentSkip(normalized.length);
                     setHasMore(normalized.length === PAGE_SIZE);
                     setError(null);
                 })
                 .catch((e) => {
-                    if (active)
-                        setError(e?.detail || e?.message || "Failed to load history");
+                    setError(e?.detail || e?.message || "Failed to load history");
                 })
                 .finally(() => {
-                    if (active) setLoading(false);
+                    if (isRefresh) setRefreshing(false);
+                    else setLoading(false);
                 });
+        },
+        [fetchPage]
+    );
+
+    // Reload whenever screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            let active = true;
+            loadFresh().then(() => {
+                // no-op — active guard not needed since loadFresh uses setState
+                // which React batches; any state update after unmount is a no-op.
+            });
             return () => {
                 active = false;
             };
-        }, [fetchPage])
+        }, [loadFresh])
     );
+
+    // FIX #2: Pull-to-refresh handler
+    const handleRefresh = useCallback(() => {
+        loadFresh({ isRefresh: true });
+    }, [loadFresh]);
 
     const handleLoadMore = useCallback(async () => {
         if (loadingMore || !hasMore) return;
         setLoadingMore(true);
+        setLoadMoreError(null);
         try {
             const normalized = await fetchPage(currentSkip);
             setEntries((prev) => [...prev, ...normalized]);
             setCurrentSkip((s) => s + normalized.length);
             setHasMore(normalized.length === PAGE_SIZE);
         } catch (e) {
-            // Silently ignore load-more failures — user can pull to refresh
+            // FIX #2: Surface load-more failures so users can retry instead of
+            // silently losing pagination. Pull-to-refresh is also available.
+            setLoadMoreError(e?.detail || e?.message || "Failed to load more");
         } finally {
             setLoadingMore(false);
         }
     }, [loadingMore, hasMore, currentSkip, fetchPage]);
 
-    const handleRetry = useCallback(() => {
-        setLoading(true);
-        setCurrentSkip(0);
-        setHasMore(true);
-        fetchPage(0)
-            .then((normalized) => {
-                setEntries(normalized);
-                setCurrentSkip(normalized.length);
-                setHasMore(normalized.length === PAGE_SIZE);
-                setError(null);
-            })
-            .catch((e) => {
-                setError(e?.detail || e?.message || "Failed to load history");
-            })
-            .finally(() => setLoading(false));
-    }, [fetchPage]);
+    // FIX #2: Retry button in the footer after a load-more failure
+    const handleLoadMoreRetry = useCallback(() => {
+        setLoadMoreError(null);
+        handleLoadMore();
+    }, [handleLoadMore]);
+
+    const handleRetry = useCallback(() => loadFresh(), [loadFresh]);
 
     const handlePress = useCallback(
         (entry) => {
@@ -239,6 +278,33 @@ export default function HistoryScreen() {
     );
 
     const keyExtractor = useCallback((item) => String(item.id), []);
+
+    // FIX #2: ListFooterComponent shows spinner, error+retry, or nothing
+    const ListFooter = useCallback(() => {
+        if (loadingMore) {
+            return (
+                <ActivityIndicator
+                    color={COLORS.primary}
+                    style={{ marginVertical: 16 }}
+                />
+            );
+        }
+        if (loadMoreError) {
+            return (
+                <View style={styles.footerError}>
+                    <Text style={styles.footerErrorText}>{loadMoreError}</Text>
+                    <TouchableOpacity
+                        onPress={handleLoadMoreRetry}
+                        style={styles.footerRetryButton}
+                        accessibilityLabel="Retry loading more episodes"
+                    >
+                        <Text style={styles.retryText}>Retry</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+        return null;
+    }, [loadingMore, loadMoreError, handleLoadMoreRetry]);
 
     return (
         <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
@@ -280,17 +346,34 @@ export default function HistoryScreen() {
                     </TouchableOpacity>
                 </View>
             ) : entries.length === 0 ? (
-                <View style={styles.centered}>
-                    <MaterialCommunityIcons
-                        name="history"
-                        size={64}
-                        color={COLORS.text.muted}
-                    />
-                    <Text style={styles.emptyTitle}>No history yet</Text>
-                    <Text style={styles.emptySubtitle}>
-                        Episodes you listen to will show up here.
-                    </Text>
-                </View>
+                // FIX #2: empty state also supports pull-to-refresh
+                <FlatList
+                    data={[]}
+                    keyExtractor={keyExtractor}
+                    renderItem={null}
+                    contentContainerStyle={styles.centered}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={handleRefresh}
+                            tintColor={COLORS.primary}
+                            colors={[COLORS.primary]}
+                        />
+                    }
+                    ListEmptyComponent={
+                        <View style={styles.emptyInner}>
+                            <MaterialCommunityIcons
+                                name="history"
+                                size={64}
+                                color={COLORS.text.muted}
+                            />
+                            <Text style={styles.emptyTitle}>No history yet</Text>
+                            <Text style={styles.emptySubtitle}>
+                                Episodes you listen to will show up here.
+                            </Text>
+                        </View>
+                    }
+                />
             ) : (
                 <FlatList
                     data={entries}
@@ -300,14 +383,16 @@ export default function HistoryScreen() {
                     showsVerticalScrollIndicator={false}
                     onEndReached={handleLoadMore}
                     onEndReachedThreshold={0.4}
-                    ListFooterComponent={
-                        loadingMore ? (
-                            <ActivityIndicator
-                                color={COLORS.primary}
-                                style={{ marginVertical: 16 }}
-                            />
-                        ) : null
+                    // FIX #2: pull-to-refresh wired up
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={handleRefresh}
+                            tintColor={COLORS.primary}
+                            colors={[COLORS.primary]}
+                        />
                     }
+                    ListFooterComponent={ListFooter}
                 />
             )}
         </SafeAreaView>
@@ -343,6 +428,12 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         paddingHorizontal: 32,
     },
+    emptyInner: {
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 32,
+        paddingVertical: 80,
+    },
     errorText: {
         color: COLORS.error,
         marginTop: 12,
@@ -376,6 +467,26 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingTop: 4,
         paddingBottom: 100,
+    },
+    // FIX #2 — load-more footer error
+    footerError: {
+        alignItems: "center",
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+    },
+    footerErrorText: {
+        color: COLORS.error,
+        fontSize: 13,
+        marginBottom: 8,
+        textAlign: "center",
+    },
+    footerRetryButton: {
+        backgroundColor: COLORS.panel,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+        borderRadius: 10,
     },
     // HistoryRow
     row: {
