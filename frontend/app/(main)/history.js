@@ -17,7 +17,7 @@ import apiService from "../../src/services/api/apiService";
 import { normalizePodcast } from "../../src/utils/urlHelper";
 import { COLORS } from "../../src/constants/theme";
 
-// âââ Helpers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Helpers Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
 /** Format a date string relative to now (e.g. "2h ago", "Yesterday", "Apr 10"). */
 function formatRelativeTime(dateString) {
@@ -44,7 +44,7 @@ function formatDuration(seconds) {
     return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-// âââ History Row ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ History Row Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
 const HistoryRow = React.memo(
     function HistoryRow({ entry, onPress, onDelete }) {
@@ -59,7 +59,7 @@ const HistoryRow = React.memo(
                 : 0;
         const completed = entry.completed || progressPercent >= 95;
 
-        // FIX #3: accessibilityLabel must reflect completed status â a row with
+        // FIX #3: accessibilityLabel must reflect completed status Ã¢ÂÂ a row with
         // entry.completed=true but duration=0 would previously read "0% listened"
         // which contradicts the visible "Completed" badge.
         const a11yLabel = completed
@@ -68,14 +68,18 @@ const HistoryRow = React.memo(
             ? `${podcast.title}, ${progressPercent}% listened`
             : `${podcast.title}, not started`;
 
+        const handleRowPress = useCallback(() => onPress(entry), [onPress, entry]);
+        const handleDeletePress = useCallback(() => onDelete(entry), [onDelete, entry]);
+
         return (
-            <TouchableOpacity
-                onPress={onPress}
-                activeOpacity={0.8}
-                style={styles.row}
-                accessibilityLabel={a11yLabel}
-            >
-                {/* Thumbnail */}
+            <View style={styles.row}>
+                <TouchableOpacity
+                    onPress={handleRowPress}
+                    activeOpacity={0.8}
+                    style={styles.rowPressable}
+                    accessibilityLabel={a11yLabel}
+                >
+                {/* Thumbnail */
                 <View style={styles.thumbnailWrap}>
                     {podcast.thumbnail_url ? (
                         <Image
@@ -113,11 +117,11 @@ const HistoryRow = React.memo(
                         {podcast.title}
                     </Text>
                     <Text style={styles.meta} numberOfLines={1}>
-                        {podcast.owner?.name || "Unknown"} Â·{" "}
+                        {podcast.owner?.name || "Unknown"} ÃÂ·{" "}
                         {formatDuration(durationSec)}
                     </Text>
 
-                    {/* Progress bar â only for in-progress episodes */}
+                    {/* Progress bar Ã¢ÂÂ only for in-progress episodes */}
                     {!completed && durationSec > 0 && progressPercent > 0 && (
                         <View style={styles.progressTrack}>
                             <View
@@ -136,14 +140,15 @@ const HistoryRow = React.memo(
                             : progressPercent > 0
                             ? `${progressPercent}% listened`
                             : "Started"}
-                        {"  Â·  "}
+                        {"  ÃÂ·  "}
                         {formatRelativeTime(entry.updated_at)}
                     </Text>
                 </View>
+                </TouchableOpacity>
 
-                {/* Delete button */}
+                {/* Delete button — sibling touchable, no propagation to row press */}
                 <TouchableOpacity
-                    onPress={onDelete}
+                    onPress={handleDeletePress}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     style={styles.deleteButton}
                     accessibilityLabel={`Remove ${podcast.title} from history`}
@@ -154,7 +159,7 @@ const HistoryRow = React.memo(
                         color={COLORS.text.muted}
                     />
                 </TouchableOpacity>
-            </TouchableOpacity>
+            </View>
         );
     },
     // FIX #1: Compare all fields that affect rendering, not just entry.id.
@@ -171,7 +176,7 @@ const HistoryRow = React.memo(
         prev.onDelete === next.onDelete
 );
 
-// âââ Main Screen ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Main Screen Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
 const PAGE_SIZE = 20;
 
@@ -200,7 +205,7 @@ export default function HistoryScreen() {
         return normalized;
     }, []);
 
-    /** Full reload â used on focus and pull-to-refresh. */
+    /** Full reload Ã¢ÂÂ used on focus and pull-to-refresh. */
     const loadFresh = useCallback(
         (opts = {}) => {
             const { isRefresh = false } = opts;
@@ -234,7 +239,7 @@ export default function HistoryScreen() {
         useCallback(() => {
             let active = true;
             loadFresh().then(() => {
-                // no-op â active guard not needed since loadFresh uses setState
+                // no-op Ã¢ÂÂ active guard not needed since loadFresh uses setState
                 // which React batches; any state update after unmount is a no-op.
             });
             return () => {
@@ -292,7 +297,7 @@ export default function HistoryScreen() {
         try {
             await apiService.deleteListeningHistory(entry.podcast_id);
         } catch (err) {
-            // Silently fail — a full refresh on next focus restores true server state.
+            // Silently fail â a full refresh on next focus restores true server state.
         }
     }, []);
 
@@ -300,8 +305,8 @@ export default function HistoryScreen() {
         ({ item }) => (
             <HistoryRow
                 entry={item}
-                onPress={() => handlePress(item)}
-                onDelete={() => handleDelete(item)}
+                onPress={handlePress}
+                onDelete={handleDelete}
             />
         ),
         [handlePress, handleDelete]
@@ -429,7 +434,7 @@ export default function HistoryScreen() {
     );
 }
 
-// âââ Styles âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Styles Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 
 const styles = StyleSheet.create({
     container: {
@@ -498,7 +503,7 @@ const styles = StyleSheet.create({
         paddingTop: 4,
         paddingBottom: 100,
     },
-    // FIX #2 â load-more footer error
+    // FIX #2 Ã¢ÂÂ load-more footer error
     footerError: {
         alignItems: "center",
         paddingVertical: 12,
@@ -529,6 +534,11 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         borderWidth: 1,
         borderColor: COLORS.border,
+    },
+    rowPressable: {
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
     },
     deleteButton: {
         paddingLeft: 12,

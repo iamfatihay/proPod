@@ -697,7 +697,7 @@ def delete_listening_history(
 ):
     """Remove a podcast from the current user's listening history."""
     # Verify podcast exists first so we can return a meaningful 404
-    podcast = crud.get_podcast(db=db, podcast_id=podcast_id)
+    podcast = crud.get_podcast(db=db, podcast_id=podcast_id, increment_play_count=False)
     if not podcast:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
