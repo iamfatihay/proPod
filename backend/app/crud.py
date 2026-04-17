@@ -561,7 +561,7 @@ def get_user_podcast_interactions(db: Session, user_id: int, podcast_id: int) ->
 
 def _safe_create_notification(db: Session, **kwargs) -> None:
     """
-    Create a notification without raising — notification failures must never
+    Create a notification without raising â notification failures must never
     break the primary action (like / comment).
     """
     try:
@@ -616,7 +616,7 @@ def like_podcast(db: Session, user_id: int, podcast_id: int) -> models.PodcastLi
     db.commit()
     db.refresh(like)
 
-    # ── Notification: notify the podcast owner (skip self-likes) ──────────
+    # ââ Notification: notify the podcast owner (skip self-likes) ââââââââââ
     podcast = db.query(models.Podcast).filter(models.Podcast.id == podcast_id).first()
     if podcast and podcast.owner_id != user_id:
         actor = db.query(models.User).filter(models.User.id == user_id).first()
@@ -625,7 +625,7 @@ def like_podcast(db: Session, user_id: int, podcast_id: int) -> models.PodcastLi
             db,
             user_id=podcast.owner_id,
             type="like",
-            title="New Like ❤️",
+            title="New Like â¤ï¸",
             message=f"{actor_name} liked your podcast \"{podcast.title}\"",
             podcast_id=podcast_id,
             actor_id=user_id,
@@ -866,6 +866,29 @@ def update_listening_history(
     return history
 
 
+def delete_listening_history(db: Session, user_id: int, podcast_id: int) -> bool:
+    """
+    Delete a single listening history entry for a user/podcast pair.
+
+    Args:
+        db: Database session
+        user_id: User ID
+        podcast_id: Podcast ID to remove from history
+
+    Returns:
+        bool: True if deleted, False if entry did not exist
+    """
+    history = db.query(models.ListeningHistory).filter(
+        models.ListeningHistory.user_id == user_id,
+        models.ListeningHistory.podcast_id == podcast_id,
+    ).first()
+    if not history:
+        return False
+    db.delete(history)
+    db.commit()
+    return True
+
+
 def get_user_listening_history(db: Session, user_id: int, skip: int = 0, limit: int = 20) -> List[models.ListeningHistory]:
     """
     Get user's listening history.
@@ -1000,17 +1023,17 @@ def create_comment(db: Session, comment: schemas.PodcastCommentCreate, user_id: 
     db.commit()
     db.refresh(db_comment)
 
-    # ── Notification: notify the podcast owner (skip self-comments) ───────
+    # ââ Notification: notify the podcast owner (skip self-comments) âââââââ
     podcast = db.query(models.Podcast).filter(models.Podcast.id == comment.podcast_id).first()
     if podcast and podcast.owner_id != user_id:
         actor = db.query(models.User).filter(models.User.id == user_id).first()
         actor_name = actor.name if actor else "Someone"
-        preview = comment.content[:60] + ("…" if len(comment.content) > 60 else "")
+        preview = comment.content[:60] + ("â¦" if len(comment.content) > 60 else "")
         _safe_create_notification(
             db,
             user_id=podcast.owner_id,
             type="comment",
-            title="New Comment 💬",
+            title="New Comment ð¬",
             message=f"{actor_name} commented on \"{podcast.title}\": {preview}",
             podcast_id=comment.podcast_id,
             actor_id=user_id,
@@ -1226,7 +1249,7 @@ def get_recommended_podcasts(db: Session, user_id: int, limit: int = 10):
         return get_trending_podcasts(db, limit)
 
     # Build the set of podcast IDs the user has already interacted with using
-    # Core select() + union() — this avoids the legacy db.query() coercion
+    # Core select() + union() â this avoids the legacy db.query() coercion
     # warning and is fully compatible with SQLAlchemy 2.0.
     user_podcast_ids = union(
         select(models.PodcastLike.podcast_id).where(
@@ -2007,11 +2030,11 @@ def send_direct_message(
         .one()
     )
 
-    # ── Notify recipient of incoming DM (in-app + push) ──────────────────
+    # ââ Notify recipient of incoming DM (in-app + push) ââââââââââââââââââ
     # Wrap in try/except so a notification or push failure never blocks the DM.
     try:
         sender_name = result.sender.name if result.sender else "Someone"
-        preview = body[:80] + ("…" if len(body) > 80 else "")
+        preview = body[:80] + ("â¦" if len(body) > 80 else "")
         create_notification(
             db=db,
             user_id=recipient_id,
@@ -2090,7 +2113,7 @@ def mark_conversation_read(
     partner_id: int,
 ) -> int:
     """
-    Mark all unread messages from partner_id → reader_id as read.
+    Mark all unread messages from partner_id â reader_id as read.
 
     Returns:
         Number of messages updated
@@ -2164,7 +2187,7 @@ def get_dm_inbox(
     return list(threads.values())
 
 
-# ── Device Token / Push Notification CRUD ────────────────────────────────────
+# ââ Device Token / Push Notification CRUD ââââââââââââââââââââââââââââââââââââ
 
 def register_device_token(
     db: Session,
@@ -2245,7 +2268,7 @@ _EXPO_PUSH_BATCH_SIZE = 100  # Expo enforces a 100-message-per-request limit
 
 def _send_expo_push(tokens: List[str], title: str, body: str, data: dict | None = None) -> None:
     """
-    Best-effort synchronous Expo Push API call.  Never raises — failures are logged.
+    Best-effort synchronous Expo Push API call.  Never raises â failures are logged.
 
     The call is synchronous and blocks the caller for up to the request timeout
     (3 s). For the current scale this is acceptable; migrate to a background
@@ -2299,7 +2322,7 @@ def _send_expo_push(tokens: List[str], title: str, body: str, data: dict | None 
                 for ticket in result.get("data", []):
                     if ticket.get("status") == "error":
                         logger.warning(
-                            "Expo Push ticket error — details: %s",
+                            "Expo Push ticket error â details: %s",
                             ticket.get("details", ticket.get("message", "unknown")),
                         )
             except Exception as parse_exc:
