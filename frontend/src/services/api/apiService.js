@@ -201,7 +201,7 @@ class ApiService {
                     
                     return this.request(endpoint, retryOptions, false);
                 } else {
-                    Logger.error('❌ Token refresh failed - refresh token expired');
+                    Logger.error('â Token refresh failed - refresh token expired');
                     // Refresh token expired, logout user
                     // If refresh token is also expired, handle session expiration
                     await deleteToken("accessToken");
@@ -219,7 +219,7 @@ class ApiService {
             
             // Log warning if 401 occurred with FormData (token refresh retry was skipped)
             if (response.status === 401 && isFormDataBody) {
-                Logger.warn('⚠️ Token expired during FormData upload - automatic retry skipped. Caller must handle 401 and recreate FormData.');
+                Logger.warn('â ï¸ Token expired during FormData upload - automatic retry skipped. Caller must handle 401 and recreate FormData.');
             }
 
             if (!response.ok) {
@@ -406,7 +406,7 @@ class ApiService {
      * Get a public creator's profile (non-sensitive stats, no auth required).
      *
      * @param {number} userId - The creator's user ID
-     * @returns {Promise<Object>} PublicUserProfile — id, name, photo_url, created_at,
+     * @returns {Promise<Object>} PublicUserProfile â id, name, photo_url, created_at,
      *                           podcast_count, total_plays, total_likes, total_followers
      * @throws {Error} If user not found or request fails
      */
@@ -465,7 +465,7 @@ class ApiService {
     }
 
     /**
-     * Get the personalized "Following" feed — public podcasts from creators
+     * Get the personalized "Following" feed â public podcasts from creators
      * the current user follows, ordered newest-first.
      *
      * @param {Object} params
@@ -839,6 +839,12 @@ class ApiService {
         return this.request(endpoint);
     }
 
+    async deleteListeningHistory(podcastId) {
+        return this.request(`/podcasts/${podcastId}/history`, {
+            method: "DELETE",
+        });
+    }
+
     async getContinueListening(params = {}) {
         const queryParams = new URLSearchParams();
 
@@ -1176,7 +1182,7 @@ class ApiService {
         });
     }
 
-    // ─── Playlist Methods ────────────────────────────────────────────────────
+    // âââ Playlist Methods ââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
     /** Fetch the current user's playlists. */
     async getMyPlaylists(params = {}) {
@@ -1245,7 +1251,7 @@ class ApiService {
         });
     }
 
-    // ─── End Playlist Methods ─────────────────────────────────────────────────
+    // âââ End Playlist Methods âââââââââââââââââââââââââââââââââââââââââââââââââ
 
     // Logout function
     async logout() {
@@ -1339,7 +1345,7 @@ class ApiService {
         return this.request(endpoint);
     }
 
-    // ─── Notifications ────────────────────────────────────────────────────
+    // âââ Notifications ââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
     /**
      * Fetch in-app notifications for the authenticated user.
@@ -1381,7 +1387,7 @@ class ApiService {
         });
     }
 
-    // ─── Direct Messages ──────────────────────────────────────────────────
+    // âââ Direct Messages ââââââââââââââââââââââââââââââââââââââââââââââââââ
 
     /**
      * Fetch the DM inbox for the authenticated user.
@@ -1418,7 +1424,7 @@ class ApiService {
      * Maps to POST /messages/
      *
      * @param {number} recipientId - ID of the target user
-     * @param {string} body - Message text (1–2 000 characters)
+     * @param {string} body - Message text (1â2 000 characters)
      * @returns {Promise<Object>} Created message
      */
     async sendDirectMessage(recipientId, body) {
@@ -1428,11 +1434,11 @@ class ApiService {
         });
     }
 
-    // ─── Push Notification Device Tokens ─────────────────────────────────────
+    // âââ Push Notification Device Tokens âââââââââââââââââââââââââââââââââââââ
 
     /**
      * Register an Expo push token with the backend.
-     * Idempotent — safe to call on every app launch after login.
+     * Idempotent â safe to call on every app launch after login.
      *
      * Maps to POST /users/me/device-token
      *

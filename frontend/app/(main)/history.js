@@ -17,7 +17,7 @@ import apiService from "../../src/services/api/apiService";
 import { normalizePodcast } from "../../src/utils/urlHelper";
 import { COLORS } from "../../src/constants/theme";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// âââ Helpers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 /** Format a date string relative to now (e.g. "2h ago", "Yesterday", "Apr 10"). */
 function formatRelativeTime(dateString) {
@@ -44,10 +44,10 @@ function formatDuration(seconds) {
     return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-// ─── History Row ──────────────────────────────────────────────────────────────
+// âââ History Row ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 const HistoryRow = React.memo(
-    function HistoryRow({ entry, onPress }) {
+    function HistoryRow({ entry, onPress, onDelete }) {
         const podcast = entry.podcast;
         if (!podcast) return null;
 
@@ -59,7 +59,7 @@ const HistoryRow = React.memo(
                 : 0;
         const completed = entry.completed || progressPercent >= 95;
 
-        // FIX #3: accessibilityLabel must reflect completed status — a row with
+        // FIX #3: accessibilityLabel must reflect completed status â a row with
         // entry.completed=true but duration=0 would previously read "0% listened"
         // which contradicts the visible "Completed" badge.
         const a11yLabel = completed
@@ -113,11 +113,11 @@ const HistoryRow = React.memo(
                         {podcast.title}
                     </Text>
                     <Text style={styles.meta} numberOfLines={1}>
-                        {podcast.owner?.name || "Unknown"} ·{" "}
+                        {podcast.owner?.name || "Unknown"} Â·{" "}
                         {formatDuration(durationSec)}
                     </Text>
 
-                    {/* Progress bar — only for in-progress episodes */}
+                    {/* Progress bar â only for in-progress episodes */}
                     {!completed && durationSec > 0 && progressPercent > 0 && (
                         <View style={styles.progressTrack}>
                             <View
@@ -136,10 +136,24 @@ const HistoryRow = React.memo(
                             : progressPercent > 0
                             ? `${progressPercent}% listened`
                             : "Started"}
-                        {"  ·  "}
+                        {"  Â·  "}
                         {formatRelativeTime(entry.updated_at)}
                     </Text>
                 </View>
+
+                {/* Delete button */}
+                <TouchableOpacity
+                    onPress={onDelete}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.deleteButton}
+                    accessibilityLabel={`Remove ${podcast.title} from history`}
+                >
+                    <MaterialCommunityIcons
+                        name="trash-can-outline"
+                        size={20}
+                        color={COLORS.text.muted}
+                    />
+                </TouchableOpacity>
             </TouchableOpacity>
         );
     },
@@ -153,10 +167,11 @@ const HistoryRow = React.memo(
         prev.entry.updated_at === next.entry.updated_at &&
         prev.entry.podcast?.title === next.entry.podcast?.title &&
         prev.entry.podcast?.thumbnail_url === next.entry.podcast?.thumbnail_url &&
-        prev.onPress === next.onPress
+        prev.onPress === next.onPress &&
+        prev.onDelete === next.onDelete
 );
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
+// âââ Main Screen ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 const PAGE_SIZE = 20;
 
@@ -185,7 +200,7 @@ export default function HistoryScreen() {
         return normalized;
     }, []);
 
-    /** Full reload — used on focus and pull-to-refresh. */
+    /** Full reload â used on focus and pull-to-refresh. */
     const loadFresh = useCallback(
         (opts = {}) => {
             const { isRefresh = false } = opts;
@@ -219,7 +234,7 @@ export default function HistoryScreen() {
         useCallback(() => {
             let active = true;
             loadFresh().then(() => {
-                // no-op — active guard not needed since loadFresh uses setState
+                // no-op â active guard not needed since loadFresh uses setState
                 // which React batches; any state update after unmount is a no-op.
             });
             return () => {
@@ -270,11 +285,26 @@ export default function HistoryScreen() {
         [router]
     );
 
+    const handleDelete = useCallback(async (entry) => {
+        if (!entry.podcast_id) return;
+        // Optimistically remove from list for instant feedback
+        setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+        try {
+            await apiService.deleteListeningHistory(entry.podcast_id);
+        } catch (err) {
+            // Silently fail — a full refresh on next focus restores true server state.
+        }
+    }, []);
+
     const renderItem = useCallback(
         ({ item }) => (
-            <HistoryRow entry={item} onPress={() => handlePress(item)} />
+            <HistoryRow
+                entry={item}
+                onPress={() => handlePress(item)}
+                onDelete={() => handleDelete(item)}
+            />
         ),
-        [handlePress]
+        [handlePress, handleDelete]
     );
 
     const keyExtractor = useCallback((item) => String(item.id), []);
@@ -399,7 +429,7 @@ export default function HistoryScreen() {
     );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// âââ Styles âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 const styles = StyleSheet.create({
     container: {
@@ -468,7 +498,7 @@ const styles = StyleSheet.create({
         paddingTop: 4,
         paddingBottom: 100,
     },
-    // FIX #2 — load-more footer error
+    // FIX #2 â load-more footer error
     footerError: {
         alignItems: "center",
         paddingVertical: 12,
@@ -499,6 +529,10 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         borderWidth: 1,
         borderColor: COLORS.border,
+    },
+    deleteButton: {
+        paddingLeft: 12,
+        flexShrink: 0,
     },
     thumbnailWrap: {
         width: 56,

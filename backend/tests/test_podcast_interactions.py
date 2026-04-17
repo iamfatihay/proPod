@@ -58,7 +58,7 @@ class TestPodcastLike:
             f"/podcasts/{test_podcast.id}/like",
             headers=auth_header(token),
         )
-        # Like again — should fail
+        # Like again â should fail
         resp = client.post(
             f"/podcasts/{test_podcast.id}/like",
             headers=auth_header(token),
@@ -441,4 +441,61 @@ class TestListeningHistory:
             f"/podcasts/{test_podcast.id}/history",
             json={"position": 10},
         )
+        assert resp.status_code == 401
+
+
+class TestDeleteListeningHistory:
+    """Tests for DELETE /podcasts/{id}/history."""
+
+    def test_delete_history_entry(self, test_user, test_podcast):
+        _, token = test_user
+        # Create a history entry first
+        client.post(
+            f"/podcasts/{test_podcast.id}/history",
+            headers=auth_header(token),
+            json={"position": 100, "listen_time": 100, "completed": False},
+        )
+        # Delete it
+        resp = client.delete(
+            f"/podcasts/{test_podcast.id}/history",
+            headers=auth_header(token),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["message"] == "History entry removed"
+
+    def test_delete_history_then_gone_from_list(self, test_user, test_podcast):
+        _, token = test_user
+        headers = auth_header(token)
+        # Create
+        client.post(
+            f"/podcasts/{test_podcast.id}/history",
+            headers=headers,
+            json={"position": 50},
+        )
+        # Delete
+        client.delete(f"/podcasts/{test_podcast.id}/history", headers=headers)
+        # Verify no longer in history list
+        resp = client.get("/podcasts/my/history", headers=headers)
+        assert resp.status_code == 200
+        ids = [e["podcast_id"] for e in resp.json()]
+        assert test_podcast.id not in ids
+
+    def test_delete_nonexistent_history_returns_404(self, test_user, test_podcast):
+        _, token = test_user
+        resp = client.delete(
+            f"/podcasts/{test_podcast.id}/history",
+            headers=auth_header(token),
+        )
+        assert resp.status_code == 404
+
+    def test_delete_history_nonexistent_podcast_returns_404(self, test_user):
+        _, token = test_user
+        resp = client.delete(
+            "/podcasts/99999/history",
+            headers=auth_header(token),
+        )
+        assert resp.status_code == 404
+
+    def test_delete_history_unauthenticated_returns_401(self, test_podcast):
+        resp = client.delete(f"/podcasts/{test_podcast.id}/history")
         assert resp.status_code == 401
