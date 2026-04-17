@@ -15,9 +15,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-16
-**Last session (listening history screen):** Opened PR #66 — `feature/listening-history-screen`. New `history.js` screen backed by `GET /podcasts/my/history`: thumbnail, progress bar, completion badge, relative timestamp, infinite scroll, empty state, error+retry. `HistoryRow` wrapped in `React.memo`. `home.js` history quick-action now navigates to the screen instead of showing "coming soon". Syntax-checked ✅; no backend changes. 402 backend tests baseline unchanged.
-**Test suite baseline:** 402 backend tests. Frontend: syntax-checked only; unit tests thin.
+**Last updated:** 2026-04-17
+**Last session (history delete):** Opened PR #67 — `feature/history-delete-entry`. New `DELETE /podcasts/{podcast_id}/history` endpoint backed by `crud.delete_listening_history()`. `HistoryRow` gets a trash-can icon that optimistically removes the entry from state, then fires the API in the background. 5 new backend tests in `TestDeleteListeningHistory`. PR was pushed via GitHub Git API (browser JS) because sandbox filesystem was 100% full — tests could not be run this session.
+**Test suite baseline:** 402 backend tests (pre-session). +5 new tests in PR #67, unrun due to disk constraint.
 
 ### What's shipped (merged to master)
 - ✅ Playlist Play All + Share sheet — Play All queues ordered tracks; Share invokes native Share.share with deep link (PR #63)
@@ -58,22 +58,17 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ DM unread badge in tab bar — `useDMStore.js`, Messages tab visible + red badge, `resetDMUnread` on focus — PR #59
 - ✅ Expo push notifications — `DeviceToken` model + migration, register/remove endpoints, `registerPushToken()` on session, 13 new tests — PR #60
 - ✅ Push notification tap routing + logout cleanup + eager sleep settings — PR #61
-  - `backend/app/crud.py` — `podcastId` included in Expo push data payload when notification has a podcast
-  - `frontend/app/_layout.js` — `addNotificationResponseReceivedListener` branches on type: `like`/`comment` → details screen, `dm` → messages, unknown → notifications; `loadSleepSettings()` called eagerly at cold start
-  - `frontend/src/context/useAuthStore.js` — `unregisterPushToken()` called best-effort at logout start
 - ✅ Playlist shuffle play — Fisher-Yates shuffle, Shuffle button alongside Play All — PR #64
 - ✅ Playlist now-playing indicator — active EpisodeRow shows red border + waveform animation in playlist-detail.js — PR #65
 - ✅ Playlist Play All + Share sheet — PR #63
 - ✅ DM push notifications — PR #62
+- ✅ Listening history screen with progress bar, completion badge, pagination — PR #66
 
 ### What's open / in-progress
-- ✅ PR #62 `feature/dm-push-notifications` — merged to master
-- ✅ PR #63 `feature/playlist-play-all-and-share` — merged to master
-- ✅ PR #64 `feature/playlist-shuffle-play` — merged to master
-- ✅ PR #65 `feature/playlist-now-playing-indicator` — merged to master
-- 🔄 PR #66 `feature/listening-history-screen` — Listening history screen with progress, completion badge, pagination. Awaiting Fay's merge.
+- 🔄 PR #67 `feature/history-delete-entry` — `DELETE /podcasts/{podcast_id}/history` endpoint + trash-can icon in history.js. 5 new backend tests (unrun due to disk constraint). Awaiting Fay's merge.
 
 ### Known issues / tech debt
+- **⚠️ DISK SPACE:** Sandbox filesystem (/sessions) was 100% full this session. pip install left partial packages (openai, fastapi, pydub broken at various points). Next session: verify packages are intact before running tests, or start fresh. Free space by removing unused packages.
 - Push: no receipt polling — Expo Push API returns ticket IDs; check receipts at `https://exp.host/--/api/v2/push/getReceipts` to detect expired/invalid tokens and prune `device_tokens` table
 - DM inbox has no server-side pagination — fine for now, add if thread count grows large
 - DM text-only — no image/file attachments yet
@@ -84,9 +79,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **[FEATURE] Podcast share sheet** — Add a native share button to the podcast details screen (`/(main)/details.js`) that invokes `Share.share({ url: 'volo://podcast/${id}', message: 'Listen to this on proPod!' })`. Import `Share` from `react-native`. No backend changes needed — deep links already work end-to-end (PR #41).
+1. **[FEATURE] Expo push receipt polling** — After firing pushes, Expo returns ticket IDs. Extend `_send_expo_push` in `crud.py` to store ticket IDs, then add a `POST /admin/push-receipts/check` endpoint (admin-only) that calls `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` tokens from `device_tokens`.
 
-2. **[FEATURE] Expo push receipt polling** — After firing pushes, Expo returns ticket IDs. Extend `_send_expo_push` in `crud.py` to store ticket IDs, then add a `POST /admin/push-receipts/check` endpoint (admin-only) that calls `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` tokens from `device_tokens`.
+2. **[PERF/UX] Optimise EpisodeRow Zustand selector** — In `frontend/app/(main)/playlist-detail.js`, `EpisodeRow` subscribes to `state.currentTrack` (whole object). Fix: change to a derived boolean selector so only 2 rows re-render on track change instead of all visible rows.
 
 3. **[FEATURE] Playlist share / export** — Allow creators to share a playlist as a deep link (`volo://playlist/{id}`) or export it as a list of episode titles. Frontend work in `frontend/app/(main)/playlist-detail.js`.
 
@@ -100,6 +95,17 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 Do not rely on terminal REST calls to GitHub. `git` commands still work.
 
 Use `mcp__Claude_in_Chrome__javascript_tool` with `fetch()` after navigating to github.com.
+
+### GitHub Git API — Atomic Commit Workaround
+
+When sandbox disk is full and `git push` is blocked, use the GitHub Git API via browser JS:
+1. Fetch file SHAs + content from master (`GET /contents/{path}?ref=master`)
+2. Patch content in browser memory with string replacement
+3. Create blobs (`POST /git/blobs`)
+4. Create tree (`POST /git/trees` with `base_tree`)
+5. Create commit (`POST /git/commits`)
+6. Create branch ref (`POST /git/refs`)
+7. Create PR (`POST /pulls`)
 
 ### Merge safety rule
 
@@ -140,8 +146,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[PERF/UX] Optimise EpisodeRow Zustand selector** — In `frontend/app/(main)/playlist-detail.js`, `EpisodeRow` subscribes to `state.currentTrack` (whole object). When any track changes ALL visible rows re-render. Fix: change to a derived boolean selector `state => String(state.currentTrack?.id) === String(podcast?.id)` and a separate `isActivePlaying` selector. This reduces O(n) re-renders on track change to O(2). The existing `React.memo` wrapper is already in place.
+1. **[DISK] Fix sandbox disk space before anything else** — Run `pip install --break-system-packages openai pydub sqladmin` to restore the broken package state, then verify `python3 -c "from app.main import app"` loads cleanly. Run `python -m pytest tests/test_podcast_interactions.py::TestDeleteListeningHistory -v` to confirm PR #67's 5 new tests pass (baseline should become 407). This unblocks all future test validation.
 
 2. **[FEATURE] Expo push receipt polling** — In `backend/app/crud.py`, extend `_send_expo_push` to store returned ticket IDs in a new `push_tickets` table (id, ticket_id, device_token_id, created_at), then add `POST /admin/push-receipts/check` endpoint (admin-only) that POSTs ticket IDs to `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` device tokens. Requires Alembic migration for `push_tickets`.
 
-3. **[FEATURE] History clear / delete entry** — Add a `DELETE /podcasts/{podcast_id}/history` backend endpoint + CRUD function. In `history.js`, add a swipe-to-delete or a long-press context menu on each row to remove that entry. Users frequently want to clear watched history.
+3. **[PERF/UX] Optimise EpisodeRow Zustand selector** — In `frontend/app/(main)/playlist-detail.js`, line 40: `const currentTrack = useAudioStore((state) => state.currentTrack)` selects the whole object. When any track property changes, ALL visible `EpisodeRow` components re-render. Fix: replace with `const isActive = useAudioStore((state) => String(state.currentTrack?.id) === String(podcast?.id))` and remove the derived `isActive` line. This cuts O(n) re-renders to O(2) on every track change.
