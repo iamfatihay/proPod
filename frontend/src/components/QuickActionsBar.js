@@ -7,8 +7,8 @@ import {
     Platform,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
 import useViewModeStore from "../context/useViewModeStore";
+import hapticFeedback from "../services/haptics/hapticFeedback";
 
 /**
  * QuickActionsBar - Icon-based navigation for quick access
@@ -80,10 +80,7 @@ const QuickActionsBar = ({ onActionPress, notifications = {}, style }) => {
     const actions = ACTION_SETS[viewMode];
 
     const handlePress = (actionId) => {
-        // Haptic feedback
-        if (Platform.OS === "ios") {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
+        void hapticFeedback.impact();
         onActionPress?.(actionId);
     };
 
