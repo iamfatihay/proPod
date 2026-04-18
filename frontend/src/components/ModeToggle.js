@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { View, Text, TouchableOpacity, Animated, Platform } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import useViewModeStore from "../context/useViewModeStore";
 import hapticFeedback from "../services/haptics/hapticFeedback";
 
@@ -48,7 +49,7 @@ const ModeToggle = ({ style }) => {
     }, [viewMode]);
 
     const handleToggle = () => {
-        void hapticFeedback.impact("medium");
+        void hapticFeedback.impact(Haptics.ImpactFeedbackStyle.Medium);
         toggleViewMode();
     };
 

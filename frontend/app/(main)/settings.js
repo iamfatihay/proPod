@@ -11,6 +11,7 @@ import {
 import React, { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import { Stack } from "expo-router";
+import * as Haptics from "expo-haptics";
 import SettingRow from "../../src/components/SettingRow";
 import useAuthStore from "../../src/context/useAuthStore";
 import apiService from "../../src/services/api/apiService";
@@ -138,7 +139,7 @@ const Settings = () => {
         await hapticFeedback.setEnabled(value);
 
         if (value) {
-            void hapticFeedback.impact("medium");
+            void hapticFeedback.impact(Haptics.ImpactFeedbackStyle.Medium);
         }
     };
 
