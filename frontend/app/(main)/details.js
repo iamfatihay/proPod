@@ -11,7 +11,6 @@ import {
     StatusBar,
     Image,
     ActivityIndicator,
-    Vibration,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -28,6 +27,7 @@ import CustomModal from "../../src/components/CustomModal";
 import { normalizePodcast, normalizePodcasts } from "../../src/utils/urlHelper";
 import { getQualityMessage } from "../../src/utils/qualityHelpers";
 import { COLORS } from "../../src/constants/theme";
+import hapticFeedback from "../../src/services/haptics/hapticFeedback";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -414,14 +414,7 @@ const Details = () => {
                 ai_processing_status: result.status,
             }));
 
-            // Success notification with optional vibration (accessibility-friendly)
-            try {
-                if (Platform.OS !== 'web' && Vibration) {
-                    Vibration.vibrate([0, 200, 100, 200]);
-                }
-            } catch (error) {
-                // Silently fail if vibration not supported
-            }
+            void hapticFeedback.vibrate([0, 200, 100, 200]);
             showToast("✨ AI processing completed! Check AI Insights below.", "success");
             
             // Add notification for visibility (works even if user navigates away)
@@ -447,13 +440,7 @@ const Details = () => {
             const errorMsg = error.response?.data?.detail || "Failed to process with AI";
             showToast(errorMsg, "error");
             
-            // Optional error vibration
-            try {
-                if (Platform.OS !== 'web' && Vibration) {
-                    Vibration.vibrate(500);
-                }
-            } catch (vibError) {
-            }
+            void hapticFeedback.vibrate(500);
         } finally {
             setIsProcessingAI(false);
         }

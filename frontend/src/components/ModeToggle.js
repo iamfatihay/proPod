@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Animated, Platform } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import useViewModeStore from "../context/useViewModeStore";
+import hapticFeedback from "../services/haptics/hapticFeedback";
 
 /**
  * ModeToggle - Animated toggle switch between Discover and Studio modes
@@ -48,10 +49,7 @@ const ModeToggle = ({ style }) => {
     }, [viewMode]);
 
     const handleToggle = () => {
-        // Haptic feedback
-        if (Platform.OS === "ios") {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        }
+        void hapticFeedback.impact(Haptics.ImpactFeedbackStyle.Medium);
         toggleViewMode();
     };
 

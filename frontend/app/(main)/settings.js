@@ -7,15 +7,12 @@ import {
     Modal,
     TextInput,
     ActivityIndicator,
-    Platform,
-    StatusBar,
-    Linking,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import { Stack } from "expo-router";
+import * as Haptics from "expo-haptics";
 import SettingRow from "../../src/components/SettingRow";
-import { getToken } from "../../src/services/auth/tokenStorage";
 import useAuthStore from "../../src/context/useAuthStore";
 import apiService from "../../src/services/api/apiService";
 import { ToastProvider, useToast } from "../../src/components/Toast";
@@ -24,13 +21,14 @@ import SupportModal from "../../src/components/SupportModal";
 import PrivacyModal from "../../src/components/PrivacyModal";
 import InfoModal from "../../src/components/InfoModal";
 import { COLORS } from "../../src/constants/theme";
+import hapticFeedback from "../../src/services/haptics/hapticFeedback";
 
 const APP_VERSION = "1.0.0";
 
 const Settings = () => {
     const router = useRouter();
-    const [isDarkMode, setIsDarkMode] = useState(false);
     const [notifications, setNotifications] = useState(true);
+    const [hapticFeedbackEnabled, setHapticFeedbackEnabled] = useState(true);
     const [deleteModal, setDeleteModal] = useState(false);
     const [changePwModal, setChangePwModal] = useState(false);
     const [supportModalVisible, setSupportModalVisible] = useState(false);
@@ -48,6 +46,21 @@ const Settings = () => {
 
     const logout = useAuthStore((state) => state.logout);
     const { showToast } = useToast();
+
+    useEffect(() => {
+        let isMounted = true;
+
+        (async () => {
+            const enabled = await hapticFeedback.loadPreference();
+            if (isMounted) {
+                setHapticFeedbackEnabled(enabled);
+            }
+        })();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     // Dummy handler for account settings
     const handleAccount = () => {
@@ -111,13 +124,23 @@ const Settings = () => {
     };
 
     // Dummy handler for notifications
-    const handleNotifications = () => {
+    const handleNotifications = (enabled) => {
+        setNotifications(enabled);
         setInfoConfig({
             title: "Notifications",
             message: "Notifications feature will be available soon.",
             type: "info",
         });
         setInfoModalVisible(true);
+    };
+
+    const handleHapticFeedbackToggle = async (value) => {
+        setHapticFeedbackEnabled(value);
+        await hapticFeedback.setEnabled(value);
+
+        if (value) {
+            void hapticFeedback.impact(Haptics.ImpactFeedbackStyle.Medium);
+        }
     };
 
     return (
@@ -165,6 +188,24 @@ const Settings = () => {
                 <SettingRow
                     label="Delete Account"
                     onPress={handleDeleteAccount}
+                />
+                <SettingRow
+                    label="Haptic Feedback"
+                    right={
+                        <Switch
+                            value={hapticFeedbackEnabled}
+                            onValueChange={handleHapticFeedbackToggle}
+                            thumbColor={
+                                hapticFeedbackEnabled
+                                    ? COLORS.success
+                                    : COLORS.text.muted
+                            }
+                            trackColor={{
+                                false: COLORS.borderLight,
+                                true: COLORS.panel,
+                            }}
+                        />
+                    }
                 />
                 {/* Notifications switch */}
                 <SettingRow
