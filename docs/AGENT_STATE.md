@@ -15,9 +15,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-17
-**Last session (history delete):** Opened PR #67 — `feature/history-delete-entry`. New `DELETE /podcasts/{podcast_id}/history` endpoint backed by `crud.delete_listening_history()`. `HistoryRow` gets a trash-can icon that optimistically removes the entry from state, then fires the API in the background. 5 new backend tests in `TestDeleteListeningHistory`. PR was pushed via GitHub Git API (browser JS) because sandbox filesystem was 100% full — tests could not be run this session.
-**Test suite baseline:** 402 backend tests (pre-session). +5 new tests in PR #67, unrun due to disk constraint.
+**Last updated:** 2026-04-18
+**Last session (haptic feedback settings):** Opened PR #68 — `copilot/add-user-facing-feature`. Added a persisted **Haptic Feedback** toggle in `frontend/app/(main)/settings.js`, routed existing frontend haptic/vibration touchpoints through `frontend/src/services/haptics/hapticFeedback.js`, and added targeted Jest coverage. Also reconciled AGENT_STATE with git reality: PR #67 is merged to master.
+**Test suite baseline:** Targeted frontend validation this session: `node --check` passed for touched files and 17 Jest tests passed across `hapticFeedback.test.js` and `useAudioStore.sleepEoeStorage.test.js`. Full frontend lint is currently blocked by repo-wide ESLint JSX parsing/configuration issues.
 
 ### What's shipped (merged to master)
 - ✅ Playlist Play All + Share sheet — Play All queues ordered tracks; Share invokes native Share.share with deep link (PR #63)
@@ -63,12 +63,13 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Playlist Play All + Share sheet — PR #63
 - ✅ DM push notifications — PR #62
 - ✅ Listening history screen with progress bar, completion badge, pagination — PR #66
+- ✅ Delete listening history entry — `DELETE /podcasts/{podcast_id}/history` endpoint + trash icon in history rows — PR #67
 
 ### What's open / in-progress
-- 🔄 PR #67 `feature/history-delete-entry` — `DELETE /podcasts/{podcast_id}/history` endpoint + trash-can icon in history.js. 5 new backend tests (unrun due to disk constraint). Awaiting Fay's merge.
+- 🔄 PR #68 `copilot/add-user-facing-feature` — persisted **Haptic Feedback** setting, shared preference-aware haptics helper, existing touch/vibration paths wired to the new preference, targeted Jest coverage.
 
 ### Known issues / tech debt
-- **⚠️ DISK SPACE:** Sandbox filesystem (/sessions) was 100% full this session. pip install left partial packages (openai, fastapi, pydub broken at various points). Next session: verify packages are intact before running tests, or start fresh. Free space by removing unused packages.
+- Frontend `npm run lint` is currently blocked by repo-wide ESLint configuration/parsing issues (`Unexpected token <` across JSX files, plus duplicate keys in `frontend/src/tests/mocks/reactNative.js`). Use `node --check` + targeted Jest until the lint config is fixed.
 - Push: no receipt polling — Expo Push API returns ticket IDs; check receipts at `https://exp.host/--/api/v2/push/getReceipts` to detect expired/invalid tokens and prune `device_tokens` table
 - DM inbox has no server-side pagination — fine for now, add if thread count grows large
 - DM text-only — no image/file attachments yet
@@ -79,11 +80,11 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **[FEATURE] Expo push receipt polling** — After firing pushes, Expo returns ticket IDs. Extend `_send_expo_push` in `crud.py` to store ticket IDs, then add a `POST /admin/push-receipts/check` endpoint (admin-only) that calls `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` tokens from `device_tokens`.
+1. **[FEATURE] Live session join deep links** — Finish `volo://join/{invite_code}` handling promised in docs by extending `frontend/app/_layout.js`, `frontend/app/(main)/create.js`, and the RTC API service so shared live-session links can open the correct in-app flow.
 
-2. **[PERF/UX] Optimise EpisodeRow Zustand selector** — In `frontend/app/(main)/playlist-detail.js`, `EpisodeRow` subscribes to `state.currentTrack` (whole object). Fix: change to a derived boolean selector so only 2 rows re-render on track change instead of all visible rows.
+2. **[FEATURE] Real notifications preference** — Make the Settings notifications switch actually persist and drive Expo push registration/unregistration in `frontend/app/(main)/settings.js` and `frontend/src/services/pushNotifications.js`.
 
-3. **[FEATURE] Playlist share / export** — Allow creators to share a playlist as a deep link (`volo://playlist/{id}`) or export it as a list of episode titles. Frontend work in `frontend/app/(main)/playlist-detail.js`.
+3. **[DEVEX] Fix frontend ESLint for JSX** — Repair `frontend/eslint.config.js` so `npm run lint` parses Expo/React JSX again, then clean up the duplicate keys already reported in `frontend/src/tests/mocks/reactNative.js`.
 
 ---
 
@@ -146,8 +147,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[DISK] Fix sandbox disk space before anything else** — Run `pip install --break-system-packages openai pydub sqladmin` to restore the broken package state, then verify `python3 -c "from app.main import app"` loads cleanly. Run `python -m pytest tests/test_podcast_interactions.py::TestDeleteListeningHistory -v` to confirm PR #67's 5 new tests pass (baseline should become 407). This unblocks all future test validation.
+1. **[FEATURE] Live session join deep links** — Add real `volo://join/{invite_code}` handling. Start in `frontend/app/_layout.js`, add an invite-code lookup path in the RTC client/API layer, and route users into the live-session screen from a shared link.
 
-2. **[FEATURE] Expo push receipt polling** — In `backend/app/crud.py`, extend `_send_expo_push` to store returned ticket IDs in a new `push_tickets` table (id, ticket_id, device_token_id, created_at), then add `POST /admin/push-receipts/check` endpoint (admin-only) that POSTs ticket IDs to `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` device tokens. Requires Alembic migration for `push_tickets`.
+2. **[FEATURE] Notifications preference wiring** — Replace the placeholder Settings notifications switch with a persisted preference that registers/unregisters Expo push tokens via `frontend/src/services/pushNotifications.js`, then reflect the saved state on app launch.
 
-3. **[PERF/UX] Optimise EpisodeRow Zustand selector** — In `frontend/app/(main)/playlist-detail.js`, line 40: `const currentTrack = useAudioStore((state) => state.currentTrack)` selects the whole object. When any track property changes, ALL visible `EpisodeRow` components re-render. Fix: replace with `const isActive = useAudioStore((state) => String(state.currentTrack?.id) === String(podcast?.id))` and remove the derived `isActive` line. This cuts O(n) re-renders to O(2) on every track change.
+3. **[DEVEX] Restore frontend linting** — Update `frontend/eslint.config.js` so JSX files lint successfully, then clean up the duplicate object keys in `frontend/src/tests/mocks/reactNative.js` and rerun `npm run lint`.
