@@ -36,7 +36,9 @@ describe("hapticFeedback", () => {
     it("persists disabled preference and blocks feedback", async () => {
         await hapticFeedback.setEnabled(false);
 
-        await expect(hapticFeedback.impact("medium")).resolves.toBe(false);
+        await expect(
+            hapticFeedback.impact(Haptics.ImpactFeedbackStyle.Medium)
+        ).resolves.toBe(false);
         await expect(hapticFeedback.vibrate(500)).resolves.toBe(false);
         expect(AsyncStorage.setItem).toHaveBeenCalledWith(STORAGE_KEY, "0");
         expect(Haptics.impactAsync).not.toHaveBeenCalled();
@@ -46,9 +48,13 @@ describe("hapticFeedback", () => {
     it("triggers impact feedback when enabled", async () => {
         await hapticFeedback.setEnabled(true);
 
-        await expect(hapticFeedback.impact("medium")).resolves.toBe(true);
+        await expect(
+            hapticFeedback.impact(Haptics.ImpactFeedbackStyle.Medium)
+        ).resolves.toBe(true);
         expect(AsyncStorage.setItem).toHaveBeenCalledWith(STORAGE_KEY, "1");
-        expect(Haptics.impactAsync).toHaveBeenCalledWith("medium");
+        expect(Haptics.impactAsync).toHaveBeenCalledWith(
+            Haptics.ImpactFeedbackStyle.Medium
+        );
     });
 
     it("uses vibration patterns when enabled", async () => {

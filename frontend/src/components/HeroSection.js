@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Animated, Platform, Dimensions } from "re
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import * as Haptics from "expo-haptics";
 import useViewModeStore from "../context/useViewModeStore";
 import useAudioStore from "../context/useAudioStore";
 import useAuthStore from "../context/useAuthStore";
@@ -61,7 +62,7 @@ const HeroSection = ({ onRecordPress, onContinueListening, onFeaturedPress, user
     }, []);
 
     const handleHaptic = () => {
-        void hapticFeedback.impact("medium");
+        void hapticFeedback.impact(Haptics.ImpactFeedbackStyle.Medium);
     };
 
     if (viewMode === "studio") {
