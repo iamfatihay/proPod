@@ -63,4 +63,14 @@ describe("hapticFeedback", () => {
         await expect(hapticFeedback.vibrate([0, 200, 100, 200])).resolves.toBe(true);
         expect(Vibration.vibrate).toHaveBeenCalledWith([0, 200, 100, 200]);
     });
+
+    it("falls back to vibration when expo haptics is unavailable", async () => {
+        await hapticFeedback.setEnabled(true);
+        Haptics.impactAsync.mockRejectedValueOnce(new Error("unavailable"));
+
+        await expect(
+            hapticFeedback.impact(Haptics.ImpactFeedbackStyle.Medium)
+        ).resolves.toBe(true);
+        expect(Vibration.vibrate).toHaveBeenCalledWith(10);
+    });
 });

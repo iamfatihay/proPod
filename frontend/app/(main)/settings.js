@@ -124,8 +124,8 @@ const Settings = () => {
     };
 
     // Dummy handler for notifications
-    const handleNotifications = (value) => {
-        setNotifications(value);
+    const handleNotifications = (enabled) => {
+        setNotifications(enabled);
         setInfoConfig({
             title: "Notifications",
             message: "Notifications feature will be available soon.",

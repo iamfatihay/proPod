@@ -12,7 +12,7 @@ const rememberEnabled = (enabled) => {
     return cachedEnabled;
 };
 
-const parseStoredValue = (value) => value !== "0" && value !== "false";
+const parseStoredValue = (value) => value === "1" || value === "true";
 
 const hapticFeedback = {
     async loadPreference() {
@@ -59,13 +59,17 @@ const hapticFeedback = {
                 await Haptics.impactAsync(style);
                 return true;
             }
-
-            if (Vibration?.vibrate) {
-                Vibration.vibrate(10);
-                return true;
-            }
         } catch (error) {
             Logger.warn("Failed to trigger haptic feedback:", error);
+        }
+
+        if (Vibration?.vibrate) {
+            try {
+                Vibration.vibrate(10);
+                return true;
+            } catch (error) {
+                Logger.warn("Failed to vibrate device:", error);
+            }
         }
 
         return false;
