@@ -66,10 +66,12 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Listening history delete entry — `DELETE /podcasts/{podcast_id}/history`, trash-can icon, 5 backend tests — PR #67
 
 ### What's open / in-progress
+- 🔄 PR #68 `copilot/add-user-facing-feature` — Persisted **Haptic Feedback** setting, shared preference-aware haptics helper (`hapticFeedback.js`), existing touch/vibration paths wired to preference, targeted Jest coverage. Awaiting Fay's merge.
 - 🔄 PR #69 `fix/crud-encoding-mojibake` — Fixes double-encoded UTF-8 mojibake in `crud.py` (notification preview ellipsis, emoji titles, docstring chars). Restores `TestDMNotifications::test_send_dm_notification_preview_truncated`. 407 tests pass. Awaiting Fay's merge.
 - 🔄 PR #70 `perf/episoderow-zustand-selector` — Replaces whole-object `currentTrack` Zustand selector in `EpisodeRow` with derived boolean; cuts O(n) re-renders to O(2) on track switch. Syntax check passed. Awaiting Fay's merge.
 
 ### Known issues / tech debt
+- Frontend `npm run lint` is currently blocked by repo-wide ESLint configuration/parsing issues (`Unexpected token <` across JSX files). Use `node --check` + targeted Jest until the lint config is fixed.
 - Push: no receipt polling — Expo Push API returns ticket IDs; check receipts at `https://exp.host/--/api/v2/push/getReceipts` to detect expired/invalid tokens and prune `device_tokens` table
 - DM inbox has no server-side pagination — fine for now, add if thread count grows large
 - DM text-only — no image/file attachments yet
