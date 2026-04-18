@@ -37,6 +37,11 @@ module.exports = {
         alert: jest.fn(),
     },
 
+    Vibration: {
+        vibrate: jest.fn(),
+        cancel: jest.fn(),
+    },
+
     Animated: {
         Value: jest.fn(() => ({
             setValue: jest.fn(),
