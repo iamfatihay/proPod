@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app import crud, models
+from app import crud, models, schemas
 from app.auth import create_access_token, get_password_hash
 
 client = TestClient(app)
@@ -296,7 +296,7 @@ class TestNewEpisodeNotification:
         self._make_follow(db_session, follower1, creator)
         self._make_follow(db_session, follower2, creator)
 
-        podcast_data = crud.schemas.PodcastCreate(
+        podcast_data = schemas.PodcastCreate(
             title="Episode Zero",
             description="Pilot",
             category="Technology",
@@ -318,7 +318,7 @@ class TestNewEpisodeNotification:
 
         before_total = db_session.query(models.Notification).count()
 
-        podcast_data = crud.schemas.PodcastCreate(
+        podcast_data = schemas.PodcastCreate(
             title="Solo Episode",
             description="Just me",
             category="Arts",
@@ -339,7 +339,7 @@ class TestNewEpisodeNotification:
         self._cleanup(db_session, creator.id, follower.id)
         self._make_follow(db_session, follower, creator)
 
-        podcast_data = crud.schemas.PodcastCreate(
+        podcast_data = schemas.PodcastCreate(
             title="Deep Dive #1",
             description="desc",
             category="Science",
@@ -362,7 +362,7 @@ class TestNewEpisodeNotification:
         self._cleanup(db_session, creator.id, follower.id)
         self._make_follow(db_session, follower, creator)
 
-        podcast_data = crud.schemas.PodcastCreate(
+        podcast_data = schemas.PodcastCreate(
             title="The Great Reveal",
             description="desc",
             category="News",
@@ -384,7 +384,7 @@ class TestNewEpisodeNotification:
         self._cleanup(db_session, creator.id, follower.id)
         self._make_follow(db_session, follower, creator)
 
-        podcast_data = crud.schemas.PodcastCreate(
+        podcast_data = schemas.PodcastCreate(
             title="Linked Episode",
             description="desc",
             category="Business",
@@ -400,3 +400,31 @@ class TestNewEpisodeNotification:
         n = new_ep[0]
         assert n.podcast_id == podcast.id
         assert n.actor_id == creator.id
+
+    def test_private_podcast_does_not_notify_followers(self, db_session):
+        """Followers must not receive notifications for private episodes."""
+        creator  = _make_user(db_session, "ne_creator5@example.com",  "Private Creator")
+        follower = _make_user(db_session, "ne_follower5@example.com", "Eager Follower")
+        self._cleanup(db_session, creator.id, follower.id)
+        self._make_follow(db_session, follower, creator)
+
+        before = db_session.query(models.Notification).filter(
+            models.Notification.user_id == follower.id,
+            models.Notification.type == "new_episode",
+        ).count()
+
+        podcast_data = schemas.PodcastCreate(
+            title="Secret Draft",
+            description="not for public eyes",
+            category="Technology",
+            is_public=False,
+            duration=60,
+            audio_url="https://cdn.example.com/secret.mp3",
+        )
+        crud.create_podcast(db_session, podcast_data, owner_id=creator.id)
+
+        after = db_session.query(models.Notification).filter(
+            models.Notification.user_id == follower.id,
+            models.Notification.type == "new_episode",
+        ).count()
+        assert after == before, "Private podcast must not generate new_episode notifications"
