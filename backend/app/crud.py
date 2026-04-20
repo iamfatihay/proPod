@@ -287,11 +287,60 @@ def create_podcast(db: Session, podcast: schemas.PodcastCreate, owner_id: int) -
     
     db.commit()
     db.refresh(db_podcast)
-    
+
     # Enrich with stats for serialization
     enrich_podcast_with_stats(db_podcast)
-    
+
+    # Notify all followers of this creator about the new episode.
+    # Wrapped in try/except so a notification failure never breaks podcast creation.
+    try:
+        _notify_followers_new_episode(db=db, podcast=db_podcast, owner_id=owner_id)
+    except Exception as exc:
+        logger.warning("new_episode notification fan-out failed (non-blocking): %s", exc)
+
     return db_podcast
+
+def _notify_followers_new_episode(
+    db: Session,
+    podcast: "models.Podcast",
+    owner_id: int,
+) -> None:
+    """
+    Fan out an in-app notification (+ push) to every follower of *owner_id*
+    when a new podcast episode is published.
+
+    Each follower receives a ``Notification`` row of type ``'new_episode'``
+    and, if they have registered device tokens, an Expo push notification.
+
+    Args:
+        db:       Database session (same session used to create the podcast).
+        podcast:  The newly-created ``Podcast`` object.
+        owner_id: ID of the creator who published the episode.
+    """
+    followers = (
+        db.query(models.UserFollow)
+        .filter(models.UserFollow.followed_id == owner_id)
+        .all()
+    )
+    if not followers:
+        return
+
+    owner = db.query(models.User).filter(models.User.id == owner_id).first()
+    creator_name: str = owner.name if owner else "A creator"
+
+    notif_title = f"New episode from {creator_name}"
+    notif_message = f'{creator_name} just published \u201c{podcast.title}\u201d'
+
+    for follow in followers:
+        create_notification(
+            db=db,
+            user_id=follow.follower_id,
+            type="new_episode",
+            title=notif_title,
+            message=notif_message,
+            podcast_id=podcast.id,
+            actor_id=owner_id,
+        )
 
 def get_podcast(db: Session, podcast_id: int, increment_play_count: bool = True, include_deleted: bool = False) -> Optional[models.Podcast]:
     """
