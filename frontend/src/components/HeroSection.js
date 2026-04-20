@@ -7,6 +7,7 @@ import * as Haptics from "expo-haptics";
 import useViewModeStore from "../context/useViewModeStore";
 import useAudioStore from "../context/useAudioStore";
 import useAuthStore from "../context/useAuthStore";
+import hapticFeedback from "../services/haptics/hapticFeedback";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -61,9 +62,7 @@ const HeroSection = ({ onRecordPress, onContinueListening, onFeaturedPress, user
     }, []);
 
     const handleHaptic = () => {
-        if (Platform.OS === "ios") {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        }
+        void hapticFeedback.impact(Haptics.ImpactFeedbackStyle.Medium);
     };
 
     if (viewMode === "studio") {
@@ -452,4 +451,3 @@ const HeroSection = ({ onRecordPress, onContinueListening, onFeaturedPress, user
 };
 
 export default HeroSection;
-

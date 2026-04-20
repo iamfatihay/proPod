@@ -14,6 +14,7 @@ import * as Linking from 'expo-linking';
 import Logger from "../src/utils/logger";
 import { registerPushToken } from "../src/services/pushNotifications";
 import useAudioStore from "../src/context/useAudioStore";
+import hapticFeedback from "../src/services/haptics/hapticFeedback";
 
 // Set once at the root level — controls how push notifications appear while the
 // app is in the foreground.  Centralised here to avoid import-order conflicts
@@ -126,6 +127,7 @@ export default function Layout() {
         // player mounts (avoids a race on cold start where sleepOnEpisodeEnd
         // reads as false before AsyncStorage resolves).
         useAudioStore.getState().loadSleepSettings();
+        void hapticFeedback.loadPreference();
 
         // Register session expired handler - will automatically redirect to login
         apiService.setSessionExpiredHandler(() => {

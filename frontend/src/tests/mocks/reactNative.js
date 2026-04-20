@@ -30,11 +30,14 @@ module.exports = {
     SafeAreaView: "SafeAreaView",
     TouchableHighlight: "TouchableHighlight",
     TouchableWithoutFeedback: "TouchableWithoutFeedback",
-    Pressable: "Pressable",
-    SafeAreaView: "SafeAreaView",
 
     Alert: {
         alert: jest.fn(),
+    },
+
+    Vibration: {
+        vibrate: jest.fn(),
+        cancel: jest.fn(),
     },
 
     Animated: {
