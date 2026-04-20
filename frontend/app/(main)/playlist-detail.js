@@ -37,13 +37,14 @@ const EpisodeRow = ({ item, onPress, onRemove }) => {
     const podcast = item.podcast;
 
     // ── Audio state (hooks must run before any early return) ──────────────────
-    const currentTrack = useAudioStore((state) => state.currentTrack);
+    // Derived boolean selector — EpisodeRow only re-renders when ITS active
+    // status changes (O(2) re-renders on track switch instead of O(n)).
+    const isActive = useAudioStore(
+        (state) => podcast ? String(state.currentTrack?.id) === String(podcast.id) : false
+    );
     const isPlaying = useAudioStore((state) => state.isPlaying);
     const pulseAnim = useRef(new Animated.Value(1)).current;
     const animRef = useRef(null);
-
-    // True when this row is the currently-loaded track
-    const isActive = podcast ? String(podcast.id) === String(currentTrack?.id) : false;
 
     useEffect(() => {
         if (isActive && isPlaying) {
