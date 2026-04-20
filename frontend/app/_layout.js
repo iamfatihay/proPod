@@ -172,6 +172,15 @@ export default function Layout() {
                     } else {
                         router.push('/(main)/messages');
                     }
+                } else if (data?.type === 'new_episode') {
+                    // New episode from a followed creator — open the episode detail screen.
+                    // The push payload includes `podcastId` (set in _notify_followers_new_episode).
+                    const podcastId = data?.podcastId ?? data?.podcast_id;
+                    if (podcastId) {
+                        router.push({ pathname: '/(main)/details', params: { id: podcastId } });
+                    } else {
+                        router.push('/(main)/notifications');
+                    }
                 } else if (data?.type) {
                     // Unknown future type — open notifications as safe fallback
                     router.push('/(main)/notifications');
