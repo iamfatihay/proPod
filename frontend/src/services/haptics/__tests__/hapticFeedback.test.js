@@ -13,6 +13,7 @@ const { Platform, Vibration } = require("react-native");
 const {
     default: hapticFeedback,
     STORAGE_KEY,
+    __resetForTests,
 } = require("../hapticFeedback");
 
 describe("hapticFeedback", () => {
@@ -20,7 +21,7 @@ describe("hapticFeedback", () => {
 
     beforeEach(() => {
         AsyncStorage.__clearMockStorage();
-        hapticFeedback.__resetForTests();
+        __resetForTests();
         Platform.OS = "ios";
         Vibration.vibrate.mockClear();
     });

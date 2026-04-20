@@ -93,10 +93,15 @@ const hapticFeedback = {
             return false;
         }
     },
-
-    __resetForTests() {
-        cachedEnabled = null;
-    },
 };
 
 export default hapticFeedback;
+
+/**
+ * Test-only helper — resets the in-memory cache so each test starts clean.
+ * Exported as a named export so it stays off the production default object.
+ * @internal
+ */
+export const __resetForTests = () => {
+    cachedEnabled = null;
+};
