@@ -154,8 +154,14 @@ export default function Layout() {
                 if (data?.type === 'recording') {
                     // Navigate to create screen - router is ready at this point
                     router.push('/(main)/create');
-                } else if (data?.type === 'like' || data?.type === 'comment') {
-                    // Route to the podcast details screen if we have an ID
+                } else if (
+                    data?.type === 'like' ||
+                    data?.type === 'comment' ||
+                    data?.type === 'new_episode'
+                ) {
+                    // Route to the episode detail screen for podcast-linked notification types.
+                    // Covers: like, comment (activity on creator's episode) and new_episode
+                    // (followed creator published). All three carry podcastId in the payload.
                     const podcastId = data?.podcastId ?? data?.podcast_id;
                     if (podcastId) {
                         router.push({ pathname: '/(main)/details', params: { id: podcastId } });

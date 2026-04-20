@@ -220,8 +220,9 @@ const useNotificationStore = create((set, get) => ({
             }));
 
             // Keep local notifications that are NOT already represented by a
-            // server notification (device-only types: ai_complete, system)
-            const serverTypes = new Set(['like', 'comment']);
+            // server notification (device-only types: ai_complete, system).
+            // 'new_episode' is also server-backed — exclude it from local merging.
+            const serverTypes = new Set(['like', 'comment', 'new_episode']);
             const localNotifs = get().notifications.filter(
                 (n) => !serverTypes.has(n.type) && !n.id.startsWith('srv_')
             );
