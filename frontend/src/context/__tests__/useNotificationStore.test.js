@@ -177,6 +177,48 @@ describe("useNotificationStore", () => {
             expect(result.current.unreadCount).toBe(0);
         });
 
+        it("drops legacy local new_episode notifications when server results arrive", async () => {
+            // A local 'new_episode' notification that was cached before the server
+            // normalisation was introduced (non-'srv_' id, device-only origin).
+            // After fetchNotifications(), the server-backed version should replace it
+            // and the local copy must NOT appear in the merged list.
+            const legacyLocal = {
+                id: "local_ne_001",            // non-srv_ prefix → treated as local
+                type: "new_episode",
+                title: "New episode from Creator",
+                message: "Creator just published \"Episode 5\"",
+                read: false,
+                created_at: Date.now() - 5000,
+            };
+            useNotificationStore.setState({
+                notifications: [legacyLocal],
+                unreadCount: 1,
+                isLoaded: true,
+            });
+
+            apiService.getNotifications.mockResolvedValueOnce({
+                notifications: [
+                    makeServerApiNotif({ id: 30, type: "new_episode", podcast_id: 55 }),
+                ],
+                total: 1,
+                unread_count: 1,
+            });
+
+            const { result } = renderHook(() => useNotificationStore());
+
+            await act(async () => {
+                await result.current.fetchNotifications();
+            });
+
+            // Only the server-normalised entry should survive
+            expect(result.current.notifications).toHaveLength(1);
+            expect(result.current.notifications[0].id).toBe("srv_30");
+
+            // The legacy local entry must be gone
+            const ids = result.current.notifications.map((n) => n.id);
+            expect(ids).not.toContain("local_ne_001");
+        });
+
         it("handles empty notifications array from server gracefully", async () => {
             apiService.getNotifications.mockResolvedValueOnce({
                 notifications: [],
