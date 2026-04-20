@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app import crud, models
+from app import crud, models, schemas
 from app.auth import create_access_token, get_password_hash
 
 client = TestClient(app)
@@ -254,3 +254,177 @@ class TestCommentNotification:
 
         after = len(crud.get_notifications(db_session, user_id=user.id)[0])
         assert after == before
+
+
+# ---------------------------------------------------------------------------
+# Side-effect: publishing a new podcast notifies all followers
+# ---------------------------------------------------------------------------
+
+class TestNewEpisodeNotification:
+    """Verify that create_podcast fans out 'new_episode' notifications to followers."""
+
+    def _make_follow(self, db, follower: models.User, followed: models.User) -> None:
+        """Create a follow relationship; skip if it already exists."""
+        existing = db.query(models.UserFollow).filter(
+            models.UserFollow.follower_id == follower.id,
+            models.UserFollow.followed_id == followed.id,
+        ).first()
+        if existing:
+            return
+        follow = models.UserFollow(follower_id=follower.id, followed_id=followed.id)
+        db.add(follow)
+        db.commit()
+
+    def _cleanup(self, db, *user_ids: int) -> None:
+        """Remove follows and notifications for the given user IDs."""
+        db.query(models.UserFollow).filter(
+            models.UserFollow.follower_id.in_(user_ids)
+            | models.UserFollow.followed_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+        db.query(models.Notification).filter(
+            models.Notification.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+        db.commit()
+
+    def test_two_followers_each_receive_notification(self, db_session):
+        """Both followers of a creator get a new_episode notification."""
+        creator   = _make_user(db_session, "ne_creator1@example.com",   "Creator One")
+        follower1 = _make_user(db_session, "ne_follower1a@example.com", "Fan A")
+        follower2 = _make_user(db_session, "ne_follower1b@example.com", "Fan B")
+        self._cleanup(db_session, creator.id, follower1.id, follower2.id)
+
+        self._make_follow(db_session, follower1, creator)
+        self._make_follow(db_session, follower2, creator)
+
+        podcast_data = schemas.PodcastCreate(
+            title="Episode Zero",
+            description="Pilot",
+            category="Technology",
+            is_public=True,
+            duration=120,
+            audio_url="https://cdn.example.com/ep0.mp3",
+        )
+        crud.create_podcast(db_session, podcast_data, owner_id=creator.id)
+
+        for fan_id in (follower1.id, follower2.id):
+            notifs = crud.get_notifications(db_session, user_id=fan_id)[0]
+            new_ep = [n for n in notifs if n.type == "new_episode"]
+            assert len(new_ep) >= 1, f"Follower {fan_id} should have received a new_episode notification"
+
+    def test_no_followers_means_no_notifications(self, db_session):
+        """Publishing a podcast when the creator has no followers is a no-op."""
+        lone_creator = _make_user(db_session, "ne_lone@example.com", "Lone Creator")
+        self._cleanup(db_session, lone_creator.id)
+
+        before_total = db_session.query(models.Notification).count()
+
+        podcast_data = schemas.PodcastCreate(
+            title="Solo Episode",
+            description="Just me",
+            category="Arts",
+            is_public=True,
+            duration=60,
+            audio_url="https://cdn.example.com/solo.mp3",
+        )
+        crud.create_podcast(db_session, podcast_data, owner_id=lone_creator.id)
+
+        after_total = db_session.query(models.Notification).count()
+        # No new notifications should have been created
+        assert after_total == before_total
+
+    def test_notification_title_contains_creator_name(self, db_session):
+        """Notification title says 'New episode from <creator name>'."""
+        creator  = _make_user(db_session, "ne_creator2@example.com",  "Alice Podcast")
+        follower = _make_user(db_session, "ne_follower2@example.com", "Bob Listener")
+        self._cleanup(db_session, creator.id, follower.id)
+        self._make_follow(db_session, follower, creator)
+
+        podcast_data = schemas.PodcastCreate(
+            title="Deep Dive #1",
+            description="desc",
+            category="Science",
+            is_public=True,
+            duration=180,
+            audio_url="https://cdn.example.com/dd1.mp3",
+        )
+        crud.create_podcast(db_session, podcast_data, owner_id=creator.id)
+
+        notifs = crud.get_notifications(db_session, user_id=follower.id)[0]
+        new_ep = [n for n in notifs if n.type == "new_episode"]
+        assert new_ep, "Expected at least one new_episode notification"
+        assert "Alice Podcast" in new_ep[0].title
+        assert "New episode from" in new_ep[0].title
+
+    def test_notification_message_contains_podcast_title(self, db_session):
+        """Notification message includes the episode title."""
+        creator  = _make_user(db_session, "ne_creator3@example.com",  "Charlie Show")
+        follower = _make_user(db_session, "ne_follower3@example.com", "Dave Fan")
+        self._cleanup(db_session, creator.id, follower.id)
+        self._make_follow(db_session, follower, creator)
+
+        podcast_data = schemas.PodcastCreate(
+            title="The Great Reveal",
+            description="desc",
+            category="News",
+            is_public=True,
+            duration=240,
+            audio_url="https://cdn.example.com/reveal.mp3",
+        )
+        crud.create_podcast(db_session, podcast_data, owner_id=creator.id)
+
+        notifs = crud.get_notifications(db_session, user_id=follower.id)[0]
+        new_ep = [n for n in notifs if n.type == "new_episode"]
+        assert new_ep, "Expected at least one new_episode notification"
+        assert "The Great Reveal" in new_ep[0].message
+
+    def test_notification_has_podcast_id_and_actor_id(self, db_session):
+        """Notification rows carry podcast_id and actor_id for deep-linking."""
+        creator  = _make_user(db_session, "ne_creator4@example.com",  "Eve Radio")
+        follower = _make_user(db_session, "ne_follower4@example.com", "Frank Subscriber")
+        self._cleanup(db_session, creator.id, follower.id)
+        self._make_follow(db_session, follower, creator)
+
+        podcast_data = schemas.PodcastCreate(
+            title="Linked Episode",
+            description="desc",
+            category="Business",
+            is_public=True,
+            duration=300,
+            audio_url="https://cdn.example.com/linked.mp3",
+        )
+        podcast = crud.create_podcast(db_session, podcast_data, owner_id=creator.id)
+
+        notifs = crud.get_notifications(db_session, user_id=follower.id)[0]
+        new_ep = [n for n in notifs if n.type == "new_episode"]
+        assert new_ep, "Expected at least one new_episode notification"
+        n = new_ep[0]
+        assert n.podcast_id == podcast.id
+        assert n.actor_id == creator.id
+
+    def test_private_podcast_does_not_notify_followers(self, db_session):
+        """Followers must not receive notifications for private episodes."""
+        creator  = _make_user(db_session, "ne_creator5@example.com",  "Private Creator")
+        follower = _make_user(db_session, "ne_follower5@example.com", "Eager Follower")
+        self._cleanup(db_session, creator.id, follower.id)
+        self._make_follow(db_session, follower, creator)
+
+        before = db_session.query(models.Notification).filter(
+            models.Notification.user_id == follower.id,
+            models.Notification.type == "new_episode",
+        ).count()
+
+        podcast_data = schemas.PodcastCreate(
+            title="Secret Draft",
+            description="not for public eyes",
+            category="Technology",
+            is_public=False,
+            duration=60,
+            audio_url="https://cdn.example.com/secret.mp3",
+        )
+        crud.create_podcast(db_session, podcast_data, owner_id=creator.id)
+
+        after = db_session.query(models.Notification).filter(
+            models.Notification.user_id == follower.id,
+            models.Notification.type == "new_episode",
+        ).count()
+        assert after == before, "Private podcast must not generate new_episode notifications"

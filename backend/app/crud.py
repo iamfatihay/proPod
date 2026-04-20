@@ -287,11 +287,94 @@ def create_podcast(db: Session, podcast: schemas.PodcastCreate, owner_id: int) -
     
     db.commit()
     db.refresh(db_podcast)
-    
+
     # Enrich with stats for serialization
     enrich_podcast_with_stats(db_podcast)
-    
+
+    # Notify all followers of this creator about the new episode.
+    # Wrapped in try/except so a notification failure never breaks podcast creation.
+    try:
+        _notify_followers_new_episode(db=db, podcast=db_podcast, owner_id=owner_id)
+    except Exception as exc:
+        logger.warning("new_episode notification fan-out failed (non-blocking): %s", exc)
+
     return db_podcast
+
+def _notify_followers_new_episode(
+    db: Session,
+    podcast: "models.Podcast",
+    owner_id: int,
+) -> None:
+    """
+    Fan out an in-app notification (+ push) to every follower of *owner_id*
+    when a new podcast episode is published.
+
+    Private podcasts are silently skipped — followers must not learn about
+    content that has not been made public.
+
+    All ``Notification`` rows are bulk-inserted in a single commit, and push
+    tokens for all followers are collected in one query so that
+    ``_send_expo_push`` is called exactly once (it already chunks internally).
+
+    Args:
+        db:       Database session (same session used to create the podcast).
+        podcast:  The newly-created ``Podcast`` object.
+        owner_id: ID of the creator who published the episode.
+    """
+    # Do not notify for private episodes — leaks metadata to followers.
+    if not podcast.is_public:
+        return
+
+    follower_ids = (
+        db.query(models.UserFollow.follower_id)
+        .filter(models.UserFollow.followed_id == owner_id)
+        .all()
+    )
+    if not follower_ids:
+        return
+
+    follower_ids = [row.follower_id for row in follower_ids]
+
+    owner = db.query(models.User).filter(models.User.id == owner_id).first()
+    creator_name: str = owner.name if owner else "A creator"
+
+    notif_title = f"New episode from {creator_name}"
+    notif_message = f'{creator_name} just published \u201c{podcast.title}\u201d'
+
+    # Bulk insert — single commit instead of one commit per follower.
+    notifications = [
+        models.Notification(
+            user_id=fid,
+            type="new_episode",
+            title=notif_title,
+            message=notif_message,
+            podcast_id=podcast.id,
+            actor_id=owner_id,
+            read=False,
+        )
+        for fid in follower_ids
+    ]
+    db.add_all(notifications)
+    db.commit()
+
+    # Collect all device tokens for all followers in one query, push once.
+    token_rows = (
+        db.query(models.DeviceToken.token)
+        .filter(models.DeviceToken.user_id.in_(follower_ids))
+        .all()
+    )
+    token_strings = [row.token for row in token_rows]
+    if token_strings:
+        _send_expo_push(
+            tokens=token_strings,
+            title=notif_title,
+            body=notif_message,
+            data={
+                "type": "new_episode",
+                "podcastId": podcast.id,
+                "actorId": owner_id,
+            },
+        )
 
 def get_podcast(db: Session, podcast_id: int, increment_play_count: bool = True, include_deleted: bool = False) -> Optional[models.Podcast]:
     """

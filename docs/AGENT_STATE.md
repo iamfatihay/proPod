@@ -16,8 +16,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-20
-**Last session (encoding fix + perf):** PR #67 was already merged by Fay. Fixed double-encoded UTF-8 mojibake in `crud.py` (88 occurrences — ellipsis, em dash, box drawing, emojis) → PR #69 `fix/crud-encoding-mojibake`. Also replaced whole-object `currentTrack` Zustand selector in `EpisodeRow` with a derived boolean → PR #70 `perf/episoderow-zustand-selector`. Full test suite: 407 passed, 0 failed.
-**Test suite baseline:** 407 backend tests, all passing.
+**Last session (new-episode follower notifications):** PRs #68/#69/#70 all merged by Fay at session start. Implemented `new_episode` notification fan-out in `create_podcast()` — followers receive an in-app notification + Expo push when a creator they follow publishes a new episode → PR #71 `feature/new-episode-follower-notifications`. Full test suite: 412 passed, 0 failed (+5 new tests).
+**Test suite baseline:** 412 backend tests, all passing.
 
 ### What's shipped (merged to master)
 - ✅ Playlist Play All + Share sheet — Play All queues ordered tracks; Share invokes native Share.share with deep link (PR #63)
@@ -64,15 +64,18 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ DM push notifications — PR #62
 - ✅ Listening history screen with progress bar, completion badge, pagination — PR #66
 - ✅ Listening history delete entry — `DELETE /podcasts/{podcast_id}/history`, trash-can icon, 5 backend tests — PR #67
+- ✅ Persisted Haptic Feedback setting — `hapticFeedback.js` preference-aware helper, wired to touch paths (PR #68)
+- ✅ Fix double-encoded UTF-8 mojibake in `crud.py` — 88 occurrences fixed, test restored (PR #69)
+- ✅ `EpisodeRow` Zustand selector perf — derived boolean instead of whole `currentTrack` object, O(n)→O(2) re-renders (PR #70)
 
 ### What's open / in-progress
-- 🔄 PR #68 `copilot/add-user-facing-feature` — Persisted **Haptic Feedback** setting, shared preference-aware haptics helper (`hapticFeedback.js`), existing touch/vibration paths wired to preference, targeted Jest coverage. Awaiting Fay's merge.
-- 🔄 PR #69 `fix/crud-encoding-mojibake` — Fixes double-encoded UTF-8 mojibake in `crud.py` (notification preview ellipsis, emoji titles, docstring chars). Restores `TestDMNotifications::test_send_dm_notification_preview_truncated`. 407 tests pass. Awaiting Fay's merge.
-- 🔄 PR #70 `perf/episoderow-zustand-selector` — Replaces whole-object `currentTrack` Zustand selector in `EpisodeRow` with derived boolean; cuts O(n) re-renders to O(2) on track switch. Syntax check passed. Awaiting Fay's merge.
+- 🔄 PR #71 `feature/new-episode-follower-notifications` — Fans out `new_episode` in-app notification + Expo push to all followers of a creator when `create_podcast()` is called. `_notify_followers_new_episode()` helper added in `crud.py`; fan-out wrapped in try/except so it never blocks podcast creation. 5 new tests in `TestNewEpisodeNotification`. 412 tests pass. Awaiting Fay's merge.
 
 ### Known issues / tech debt
 - Frontend `npm run lint` is currently blocked by repo-wide ESLint configuration/parsing issues (`Unexpected token <` across JSX files). Use `node --check` + targeted Jest until the lint config is fixed.
 - Push: no receipt polling — Expo Push API returns ticket IDs; check receipts at `https://exp.host/--/api/v2/push/getReceipts` to detect expired/invalid tokens and prune `device_tokens` table
+- `new_episode` notification fan-out is synchronous; if a creator gains many followers, migrate `_notify_followers_new_episode` to FastAPI `BackgroundTasks` to avoid slowing `POST /podcasts/`
+- Frontend: `new_episode` notification tap currently falls through to generic routing (PR #61); add explicit routing to the episode screen
 - DM inbox has no server-side pagination — fine for now, add if thread count grows large
 - DM text-only — no image/file attachments yet
 - Frontend unit test coverage still thin
@@ -149,8 +152,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FEATURE] Expo push receipt polling** — In `backend/app/crud.py`, extend `_send_expo_push` to store returned ticket IDs in a new `push_tickets` table (`id`, `ticket_id`, `device_token_id`, `created_at`). Add `POST /admin/push-receipts/check` endpoint in `backend/app/routers/admin.py` that POSTs ticket IDs to `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` device token rows. Add Alembic migration for `push_tickets`. Test suite target: 407 + ~5 new tests.
+1. **[FEATURE] Playlist deep-link share** — In `frontend/app/(main)/playlist-detail.js`, update the Share button handler (around line 280) to call `Share.share({ url: 'volo://playlist/' + playlistId, message: 'Check out this playlist on proPod' })`. Then in `frontend/src/utils/deep-link-handler.js` (or wherever `volo://podcast/{id}` is handled), add a branch for `volo://playlist/{id}` that calls `router.push('/(main)/playlist-detail?id=' + id)`. No backend changes needed. Pure frontend, high user-facing value.
 
-2. **[FEATURE] Playlist deep-link share** — In `frontend/app/(main)/playlist-detail.js`, update the Share button handler (around line 280) to call `Share.share({ url: 'volo://playlist/' + playlistId })`. Then in `frontend/src/utils/deep-link-handler.js` (or wherever `volo://podcast/{id}` is handled), add a branch for `volo://playlist/{id}` that navigates to `/(main)/playlist-detail?id={id}`. No backend changes needed.
+2. **[FEATURE] `new_episode` notification tap → episode deep-link** — In the frontend notification routing (file added in PR #61, search for `'new_episode'` or the notification tap handler in `frontend/app/(main)/notifications.js` or equivalent), add a branch: `if (type === 'new_episode' && podcastId) router.push('/(main)/details?id=' + podcastId)`. The podcast detail screen lives at `frontend/app/(main)/details.js`. This makes the push notification actionable — tapping it opens the episode directly.
 
-3. **[FEATURE] New-episode push notification to followers** — In `backend/app/crud.py`, extend `create_podcast()` to query `follows` table for followers of `owner_id` and call `_send_expo_push` for each follower's device tokens with `title="New episode from {creator_name}"`. Add `notification_type='new_episode'` to `create_notification` calls. New backend tests in `tests/test_notifications.py`. Target: 407 + ~4 new tests.
+3. **[FEATURE] Expo push receipt polling** — In `backend/app/crud.py`, extend `_send_expo_push` to store returned ticket IDs in a new `push_tickets` table (`id`, `ticket_id`, `device_token_id`, `created_at`). Add `POST /admin/push-receipts/check` endpoint in `backend/app/routers/admin.py` that POSTs ticket IDs to `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` device token rows. Add Alembic migration for `push_tickets`. Test suite target: 412 + ~5 new tests.
