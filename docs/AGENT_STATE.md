@@ -16,8 +16,8 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 ## 📍 Current Project State
 
 **Last updated:** 2026-04-20
-**Last session (new-episode follower notifications):** PRs #68/#69/#70 all merged by Fay at session start. Implemented `new_episode` notification fan-out in `create_podcast()` — followers receive an in-app notification + Expo push when a creator they follow publishes a new episode → PR #71 `feature/new-episode-follower-notifications`. Full test suite: 412 passed, 0 failed (+5 new tests).
-**Test suite baseline:** 412 backend tests, all passing.
+**Last session (new_episode push tap routing):** PR #71 merged by Fay at session start. Implemented `new_episode` push notification tap routing in `_layout.js` — tapping the push now deep-links directly to the episode detail screen instead of the generic notifications fallback. Also added `new_episode` to `serverTypes` in `useNotificationStore.js` → PR #72 `feature/new-episode-notification-routing`. 413 tests pass, 0 failed (no regressions).
+**Test suite baseline:** 413 backend tests, all passing.
 
 ### What's shipped (merged to master)
 - ✅ Playlist Play All + Share sheet — Play All queues ordered tracks; Share invokes native Share.share with deep link (PR #63)
@@ -67,15 +67,16 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Persisted Haptic Feedback setting — `hapticFeedback.js` preference-aware helper, wired to touch paths (PR #68)
 - ✅ Fix double-encoded UTF-8 mojibake in `crud.py` — 88 occurrences fixed, test restored (PR #69)
 - ✅ `EpisodeRow` Zustand selector perf — derived boolean instead of whole `currentTrack` object, O(n)→O(2) re-renders (PR #70)
+- ✅ `new_episode` follower notification fan-out — `_notify_followers_new_episode()` in `crud.py`, in-app + Expo push, try/except guard, 5 tests (PR #71)
+- ✅ `new_episode` push notification tap routing — `_layout.js` routes tap directly to episode detail screen; `new_episode` added to `serverTypes` in notification store (PR #72)
 
 ### What's open / in-progress
-- 🔄 PR #71 `feature/new-episode-follower-notifications` — Fans out `new_episode` in-app notification + Expo push to all followers of a creator when `create_podcast()` is called. `_notify_followers_new_episode()` helper added in `crud.py`; fan-out wrapped in try/except so it never blocks podcast creation. 5 new tests in `TestNewEpisodeNotification`. 412 tests pass. Awaiting Fay's merge.
+- 🔄 PR #72 `feature/new-episode-notification-routing` — Routes `new_episode` push notification taps to `/(main)/details?id=<podcastId>` instead of generic notifications fallback. Also adds `new_episode` to `serverTypes` in `useNotificationStore.js`. 413 tests pass. Awaiting Fay's merge.
 
 ### Known issues / tech debt
 - Frontend `npm run lint` is currently blocked by repo-wide ESLint configuration/parsing issues (`Unexpected token <` across JSX files). Use `node --check` + targeted Jest until the lint config is fixed.
 - Push: no receipt polling — Expo Push API returns ticket IDs; check receipts at `https://exp.host/--/api/v2/push/getReceipts` to detect expired/invalid tokens and prune `device_tokens` table
 - `new_episode` notification fan-out is synchronous; if a creator gains many followers, migrate `_notify_followers_new_episode` to FastAPI `BackgroundTasks` to avoid slowing `POST /podcasts/`
-- Frontend: `new_episode` notification tap currently falls through to generic routing (PR #61); add explicit routing to the episode screen
 - DM inbox has no server-side pagination — fine for now, add if thread count grows large
 - DM text-only — no image/file attachments yet
 - Frontend unit test coverage still thin
@@ -152,8 +153,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FEATURE] Playlist deep-link share** — In `frontend/app/(main)/playlist-detail.js`, update the Share button handler (around line 280) to call `Share.share({ url: 'volo://playlist/' + playlistId, message: 'Check out this playlist on proPod' })`. Then in `frontend/src/utils/deep-link-handler.js` (or wherever `volo://podcast/{id}` is handled), add a branch for `volo://playlist/{id}` that calls `router.push('/(main)/playlist-detail?id=' + id)`. No backend changes needed. Pure frontend, high user-facing value.
+1. **[FEATURE] Expo push receipt polling** — In `backend/app/crud.py`, extend `_send_expo_push` to store returned Expo ticket IDs in a new `push_tickets` table (`id`, `ticket_id`, `device_token_id`, `created_at`). Add `POST /admin/push-receipts/check` endpoint in `backend/app/routers/admin.py` that POSTs ticket IDs to `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` device token rows. Add Alembic migration for `push_tickets`. Test suite target: 413 + ~5 new tests.
 
-2. **[FEATURE] `new_episode` notification tap → episode deep-link** — In the frontend notification routing (file added in PR #61, search for `'new_episode'` or the notification tap handler in `frontend/app/(main)/notifications.js` or equivalent), add a branch: `if (type === 'new_episode' && podcastId) router.push('/(main)/details?id=' + podcastId)`. The podcast detail screen lives at `frontend/app/(main)/details.js`. This makes the push notification actionable — tapping it opens the episode directly.
+2. **[FEATURE] `new_episode` fan-out → BackgroundTasks** — In `backend/app/routers/podcasts.py` (the `POST /podcasts/` handler), pass `background_tasks: BackgroundTasks` and move the `_notify_followers_new_episode(...)` call into `background_tasks.add_task(...)` so it doesn't block the HTTP response. Update the existing `TestNewEpisodeNotification` tests to account for the async dispatch. This is a performance improvement that matters when creator follower counts grow large.
 
-3. **[FEATURE] Expo push receipt polling** — In `backend/app/crud.py`, extend `_send_expo_push` to store returned ticket IDs in a new `push_tickets` table (`id`, `ticket_id`, `device_token_id`, `created_at`). Add `POST /admin/push-receipts/check` endpoint in `backend/app/routers/admin.py` that POSTs ticket IDs to `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` device token rows. Add Alembic migration for `push_tickets`. Test suite target: 412 + ~5 new tests.
+3. **[FEATURE] Creator profile "Follow" UX improvement** — In `frontend/app/(main)/creator-profile.js`, the Follow button currently requires a full page reload to reflect the new follower count. Wire the response from `POST /users/{id}/follow` (which returns updated counts) to update the local state directly — no `useFocusEffect` re-fetch needed. Pure frontend, improves perceived responsiveness.
