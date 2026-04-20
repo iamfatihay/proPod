@@ -15,9 +15,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-17
-**Last session (history delete):** Opened PR #67 — `feature/history-delete-entry`. New `DELETE /podcasts/{podcast_id}/history` endpoint backed by `crud.delete_listening_history()`. `HistoryRow` gets a trash-can icon that optimistically removes the entry from state, then fires the API in the background. 5 new backend tests in `TestDeleteListeningHistory`. PR was pushed via GitHub Git API (browser JS) because sandbox filesystem was 100% full — tests could not be run this session.
-**Test suite baseline:** 402 backend tests (pre-session). +5 new tests in PR #67, unrun due to disk constraint.
+**Last updated:** 2026-04-20
+**Last session (encoding fix + perf):** PR #67 was already merged by Fay. Fixed double-encoded UTF-8 mojibake in `crud.py` (88 occurrences — ellipsis, em dash, box drawing, emojis) → PR #69 `fix/crud-encoding-mojibake`. Also replaced whole-object `currentTrack` Zustand selector in `EpisodeRow` with a derived boolean → PR #70 `perf/episoderow-zustand-selector`. Full test suite: 407 passed, 0 failed.
+**Test suite baseline:** 407 backend tests, all passing.
 
 ### What's shipped (merged to master)
 - ✅ Playlist Play All + Share sheet — Play All queues ordered tracks; Share invokes native Share.share with deep link (PR #63)
@@ -63,12 +63,13 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Playlist Play All + Share sheet — PR #63
 - ✅ DM push notifications — PR #62
 - ✅ Listening history screen with progress bar, completion badge, pagination — PR #66
+- ✅ Listening history delete entry — `DELETE /podcasts/{podcast_id}/history`, trash-can icon, 5 backend tests — PR #67
 
 ### What's open / in-progress
-- 🔄 PR #67 `feature/history-delete-entry` — `DELETE /podcasts/{podcast_id}/history` endpoint + trash-can icon in history.js. 5 new backend tests (unrun due to disk constraint). Awaiting Fay's merge.
+- 🔄 PR #69 `fix/crud-encoding-mojibake` — Fixes double-encoded UTF-8 mojibake in `crud.py` (notification preview ellipsis, emoji titles, docstring chars). Restores `TestDMNotifications::test_send_dm_notification_preview_truncated`. 407 tests pass. Awaiting Fay's merge.
+- 🔄 PR #70 `perf/episoderow-zustand-selector` — Replaces whole-object `currentTrack` Zustand selector in `EpisodeRow` with derived boolean; cuts O(n) re-renders to O(2) on track switch. Syntax check passed. Awaiting Fay's merge.
 
 ### Known issues / tech debt
-- **⚠️ DISK SPACE:** Sandbox filesystem (/sessions) was 100% full this session. pip install left partial packages (openai, fastapi, pydub broken at various points). Next session: verify packages are intact before running tests, or start fresh. Free space by removing unused packages.
 - Push: no receipt polling — Expo Push API returns ticket IDs; check receipts at `https://exp.host/--/api/v2/push/getReceipts` to detect expired/invalid tokens and prune `device_tokens` table
 - DM inbox has no server-side pagination — fine for now, add if thread count grows large
 - DM text-only — no image/file attachments yet
@@ -79,11 +80,11 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **[FEATURE] Expo push receipt polling** — After firing pushes, Expo returns ticket IDs. Extend `_send_expo_push` in `crud.py` to store ticket IDs, then add a `POST /admin/push-receipts/check` endpoint (admin-only) that calls `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` tokens from `device_tokens`.
+1. **[FEATURE] Expo push receipt polling** — After firing pushes, Expo returns ticket IDs. Extend `_send_expo_push` in `crud.py` to store ticket IDs, then add a `POST /admin/push-receipts/check` endpoint (admin-only) that calls `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` tokens from `device_tokens`. Requires Alembic migration for `push_tickets` table.
 
-2. **[PERF/UX] Optimise EpisodeRow Zustand selector** — In `frontend/app/(main)/playlist-detail.js`, `EpisodeRow` subscribes to `state.currentTrack` (whole object). Fix: change to a derived boolean selector so only 2 rows re-render on track change instead of all visible rows.
+2. **[FEATURE] Playlist deep-link share** — Add `volo://playlist/{id}` deep link handling in `frontend/app/(main)/playlist-detail.js` (alongside the existing episode deep link). Backend already returns playlist data at `GET /playlists/{id}`. Primarily frontend: extend the Share button in `playlist-detail.js` to generate the deep link, and wire `deep-link-handler.js` to navigate to the playlist screen on open.
 
-3. **[FEATURE] Playlist share / export** — Allow creators to share a playlist as a deep link (`volo://playlist/{id}`) or export it as a list of episode titles. Frontend work in `frontend/app/(main)/playlist-detail.js`.
+3. **[FEATURE] "New Episode" push notification for followed creators** — When `POST /podcasts/` is called, check for followers of `owner_id` and fire push notifications to each. The follow system (`GET /users/{id}/followers`) and push infra (`_send_expo_push`) already exist. Add a new notification type `new_episode` and extend `create_podcast` in `crud.py` to fan out notifications to follower device tokens.
 
 ---
 
@@ -146,8 +147,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[DISK] Fix sandbox disk space before anything else** — Run `pip install --break-system-packages openai pydub sqladmin` to restore the broken package state, then verify `python3 -c "from app.main import app"` loads cleanly. Run `python -m pytest tests/test_podcast_interactions.py::TestDeleteListeningHistory -v` to confirm PR #67's 5 new tests pass (baseline should become 407). This unblocks all future test validation.
+1. **[FEATURE] Expo push receipt polling** — In `backend/app/crud.py`, extend `_send_expo_push` to store returned ticket IDs in a new `push_tickets` table (`id`, `ticket_id`, `device_token_id`, `created_at`). Add `POST /admin/push-receipts/check` endpoint in `backend/app/routers/admin.py` that POSTs ticket IDs to `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` device token rows. Add Alembic migration for `push_tickets`. Test suite target: 407 + ~5 new tests.
 
-2. **[FEATURE] Expo push receipt polling** — In `backend/app/crud.py`, extend `_send_expo_push` to store returned ticket IDs in a new `push_tickets` table (id, ticket_id, device_token_id, created_at), then add `POST /admin/push-receipts/check` endpoint (admin-only) that POSTs ticket IDs to `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` device tokens. Requires Alembic migration for `push_tickets`.
+2. **[FEATURE] Playlist deep-link share** — In `frontend/app/(main)/playlist-detail.js`, update the Share button handler (around line 280) to call `Share.share({ url: 'volo://playlist/' + playlistId })`. Then in `frontend/src/utils/deep-link-handler.js` (or wherever `volo://podcast/{id}` is handled), add a branch for `volo://playlist/{id}` that navigates to `/(main)/playlist-detail?id={id}`. No backend changes needed.
 
-3. **[PERF/UX] Optimise EpisodeRow Zustand selector** — In `frontend/app/(main)/playlist-detail.js`, line 40: `const currentTrack = useAudioStore((state) => state.currentTrack)` selects the whole object. When any track property changes, ALL visible `EpisodeRow` components re-render. Fix: replace with `const isActive = useAudioStore((state) => String(state.currentTrack?.id) === String(podcast?.id))` and remove the derived `isActive` line. This cuts O(n) re-renders to O(2) on every track change.
+3. **[FEATURE] New-episode push notification to followers** — In `backend/app/crud.py`, extend `create_podcast()` to query `follows` table for followers of `owner_id` and call `_send_expo_push` for each follower's device tokens with `title="New episode from {creator_name}"`. Add `notification_type='new_episode'` to `create_notification` calls. New backend tests in `tests/test_notifications.py`. Target: 407 + ~4 new tests.
