@@ -31,8 +31,8 @@ FRONTEND_ENV="$ROOT_DIR/frontend/.env"
 BACKEND_ENV="$ROOT_DIR/backend/.env"
 BACKEND_PID=""
 
-echo "🚀 ProPod Dev (Tunnel mode — works on any network)"
-echo "===================================================="
+echo "🚀 ProPod Dev (Tunnel mode)"
+echo "==========================="
 
 # ── Cleanup handler ──────────────────────────────────────────
 cleanup() {
@@ -127,7 +127,7 @@ echo "┌───────────────────────�
 echo "│  Backend API:  $TUNNEL_URL"
 echo "│  Webhooks:     $TUNNEL_URL/rtc/webhooks/100ms"
 echo "│"
-echo "│  Works from any network (same WiFi, mobile data, office)"
+echo "│  Backend is reachable from any network via localtunnel"
 echo "└────────────────────────────────────────────────────────────┘"
 echo ""
 
@@ -136,4 +136,16 @@ echo "📱 Starting Expo (tunnel mode)..."
 echo "   Scan QR from any network — phone does NOT need to be on same WiFi"
 echo ""
 cd "$ROOT_DIR/frontend"
-npm run start:dev:tunnel
+if ! npm run start:dev:tunnel; then
+    echo ""
+    echo "❌ Expo tunnel failed to start."
+    echo "   Backend tunnel is healthy: $TUNNEL_URL"
+    echo "   The failure is in Expo/@expo-ngrok, not in backend/localtunnel."
+    echo ""
+    echo "   What this means:"
+    echo "   - Same WiFi: use npm run dev"
+    echo "   - Different networks: Expo tunnel is currently unavailable in this environment"
+    echo ""
+    echo "   Retry later or use another remote-network solution for the Metro/dev-client channel."
+    exit 1
+fi

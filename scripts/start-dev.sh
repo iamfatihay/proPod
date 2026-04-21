@@ -96,38 +96,51 @@ echo "📡 API will be served at: http://$WINDOWS_IP:8000"
 echo "   (auto-detected by app — no manual .env update needed next time)"
 echo ""
 
-# ── Step 4: Start backend ────────────────────────────────────
-echo "🐍 Starting backend..."
-cd "$ROOT_DIR/backend"
+# ── Step 4: Start backend if not already running ─────────────
+BACKEND_PID=""
 
-if [ ! -f "venv/bin/activate" ]; then
-    echo "❌ venv not found. Run: cd backend && python -m venv venv && pip install -r requirements.txt"
-    exit 1
-fi
-
-source venv/bin/activate
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
-BACKEND_PID=$!
-echo "✅ Backend started (PID: $BACKEND_PID)"
-
-# Register cleanup immediately after capturing PID so Ctrl-C always cleans up
-trap "echo ''; echo '🛑 Stopping backend...'; kill $BACKEND_PID 2>/dev/null" EXIT INT TERM
-
-# Wait for backend to be ready
-echo "⏳ Waiting for backend..."
-BACKEND_READY=false
-for i in {1..10}; do
-    if curl -s "http://localhost:8000/docs" > /dev/null 2>&1; then
-        BACKEND_READY=true
-        echo "✅ Backend ready"
-        break
+cleanup() {
+    if [ -n "$BACKEND_PID" ]; then
+        echo ""
+        echo "🛑 Stopping backend..."
+        kill "$BACKEND_PID" 2>/dev/null || true
     fi
-    sleep 1
-done
+}
+trap cleanup EXIT INT TERM
 
-if [ "$BACKEND_READY" = false ]; then
-    echo "⚠️  Backend did not respond after 10s — check for venv/import errors above."
-    echo "   Expo will still start, but API calls will fail until backend is up."
+echo "🔍 Checking backend..."
+if curl -s "http://localhost:8000/docs" > /dev/null 2>&1; then
+    echo "✅ Backend already running"
+else
+    echo "🐍 Starting backend..."
+    cd "$ROOT_DIR/backend"
+
+    if [ ! -f "venv/bin/activate" ]; then
+        echo "❌ venv not found. Run: cd backend && python -m venv venv && pip install -r requirements.txt"
+        exit 1
+    fi
+
+    source venv/bin/activate
+    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
+    BACKEND_PID=$!
+    echo "✅ Backend started (PID: $BACKEND_PID)"
+
+    # Wait for backend to be ready
+    echo "⏳ Waiting for backend..."
+    BACKEND_READY=false
+    for i in {1..10}; do
+        if curl -s "http://localhost:8000/docs" > /dev/null 2>&1; then
+            BACKEND_READY=true
+            echo "✅ Backend ready"
+            break
+        fi
+        sleep 1
+    done
+
+    if [ "$BACKEND_READY" = false ]; then
+        echo "⚠️  Backend did not respond after 10s — check for venv/import errors above."
+        echo "   Expo will still start, but API calls will fail until backend is up."
+    fi
 fi
 
 # ── Step 5: Start Expo (LAN) ─────────────────────────────────
