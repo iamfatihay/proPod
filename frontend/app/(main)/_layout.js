@@ -197,9 +197,11 @@ export default function TabLayout() {
     const unreadCount = useNotificationStore((state) => state.unreadCount);
     const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
 
-    // DM unread count and server fetch for Messages tab badge
+    // DM unread count is folded into Notifications now that Messages is no
+    // longer a primary tab-bar destination.
     const unreadDMCount = useDMStore((state) => state.unreadDMCount);
     const fetchDMUnreadCount = useDMStore((state) => state.fetchDMUnreadCount);
+    const totalInboxCount = unreadCount + unreadDMCount;
 
     // Fetch server notifications on mount so the badge is accurate from first
     // render — without this, the badge only populates when the user visits the
@@ -359,22 +361,7 @@ export default function TabLayout() {
                     <Tabs.Screen
                         name="messages"
                         options={{
-                            tabBarIcon: ({ color, focused }) => (
-                                <TabIcon
-                                    icon={
-                                        focused
-                                            ? "chatbubbles"
-                                            : "chatbubbles-outline"
-                                    }
-                                    color={color}
-                                    focused={focused}
-                                    badge={unreadDMCount}
-                                    badgeLabel="message"
-                                />
-                            ),
-                            tabBarAccessibilityLabel: unreadDMCount > 0
-                                ? `Messages, ${unreadDMCount} unread`
-                                : "Messages",
+                            href: null,
                         }}
                     />
                     <Tabs.Screen
@@ -389,13 +376,22 @@ export default function TabLayout() {
                                     }
                                     color={color}
                                     focused={focused}
-                                    badge={unreadCount}
+                                    badge={totalInboxCount}
                                 />
                             ),
+                            tabBarAccessibilityLabel: totalInboxCount > 0
+                                ? `Notifications, ${totalInboxCount} unread items`
+                                : "Notifications",
                         }}
                     />
                     <Tabs.Screen
                         name="details"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    <Tabs.Screen
+                        name="history"
                         options={{
                             href: null,
                         }}

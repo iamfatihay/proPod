@@ -79,7 +79,7 @@ const HistoryRow = React.memo(
                     style={styles.rowPressable}
                     accessibilityLabel={a11yLabel}
                 >
-                {/* Thumbnail */
+                {/* Thumbnail */}
                 <View style={styles.thumbnailWrap}>
                     {podcast.thumbnail_url ? (
                         <Image

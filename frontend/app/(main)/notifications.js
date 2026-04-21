@@ -28,6 +28,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import useNotificationStore from "../../src/context/useNotificationStore";
+import useDMStore from "../../src/context/useDMStore";
 import Logger from "../../src/utils/logger";
 import { COLORS, FONT_SIZES, BORDER_RADIUS, addAlpha, getNotificationColors } from "../../src/constants/theme";
 
@@ -189,6 +190,7 @@ export default function NotificationsScreen() {
     const router = useRouter();
     const notifications = useNotificationStore((state) => state.notifications);
     const unreadCount = useNotificationStore((state) => state.unreadCount);
+    const unreadDMCount = useDMStore((state) => state.unreadDMCount);
     const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
     const markAsReadWithSync = useNotificationStore((state) => state.markAsReadWithSync);
     const markAllAsReadWithSync = useNotificationStore((state) => state.markAllAsReadWithSync);
@@ -247,6 +249,10 @@ export default function NotificationsScreen() {
         markAllAsReadWithSync();
     };
 
+    const handleOpenMessages = () => {
+        router.push("/(main)/messages");
+    };
+
     return (
         <View
             style={{
@@ -257,60 +263,150 @@ export default function NotificationsScreen() {
             {/* Header */}
             <View
                 style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
                     paddingHorizontal: 20,
                     paddingVertical: 16,
                     borderBottomWidth: 1,
                     borderBottomColor: COLORS.border,
                 }}
             >
-                <View>
-                    <Text
-                        style={{
-                            fontSize: FONT_SIZES.xl,
-                            fontWeight: "700",
-                            color: COLORS.text.primary,
-                        }}
-                    >
-                        Notifications
-                    </Text>
-                    {unreadCount > 0 && (
+                <View
+                    style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 14,
+                    }}
+                >
+                    <View>
                         <Text
                             style={{
-                                fontSize: FONT_SIZES.sm,
-                                color: COLORS.text.muted,
-                                marginTop: 2,
+                                fontSize: FONT_SIZES.xl,
+                                fontWeight: "700",
+                                color: COLORS.text.primary,
                             }}
                         >
-                            {unreadCount} unread
+                            Notifications
                         </Text>
+                        {(unreadCount > 0 || unreadDMCount > 0) && (
+                            <Text
+                                style={{
+                                    fontSize: FONT_SIZES.sm,
+                                    color: COLORS.text.muted,
+                                    marginTop: 2,
+                                }}
+                            >
+                                {unreadCount} updates, {unreadDMCount} messages
+                            </Text>
+                        )}
+                    </View>
+
+                    {unreadCount > 0 && (
+                        <TouchableOpacity
+                            onPress={handleMarkAllRead}
+                            style={{
+                                paddingHorizontal: 16,
+                                paddingVertical: 8,
+                                borderRadius: BORDER_RADIUS.lg,
+                                backgroundColor: addAlpha(COLORS.primary, 0.12),
+                            }}
+                        >
+                            <Text
+                                style={{
+                                    fontSize: FONT_SIZES.base,
+                                    fontWeight: "600",
+                                    color: COLORS.primary,
+                                }}
+                            >
+                                Mark all read
+                            </Text>
+                        </TouchableOpacity>
                     )}
                 </View>
 
-                {/* Mark all as read button */}
-                {unreadCount > 0 && (
-                    <TouchableOpacity
-                        onPress={handleMarkAllRead}
+                <TouchableOpacity
+                    onPress={handleOpenMessages}
+                    activeOpacity={0.8}
+                    style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        backgroundColor: COLORS.card,
+                        borderRadius: BORDER_RADIUS.lg,
+                        borderWidth: 1,
+                        borderColor: COLORS.border,
+                        paddingHorizontal: 16,
+                        paddingVertical: 14,
+                    }}
+                >
+                    <View
                         style={{
-                            paddingHorizontal: 16,
-                            paddingVertical: 8,
-                            borderRadius: BORDER_RADIUS.lg,
-                            backgroundColor: addAlpha(COLORS.primary, 0.12),
+                            width: 40,
+                            height: 40,
+                            borderRadius: 20,
+                            backgroundColor: addAlpha(COLORS.info, 0.16),
+                            alignItems: "center",
+                            justifyContent: "center",
+                            marginRight: 12,
                         }}
                     >
+                        <Ionicons
+                            name="chatbubbles-outline"
+                            size={20}
+                            color={COLORS.info}
+                        />
+                    </View>
+
+                    <View style={{ flex: 1 }}>
                         <Text
                             style={{
+                                color: COLORS.text.primary,
                                 fontSize: FONT_SIZES.base,
-                                fontWeight: "600",
-                                color: COLORS.primary,
+                                fontWeight: "700",
+                                marginBottom: 2,
                             }}
                         >
-                            Mark all read
+                            Direct Messages
                         </Text>
-                    </TouchableOpacity>
-                )}
+                        <Text
+                            style={{
+                                color: COLORS.text.secondary,
+                                fontSize: FONT_SIZES.sm,
+                            }}
+                        >
+                            Private conversations live here now.
+                        </Text>
+                    </View>
+
+                    {unreadDMCount > 0 && (
+                        <View
+                            style={{
+                                minWidth: 22,
+                                height: 22,
+                                borderRadius: 11,
+                                backgroundColor: COLORS.primary,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                paddingHorizontal: 6,
+                                marginRight: 10,
+                            }}
+                        >
+                            <Text
+                                style={{
+                                    color: COLORS.text.primary,
+                                    fontSize: FONT_SIZES.xs,
+                                    fontWeight: "700",
+                                }}
+                            >
+                                {unreadDMCount > 99 ? "99+" : unreadDMCount}
+                            </Text>
+                        </View>
+                    )}
+
+                    <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color={COLORS.text.muted}
+                    />
+                </TouchableOpacity>
             </View>
 
             {/* Notifications List */}

@@ -26,18 +26,30 @@ echo "🚀 ProPod Dev (LAN mode)"
 echo "========================"
 
 # ── Step 1: Detect Windows WiFi IP ──────────────────────────
-# Use DHCP-assigned addresses sorted by interface metric (lowest = highest priority).
-# This handles localized Wi-Fi names ("Wi-Fi 2", "WLAN", etc.) and
-# does not exclude 172.x.x.x which is a valid private range (172.16.0.0/12).
+# Priority 1: 192.168.x.x — standard home/office WiFi (most common)
 WINDOWS_IP=$(powershell.exe -Command \
-    "(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { \$_.PrefixOrigin -eq 'Dhcp' -and \$_.IPAddress -notmatch '^(127\.|169\.254\.)' } | Sort-Object InterfaceMetric | Select-Object -First 1).IPAddress" \
+    "(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { \$_.PrefixOrigin -eq 'Dhcp' -and \$_.IPAddress -match '^192\.168\.' } | Sort-Object InterfaceMetric | Select-Object -First 1).IPAddress" \
     2>/dev/null | tr -d '\r\n ')
 
-# Fallback: parse ipconfig.exe output
+# Priority 2: 10.x.x.x — corporate WiFi / some hotspots
+if [ -z "$WINDOWS_IP" ]; then
+    WINDOWS_IP=$(powershell.exe -Command \
+        "(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { \$_.PrefixOrigin -eq 'Dhcp' -and \$_.IPAddress -match '^10\.' } | Sort-Object InterfaceMetric | Select-Object -First 1).IPAddress" \
+        2>/dev/null | tr -d '\r\n ')
+fi
+
+# Priority 3: any DHCP, but skip VPN/WireGuard (172.16–31.x.x range)
+if [ -z "$WINDOWS_IP" ]; then
+    WINDOWS_IP=$(powershell.exe -Command \
+        "(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { \$_.PrefixOrigin -eq 'Dhcp' -and \$_.IPAddress -notmatch '^(127\.|169\.254\.|172\.(1[6-9]|2[0-9]|3[01])\.)' } | Sort-Object InterfaceMetric | Select-Object -First 1).IPAddress" \
+        2>/dev/null | tr -d '\r\n ')
+fi
+
+# Priority 4: ipconfig.exe parse — fallback for non-DHCP or WSL quirks
 if [ -z "$WINDOWS_IP" ]; then
     WINDOWS_IP=$(ipconfig.exe 2>/dev/null \
         | grep "IPv4" \
-        | grep -v "127\.\|169\.254\." \
+        | grep -E "192\.168\.|^10\." \
         | head -1 \
         | awk -F': ' '{print $2}' \
         | tr -d '\r ')
@@ -45,8 +57,8 @@ fi
 
 if [ -z "$WINDOWS_IP" ]; then
     echo "❌ Could not detect Windows WiFi IP."
-    echo "   Set REACT_NATIVE_PACKAGER_HOSTNAME manually in frontend/.env"
-    echo "   Then run: cd frontend && npm run start:dev"
+    echo "   Make sure phone and laptop are on the same WiFi."
+    echo "   Alternatively use:  npm run dev:tunnel  (works on any network)"
     exit 1
 fi
 
