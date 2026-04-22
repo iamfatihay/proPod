@@ -2,7 +2,7 @@
 from typing import Any, Dict, List, Optional, Tuple
 import json
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
@@ -229,6 +229,7 @@ def _extract_recording_info(payload: Dict[str, Any]) -> Tuple[Optional[str], Opt
 @router.post("/webhooks/100ms")
 async def hms_webhook(
     request: Request,
+    background_tasks: BackgroundTasks,
     x_webhook_secret: Optional[str] = Header(default=None, alias="X-Webhook-Secret"),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
@@ -293,6 +294,14 @@ async def hms_webhook(
         )
 
         podcast = crud.create_podcast(db, podcast_data, session.owner_id)
+        # Fan out new_episode notifications after response — same pattern as
+        # the REST create endpoint; rtc.py is a webhook so BackgroundTasks
+        # is the right dispatch mechanism here too.
+        if podcast.is_public:
+            background_tasks.add_task(
+                crud.notify_followers_new_episode_background,
+                podcast_id=podcast.id,
+            )
         session.podcast_id = podcast.id
         session.recording_url = recording_url
         session.duration_seconds = duration_seconds

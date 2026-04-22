@@ -41,7 +41,6 @@ def create_podcast(
         background_tasks.add_task(
             crud.notify_followers_new_episode_background,
             podcast_id=db_podcast.id,
-            owner_id=current_user.id,
         )
     return db_podcast
 

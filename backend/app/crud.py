@@ -376,7 +376,7 @@ def _notify_followers_new_episode(
             },
         )
 
-def notify_followers_new_episode_background(podcast_id: int, owner_id: int) -> None:
+def notify_followers_new_episode_background(podcast_id: int) -> None:
     """
     Background-task-safe wrapper for the new-episode notification fan-out.
 
@@ -385,13 +385,16 @@ def notify_followers_new_episode_background(podcast_id: int, owner_id: int) -> N
     This function creates its own short-lived session so it can safely
     reach the database without touching the caller's session.
 
+    ``owner_id`` is intentionally NOT a parameter — it is read from the
+    persisted podcast row to avoid any risk of caller/model mismatch.
+
     Args:
         podcast_id: ID of the newly-created podcast.
-        owner_id:   User ID of the creator who published it.
 
     Called from:
         routers/podcasts.py  ``create_podcast`` route handler via
         ``background_tasks.add_task()``.
+        routers/rtc.py       ``hms_webhook`` handler (same pattern).
     """
     from .database import SessionLocal  # local import avoids circular deps at module load
 
@@ -403,7 +406,8 @@ def notify_followers_new_episode_background(podcast_id: int, owner_id: int) -> N
                 "notify_followers_new_episode_background: podcast %s not found", podcast_id
             )
             return
-        _notify_followers_new_episode(db=db, podcast=podcast, owner_id=owner_id)
+        # Derive owner_id from the persisted row — single source of truth.
+        _notify_followers_new_episode(db=db, podcast=podcast, owner_id=podcast.owner_id)
     except Exception as exc:  # pragma: no cover — network / DB failures in background
         logger.warning("Background new_episode fan-out failed (podcast %s): %s", podcast_id, exc)
     finally:
