@@ -304,7 +304,9 @@ class TestNewEpisodeNotification:
             duration=120,
             audio_url="https://cdn.example.com/ep0.mp3",
         )
-        crud.create_podcast(db_session, podcast_data, owner_id=creator.id)
+        _pod = crud.create_podcast(db_session, podcast_data, owner_id=creator.id)
+        # Fan-out is now a BackgroundTask in the router; tests call the helper directly.
+        crud._notify_followers_new_episode(db=db_session, podcast=_pod, owner_id=creator.id)
 
         for fan_id in (follower1.id, follower2.id):
             notifs = crud.get_notifications(db_session, user_id=fan_id)[0]
@@ -326,7 +328,9 @@ class TestNewEpisodeNotification:
             duration=60,
             audio_url="https://cdn.example.com/solo.mp3",
         )
-        crud.create_podcast(db_session, podcast_data, owner_id=lone_creator.id)
+        _pod = crud.create_podcast(db_session, podcast_data, owner_id=lone_creator.id)
+        # Fan-out is now a BackgroundTask in the router; tests call the helper directly.
+        crud._notify_followers_new_episode(db=db_session, podcast=_pod, owner_id=lone_creator.id)
 
         after_total = db_session.query(models.Notification).count()
         # No new notifications should have been created
@@ -347,7 +351,9 @@ class TestNewEpisodeNotification:
             duration=180,
             audio_url="https://cdn.example.com/dd1.mp3",
         )
-        crud.create_podcast(db_session, podcast_data, owner_id=creator.id)
+        _pod = crud.create_podcast(db_session, podcast_data, owner_id=creator.id)
+        # Fan-out is now a BackgroundTask in the router; tests call the helper directly.
+        crud._notify_followers_new_episode(db=db_session, podcast=_pod, owner_id=creator.id)
 
         notifs = crud.get_notifications(db_session, user_id=follower.id)[0]
         new_ep = [n for n in notifs if n.type == "new_episode"]
@@ -370,7 +376,9 @@ class TestNewEpisodeNotification:
             duration=240,
             audio_url="https://cdn.example.com/reveal.mp3",
         )
-        crud.create_podcast(db_session, podcast_data, owner_id=creator.id)
+        _pod = crud.create_podcast(db_session, podcast_data, owner_id=creator.id)
+        # Fan-out is now a BackgroundTask in the router; tests call the helper directly.
+        crud._notify_followers_new_episode(db=db_session, podcast=_pod, owner_id=creator.id)
 
         notifs = crud.get_notifications(db_session, user_id=follower.id)[0]
         new_ep = [n for n in notifs if n.type == "new_episode"]
@@ -393,6 +401,8 @@ class TestNewEpisodeNotification:
             audio_url="https://cdn.example.com/linked.mp3",
         )
         podcast = crud.create_podcast(db_session, podcast_data, owner_id=creator.id)
+        # Fan-out is now a BackgroundTask in the router; tests call the helper directly.
+        crud._notify_followers_new_episode(db=db_session, podcast=podcast, owner_id=creator.id)
 
         notifs = crud.get_notifications(db_session, user_id=follower.id)[0]
         new_ep = [n for n in notifs if n.type == "new_episode"]
@@ -421,7 +431,9 @@ class TestNewEpisodeNotification:
             duration=60,
             audio_url="https://cdn.example.com/secret.mp3",
         )
-        crud.create_podcast(db_session, podcast_data, owner_id=creator.id)
+        _pod = crud.create_podcast(db_session, podcast_data, owner_id=creator.id)
+        # Fan-out is now a BackgroundTask in the router; tests call the helper directly.
+        crud._notify_followers_new_episode(db=db_session, podcast=_pod, owner_id=creator.id)
 
         after = db_session.query(models.Notification).filter(
             models.Notification.user_id == follower.id,
