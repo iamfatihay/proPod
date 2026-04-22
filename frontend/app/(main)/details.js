@@ -200,6 +200,7 @@ const Details = () => {
             artwork: podcast.thumbnail_url,
             category: podcast.category,
             description: podcast.description,
+            ownerId: podcast.owner?.id ?? podcast.owner_id,
         };
 
         // Non-blocking audio operations - errors handled via audioError state

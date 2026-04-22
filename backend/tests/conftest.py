@@ -5,6 +5,9 @@ ensuring that tests using SessionLocal() have the required schema in place.
 """
 import os
 import pytest
+
+os.environ.setdefault("DATABASE_URL", "sqlite:///./propod_test.db")
+
 from app.database import Base, engine, SessionLocal
 from app.auth import create_access_token, get_password_hash
 from app import crud, schemas
@@ -25,6 +28,9 @@ def setup_database():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+    db_path = str(engine.url.database or "")
+    if db_path and db_path not in (":memory:", "") and os.path.exists(db_path):
+        os.remove(db_path)
 
 
 @pytest.fixture

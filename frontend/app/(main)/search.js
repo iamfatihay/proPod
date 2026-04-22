@@ -10,9 +10,9 @@ import {
     Platform,
     StatusBar,
 } from "react-native";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import PodcastCard from "../../src/components/PodcastCard";
 import SemanticSearchService from "../../src/services/ai/SemanticSearchService";
 import apiService from "../../src/services/api/apiService";
@@ -31,21 +31,42 @@ const Search = () => {
     const [isSearching, setIsSearching] = useState(false);
     const [searchMode, setSearchMode] = useState("all"); // 'all' or 'transcriptions'
     const [showHistory, setShowHistory] = useState(true);
+    const searchInputRef = useRef(null);
 
     useEffect(() => {
         // Load search history on mount
         loadSearchHistory();
     }, []);
 
+    // Autofocus the search input every time the Search tab is focused,
+    // so the keyboard appears instantly (consistent with Instagram/Spotify).
+    useFocusEffect(
+        useCallback(() => {
+            const timeout = setTimeout(() => {
+                searchInputRef.current?.focus();
+            }, Platform.OS === "android" ? 250 : 100);
+            return () => clearTimeout(timeout);
+        }, [])
+    );
+
     useEffect(() => {
-        // Get suggestions as user types
-        if (searchQuery.length >= 2) {
-            loadSuggestions();
-        } else {
+        // Debounced live search — fire results as the user types (>=2 chars).
+        // Keyword suggestions load alongside so recent searches and live hits
+        // are both surfaced without requiring a submit.
+        const trimmed = searchQuery.trim();
+        if (trimmed.length < 2) {
             setSuggestions([]);
             setShowHistory(true);
+            setSearchResults([]);
+            return;
         }
-    }, [searchQuery]);
+
+        loadSuggestions();
+        const handle = setTimeout(() => {
+            performSearch(trimmed, { silent: true });
+        }, 350);
+        return () => clearTimeout(handle);
+    }, [searchQuery, searchMode]);
 
     const loadSearchHistory = () => {
         const history = SemanticSearchService.getSearchHistory();
@@ -63,7 +84,7 @@ const Search = () => {
         }
     };
 
-    const performSearch = async (query) => {
+    const performSearch = async (query, options = {}) => {
         // Trim once here so all downstream calls (API, history) use the clean value.
         const q = (query || "").trim();
         if (q.length === 0) {
@@ -71,13 +92,20 @@ const Search = () => {
             return;
         }
 
+        const { silent = false } = options;
+
         try {
             setIsSearching(true);
             setShowHistory(false);
-            Keyboard.dismiss();
-
-            // Record query in local history (used for suggestions / recent searches)
-            SemanticSearchService.addToHistory(q);
+            // Only dismiss the keyboard on explicit submit — silent live
+            // search must not fight the user's typing.
+            if (!silent) {
+                Keyboard.dismiss();
+                // Record query in local history (used for suggestions / recent
+                // searches). Skip for silent live search to avoid polluting
+                // history with every keystroke.
+                SemanticSearchService.addToHistory(q);
+            }
 
             let results;
             if (searchMode === "transcriptions") {
@@ -124,6 +152,7 @@ const Search = () => {
                 uri: podcast.audio_url,
                 title: podcast.title,
                 artist: podcast.owner?.name || "Unknown Artist",
+                ownerId: podcast.owner?.id ?? podcast.owner_id,
                 duration: podcast.duration || 0,
                 artwork: podcast.thumbnail_url,
             };
@@ -178,6 +207,7 @@ const Search = () => {
                 <View className="flex-row items-center bg-panel rounded-lg px-3">
                     <Ionicons name="search" size={20} color="#888" />
                     <TextInput
+                        ref={searchInputRef}
                         className="flex-1 py-3 px-3 text-text-primary"
                         placeholder="Search podcasts..."
                         placeholderTextColor="#888"

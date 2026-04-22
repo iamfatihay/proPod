@@ -223,8 +223,11 @@ class ApiService {
             }
 
             if (!response.ok) {
-                let error = new Error(`HTTP error! status: ${response.status}`);
+                let error = new Error(
+                    `HTTP error! status: ${response.status} ${options.method || "GET"} ${endpoint}`
+                );
                 error.status = response.status;
+                error.endpoint = endpoint;
 
                 // Try to parse error details from response
                 try {
@@ -270,7 +273,15 @@ class ApiService {
                 );
             }
 
-            Logger.error("API request failed:", error);
+            // 4xx responses are caller-handled contracts (e.g. 404 ai-data
+            // when a podcast has no AI data yet) — log at warn level so the
+            // console isn't drowned in red for expected cases. Reserve error
+            // for 5xx and transport failures.
+            if (error.status && error.status >= 400 && error.status < 500) {
+                Logger.warn("API request failed:", error.message);
+            } else {
+                Logger.error("API request failed:", error);
+            }
             throw error;
         }
     }
@@ -660,7 +671,8 @@ class ApiService {
         if (params.owner_id) queryParams.append("owner_id", params.owner_id);
 
         const queryString = queryParams.toString();
-        const endpoint = queryString ? `/podcasts?${queryString}` : "/podcasts";
+        // Trailing slash avoids FastAPI's 307 redirect (mount is /podcasts/).
+        const endpoint = queryString ? `/podcasts/?${queryString}` : "/podcasts/";
 
         const response = await this.request(endpoint);
 
@@ -941,7 +953,9 @@ class ApiService {
      * @returns {Promise<Array>} Array of matching podcast objects
      */
     async searchPodcasts(query, params = {}) {
-        const queryParams = new URLSearchParams({ query });
+        const q = (query || "").trim();
+        if (!q) return [];
+        const queryParams = new URLSearchParams({ query: q });
         if (params.category) queryParams.append("category", params.category);
         if (params.skip !== undefined) queryParams.append("skip", params.skip);
         if (params.limit !== undefined)
