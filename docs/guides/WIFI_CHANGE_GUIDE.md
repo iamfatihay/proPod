@@ -1,156 +1,109 @@
-# Dev Başlatma Rehberi
+# Ağ Değişince Ne Yapmalı?
 
-## ⚡ Tek Komutla Başlat
+## Neden sorun çıkar?
 
-Eskiden WiFi değişince 4 satır .env güncellemesi gerekiyordu.
-Artık tek komut yeterli:
+Backend ve frontend local IP adresi (`192.168.x.x`) üzerinden haberleşir.
+Bu IP sadece aynı WiFi ağında geçerlidir. Telefon farklı bir ağdaysa (mobil data,
+başka WiFi) bu adrese ulaşamaz.
 
-```bash
-# Aynı WiFi'deysen (telefon + laptop):
-bash scripts/start-dev.sh
-
-# Webhook testi / farklı ağ / mobil data ise:
-bash scripts/start-dev-tunnel.sh
-```
-
-`start-dev.sh` ne yapar:
-1. Windows WiFi IP'yi PowerShell ile otomatik algılar
-2. `frontend/.env` → `REACT_NATIVE_PACKAGER_HOSTNAME` günceller
-3. `API_BASE_URL`'yi boşaltır → `apiService.js` otomatik algılar
-4. Backend'i başlatır (arka planda)
-5. Expo'yu LAN modunda başlatır
+Çözüm: Tunnel ile backend'i gerçek bir HTTPS URL'ine taşımak.
 
 ---
 
-## Ne Zaman Hangi Scripti Kullanmalısın?
+## Hangi durumda ne kullanmalısın?
 
-| Durum | Script |
+| Durum | Yöntem |
 |-------|--------|
-| Telefon ve laptop aynı WiFi | `start-dev.sh` |
-| 100ms RTC webhook testi | `start-dev-tunnel.sh` |
-| Telefon mobil datada | `start-dev-tunnel.sh` |
-| Uzaktan test / başkasıyla paylaşım | `start-dev-tunnel.sh` |
+| Telefon ve laptop aynı WiFi | `npm run dev` (tunnel yok) |
+| Telefon mobil datada | `npm run dev:tunnel` |
+| Farklı WiFi ağlarındasın | `npm run dev:tunnel` |
+| 100ms RTC webhook testi | `npm run dev:tunnel` |
+| Başkasıyla uzaktan test | `npm run dev:tunnel` |
 
 ---
 
-## Nasıl Çalışıyor? (Teknik Detay)
+## Aynı WiFi — Normal Başlatma
 
-**LAN modunda (`start-dev.sh`):**
-
-```
-Telefon → Windows:8000 → (port forwarding) → WSL:8000 (Backend)
-Telefon → Windows:8081 → (port forwarding) → WSL:8081 (Metro)
-```
-
-`apiService.js` içinde auto-detect mantığı var:
-```javascript
-// API_BASE_URL boşsa, Metro'nun hostUri'sinden türet
-const debuggerHost = Constants.expoConfig?.hostUri?.split(':')[0];
-return `http://${debuggerHost}:8000`;
-```
-`REACT_NATIVE_PACKAGER_HOSTNAME=192.168.x.x` olduğunda, `hostUri = 192.168.x.x:8081`
-→ API URL otomatik olarak `http://192.168.x.x:8000` olur.
-→ WiFi değişince script'i bir kez çalıştırmak yeterli.
-
-**Tunnel modunda (`start-dev-tunnel.sh`):**
-
-```
-Telefon → ngrok URL → Backend
-Telefon → Expo tunnel → Metro
-```
-
-Script ngrok'u başlatır, URL'yi otomatik okur, `API_BASE_URL` günceller.
-100ms webhook endpoint'ini ngrok URL'siyle konfigüre edebilirsin:
-```
-$NGROK_URL/rtc/webhooks/100ms
-```
-
----
-
-## Manuel Başlatma (Script Çalışmazsa)
-
-### 1. Windows IP'yi öğren
-
-```powershell
-# Windows PowerShell
-ipconfig | findstr "IPv4"
-# Örnek: 192.168.2.121
-```
-
-### 2. frontend/.env güncelle
-
+**Terminal 1 — Backend:**
 ```bash
-cd ~/proPod/frontend
-nano .env
-```
-
-Değiştir:
-```
-REACT_NATIVE_PACKAGER_HOSTNAME=192.168.2.121
-EXPO_DEVTOOLS_LISTEN_ADDRESS=192.168.2.121
-API_BASE_URL=
-EXPO_PUBLIC_API_URL=
-```
-
-### 3. Başlat
-
-```bash
-# Backend (Terminal 1)
-cd ~/proPod/backend
+cd backend
 source venv/bin/activate
-uvicorn app.main:app --host 0.0.0.0 --reload
-
-# Frontend (Terminal 2)
-cd ~/proPod/frontend
-npm run start:dev
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+**Terminal 2 — Frontend:**
+```bash
+cd frontend
+npm run dev
+```
+
+Expo QR kodunu tara, telefon bağlanır.
 
 ---
 
-## Port Forwarding (bir kez kur, bir daha dokunma)
+## Farklı Ağ / Mobil Data — Tunnel Başlatma
 
-Port forwarding WSL yeniden başladığında sıfırlanır.
+**Adımlar:**
 
-```powershell
-# Windows PowerShell (Admin) — port forwarding kur/güncelle
-$wslIp = (wsl -- ip addr show eth0 | Select-String "inet " | ForEach-Object { $_.ToString().Trim().Split(" ")[1].Split("/")[0] })
-netsh interface portproxy delete v4tov4 listenport=8000 listenaddress=0.0.0.0
-netsh interface portproxy delete v4tov4 listenport=8081 listenaddress=0.0.0.0
-netsh interface portproxy add v4tov4 listenport=8000 listenaddress=0.0.0.0 connectport=8000 connectaddress=$wslIp
-netsh interface portproxy add v4tov4 listenport=8081 listenaddress=0.0.0.0 connectport=8081 connectaddress=$wslIp
+**Terminal 1 — Backend (önce bunu aç):**
+```bash
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-# Kontrol
-netsh interface portproxy show all
+**Terminal 2 — Tunnel + Expo:**
+```bash
+cd frontend
+npm run dev:tunnel
+```
+
+Script otomatik olarak:
+1. Backend'in çalışıp çalışmadığını kontrol eder (çalışmıyorsa kendisi başlatır)
+2. Backend için localtunnel açar → public HTTPS URL alır
+3. `frontend/.env` ve `backend/.env` dosyalarını günceller
+4. Expo'yu tunnel modunda başlatır
+
+QR kodunu tara, telefon bağlanır.
+
+---
+
+## Neden localtunnel + Expo tunnel?
+
+Expo'nun `--tunnel` modu ngrok kullanır. Free ngrok aynı anda sadece **1 session**
+açmaya izin verir. Eğer backend için de ngrok kullansak ikincisi reddedilir.
+
+localtunnel bu kısıtı olmayan ücretsiz bir alternatif — hesap gerektirmez.
+
+```
+Telefon → https://xxxxx.loca.lt  → localtunnel → backend:8000  (API)
+Telefon → https://xxxxx.ngrok.io → Expo tunnel → Metro:8081    (JS bundle)
 ```
 
 ---
 
 ## Sorun Giderme
 
-### Backend'e bağlanamıyor:
-
+### localtunnel URL gelmiyor
 ```bash
-# Backend çalışıyor mu?
-pgrep -f uvicorn
-
-# Port forwarding aktif mi? (Windows PowerShell)
-netsh interface portproxy show all
-# 8000 ve 8081 görünmeli
-
-# Backend erişilebilir mi?
-curl -I http://localhost:8000/docs
+cat /tmp/propod-lt.log
+# localtunnel kurulu mu?
+npx localtunnel --version
 ```
 
-### ngrok URL alınamıyor:
-
+### Expo tunnel başlamıyor
 ```bash
-# ngrok kurulu mu?
-ngrok version
+# @expo/ngrok kurulu mu?
+cd frontend && npx expo install @expo/ngrok
+```
 
-# ngrok authenticate edildi mi? (ücretsiz hesap gerekli)
-# https://dashboard.ngrok.com/get-started/your-authtoken
-ngrok config add-authtoken <token>
+### Backend'e hâlâ bağlanamıyor
+localtunnel bazen "bypass" sayfası gösterir. Tarayıcıdan URL'yi aç,
+"click to continue" varsa bir kez tıkla.
 
-# Manuel kontrol
-curl http://localhost:4040/api/tunnels | python3 -m json.tool
+### Port 8000 zaten kullanımda hatası
+Eski bir backend process kalmış demektir:
+```bash
+fuser -k 8000/tcp
+pkill -f uvicorn
 ```

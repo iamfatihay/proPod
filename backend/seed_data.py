@@ -11,7 +11,7 @@ from app import models
 from app.database import SessionLocal, engine
 import sys
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 # Add parent directory to path
@@ -166,7 +166,7 @@ def seed_podcasts(db: Session, owner: models.User):
             thumbnail_url=f"https://picsum.photos/seed/{idx}/400/400",
             owner_id=owner.id,
             ai_enhanced=podcast_data["ai_enhanced"],
-            created_at=datetime.utcnow() - timedelta(days=len(SAMPLE_PODCASTS) - idx),
+            created_at=datetime.now(timezone.utc) - timedelta(days=len(SAMPLE_PODCASTS) - idx),
         )
 
         db.add(podcast)

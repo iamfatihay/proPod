@@ -99,9 +99,13 @@ export default function HomeScreen() {
     const clearError = useAudioStore((state) => state.clearError);
 
     const [podcasts, setPodcasts] = useState([]);
+    const [recommendedPodcasts, setRecommendedPodcasts] = useState([]);
     const [userPodcasts, setUserPodcasts] = useState([]);
     const [trendingPodcasts, setTrendingPodcasts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingRecommendations, setLoadingRecommendations] =
+        useState(true);
+    const [loadingTrending, setLoadingTrending] = useState(true);
     const [error, setError] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [refreshing, setRefreshing] = useState(false);
@@ -170,6 +174,19 @@ export default function HomeScreen() {
         }
     }, [audioError, clearError, showToast]);
 
+    const normalizeFeedPodcasts = useCallback((rawList = []) => {
+        return rawList.map((podcast) => {
+            const normalizedPodcast = normalizePodcast(podcast);
+            return {
+                ...normalizedPodcast,
+                duration:
+                    (typeof podcast.duration === "number" &&
+                        podcast.duration * 1000) ||
+                    0,
+            };
+        });
+    }, []);
+
     const loadContinueListening = useCallback(async () => {
         try {
             const res = await apiService.getContinueListening({ limit: 10 });
@@ -187,6 +204,58 @@ export default function HomeScreen() {
         }
     }, []);
 
+    const loadRecommendedPodcasts = useCallback(async () => {
+        try {
+            setLoadingRecommendations(true);
+            const res = await apiService.getRecommendedPodcasts(5);
+            setRecommendedPodcasts(normalizeFeedPodcasts(res || []));
+        } catch (e) {
+            Logger.warn("Recommended podcasts fetch failed:", e?.message);
+            setRecommendedPodcasts([]);
+        } finally {
+            setLoadingRecommendations(false);
+        }
+    }, [normalizeFeedPodcasts]);
+
+    const loadTrendingPodcasts = useCallback(async () => {
+        try {
+            setLoadingTrending(true);
+            const res = await apiService.getTrendingPodcasts({
+                limit: 3,
+                days: 7,
+            });
+            setTrendingPodcasts(normalizeFeedPodcasts(res || []));
+        } catch (e) {
+            Logger.warn("Trending podcasts fetch failed:", e?.message);
+            setTrendingPodcasts([]);
+        } finally {
+            setLoadingTrending(false);
+        }
+    }, [normalizeFeedPodcasts]);
+
+    const loadUserPodcasts = useCallback(async () => {
+        try {
+            const res = await apiService.getMyPodcasts({ limit: 5 });
+            const rawList = Array.isArray(res) ? res : (res?.podcasts ?? []);
+            setUserPodcasts(normalizeFeedPodcasts(rawList));
+        } catch (e) {
+            Logger.warn("User podcasts fetch failed:", e?.message);
+            setUserPodcasts([]);
+        }
+    }, [normalizeFeedPodcasts]);
+
+    const loadSupplementaryFeeds = useCallback(async () => {
+        await Promise.allSettled([
+            loadRecommendedPodcasts(),
+            loadTrendingPodcasts(),
+            loadUserPodcasts(),
+        ]);
+    }, [
+        loadRecommendedPodcasts,
+        loadTrendingPodcasts,
+        loadUserPodcasts,
+    ]);
+
     const load = useCallback(async () => {
         try {
             let res;
@@ -202,23 +271,12 @@ export default function HomeScreen() {
             }
             // getPodcasts returns an array; getFollowingFeed returns {podcasts, total, ...}
             const rawList = Array.isArray(res) ? res : (res?.podcasts ?? []);
-            const normalized = rawList.map((p) => {
-                // Convert duration from seconds to milliseconds for display
-                const durationMs =
-                    (typeof p.duration === "number" && p.duration * 1000) || 0;
-                // Normalize URLs (relative to absolute)
-                const normalizedPodcast = normalizePodcast(p);
-                return {
-                    ...normalizedPodcast,
-                    duration: durationMs,
-                };
-            });
-            setPodcasts(normalized);
+            setPodcasts(normalizeFeedPodcasts(rawList));
             setError(null);
         } catch (e) {
             setError(e?.detail || e?.message || "Failed to load podcasts");
         }
-    }, [selectedCategory]);
+    }, [normalizeFeedPodcasts, selectedCategory]);
 
 
     useEffect(() => {
@@ -227,10 +285,11 @@ export default function HomeScreen() {
             // its own loading state and must not delay first paint.
             setLoading(true);
             loadContinueListening(); // fire-and-forget — own loading state
+            loadSupplementaryFeeds();
             await load();
             setLoading(false);
         })();
-    }, [load, loadContinueListening]);
+    }, [load, loadContinueListening, loadSupplementaryFeeds]);
 
     // Reload when params.refresh changes (after delete/create)
     useEffect(() => {
@@ -249,6 +308,7 @@ export default function HomeScreen() {
             let isActive = true;
 
             loadContinueListening(); // fire-and-forget — has own loading state
+            loadSupplementaryFeeds();
             load(); // main feed; triggers setLoading via its own effect
 
             protectionService
@@ -280,14 +340,18 @@ export default function HomeScreen() {
             return () => {
                 isActive = false;
             };
-        }, [load, loadContinueListening])
+        }, [load, loadContinueListening, loadSupplementaryFeeds])
     );
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await Promise.all([load(), loadContinueListening()]);
+        await Promise.all([
+            load(),
+            loadContinueListening(),
+            loadSupplementaryFeeds(),
+        ]);
         setRefreshing(false);
-    }, [load, loadContinueListening]);
+    }, [load, loadContinueListening, loadSupplementaryFeeds]);
 
     const handleLogout = () => {
         logout();
@@ -648,14 +712,25 @@ export default function HomeScreen() {
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={{ paddingRight: 16 }}
                         >
-                            {loading ? (
+                            {loadingRecommendations ? (
                                 <>
                                     <View className="w-[180px] h-[220px] bg-panel rounded-2xl mr-4" />
                                     <View className="w-[180px] h-[220px] bg-panel rounded-2xl mr-4" />
                                     <View className="w-[180px] h-[220px] bg-panel rounded-2xl" />
                                 </>
+                            ) : recommendedPodcasts.length === 0 ? (
+                                <View className="w-[280px] bg-panel rounded-2xl p-5 border border-border">
+                                    <Text className="text-base font-semibold text-text-primary mb-2">
+                                        Recommendations are warming up
+                                    </Text>
+                                    <Text className="text-sm text-text-secondary leading-5">
+                                        Listen to a few episodes, like content,
+                                        or refresh the feed to get tailored
+                                        suggestions here.
+                                    </Text>
+                                </View>
                             ) : (
-                                podcasts.slice(0, 5).map((podcast) => (
+                                recommendedPodcasts.map((podcast) => (
                                     <GradientCard
                                         key={podcast.id}
                                         podcast={podcast}
@@ -900,57 +975,72 @@ export default function HomeScreen() {
                                 </Text>
                             </View>
                         </View>
-                        {podcasts.slice(0, 3).map((podcast, index) => (
-                            <View
-                                key={podcast.id}
-                                className="flex-row items-center mb-3 p-3 bg-panel rounded-xl"
-                            >
-                                <Text className="text-2xl font-bold text-primary mr-3">
-                                    #{index + 1}
+                        {loadingTrending ? (
+                            <>
+                                <View className="h-[72px] mb-3 bg-panel rounded-xl" />
+                                <View className="h-[72px] mb-3 bg-panel rounded-xl" />
+                                <View className="h-[72px] bg-panel rounded-xl" />
+                            </>
+                        ) : trendingPodcasts.length === 0 ? (
+                            <View className="p-4 bg-panel rounded-xl border border-border">
+                                <Text className="text-sm text-text-secondary">
+                                    Trending data is not available yet. Pull to
+                                    refresh after a few listens or interactions.
                                 </Text>
-                                <View className="flex-1">
-                                    <TouchableOpacity
-                                        onPress={() =>
-                                            router.push({
-                                                pathname: "/(main)/details",
-                                                params: { id: podcast.id },
-                                            })
-                                        }
-                                    >
-                                        <Text
-                                            className="text-base font-semibold text-text-primary mb-1"
-                                            numberOfLines={1}
+                            </View>
+                        ) : (
+                            trendingPodcasts.map((podcast, index) => (
+                                <View
+                                    key={podcast.id}
+                                    className="flex-row items-center mb-3 p-3 bg-panel rounded-xl"
+                                >
+                                    <Text className="text-2xl font-bold text-primary mr-3">
+                                        #{index + 1}
+                                    </Text>
+                                    <View className="flex-1">
+                                        <TouchableOpacity
+                                            onPress={() =>
+                                                router.push({
+                                                    pathname: "/(main)/details",
+                                                    params: { id: podcast.id },
+                                                })
+                                            }
                                         >
-                                            {podcast.title}
-                                        </Text>
-                                        <View className="flex-row items-center">
-                                            <MaterialCommunityIcons
-                                                name="trending-up"
-                                                size={12}
-                                                color={COLORS.success}
-                                            />
-                                            <Text className="text-xs text-success ml-1">
-                                                +{podcast.play_count || 0} plays
+                                            <Text
+                                                className="text-base font-semibold text-text-primary mb-1"
+                                                numberOfLines={1}
+                                            >
+                                                {podcast.title}
                                             </Text>
-                                        </View>
+                                            <View className="flex-row items-center">
+                                                <MaterialCommunityIcons
+                                                    name="trending-up"
+                                                    size={12}
+                                                    color={COLORS.success}
+                                                />
+                                                <Text className="text-xs text-success ml-1">
+                                                    +{podcast.play_count || 0} plays
+                                                </Text>
+                                            </View>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <TouchableOpacity
+                                        onPress={() => handlePlayPodcast(podcast)}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name={
+                                                currentTrack?.id === podcast.id &&
+                                                    isPlaying
+                                                    ? "pause-circle"
+                                                    : "play-circle"
+                                            }
+                                            size={40}
+                                            color={COLORS.primary}
+                                        />
                                     </TouchableOpacity>
                                 </View>
-                                <TouchableOpacity
-                                    onPress={() => handlePlayPodcast(podcast)}
-                                >
-                                    <MaterialCommunityIcons
-                                        name={
-                                            currentTrack?.id === podcast.id &&
-                                                isPlaying
-                                                ? "pause-circle"
-                                                : "play-circle"
-                                        }
-                                        size={40}
-                                        color={COLORS.primary}
-                                    />
-                                </TouchableOpacity>
-                            </View>
-                        ))}
+                            ))
+                        )}
                     </View>
 
                     {/* Your Podcasts - Studio Mode Only */}

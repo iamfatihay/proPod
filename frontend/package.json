@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "expo start --dev-client",
+    "start": "bash ../scripts/start-dev-tunnel.sh",
     "start:dev": "expo start --dev-client --lan",
     "start:dev:tunnel": "expo start --dev-client --tunnel",
     "start:lan": "expo start --dev-client --lan",
