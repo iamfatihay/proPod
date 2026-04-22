@@ -291,12 +291,12 @@ def create_podcast(db: Session, podcast: schemas.PodcastCreate, owner_id: int) -
     # Enrich with stats for serialization
     enrich_podcast_with_stats(db_podcast)
 
-    # Notify all followers of this creator about the new episode.
-    # Wrapped in try/except so a notification failure never breaks podcast creation.
-    try:
-        _notify_followers_new_episode(db=db, podcast=db_podcast, owner_id=owner_id)
-    except Exception as exc:
-        logger.warning("new_episode notification fan-out failed (non-blocking): %s", exc)
+    # NOTE: The new_episode follower notification fan-out is intentionally NOT
+    # called here.  It is dispatched as a FastAPI BackgroundTask in the router
+    # (routers/podcasts.py) so that the HTTP response is returned to the creator
+    # immediately — without blocking on potentially many push/DB writes.
+    # To fan out manually (e.g. in tests), call _notify_followers_new_episode()
+    # directly.
 
     return db_podcast
 
@@ -375,6 +375,44 @@ def _notify_followers_new_episode(
                 "actorId": owner_id,
             },
         )
+
+def notify_followers_new_episode_background(podcast_id: int) -> None:
+    """
+    Background-task-safe wrapper for the new-episode notification fan-out.
+
+    FastAPI BackgroundTasks execute AFTER the HTTP response has been sent,
+    which means the request-scoped DB session has already been closed.
+    This function creates its own short-lived session so it can safely
+    reach the database without touching the caller's session.
+
+    ``owner_id`` is intentionally NOT a parameter — it is read from the
+    persisted podcast row to avoid any risk of caller/model mismatch.
+
+    Args:
+        podcast_id: ID of the newly-created podcast.
+
+    Called from:
+        routers/podcasts.py  ``create_podcast`` route handler via
+        ``background_tasks.add_task()``.
+        routers/rtc.py       ``hms_webhook`` handler (same pattern).
+    """
+    from .database import SessionLocal  # local import avoids circular deps at module load
+
+    db = SessionLocal()
+    try:
+        podcast = db.query(models.Podcast).filter(models.Podcast.id == podcast_id).first()
+        if podcast is None:
+            logger.warning(
+                "notify_followers_new_episode_background: podcast %s not found", podcast_id
+            )
+            return
+        # Derive owner_id from the persisted row — single source of truth.
+        _notify_followers_new_episode(db=db, podcast=podcast, owner_id=podcast.owner_id)
+    except Exception as exc:  # pragma: no cover — network / DB failures in background
+        logger.warning("Background new_episode fan-out failed (podcast %s): %s", podcast_id, exc)
+    finally:
+        db.close()
+
 
 def get_podcast(db: Session, podcast_id: int, increment_play_count: bool = True, include_deleted: bool = False) -> Optional[models.Podcast]:
     """

@@ -1,5 +1,5 @@
 """Podcast management endpoints."""
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Path, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Query, Path, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pathlib import Path as SysPath, PurePath
@@ -22,11 +22,27 @@ MAX_UPLOAD_SIZE = 100 * 1024 * 1024
 @router.post("/create", response_model=schemas.Podcast)
 def create_podcast(
     podcast: schemas.PodcastCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(auth.get_current_user),
 ):
-    """Create a new podcast"""
-    return crud.create_podcast(db=db, podcast=podcast, owner_id=current_user.id)
+    """
+    Create a new podcast.
+
+    The new-episode follower notification fan-out is dispatched as a
+    BackgroundTask so the creator receives an immediate HTTP response
+    regardless of how many followers they have.
+    """
+    db_podcast = crud.create_podcast(db=db, podcast=podcast, owner_id=current_user.id)
+    # Only schedule the fan-out for public episodes — private ones are filtered
+    # inside _notify_followers_new_episode too, but skipping the task entirely
+    # is a cheap early guard.
+    if db_podcast.is_public:
+        background_tasks.add_task(
+            crud.notify_followers_new_episode_background,
+            podcast_id=db_podcast.id,
+        )
+    return db_podcast
 
 
 @router.post("/upload", response_model=schemas.AudioUploadResponse)
