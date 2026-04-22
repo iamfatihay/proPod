@@ -49,7 +49,7 @@ fi
 if [ -z "$WINDOWS_IP" ]; then
     WINDOWS_IP=$(ipconfig.exe 2>/dev/null \
         | grep "IPv4" \
-        | grep -E "192\.168\.|^10\." \
+        | grep -E "192\.168\.|10\." \
         | head -1 \
         | awk -F': ' '{print $2}' \
         | tr -d '\r ')

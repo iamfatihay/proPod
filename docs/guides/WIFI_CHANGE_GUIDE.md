@@ -59,7 +59,7 @@ npm run dev:tunnel
 ```
 
 Script otomatik olarak:
-1. Backend'in çalışıp çalışmadığını kontrol eder (çalışmıyorsa hata verir)
+1. Backend'in çalışıp çalışmadığını kontrol eder (çalışmıyorsa kendisi başlatır)
 2. Backend için localtunnel açar → public HTTPS URL alır
 3. `frontend/.env` ve `backend/.env` dosyalarını günceller
 4. Expo'yu tunnel modunda başlatır
@@ -84,9 +84,6 @@ Telefon → https://xxxxx.ngrok.io → Expo tunnel → Metro:8081    (JS bundle)
 
 ## Sorun Giderme
 
-### "Backend is not running on port 8000"
-Tunnel scripti backend'i başlatmaz — önce Terminal 1'de backend'i açman gerekir.
-
 ### localtunnel URL gelmiyor
 ```bash
 cat /tmp/propod-lt.log
@@ -97,7 +94,7 @@ npx localtunnel --version
 ### Expo tunnel başlamıyor
 ```bash
 # @expo/ngrok kurulu mu?
-cd frontend && npx expo install @expo/ngrok@^4.1.0
+cd frontend && npx expo install @expo/ngrok
 ```
 
 ### Backend'e hâlâ bağlanamıyor
