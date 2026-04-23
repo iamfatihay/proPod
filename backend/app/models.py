@@ -619,7 +619,7 @@ class PushTicket(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     # Expo ticket ID, e.g. "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-    expo_ticket_id = Column(String(64), nullable=False, index=True)
+    expo_ticket_id = Column(String(64), nullable=False, unique=True, index=True)
 
     # The Expo push token that this ticket belongs to.  Stored as a string
     # (not a FK) so that receipt-check cleanup can delete the DeviceToken row

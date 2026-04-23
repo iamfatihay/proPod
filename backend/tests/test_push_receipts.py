@@ -208,8 +208,10 @@ class TestCheckPushReceiptsCrud:
         with patch("app.crud.httpx.post", side_effect=Exception("network error")):
             result = crud.check_push_receipts(db_session, min_age_minutes=15)
 
-        # Should not raise; tickets_checked will be 0 since receipts dict is empty
-        assert "tickets_checked" in result
+        # Should not raise. tickets_checked reports 1 (one ticket attempted),
+        # receipts_returned is 0 because Expo returned no data.
+        assert result["tickets_checked"] == 1
+        assert result["receipts_returned"] == 0
 
 
 # ---------------------------------------------------------------------------

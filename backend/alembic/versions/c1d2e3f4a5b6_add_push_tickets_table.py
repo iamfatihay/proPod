@@ -24,7 +24,7 @@ def upgrade():
         sa.PrimaryKeyConstraint('id'),
     )
     op.create_index('ix_push_tickets_id', 'push_tickets', ['id'], unique=False)
-    op.create_index('ix_push_tickets_expo_ticket_id', 'push_tickets', ['expo_ticket_id'], unique=False)
+    op.create_index('ix_push_tickets_expo_ticket_id', 'push_tickets', ['expo_ticket_id'], unique=True)
     op.create_index('ix_push_tickets_sent_at', 'push_tickets', ['sent_at'], unique=False)
 
 

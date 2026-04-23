@@ -2507,7 +2507,8 @@ def check_push_receipts(
 
     Returns a summary dict:
         {
-          "tickets_checked": int,
+          "tickets_checked": int,        # tickets attempted this run (rows fetched + queried from Expo)
+          "receipts_returned": int,      # receipts actually returned by Expo in this run
           "ok": int,
           "errors": int,
           "tokens_pruned": int,
@@ -2532,6 +2533,7 @@ def check_push_receipts(
         remaining = db.query(models.PushTicket).count()
         return {
             "tickets_checked": 0,
+            "receipts_returned": 0,
             "ok": 0,
             "errors": 0,
             "tokens_pruned": 0,
@@ -2610,7 +2612,12 @@ def check_push_receipts(
 
     remaining = db.query(models.PushTicket).count()
     return {
-        "tickets_checked": len(receipts),
+        # Number of tickets attempted this run: rows fetched from DB and
+        # submitted to Expo's getReceipts endpoint. Not all may have receipts
+        # returned yet — see receipts_returned for the count Expo actually
+        # resolved in this call.
+        "tickets_checked": len(ticket_rows),
+        "receipts_returned": len(receipts),
         "ok": ok_count,
         "errors": error_count,
         "tokens_pruned": pruned_count,
