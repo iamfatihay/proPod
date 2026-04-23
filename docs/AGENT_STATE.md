@@ -15,9 +15,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-22
-**Last session (new_episode fan-out BackgroundTask):** PRs #72 + #73 confirmed merged at session start. Migrated `new_episode` follower notification fan-out from synchronous blocking call in `crud.create_podcast()` to a FastAPI `BackgroundTask` dispatched by the router — `POST /podcasts/create` now returns immediately to the creator. 186 tests verified passing across 8 test files, 0 failures → PR #74 `feature/new-episode-fan-out-background-task`.
-**Test suite baseline:** 421 backend tests, all passing (186 verified this session).
+**Last updated:** 2026-04-23
+**Last session (PR #76 review comments):** PRs #74 + #75 confirmed merged at session start. Addressed all three Copilot review comments on open PR #76 `feature/expo-push-receipt-polling`: (1) `PushTicket.expo_ticket_id` now `unique=True` at the model level, (2) migration `c1d2e3f4a5b6` promotes `ix_push_tickets_expo_ticket_id` to UNIQUE at the DB level, (3) `check_push_receipts` now returns `tickets_checked = len(ticket_rows)` (attempted) + new `receipts_returned = len(receipts)` (resolved) for accurate telemetry when Expo returns partial receipts. 60 tests verified passing across `test_push_receipts`, `test_device_tokens`, `test_notifications`, `test_podcast_crud`, 0 failures. Commit `a33aefa` pushed, PR comment posted. Awaiting Fay's merge.
+**Test suite baseline:** ~436 backend tests, all passing (60 verified this session).
 
 ### What's shipped (merged to master)
 - ✅ Playlist Play All + Share sheet — Play All queues ordered tracks; Share invokes native Share.share with deep link (PR #63)
@@ -70,9 +70,11 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ `new_episode` follower notification fan-out — `_notify_followers_new_episode()` in `crud.py`, in-app + Expo push, try/except guard, 5 tests (PR #71)
 - ✅ `new_episode` push notification tap routing — `_layout.js` routes tap directly to episode detail screen; `new_episode` added to `serverTypes` in notification store (PR #72)
 - ✅ Dev workflow scripts + UI tab bar and feed improvements — startup scripts hardened, home feed and notifications screens polished (PR #73)
+- ✅ `new_episode` fan-out via FastAPI `BackgroundTask` — `POST /podcasts/create` returns to creator immediately; follower push + in-app notifications dispatched post-response (PR #74)
+- ✅ Demo-user error-handling feedback — single-item `repeat=all` loops correctly, pre-commit script robustness (`-x` + quoting), SQLite teardown stability on Windows (`engine.dispose()` + `check_same_thread=False`), `useAudioStore.next()` test coverage (PR #75)
 
 ### What's open / in-progress
-- 🔄 PR #74 `feature/new-episode-fan-out-background-task` — Moves `new_episode` follower notification fan-out from `crud.create_podcast()` (sync, blocking) to a FastAPI `BackgroundTask` in the router. `POST /podcasts/create` now returns immediately; fan-out runs post-response. 186 tests passing, 0 failures. Awaiting Fay's merge.
+- 🔄 PR #76 `feature/expo-push-receipt-polling` — Adds `PushTicket` model + Alembic migration `c1d2e3f4a5b6`, `crud.check_push_receipts()` to POST Expo ticket IDs to `https://exp.host/--/api/v2/push/getReceipts` and prune `DeviceNotRegistered` tokens, and `POST /admin/push-receipts/check` endpoint. Review comments addressed in commit `a33aefa`: `expo_ticket_id` UNIQUE (model + migration), `tickets_checked` now reports attempted count with new `receipts_returned` field. 15 new tests + 45 related tests passing. Awaiting Fay's merge.
 
 ### Known issues / tech debt
 - Frontend `npm run lint` is currently blocked by repo-wide ESLint configuration/parsing issues (`Unexpected token <` across JSX files). Use `node --check` + targeted Jest until the lint config is fixed.
@@ -154,8 +156,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FEATURE] Expo push receipt polling** — In `backend/app/crud.py`, extend `_send_expo_push` to store returned Expo ticket IDs in a new `push_tickets` table (`id`, `ticket_id`, `device_token_id`, `created_at`). Add `POST /admin/push-receipts/check` endpoint in `backend/app/routers/admin.py` that POSTs ticket IDs to `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` device token rows. Add Alembic migration for `push_tickets`. Test suite target: ~421 + 5 new tests.
+1. **[FEATURE] Playlist deep-link share** — In `frontend/app/(main)/playlist-detail.js`, extend the Share button to build a `volo://playlist/{id}` deep link (mirror the pattern used for `volo://podcast/{id}` in `frontend/src/utils/deep-link-handler.js`). Register the new scheme branch in `deep-link-handler.js` and the `_layout.js` auth-race guard so tapping the link routes to `playlist-detail.js`. Backend already serves `GET /playlists/{id}`. Pure frontend; add 1–2 unit tests around the new share URL builder.
 
-2. **[FEATURE] Playlist deep-link share** — In `frontend/app/(main)/playlist-detail.js`, extend the Share button to generate a `volo://playlist/{id}` deep link (same pattern as `volo://podcast/{id}` in `deep-link-handler.js`). Wire `_layout.js` / deep-link handler to navigate to the playlist detail screen on open. Backend already serves `GET /playlists/{id}`. Pure frontend, no migration needed.
+2. **[FEATURE] In-app search screen** — Add `frontend/app/(main)/search.js` with a debounced text input wired to `GET /podcasts/search?q=` (already exists in backend). Render results as `PodcastCard` list with a skeleton loading state + empty state. Add a search icon to the home header (`frontend/app/(main)/home.js`) that routes there. Pure frontend.
 
-3. **[FEATURE] In-app search screen** — Add a dedicated `frontend/app/(main)/search.js` screen with a text input wired to `GET /podcasts/search?q=` (already exists in backend). Show results as `PodcastCard` list with a skeleton loading state. Wire the tab bar or a search icon in the home header to navigate there. Pure frontend.
+3. **[FEATURE] Expo push receipt auto-scheduling** — Once PR #76 lands, add a lightweight scheduler so `check_push_receipts` runs without manual admin calls. Option A: FastAPI startup task + `asyncio.create_task` with a 30-minute sleep loop. Option B: Lightweight APScheduler wired in `main.py`. Document the choice in `docs/push-notifications.md`. Prevents the need to trigger `/admin/push-receipts/check` externally.
