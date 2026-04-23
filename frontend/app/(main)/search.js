@@ -28,6 +28,12 @@ const CreatorCard = ({ creator, onPress }) => {
     const [following, setFollowing] = React.useState(creator.is_following ?? false);
     const [loading, setLoading] = React.useState(false);
 
+    // Sync follow state when the creator prop changes (e.g. new search results
+    // virtualizing the same card slot with a different creator).
+    React.useEffect(() => {
+        setFollowing(creator.is_following ?? false);
+    }, [creator.id, creator.is_following]);
+
     const handleFollowToggle = async () => {
         if (loading) return;
         setLoading(true);
@@ -39,8 +45,16 @@ const CreatorCard = ({ creator, onPress }) => {
             } else {
                 await apiService.followCreator(creator.id);
             }
-        } catch {
+        } catch (err) {
+            // Roll back optimistic update
             setFollowing(was);
+            const status = err?.response?.status ?? err?.status;
+            if (status === 401) {
+                // Unauthenticated — silently revert; app-level auth guard handles redirect
+                Logger.warn("CreatorCard: follow attempt without auth");
+            } else {
+                Logger.error("CreatorCard: follow toggle failed", err);
+            }
         } finally {
             setLoading(false);
         }
@@ -320,7 +334,13 @@ const Search = () => {
                     <TextInput
                         ref={searchInputRef}
                         className="flex-1 py-3 px-3 text-text-primary"
-                        placeholder="Search podcasts..."
+                        placeholder={
+                            searchMode === "creators"
+                                ? "Search creators by name..."
+                                : searchMode === "transcriptions"
+                                ? "Search by spoken phrase..."
+                                : "Search podcasts..."
+                        }
                         placeholderTextColor="#888"
                         value={searchQuery}
                         onChangeText={setSearchQuery}

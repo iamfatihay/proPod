@@ -969,14 +969,6 @@ class ApiService {
         return podcasts.map((p) => this.normalizePodcast(p));
     }
 
-    /**
-     * Fetch all podcast categories with their podcast counts from the backend.
-     *
-     * Used by the Home screen to replace the static CATEGORIES constant.
-     * Returns categories sorted by podcast count (descending).
-     *
-     * @returns {Promise<Array<{category: string, podcast_count: number}>>}
-     */
 
     /**
      * Search creators/users by name.
@@ -1000,6 +992,14 @@ class ApiService {
         return this.request(`/users/search?${queryParams.toString()}`);
     }
 
+    /**
+     * Fetch all podcast categories with their podcast counts from the backend.
+     *
+     * Used by the Home screen to replace the static CATEGORIES constant.
+     * Returns categories sorted by podcast count (descending).
+     *
+     * @returns {Promise<Array<{category: string, podcast_count: number}>>}
+     */
     async getDiscoverCategories() {
         return this.request("/podcasts/discover/categories");
     }

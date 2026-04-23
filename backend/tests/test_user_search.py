@@ -131,6 +131,11 @@ class TestUserSearchValidation:
         resp = client.get("/users/search?q=")
         assert resp.status_code == 422
 
+    def test_whitespace_only_query_returns_422(self):
+        """Whitespace-only queries must be rejected — not treated as '%%' full-table scan."""
+        resp = client.get("/users/search?q=%20")
+        assert resp.status_code == 422
+
     def test_query_too_long_returns_422(self):
         resp = client.get(f"/users/search?q={'a' * 101}")
         assert resp.status_code == 422

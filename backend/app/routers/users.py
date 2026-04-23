@@ -345,11 +345,20 @@ def search_users(
     (podcast_count, total_followers, total_plays) and an is_following flag
     relative to the authenticated caller. Works for unauthenticated users too
     — is_following will always be False.
+
+    Whitespace-only queries (e.g. q=" ") are rejected with 422 to prevent
+    accidental full-table listing and user enumeration.
     """
+    q_stripped = q.strip()
+    if not q_stripped:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Search query must not be blank.",
+        )
     current_user_id = current_user.id if current_user else None
     results = crud.search_users(
         db=db,
-        query=q,
+        query=q_stripped,
         current_user_id=current_user_id,
         skip=skip,
         limit=limit,
