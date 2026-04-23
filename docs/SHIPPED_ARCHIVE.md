@@ -1,0 +1,43 @@
+# Shipped Features Archive (PR #1–#65)
+
+Full history kept here to keep AGENT_STATE.md lean.
+
+- ✅ Auth (login, register, Google OAuth, forgot/reset password)
+- ✅ Podcast CRUD (create, edit, delete, list, search)
+- ✅ Audio playback + listening history update
+- ✅ Like, bookmark, comments
+- ✅ AI transcription/keywords/summary
+- ✅ Audio performance optimizations (non-blocking playback)
+- ✅ Library screen (my podcasts / liked / bookmarked tabs)
+- ✅ Public user profiles backend + frontend screen
+- ✅ Creator analytics dashboard backend + frontend screen
+- ✅ Continue-listening endpoint + UI widget (ContinueListeningRow)
+- ✅ Podcast playlist system — full CRUD backend + frontend screens
+- ✅ Discover/categories endpoint + dynamic category filters in home
+- ✅ Backend search + thumbnail normalization
+- ✅ Bug fixes: comment stats sync, sharing cover_image_url, test isolation
+- ✅ Continue Listening seek-to-position (PR #39)
+- ✅ loadContinueListening URL normalization + decoupled from main-feed repaint (PR #40)
+- ✅ Deep link handling `volo://podcast/{id}` + `volo://playlist/{id}` with auth-race guard (PR #41)
+- ✅ Native Google Sign-In hardened — server-side token validation (PR #42, PR #44)
+- ✅ Notifications backend + API wiring (PR #45)
+- ✅ Notification badge wired to server unread_count (PR #46)
+- ✅ Alembic migrations for `playlists`, `playlist_items`, `notifications` (PR #47)
+- ✅ Notification store + API coverage; `markAsReadWithSync` no-op guard fix (PR #48)
+- ✅ Navigation wiring, creator inbox/activity flows, NotificationAdmin (PR #49)
+- ✅ Playback speed selector modal (6 presets, 9 tests) — PR #52
+- ✅ Sleep timer — auto-pause after chosen duration — PR #50
+- ✅ Follow/unfollow creator — backend + frontend — PR #51
+- ✅ "End of Episode" sleep timer option — PR #53
+- ✅ Following Feed — PR #54
+- ✅ Fix `TestGetFollowingList` ImportError — PR #55
+- ✅ Profile screen wired to real API data — PR #56
+- ✅ Persist sleepOnEpisodeEnd across app restarts via AsyncStorage — PR #57
+- ✅ Direct messaging between users — PR #58
+- ✅ DM unread badge in tab bar — PR #59
+- ✅ Expo push notifications — PR #60
+- ✅ Push notification tap routing + logout cleanup + eager sleep settings — PR #61
+- ✅ Playlist Play All + Share sheet — PR #63
+- ✅ DM push notifications — PR #62
+- ✅ Playlist shuffle play — PR #64
+- ✅ Playlist now-playing indicator — PR #65

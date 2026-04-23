@@ -374,6 +374,7 @@ def _notify_followers_new_episode(
                 "podcastId": podcast.id,
                 "actorId": owner_id,
             },
+            db=db,
         )
 
 def notify_followers_new_episode_background(podcast_id: int) -> None:
@@ -1866,6 +1867,7 @@ def create_notification(
                     # (e.g. chat-details with partnerId for 'dm' notifications)
                     **({"actorId": actor_id} if actor_id is not None else {}),
                 },
+                db=db,
             )
     except Exception as exc:
         logger.warning("Push dispatch error (non-blocking): %s", exc)
@@ -2387,9 +2389,20 @@ def remove_device_token(db: Session, user_id: int, token: str) -> bool:
 _EXPO_PUSH_BATCH_SIZE = 100  # Expo enforces a 100-message-per-request limit
 
 
-def _send_expo_push(tokens: List[str], title: str, body: str, data: dict | None = None) -> None:
+def _send_expo_push(
+    tokens: List[str],
+    title: str,
+    body: str,
+    data: dict | None = None,
+    db: "Session | None" = None,
+) -> None:
     """
     Best-effort synchronous Expo Push API call.  Never raises — failures are logged.
+
+    When *db* is provided, successfully-sent ticket IDs (status="ok") are
+    persisted to the ``push_tickets`` table so that a receipt-check job can
+    later prune ``DeviceNotRegistered`` tokens via
+    ``POST /admin/push-receipts/check``.
 
     The call is synchronous and blocks the caller for up to the request timeout
     (3 s). For the current scale this is acceptable; migrate to a background
@@ -2405,6 +2418,8 @@ def _send_expo_push(tokens: List[str], title: str, body: str, data: dict | None 
         title:  Notification heading.
         body:   Notification body text.
         data:   Optional extras forwarded to the app (e.g. {'type': 'like'}).
+        db:     Optional SQLAlchemy session.  When supplied, successful ticket
+                IDs are stored in push_tickets for later receipt checking.
     """
     if not tokens:
         return
@@ -2437,17 +2452,176 @@ def _send_expo_push(tokens: List[str], title: str, body: str, data: dict | None 
                 continue
 
             # Expo returns HTTP 200 even when individual tokens are invalid.
-            # Inspect per-message statuses and log any errors.
+            # Inspect per-message statuses; store ok-ticket IDs for receipt polling.
             try:
                 result = resp.json()
-                for ticket in result.get("data", []):
-                    if ticket.get("status") == "error":
+                ticket_rows: list[models.PushTicket] = []
+                for idx, ticket in enumerate(result.get("data", [])):
+                    status = ticket.get("status")
+                    if status == "error":
                         logger.warning(
                             "Expo Push ticket error — details: %s",
                             ticket.get("details", ticket.get("message", "unknown")),
                         )
+                    elif status == "ok" and db is not None:
+                        ticket_id = ticket.get("id")
+                        if ticket_id and idx < len(batch):
+                            ticket_rows.append(
+                                models.PushTicket(
+                                    expo_ticket_id=str(ticket_id),
+                                    token=batch[idx],
+                                )
+                            )
+                if ticket_rows and db is not None:
+                    try:
+                        db.add_all(ticket_rows)
+                        db.commit()
+                    except Exception as db_exc:
+                        db.rollback()
+                        logger.warning("PushTicket persist failed: %s", db_exc)
             except Exception as parse_exc:
                 logger.warning("Expo Push response parse error: %s", parse_exc)
 
         except Exception as exc:  # network error, timeout, etc.
             logger.warning("Expo Push send failed: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# Expo Push Receipt Polling
+# ---------------------------------------------------------------------------
+
+def check_push_receipts(
+    db: Session,
+    min_age_minutes: int = 15,
+    batch_size: int = 100,
+) -> dict:
+    """
+    Check Expo push receipts for tickets sent at least *min_age_minutes* ago.
+
+    Expo guarantees receipts are available within ~15 minutes of delivery.
+    For each receipt:
+    - status "ok"  → ticket resolved successfully; delete the row.
+    - status "error" + error "DeviceNotRegistered" → delete the device_token
+      row (Expo confirmed the token is dead) and the ticket row.
+    - status "error" (other) → log the error and delete the ticket row.
+
+    Returns a summary dict:
+        {
+          "tickets_checked": int,        # tickets attempted this run (rows fetched + queried from Expo)
+          "receipts_returned": int,      # receipts actually returned by Expo in this run
+          "ok": int,
+          "errors": int,
+          "tokens_pruned": int,
+          "tickets_remaining": int,
+        }
+
+    Never raises — all errors are logged and a partial summary is returned.
+    """
+    cutoff = datetime.datetime.now(timezone.utc).replace(tzinfo=None) - datetime.timedelta(
+        minutes=min_age_minutes
+    )
+    # Fetch up to batch_size old tickets
+    ticket_rows = (
+        db.query(models.PushTicket)
+        .filter(models.PushTicket.sent_at <= cutoff)
+        .order_by(models.PushTicket.sent_at.asc())
+        .limit(batch_size)
+        .all()
+    )
+
+    if not ticket_rows:
+        remaining = db.query(models.PushTicket).count()
+        return {
+            "tickets_checked": 0,
+            "receipts_returned": 0,
+            "ok": 0,
+            "errors": 0,
+            "tokens_pruned": 0,
+            "tickets_remaining": remaining,
+        }
+
+    ticket_id_map = {row.expo_ticket_id: row for row in ticket_rows}
+    expo_ids = list(ticket_id_map.keys())
+
+    receipts: dict = {}
+    try:
+        resp = httpx.post(
+            "https://exp.host/--/api/v2/push/getReceipts",
+            json={"ids": expo_ids},
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+            timeout=5.0,
+        )
+        if resp.status_code == 200:
+            receipts = resp.json().get("data", {})
+        else:
+            logger.warning("Expo getReceipts HTTP %s: %s", resp.status_code, resp.text[:200])
+    except Exception as exc:
+        logger.warning("Expo getReceipts request failed: %s", exc)
+
+    ok_count = 0
+    error_count = 0
+    pruned_count = 0
+    rows_to_delete: list[models.PushTicket] = []
+
+    for expo_id, receipt in receipts.items():
+        row = ticket_id_map.get(expo_id)
+        if row is None:
+            continue
+
+        status = receipt.get("status")
+        if status == "ok":
+            ok_count += 1
+            rows_to_delete.append(row)
+        elif status == "error":
+            error_count += 1
+            error_code = receipt.get("details", {}).get("error", "")
+            if error_code == "DeviceNotRegistered":
+                # Remove the dead token from device_tokens
+                deleted = (
+                    db.query(models.DeviceToken)
+                    .filter(models.DeviceToken.token == row.token)
+                    .delete(synchronize_session=False)
+                )
+                pruned_count += deleted
+                logger.info("Pruned DeviceNotRegistered token (expo_id=%s)", expo_id)
+            else:
+                logger.warning(
+                    "Expo receipt error for ticket %s: %s", expo_id, receipt.get("message", error_code)
+                )
+            rows_to_delete.append(row)
+        # If a ticket ID isn't in the receipts yet, leave it for the next check.
+
+    # For any tickets that Expo didn't return (not ready yet or expired),
+    # delete rows older than 25 hours — Expo receipts expire after 24 h.
+    cutoff_expired = datetime.datetime.now(timezone.utc).replace(tzinfo=None) - datetime.timedelta(
+        hours=25
+    )
+    for row in ticket_rows:
+        sent = row.sent_at
+        if sent.tzinfo is not None:
+            sent = sent.astimezone(timezone.utc).replace(tzinfo=None)
+        if row not in rows_to_delete and sent <= cutoff_expired:
+            rows_to_delete.append(row)
+
+    if rows_to_delete:
+        try:
+            for row in rows_to_delete:
+                db.delete(row)
+            db.commit()
+        except Exception as db_exc:
+            db.rollback()
+            logger.warning("PushTicket/DeviceToken cleanup DB error: %s", db_exc)
+
+    remaining = db.query(models.PushTicket).count()
+    return {
+        # Number of tickets attempted this run: rows fetched from DB and
+        # submitted to Expo's getReceipts endpoint. Not all may have receipts
+        # returned yet — see receipts_returned for the count Expo actually
+        # resolved in this call.
+        "tickets_checked": len(ticket_rows),
+        "receipts_returned": len(receipts),
+        "ok": ok_count,
+        "errors": error_count,
+        "tokens_pruned": pruned_count,
+        "tickets_remaining": remaining,
+    }

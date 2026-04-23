@@ -560,6 +560,14 @@ class SuccessMessage(BaseModel):
     message: str
     status: str = "success"
 
+
+class PushReceiptCheckResponse(BaseModel):
+    tickets_checked: int
+    ok: int
+    errors: int
+    tokens_pruned: int
+    tickets_remaining: int
+
 # Error Response Schema
 
 
