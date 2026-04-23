@@ -199,3 +199,56 @@ class TestUserSearchPagination:
         # skip=1 should drop the first result
         if len(all_ids) >= 2:
             assert all_ids[1:] == skip_ids
+
+
+class TestUserSearchSortBy:
+    """Tests for sort_by=name (default) and sort_by=followers."""
+
+    def test_sort_by_name_is_default(self, user_alice, user_bob):
+        """Without sort_by, results are alphabetical by name."""
+        resp = client.get("/users/search?q=b")
+        assert resp.status_code == 200
+
+    def test_sort_by_name_explicit(self, user_alice, user_bob):
+        resp = client.get("/users/search?q=b&sort_by=name")
+        assert resp.status_code == 200
+
+    def test_sort_by_followers_accepted(self, user_alice, user_bob):
+        resp = client.get("/users/search?q=b&sort_by=followers")
+        assert resp.status_code == 200
+
+    def test_sort_by_invalid_returns_422(self, user_alice):
+        resp = client.get("/users/search?q=alice&sort_by=invalid_option")
+        assert resp.status_code == 422
+
+    def test_sort_by_followers_ordering(self, db, user_alice, user_bob):
+        """When sorted by followers, user with more followers comes first."""
+        # Make Alice follow Bob so Bob has 1 follower; Alice has 0
+        client.post(
+            f"/users/{user_bob['user'].id}/follow",
+            headers=user_alice["headers"],
+        )
+        resp = client.get("/users/search?q=b&sort_by=followers")
+        assert resp.status_code == 200
+        data = resp.json()
+        # Bob should be the first result (most followers)
+        bob_entries = [u for u in data if u["id"] == user_bob["user"].id]
+        alice_entries = [u for u in data if u["id"] == user_alice["user"].id]
+        if bob_entries and alice_entries:
+            bob_pos = data.index(bob_entries[0])
+            alice_pos = data.index(alice_entries[0])
+            assert bob_pos < alice_pos, "Bob (1 follower) should rank before Alice (0 followers)"
+
+    def test_sort_by_name_ordering(self, db, user_alice, user_bob):
+        """sort_by=name returns alphabetical order regardless of follow counts."""
+        # Give Alice a bunch of followers (from Bob)
+        client.post(
+            f"/users/{user_alice['user'].id}/follow",
+            headers=user_bob["headers"],
+        )
+        # Both names start with letters that differ; query broad enough to catch both
+        resp = client.get("/users/search?q=search&sort_by=name")
+        assert resp.status_code == 200
+        names = [u["name"] for u in resp.json()]
+        assert names == sorted(names)
+

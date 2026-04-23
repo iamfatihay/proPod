@@ -2633,6 +2633,7 @@ def search_users(
     current_user_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 20,
+    sort_by: str = "name",
 ) -> list:
     """Search active users by name using a case-insensitive partial match.
 
@@ -2647,6 +2648,8 @@ def search_users(
             is_following. Pass None for unauthenticated callers.
         skip: Pagination offset.
         limit: Max results (capped by the router).
+        sort_by: ``"name"`` (alphabetical, default) or ``"followers"``
+            (descending follower count).
 
     Returns:
         List of dicts ready to be serialised as PublicUserProfile.
@@ -2715,7 +2718,7 @@ def search_users(
         )
         following_set = {row.followed_id for row in rows}
 
-    return [
+    results = [
         {
             "id": u.id,
             "name": u.name,
@@ -2729,3 +2732,8 @@ def search_users(
         }
         for u in users
     ]
+
+    if sort_by == "followers":
+        results.sort(key=lambda r: r["total_followers"], reverse=True)
+
+    return results
