@@ -969,6 +969,29 @@ class ApiService {
         return podcasts.map((p) => this.normalizePodcast(p));
     }
 
+
+    /**
+     * Search creators/users by name.
+     *
+     * Hits GET /users/search?q=<query>&limit=<n>&skip=<n>.
+     * Returns an array of PublicUserProfile objects including podcast_count,
+     * total_followers, total_plays, and is_following (if authenticated).
+     *
+     * @param {string} query - Non-empty search string
+     * @param {Object} params - Optional pagination params
+     * @param {number} [params.skip=0] - Pagination offset
+     * @param {number} [params.limit=20] - Max results (1-50)
+     * @returns {Promise<Array>} Array of matching user profile objects
+     */
+    async searchUsers(query, params = {}) {
+        const q = (query || "").trim();
+        if (!q) return [];
+        const queryParams = new URLSearchParams({ q });
+        if (params.skip !== undefined) queryParams.append("skip", params.skip);
+        if (params.limit !== undefined) queryParams.append("limit", params.limit);
+        return this.request(`/users/search?${queryParams.toString()}`);
+    }
+
     /**
      * Fetch all podcast categories with their podcast counts from the backend.
      *
