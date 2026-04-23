@@ -7,7 +7,7 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-23  
-**Last session:** Category filter chips in Search screen — horizontally scrollable chips (from `getDiscoverCategories()`) in Podcasts mode, passes `category=` to `searchPodcasts()`, active-filter label with count + Clear → PR #78  
+**Last session:** Creator search sort-by-followers — Name/Followers pill toggle in Creators tab, `sort_by` param in crud/router, 6 new tests → PR #79  
 **Test suite baseline:** ~436 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -16,7 +16,7 @@
 
 ---
 
-## ✅ Recently Shipped (PR #66–#77)
+## ✅ Recently Shipped (PR #66–#78)
 
 - ✅ Listening history screen — progress bar, completion badge, pagination (PR #66)
 - ✅ Listening history delete entry — `DELETE /podcasts/{id}/history`, 5 tests (PR #67)
@@ -30,12 +30,13 @@
 - ✅ Demo user error-handling feedback — next() fallback tests, pre-commit quoting fix, repeat=all single-item loop fix, conftest engine.dispose(), SQLite check_same_thread (PR #75)
 - ✅ Expo push receipt polling — PushTicket model, Alembic migration, `check_push_receipts()`, `POST /admin/push-receipts/check`, 15 tests (PR #76)
 - ✅ Creator Search tab — `GET /users/search`, `search_users` CRUD, `searchUsers` apiService, 3-tab toggle, `CreatorCard` with optimistic follow, 14 tests (PR #77)
+- ✅ Category filter chips in Search screen — horizontally scrollable chips, `category=` param, active-filter label + Clear (PR #78)
 
 ---
 
 ## 🔄 What's open
 
-- PR #78 `feature/search-category-chips` — Horizontally scrollable category chips in Search (Podcasts mode). Fetches `getDiscoverCategories()` on mount, passes `category=` to `searchPodcasts()`. Active chip highlighted in primary color; active-filter label shows result count + Clear. Mode switch resets filter. Pure frontend, no migration. Awaiting merge.
+- PR #79 `feature/creator-search-sort-by` — Name / Followers pill toggle in Creators tab. `sort_by` param added to `crud.search_users` (Python-side sort after stat aggregation), router (pattern-validated), `apiService.searchUsers`, and `search.js` state. 6 new tests; 21/21 pass. Awaiting merge.
 
 ---
 
@@ -48,16 +49,17 @@
 - Sleep timer: `setInterval` — verify accuracy on real device
 - Frontend unit test coverage thin
 - `search_users` returns `total_likes: 0` (skipped for perf; not shown in UI)
+- Creator sort is Python-side — fine at current scale, needs SQL ORDER BY subquery for large datasets
 
 ---
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FEATURE] Creator search — follower-count sort** — Add `sort_by: Literal["name", "followers"] = "name"` param to `GET /users/search` and `crud.search_users`. Add a small sort toggle (Name / Followers) to the Creators tab in `search.js`. Backend is one small CRUD change; frontend is one row of buttons. Immediately useful for discovery.
+1. **[FEATURE] Wire push receipt check to APScheduler** — `backend/app/main.py`: add APScheduler `BackgroundScheduler` (or `asyncio.create_task` in lifespan) running `crud.check_push_receipts` every 30 min with a fresh DB session. Add `apscheduler` to `backend/requirements.txt`. Pure backend, no migration needed. High reliability value.
 
-2. **[FEATURE] Wire push receipt check to APScheduler** — `backend/app/main.py`: add APScheduler `BackgroundScheduler` (or `asyncio.create_task` in lifespan) running `crud.check_push_receipts` every 30 min with a fresh DB session. Add `apscheduler` to `backend/requirements.txt`. Pure backend, no migration needed.
+2. **[FEATURE] Empty-state category browse** — When the Search screen opens (no query yet) and `searchMode === "all"`, show a 2-column grid of category cards instead of the empty "Search Podcasts" prompt. Tapping a category pre-fills the chips filter and calls `searchPodcasts("", {category})`. Turns the idle search screen into a discovery surface.
 
-3. **[FEATURE] Empty-state category browse** — When the Search screen opens (no query yet) and `searchMode === "all"`, show a 2-column grid of category cards instead of the empty "Search Podcasts" prompt. Tapping a category pre-fills the chips filter and opens `/podcasts/discover/categories/{cat}` (or just calls `searchPodcasts("", {category})` if the backend supports it). Turns the idle search screen into a discovery surface.
+3. **[FEATURE] Creator profile follower list** — Add `GET /users/{user_id}/followers` endpoint (paged, reuse `UserFollow` model) and a "X Followers" tappable link on the creator profile screen that opens a bottom sheet list of followers. Surfaces social proof and encourages follows.
 
 ---
 
