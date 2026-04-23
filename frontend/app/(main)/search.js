@@ -4,6 +4,7 @@ import {
     SafeAreaView,
     TextInput,
     FlatList,
+    ScrollView,
     TouchableOpacity,
     ActivityIndicator,
     Keyboard,
@@ -21,6 +22,30 @@ import useAudioStore from "../../src/context/useAudioStore";
 import Logger from "../../src/utils/logger";
 import { normalizePodcasts } from "../../src/utils/urlHelper";
 import { COLORS } from "../../src/constants/theme";
+
+// ─── Category constants ───────────────────────────────────────────────────────
+
+// Maps backend category strings → Ionicons names.
+const CATEGORY_ICON_MAP = {
+    Technology: "laptop-outline",
+    Business: "briefcase-outline",
+    "Health & Wellness": "fitness-outline",
+    Science: "flask-outline",
+    Education: "school-outline",
+    Entertainment: "film-outline",
+    "Food & Drink": "restaurant-outline",
+    Music: "musical-notes-outline",
+    Sports: "football-outline",
+    News: "newspaper-outline",
+    Comedy: "happy-outline",
+    Society: "people-outline",
+    History: "time-outline",
+    Politics: "megaphone-outline",
+    Art: "color-palette-outline",
+    Finance: "cash-outline",
+};
+
+const ALL_CATEGORY = { id: "all", label: "All", icon: "apps" };
 
 // ─── CreatorCard ─────────────────────────────────────────────────────────────
 
@@ -50,7 +75,6 @@ const CreatorCard = ({ creator, onPress }) => {
             setFollowing(was);
             const status = err?.response?.status ?? err?.status;
             if (status === 401) {
-                // Unauthenticated — silently revert; app-level auth guard handles redirect
                 Logger.warn("CreatorCard: follow attempt without auth");
             } else {
                 Logger.error("CreatorCard: follow toggle failed", err);
@@ -116,6 +140,8 @@ const CreatorCard = ({ creator, onPress }) => {
     );
 };
 
+// ─── Main component ───────────────────────────────────────────────────────────
+
 const Search = () => {
     const router = useRouter();
     const { play, setQueue, currentTrack, isPlaying, pause } = useAudioStore();
@@ -127,11 +153,37 @@ const Search = () => {
     const [searchMode, setSearchMode] = useState("all"); // 'all' | 'transcriptions' | 'creators'
     const [creatorResults, setCreatorResults] = useState([]);
     const [showHistory, setShowHistory] = useState(true);
+
+    // Category filter — only active in "all" (Podcasts) mode.
+    const [selectedCategory, setSelectedCategory] = useState("all");
+    const [categories, setCategories] = useState([ALL_CATEGORY]);
+
     const searchInputRef = useRef(null);
 
+    // Load search history on mount.
     useEffect(() => {
-        // Load search history on mount
         loadSearchHistory();
+    }, []);
+
+    // Fetch category list from backend once on mount; backend returns categories
+    // sorted by podcast count so the most popular ones appear first.
+    useEffect(() => {
+        apiService
+            .getDiscoverCategories()
+            .then((apiCategories) => {
+                if (!Array.isArray(apiCategories) || apiCategories.length === 0)
+                    return;
+                const enriched = apiCategories.map((c) => ({
+                    id: c.category,
+                    label: c.category,
+                    icon: CATEGORY_ICON_MAP[c.category] || "grid-outline",
+                }));
+                setCategories([ALL_CATEGORY, ...enriched]);
+            })
+            .catch((err) => {
+                // Non-critical — "All" chip still works without the full list.
+                Logger.warn("Search: failed to load categories", err);
+            });
     }, []);
 
     // Autofocus the search input every time the Search tab is focused,
@@ -145,10 +197,9 @@ const Search = () => {
         }, [])
     );
 
+    // Debounced live search — fires as the user types (≥2 chars) OR when the
+    // category chip selection changes while a query is already active.
     useEffect(() => {
-        // Debounced live search — fire results as the user types (>=2 chars).
-        // Keyword suggestions load alongside so recent searches and live hits
-        // are both surfaced without requiring a submit.
         const trimmed = searchQuery.trim();
         if (trimmed.length < 2) {
             setSuggestions([]);
@@ -167,7 +218,7 @@ const Search = () => {
             }
         }, 350);
         return () => clearTimeout(handle);
-    }, [searchQuery, searchMode]);
+    }, [searchQuery, searchMode, selectedCategory]);
 
     const loadSearchHistory = () => {
         const history = SemanticSearchService.getSearchHistory();
@@ -186,7 +237,6 @@ const Search = () => {
     };
 
     const performSearch = async (query, options = {}) => {
-        // Trim once here so all downstream calls (API, history) use the clean value.
         const q = (query || "").trim();
         if (q.length === 0) {
             setSearchResults([]);
@@ -198,28 +248,22 @@ const Search = () => {
         try {
             setIsSearching(true);
             setShowHistory(false);
-            // Only dismiss the keyboard on explicit submit — silent live
-            // search must not fight the user's typing.
             if (!silent) {
                 Keyboard.dismiss();
-                // Record query in local history (used for suggestions / recent
-                // searches). Skip for silent live search to avoid polluting
-                // history with every keystroke.
                 SemanticSearchService.addToHistory(q);
             }
 
             let results;
             if (searchMode === "transcriptions") {
-                // Transcription search is still client-side (backend has no
-                // dedicated transcript search endpoint yet).
                 results = await SemanticSearchService.searchTranscriptions(q);
-                // SemanticSearchService already normalizes URLs internally;
-                // apply normalizePodcasts for consistency.
                 setSearchResults(normalizePodcasts(results));
             } else {
-                // Delegate to the backend search endpoint for scalability.
-                // Returns already-normalized podcast objects from apiService.
-                results = await apiService.searchPodcasts(q, { limit: 50 });
+                // Pass category only when a specific one is selected.
+                const params = { limit: 50 };
+                if (selectedCategory !== "all") {
+                    params.category = selectedCategory;
+                }
+                results = await apiService.searchPodcasts(q, params);
                 setSearchResults(results);
             }
         } catch (error) {
@@ -229,7 +273,6 @@ const Search = () => {
             setIsSearching(false);
         }
     };
-
 
     const performCreatorSearch = async (query) => {
         const q = (query || "").trim();
@@ -261,6 +304,26 @@ const Search = () => {
     const handleSuggestionPress = (suggestion) => {
         setSearchQuery(suggestion);
         performSearch(suggestion);
+    };
+
+    const handleModeChange = (key) => {
+        setSearchMode(key);
+        setSearchResults([]);
+        setCreatorResults([]);
+        // Reset category filter when switching away from Podcasts mode.
+        if (key !== "all") {
+            setSelectedCategory("all");
+        }
+    };
+
+    const handleCategorySelect = (categoryId) => {
+        setSelectedCategory(categoryId);
+        // Immediately re-search if there is already an active query.
+        // (The useEffect with selectedCategory dep handles this, but calling
+        // directly here gives zero-delay feedback on chip tap.)
+        if (searchQuery.trim().length >= 2) {
+            // Let the effect run — no need to double-call performSearch.
+        }
     };
 
     const handlePodcastPress = (podcast) => {
@@ -320,15 +383,20 @@ const Search = () => {
         </TouchableOpacity>
     );
 
+    // Number of results shown in the active-filter label.
+    const resultCount = searchResults.length;
+    const hasActiveFilter = searchMode === "all" && selectedCategory !== "all";
+
     return (
-        <SafeAreaView 
+        <SafeAreaView
             className="flex-1 bg-background"
             style={{
-                paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0
+                paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
             }}
         >
             {/* Search Header */}
-            <View className="px-4 py-3 pb-6 border-b border-border">
+            <View className="px-4 py-3 border-b border-border">
+                {/* Search input */}
                 <View className="flex-row items-center bg-panel rounded-lg px-3">
                     <Ionicons name="search" size={20} color="#888" />
                     <TextInput
@@ -359,11 +427,7 @@ const Search = () => {
                                 setShowHistory(true);
                             }}
                         >
-                            <Ionicons
-                                name="close-circle"
-                                size={20}
-                                color="#888"
-                            />
+                            <Ionicons name="close-circle" size={20} color="#888" />
                         </TouchableOpacity>
                     )}
                 </View>
@@ -377,11 +441,7 @@ const Search = () => {
                     ].map(({ key, label }, i, arr) => (
                         <TouchableOpacity
                             key={key}
-                            onPress={() => {
-                                setSearchMode(key);
-                                setSearchResults([]);
-                                setCreatorResults([]);
-                            }}
+                            onPress={() => handleModeChange(key)}
                             className={`flex-1 py-2 rounded-lg ${
                                 i < arr.length - 1 ? "mr-1" : ""
                             } ${i > 0 ? "ml-1" : ""} ${
@@ -400,7 +460,73 @@ const Search = () => {
                         </TouchableOpacity>
                     ))}
                 </View>
+
+                {/* Category filter chips — Podcasts mode only */}
+                {searchMode === "all" && categories.length > 1 && (
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        className="mt-3 -mx-1"
+                        contentContainerStyle={{ paddingHorizontal: 4 }}
+                    >
+                        {categories.map((cat) => {
+                            const isActive = selectedCategory === cat.id;
+                            return (
+                                <TouchableOpacity
+                                    key={cat.id}
+                                    onPress={() => handleCategorySelect(cat.id)}
+                                    activeOpacity={0.7}
+                                    style={{
+                                        flexDirection: "row",
+                                        alignItems: "center",
+                                        paddingHorizontal: 12,
+                                        paddingVertical: 6,
+                                        borderRadius: 20,
+                                        marginRight: 8,
+                                        backgroundColor: isActive
+                                            ? COLORS.primary
+                                            : "rgba(128,128,128,0.12)",
+                                    }}
+                                >
+                                    <Ionicons
+                                        name={cat.icon}
+                                        size={13}
+                                        color={isActive ? "#fff" : "#888"}
+                                        style={{ marginRight: 5 }}
+                                    />
+                                    <Text
+                                        style={{
+                                            fontSize: 12,
+                                            fontWeight: isActive ? "700" : "500",
+                                            color: isActive ? "#fff" : "#888",
+                                        }}
+                                    >
+                                        {cat.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+                )}
             </View>
+
+            {/* Active filter label */}
+            {hasActiveFilter && searchResults.length > 0 && (
+                <View className="flex-row items-center px-4 py-2 bg-panel border-b border-border">
+                    <Ionicons name="funnel" size={13} color={COLORS.primary} />
+                    <Text className="text-text-secondary text-xs ml-1.5 flex-1">
+                        {resultCount} result{resultCount !== 1 ? "s" : ""} in{" "}
+                        <Text style={{ color: COLORS.primary, fontWeight: "600" }}>
+                            {selectedCategory}
+                        </Text>
+                    </Text>
+                    <TouchableOpacity onPress={() => setSelectedCategory("all")}>
+                        <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: "600" }}>
+                            Clear
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
             {/* Content */}
             {isSearching ? (
@@ -411,6 +537,8 @@ const Search = () => {
                             ? "🤖 Scanning transcriptions..."
                             : searchMode === "creators"
                             ? "Searching creators..."
+                            : hasActiveFilter
+                            ? `Filtering by ${selectedCategory}...`
                             : "Searching podcasts..."}
                     </Text>
                 </View>
