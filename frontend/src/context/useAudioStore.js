@@ -662,7 +662,9 @@ const useAudioStore = create(
             }
 
             // At end of queue (or no queue at all) with repeat=all → loop.
-            if (queue.length > 1 && repeatMode === "all") {
+            // Use >= 1 so a single-item queue also loops instead of falling
+            // through to the network fallback.
+            if (queue.length >= 1 && repeatMode === "all") {
                 const nextTrack = queue[0];
                 set({ currentIndex: 0 });
                 await get().play(nextTrack);

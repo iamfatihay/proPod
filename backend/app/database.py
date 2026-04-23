@@ -37,7 +37,20 @@ if is_postgresql:
         connect_args={"connect_timeout": 10, "options": "-c timezone=utc"},
     )
 else:
-    engine = create_engine(DATABASE_URL, echo=DATABASE_ECHO)
+    # SQLite needs check_same_thread=False when used with FastAPI's
+    # TestClient (which runs the ASGI app in a separate thread).
+    # Without this, SQLAlchemy raises "SQLite objects created in a thread
+    # can only be used in that same thread" for pooled connections.
+    _sqlite_connect_args = (
+        {"check_same_thread": False}
+        if DATABASE_URL.startswith("sqlite")
+        else {}
+    )
+    engine = create_engine(
+        DATABASE_URL,
+        echo=DATABASE_ECHO,
+        connect_args=_sqlite_connect_args,
+    )
 
 # Connection pool event listeners for debugging (optional)
 @event.listens_for(Pool, "connect")

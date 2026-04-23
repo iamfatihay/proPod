@@ -11,8 +11,8 @@ if git diff --cached --name-only | grep -q "^backend/"; then
     echo "Backend: testing..."
     cd backend
     PYTEST="./venv/bin/pytest"
-    [ ! -f "$PYTEST" ] && PYTEST="pytest"
-    if ! $PYTEST tests/ -x --tb=short -q 2>/dev/null; then
+    [ ! -x "$PYTEST" ] && PYTEST="pytest"
+    if ! "$PYTEST" tests/ -x --tb=short -q 2>/dev/null; then
         echo "❌ Backend tests failed"
         FAILED=1
     else
