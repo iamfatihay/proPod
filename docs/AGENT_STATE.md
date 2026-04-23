@@ -15,9 +15,9 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 
 ## 📍 Current Project State
 
-**Last updated:** 2026-04-22
-**Last session (new_episode fan-out BackgroundTask):** PRs #72 + #73 confirmed merged at session start. Migrated `new_episode` follower notification fan-out from synchronous blocking call in `crud.create_podcast()` to a FastAPI `BackgroundTask` dispatched by the router — `POST /podcasts/create` now returns immediately to the creator. 186 tests verified passing across 8 test files, 0 failures → PR #74 `feature/new-episode-fan-out-background-task`.
-**Test suite baseline:** 421 backend tests, all passing (186 verified this session).
+**Last updated:** 2026-04-23
+**Last session (Expo push receipt polling):** Confirmed PR #74 merged at session start. PR #75 also confirmed merged (branch still exists but PR is merged). Implemented Expo push receipt polling: `PushTicket` model + Alembic migration, `_send_expo_push` now stores ok-ticket IDs when `db` is provided, `check_push_receipts()` CRUD function, `POST /admin/push-receipts/check` admin endpoint, 15 new tests all passing → PR #76 `feature/expo-push-receipt-polling`.
+**Test suite baseline:** ~436 backend tests (421 + 15 new).
 
 ### What's shipped (merged to master)
 - ✅ Playlist Play All + Share sheet — Play All queues ordered tracks; Share invokes native Share.share with deep link (PR #63)
@@ -38,8 +38,7 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Bug fixes: comment stats sync, sharing cover_image_url, test isolation
 - ✅ Continue Listening seek-to-position (PR #39)
 - ✅ loadContinueListening URL normalization + decoupled from main-feed repaint (PR #40)
-- ✅ Hotfix: duplicate `loadContinueListening` declaration removed (PR #40 follow-up)
-- ✅ Deep link handling `volo://podcast/{id}` with auth-race guard (PR #41)
+- ✅ Deep link handling `volo://podcast/{id}` + `volo://playlist/{id}` with auth-race guard (PR #41 + _layout.js)
 - ✅ Native Google Sign-In hardened — server-side token validation (PR #42, PR #44)
 - ✅ Notifications backend + API wiring (PR #45)
 - ✅ Notification badge wired to server unread_count (PR #46)
@@ -49,49 +48,50 @@ Tech stack: React Native + Expo (frontend) · FastAPI + SQLAlchemy (backend) · 
 - ✅ Playback speed selector modal (6 presets, 9 tests) — PR #52
 - ✅ Sleep timer — auto-pause after chosen duration — PR #50
 - ✅ Follow/unfollow creator — backend + frontend — PR #51
-- ✅ "End of Episode" sleep timer option — `sleepOnEpisodeEnd` flag, SleepTimerModal button, ModernAudioPlayer indicator — PR #53
-- ✅ Following Feed — `GET /podcasts/following-feed`, FOLLOWING_CATEGORY pill, empty state with CTA — PR #54
-- ✅ Fix `TestGetFollowingList` ImportError — removed inline relative import from `get_my_following` body — PR #55
-- ✅ Profile screen wired to real API data — real follower/following/podcast counts, PodcastCard list, `useFocusEffect` refresh — PR #56
+- ✅ "End of Episode" sleep timer option — PR #53
+- ✅ Following Feed — PR #54
+- ✅ Fix `TestGetFollowingList` ImportError — PR #55
+- ✅ Profile screen wired to real API data — PR #56
 - ✅ Persist sleepOnEpisodeEnd across app restarts via AsyncStorage — PR #57
-- ✅ Direct messaging between users — `DirectMessage` model + Alembic migration, `POST /messages/`, `GET /messages/inbox`, `GET /messages/{partner_id}`, `chat-details.js` conversation UI, `messages.js` inbox, `creator-profile.js` "Message" button, 17 backend tests — PR #58
-- ✅ DM unread badge in tab bar — `useDMStore.js`, Messages tab visible + red badge, `resetDMUnread` on focus — PR #59
-- ✅ Expo push notifications — `DeviceToken` model + migration, register/remove endpoints, `registerPushToken()` on session, 13 new tests — PR #60
+- ✅ Direct messaging between users — PR #58
+- ✅ DM unread badge in tab bar — PR #59
+- ✅ Expo push notifications — PR #60
 - ✅ Push notification tap routing + logout cleanup + eager sleep settings — PR #61
-- ✅ Playlist shuffle play — Fisher-Yates shuffle, Shuffle button alongside Play All — PR #64
-- ✅ Playlist now-playing indicator — active EpisodeRow shows red border + waveform animation in playlist-detail.js — PR #65
-- ✅ Playlist Play All + Share sheet — PR #63
-- ✅ DM push notifications — PR #62
+- ✅ Playlist shuffle play — PR #64
+- ✅ Playlist now-playing indicator — PR #65
 - ✅ Listening history screen with progress bar, completion badge, pagination — PR #66
-- ✅ Listening history delete entry — `DELETE /podcasts/{podcast_id}/history`, trash-can icon, 5 backend tests — PR #67
-- ✅ Persisted Haptic Feedback setting — `hapticFeedback.js` preference-aware helper, wired to touch paths (PR #68)
-- ✅ Fix double-encoded UTF-8 mojibake in `crud.py` — 88 occurrences fixed, test restored (PR #69)
-- ✅ `EpisodeRow` Zustand selector perf — derived boolean instead of whole `currentTrack` object, O(n)→O(2) re-renders (PR #70)
-- ✅ `new_episode` follower notification fan-out — `_notify_followers_new_episode()` in `crud.py`, in-app + Expo push, try/except guard, 5 tests (PR #71)
-- ✅ `new_episode` push notification tap routing — `_layout.js` routes tap directly to episode detail screen; `new_episode` added to `serverTypes` in notification store (PR #72)
-- ✅ Dev workflow scripts + UI tab bar and feed improvements — startup scripts hardened, home feed and notifications screens polished (PR #73)
+- ✅ Listening history delete entry — PR #67
+- ✅ Persisted Haptic Feedback setting — PR #68
+- ✅ Fix double-encoded UTF-8 mojibake in `crud.py` — PR #69
+- ✅ `EpisodeRow` Zustand selector perf — PR #70
+- ✅ `new_episode` follower notification fan-out — PR #71
+- ✅ `new_episode` push notification tap routing — PR #72
+- ✅ Dev workflow scripts + UI tab bar and feed improvements — PR #73
+- ✅ `new_episode` fan-out via FastAPI BackgroundTask (non-blocking POST /podcasts/) — PR #74
+- ✅ Demo user error-handling feedback + next() network fallback tests + pre-commit fix — PR #75
 
 ### What's open / in-progress
-- 🔄 PR #74 `feature/new-episode-fan-out-background-task` — Moves `new_episode` follower notification fan-out from `crud.create_podcast()` (sync, blocking) to a FastAPI `BackgroundTask` in the router. `POST /podcasts/create` now returns immediately; fan-out runs post-response. 186 tests passing, 0 failures. Awaiting Fay's merge.
+- 🔄 PR #76 `feature/expo-push-receipt-polling` — Expo push receipt polling: `PushTicket` model, `push_tickets` Alembic migration, `_send_expo_push` stores ok-ticket IDs (with db param), `check_push_receipts()` CRUD, `POST /admin/push-receipts/check` admin endpoint. 15 new tests, 50 combined tests passing. Awaiting Fay's merge.
 
 ### Known issues / tech debt
 - Frontend `npm run lint` is currently blocked by repo-wide ESLint configuration/parsing issues (`Unexpected token <` across JSX files). Use `node --check` + targeted Jest until the lint config is fixed.
-- Push: no receipt polling — Expo Push API returns ticket IDs; check receipts at `https://exp.host/--/api/v2/push/getReceipts` to detect expired/invalid tokens and prune `device_tokens` table
-- `new_episode` notification fan-out is synchronous; if a creator gains many followers, migrate `_notify_followers_new_episode` to FastAPI `BackgroundTasks` to avoid slowing `POST /podcasts/`
-- DM inbox has no server-side pagination — fine for now, add if thread count grows large
-- DM text-only — no image/file attachments yet
-- Frontend unit test coverage still thin
-- Sleep timer uses `setInterval` — verify accuracy on real device
+- Push receipt check (`POST /admin/push-receipts/check`) must be wired to a cron job or scheduled FastAPI task — currently manual-only.
+- `GET /admin/push-tickets` (inspect pending ticket count) not yet added — follow-up item.
+- Push: Expo receipt check needs to be called periodically; no scheduler wired yet.
+- DM inbox has no server-side pagination — fine for now, add if thread count grows large.
+- DM text-only — no image/file attachments yet.
+- Frontend unit test coverage still thin.
+- Sleep timer uses `setInterval` — verify accuracy on real device.
 
 ---
 
 ## 🗺️ Roadmap Priority (agent perspective)
 
-1. **[FEATURE] Expo push receipt polling** — After firing pushes, Expo returns ticket IDs. Extend `_send_expo_push` in `crud.py` to store ticket IDs, then add a `POST /admin/push-receipts/check` endpoint (admin-only) that calls `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` tokens from `device_tokens`. Requires Alembic migration for `push_tickets` table.
+1. **[FEATURE] Schedule push receipt check** — Wire `check_push_receipts` into an APScheduler job (or FastAPI lifespan background task) so it runs every 30 minutes automatically. Add `APScheduler` to `requirements.txt`, register a job in `app/main.py` `lifespan` that calls `check_push_receipts` with a fresh DB session. No frontend needed.
 
-2. **[FEATURE] Playlist deep-link share** — Add `volo://playlist/{id}` deep link handling in `frontend/app/(main)/playlist-detail.js` (alongside the existing episode deep link). Backend already returns playlist data at `GET /playlists/{id}`. Primarily frontend: extend the Share button in `playlist-detail.js` to generate the deep link, and wire `deep-link-handler.js` to navigate to the playlist screen on open.
+2. **[FEATURE] Playlist deep-link share** — Already implemented: `volo://playlist/{id}` deep link handler exists in `_layout.js`, Share button in `playlist-detail.js` generates the link. Consider adding `GET /admin/push-tickets` endpoint to expose pending ticket count in admin stats.
 
-3. **[FEATURE] "New Episode" push notification for followed creators** — When `POST /podcasts/` is called, check for followers of `owner_id` and fire push notifications to each. The follow system (`GET /users/{id}/followers`) and push infra (`_send_expo_push`) already exist. Add a new notification type `new_episode` and extend `create_podcast` in `crud.py` to fan out notifications to follower device tokens.
+3. **[FEATURE] In-app search screen improvements** — `search.js` exists and is wired to the tab bar. Potential improvements: debounced auto-search (currently only triggers on submit), skeleton loading state while results load, "no results" illustration, creator search tab (search users by name, `GET /users/search`).
 
 ---
 
@@ -135,6 +135,14 @@ Literal-path routes (`/following-feed`, `/search`, `/discover/categories`) MUST 
 
 `crud.get_dm_inbox` does Python-side aggregation (not SQL GROUP BY) for SQLite/PostgreSQL compatibility. On large datasets, switch to a SQL query with `MAX(created_at)` per conversation pair.
 
+### Full test suite timeout
+
+The sandbox bash timeout is 45 s. The full test suite (~436 tests) exceeds this. Run targeted subsets:
+```bash
+python3 -m pytest tests/test_device_tokens.py tests/test_push_receipts.py tests/test_notifications.py -q
+```
+Use `tests/test_<area>.py` groups of 3–4 files max per run.
+
 ---
 
 ## 🧠 Agent Instructions: How to Use This File
@@ -154,8 +162,8 @@ Update: Last updated · What's shipped · What's open · Known issues · Next se
 
 *(Ranked by user-facing impact — pick #1 unless blocked)*
 
-1. **[FEATURE] Expo push receipt polling** — In `backend/app/crud.py`, extend `_send_expo_push` to store returned Expo ticket IDs in a new `push_tickets` table (`id`, `ticket_id`, `device_token_id`, `created_at`). Add `POST /admin/push-receipts/check` endpoint in `backend/app/routers/admin.py` that POSTs ticket IDs to `https://exp.host/--/api/v2/push/getReceipts` and deletes `DeviceNotRegistered` device token rows. Add Alembic migration for `push_tickets`. Test suite target: ~421 + 5 new tests.
+1. **[FEATURE] Wire push receipt check to APScheduler** — In `backend/app/main.py`, add an APScheduler `BackgroundScheduler` (or use FastAPI lifespan with `asyncio.create_task`) that calls `crud.check_push_receipts` with a fresh DB session every 30 minutes. Add `apscheduler` to `backend/requirements.txt`. This makes dead-token cleanup fully automatic, no manual admin calls needed. Pure backend, no migration needed.
 
-2. **[FEATURE] Playlist deep-link share** — In `frontend/app/(main)/playlist-detail.js`, extend the Share button to generate a `volo://playlist/{id}` deep link (same pattern as `volo://podcast/{id}` in `deep-link-handler.js`). Wire `_layout.js` / deep-link handler to navigate to the playlist detail screen on open. Backend already serves `GET /playlists/{id}`. Pure frontend, no migration needed.
+2. **[FEATURE] Search screen debounce + skeleton loading** — In `frontend/app/(main)/search.js`, add a 400 ms debounce on `onChangeText` so search fires automatically as the user types (removing the need to press Enter). Add a `ContentLoader`-style skeleton (`react-content-loader` or a simple animated grey box) while `isSearching=true`. Pure frontend, no backend changes.
 
-3. **[FEATURE] In-app search screen** — Add a dedicated `frontend/app/(main)/search.js` screen with a text input wired to `GET /podcasts/search?q=` (already exists in backend). Show results as `PodcastCard` list with a skeleton loading state. Wire the tab bar or a search icon in the home header to navigate there. Pure frontend.
+3. **[FEATURE] Creator search tab in search screen** — Add a "Creators" toggle alongside "All Content" / "Transcriptions" in `frontend/app/(main)/search.js`. Wire it to `GET /users/search?q=` (check if this endpoint exists; if not, add `GET /users/search` in `backend/app/routers/users.py` using `ilike` on name/email). Show results as a simple user-card list with Follow button.
