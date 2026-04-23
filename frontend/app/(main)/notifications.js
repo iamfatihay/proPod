@@ -21,6 +21,8 @@ import {
     View,
     Text,
     FlatList,
+    SafeAreaView,
+    StatusBar,
     TouchableOpacity,
     Platform,
     RefreshControl,
@@ -254,10 +256,11 @@ export default function NotificationsScreen() {
     };
 
     return (
-        <View
+        <SafeAreaView
             style={{
                 flex: 1,
                 backgroundColor: COLORS.background,
+                paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
             }}
         >
             {/* Header */}
@@ -436,6 +439,6 @@ export default function NotificationsScreen() {
                     }}
                 />
             )}
-        </View>
+        </SafeAreaView>
     );
 }

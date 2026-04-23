@@ -5,6 +5,9 @@ ensuring that tests using SessionLocal() have the required schema in place.
 """
 import os
 import pytest
+
+os.environ.setdefault("DATABASE_URL", "sqlite:///./propod_test.db")
+
 from app.database import Base, engine, SessionLocal
 from app.auth import create_access_token, get_password_hash
 from app import crud, schemas
@@ -25,6 +28,17 @@ def setup_database():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+    # Dispose the connection pool before deleting the SQLite file.
+    # Without this, open pooled connections hold a file lock on Windows
+    # (and can intermittently do so on Linux/macOS too), causing
+    # teardown to fail with a PermissionError / "database is locked".
+    engine.dispose()
+    db_path = str(engine.url.database or "")
+    if db_path and db_path not in (":memory:", "") and os.path.exists(db_path):
+        try:
+            os.remove(db_path)
+        except OSError:
+            pass  # best-effort: file may still be locked briefly
 
 
 @pytest.fixture

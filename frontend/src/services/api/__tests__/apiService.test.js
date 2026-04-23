@@ -182,7 +182,7 @@ describe("ApiService", () => {
             const result = await apiService.getPodcasts(params);
 
             expect(global.fetch).toHaveBeenCalledWith(
-                "http://localhost:8000/podcasts?skip=0&limit=10&category=Tech&search=AI",
+                "http://localhost:8000/podcasts/?skip=0&limit=10&category=Tech&search=AI",
                 expect.any(Object)
             );
 

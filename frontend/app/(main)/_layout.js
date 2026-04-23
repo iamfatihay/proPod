@@ -457,19 +457,6 @@ export default function TabLayout() {
                         }}
                     />
                 </Tabs>
-
-                <View
-                    pointerEvents="box-none"
-                    style={{
-                        position: "absolute",
-                        left: 0,
-                        right: 0,
-                        bottom: createTabBottomOffset,
-                        alignItems: "center",
-                    }}
-                >
-                    <CreateTab />
-                </View>
             </View>
 
             {/* Debug MiniPlayer State */}
@@ -507,6 +494,23 @@ export default function TabLayout() {
                 onClose={handleMiniPlayerClose}
                 onExpand={handleMiniPlayerExpand}
             />
+
+            {/* Floating Create button — rendered LAST so it always sits above
+                the mini player and tab bar (Android elevation + iOS zIndex). */}
+            <View
+                pointerEvents="box-none"
+                style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: createTabBottomOffset,
+                    alignItems: "center",
+                    zIndex: 100,
+                    elevation: 100,
+                }}
+            >
+                <CreateTab />
+            </View>
         </View>
     );
 }

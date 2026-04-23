@@ -25,6 +25,7 @@ from app.database import Base, get_db
 from app.main import app
 from app import models, auth
 from app.auth import get_password_hash
+from app.config import settings
 
 # ---------------------------------------------------------------------------
 # Test database setup — in-memory SQLite (no file artifacts, no conflicts)
@@ -309,7 +310,7 @@ class TestSharePodcastPublic:
 
         resp = client.get(f"/share/podcast/{podcast.id}")
         # The relative URL should be prefixed with base URL in audio element
-        assert "http://localhost:8000/media/audio/test_relative.mp3" in resp.text
+        assert f"{settings.BASE_URL}/media/audio/test_relative.mp3" in resp.text
 
     def test_absolute_audio_url_unchanged(self, db):
         user = _create_user(db)
