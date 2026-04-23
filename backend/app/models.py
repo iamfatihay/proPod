@@ -599,3 +599,36 @@ class DeviceToken(Base):
         # token already has a unique constraint which implicitly creates an index.
         Index("idx_device_tokens_user_id", "user_id"),
     )
+
+
+class PushTicket(Base):
+    """
+    Stores Expo push ticket IDs returned by the push/send endpoint.
+
+    After a successful Expo push (status="ok"), Expo returns a ticket_id per
+    message.  We store these so that a background receipt-check job can later
+    POST to /push/getReceipts, detect DeviceNotRegistered errors, and prune
+    the device_tokens table — preventing wasted push calls to dead tokens.
+
+    Rows are deleted once their receipt has been fetched or after they are too
+    old to be valid (Expo receipts expire after 24 h).
+    """
+
+    __tablename__ = "push_tickets"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Expo ticket ID, e.g. "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    expo_ticket_id = Column(String(64), nullable=False, index=True)
+
+    # The Expo push token that this ticket belongs to.  Stored as a string
+    # (not a FK) so that receipt-check cleanup can delete the DeviceToken row
+    # by token string without a separate join.
+    token = Column(String(512), nullable=False)
+
+    sent_at = Column(
+        DateTime,
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+        nullable=False,
+        index=True,
+    )

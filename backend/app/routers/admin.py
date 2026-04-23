@@ -320,3 +320,40 @@ def deactivate_user(
     db.commit()
     
     return schemas.SuccessMessage(message=f"User {user.email} deactivated")
+
+
+# ---------------------------------------------------------------------------
+# Expo Push Receipt Polling
+# ---------------------------------------------------------------------------
+
+@router.post("/push-receipts/check", response_model=dict)
+def check_push_receipts(
+    min_age_minutes: int = Query(
+        15,
+        ge=1,
+        le=1440,
+        description="Only check tickets at least this many minutes old (Expo minimum: 15).",
+    ),
+    batch_size: int = Query(
+        100,
+        ge=1,
+        le=1000,
+        description="Maximum number of tickets to process in this call.",
+    ),
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(verify_admin),
+):
+    """
+    Check Expo push receipts and prune DeviceNotRegistered tokens (admin only).
+
+    Expo returns receipt data ~15 minutes after a push is sent.  Call this
+    endpoint periodically (e.g. every 30 minutes via a cron job) to:
+
+    1. Confirm successful deliveries (status="ok").
+    2. Detect dead tokens (status="error", error="DeviceNotRegistered") and
+       delete them from the device_tokens table to avoid wasted future pushes.
+    3. Delete processed/expired ticket rows from push_tickets.
+
+    Returns a summary of actions taken.
+    """
+    return crud.check_push_receipts(db=db, min_age_minutes=min_age_minutes, batch_size=batch_size)
