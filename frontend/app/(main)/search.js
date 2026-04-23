@@ -9,6 +9,7 @@ import {
     Keyboard,
     Platform,
     StatusBar,
+    Image,
 } from "react-native";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,6 +22,86 @@ import Logger from "../../src/utils/logger";
 import { normalizePodcasts } from "../../src/utils/urlHelper";
 import { COLORS } from "../../src/constants/theme";
 
+// ─── CreatorCard ─────────────────────────────────────────────────────────────
+
+const CreatorCard = ({ creator, onPress }) => {
+    const [following, setFollowing] = React.useState(creator.is_following ?? false);
+    const [loading, setLoading] = React.useState(false);
+
+    const handleFollowToggle = async () => {
+        if (loading) return;
+        setLoading(true);
+        const was = following;
+        setFollowing(!was);
+        try {
+            if (was) {
+                await apiService.unfollowCreator(creator.id);
+            } else {
+                await apiService.followCreator(creator.id);
+            }
+        } catch {
+            setFollowing(was);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const initials = (creator.name || "?")
+        .split(" ")
+        .map((w) => w[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase();
+
+    return (
+        <TouchableOpacity
+            onPress={onPress}
+            className="flex-row items-center px-4 py-3 border-b border-border"
+            activeOpacity={0.7}
+        >
+            {creator.photo_url ? (
+                <Image
+                    source={{ uri: creator.photo_url }}
+                    className="w-12 h-12 rounded-full bg-panel"
+                />
+            ) : (
+                <View className="w-12 h-12 rounded-full bg-primary items-center justify-center">
+                    <Text className="text-white font-bold text-base">{initials}</Text>
+                </View>
+            )}
+            <View className="flex-1 ml-3">
+                <Text className="text-text-primary font-semibold" numberOfLines={1}>
+                    {creator.name}
+                </Text>
+                <Text className="text-text-secondary text-xs mt-0.5">
+                    {creator.podcast_count === 1
+                        ? "1 podcast"
+                        : `${creator.podcast_count} podcasts`}
+                    {"  ·  "}
+                    {creator.total_followers === 1
+                        ? "1 follower"
+                        : `${creator.total_followers} followers`}
+                </Text>
+            </View>
+            <TouchableOpacity
+                onPress={handleFollowToggle}
+                disabled={loading}
+                className={`px-3 py-1.5 rounded-full border ${
+                    following ? "border-border bg-transparent" : "border-primary bg-primary"
+                }`}
+            >
+                <Text
+                    className={`text-xs font-semibold ${
+                        following ? "text-text-secondary" : "text-white"
+                    }`}
+                >
+                    {following ? "Following" : "Follow"}
+                </Text>
+            </TouchableOpacity>
+        </TouchableOpacity>
+    );
+};
+
 const Search = () => {
     const router = useRouter();
     const { play, setQueue, currentTrack, isPlaying, pause } = useAudioStore();
@@ -29,7 +110,8 @@ const Search = () => {
     const [searchResults, setSearchResults] = useState([]);
     const [suggestions, setSuggestions] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
-    const [searchMode, setSearchMode] = useState("all"); // 'all' or 'transcriptions'
+    const [searchMode, setSearchMode] = useState("all"); // 'all' | 'transcriptions' | 'creators'
+    const [creatorResults, setCreatorResults] = useState([]);
     const [showHistory, setShowHistory] = useState(true);
     const searchInputRef = useRef(null);
 
@@ -58,12 +140,17 @@ const Search = () => {
             setSuggestions([]);
             setShowHistory(true);
             setSearchResults([]);
+            setCreatorResults([]);
             return;
         }
 
         loadSuggestions();
         const handle = setTimeout(() => {
-            performSearch(trimmed, { silent: true });
+            if (searchMode === "creators") {
+                performCreatorSearch(trimmed);
+            } else {
+                performSearch(trimmed, { silent: true });
+            }
         }, 350);
         return () => clearTimeout(handle);
     }, [searchQuery, searchMode]);
@@ -129,8 +216,32 @@ const Search = () => {
         }
     };
 
+
+    const performCreatorSearch = async (query) => {
+        const q = (query || "").trim();
+        if (q.length === 0) {
+            setCreatorResults([]);
+            return;
+        }
+        try {
+            setIsSearching(true);
+            setShowHistory(false);
+            const results = await apiService.searchUsers(q, { limit: 30 });
+            setCreatorResults(Array.isArray(results) ? results : []);
+        } catch (error) {
+            Logger.error("Creator search failed:", error);
+            setCreatorResults([]);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
     const handleSearchSubmit = () => {
-        performSearch(searchQuery);
+        if (searchMode === "creators") {
+            performCreatorSearch(searchQuery);
+        } else {
+            performSearch(searchQuery);
+        }
     };
 
     const handleSuggestionPress = (suggestion) => {
@@ -222,6 +333,7 @@ const Search = () => {
                             onPress={() => {
                                 setSearchQuery("");
                                 setSearchResults([]);
+                                setCreatorResults([]);
                                 setSuggestions([]);
                                 loadSearchHistory();
                                 setShowHistory(true);
@@ -238,40 +350,35 @@ const Search = () => {
 
                 {/* Search Mode Toggle */}
                 <View className="flex-row items-center mt-3">
-                    <TouchableOpacity
-                        onPress={() => setSearchMode("all")}
-                        className={`flex-1 py-2 rounded-lg mr-2 ${
-                            searchMode === "all" ? "bg-primary" : "bg-panel"
-                        }`}
-                    >
-                        <Text
-                            className={`text-center ${
-                                searchMode === "all"
-                                    ? "text-white font-semibold"
-                                    : "text-text-secondary"
+                    {[
+                        { key: "all", label: "Podcasts" },
+                        { key: "creators", label: "Creators" },
+                        { key: "transcriptions", label: "Transcripts" },
+                    ].map(({ key, label }, i, arr) => (
+                        <TouchableOpacity
+                            key={key}
+                            onPress={() => {
+                                setSearchMode(key);
+                                setSearchResults([]);
+                                setCreatorResults([]);
+                            }}
+                            className={`flex-1 py-2 rounded-lg ${
+                                i < arr.length - 1 ? "mr-1" : ""
+                            } ${i > 0 ? "ml-1" : ""} ${
+                                searchMode === key ? "bg-primary" : "bg-panel"
                             }`}
                         >
-                            All Content
-                        </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={() => setSearchMode("transcriptions")}
-                        className={`flex-1 py-2 rounded-lg ml-2 ${
-                            searchMode === "transcriptions"
-                                ? "bg-primary"
-                                : "bg-panel"
-                        }`}
-                    >
-                        <Text
-                            className={`text-center ${
-                                searchMode === "transcriptions"
-                                    ? "text-white font-semibold"
-                                    : "text-text-secondary"
-                            }`}
-                        >
-                            Transcriptions
-                        </Text>
-                    </TouchableOpacity>
+                            <Text
+                                className={`text-center text-xs font-medium ${
+                                    searchMode === key
+                                        ? "text-white font-semibold"
+                                        : "text-text-secondary"
+                                }`}
+                            >
+                                {label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
                 </View>
             </View>
 
@@ -282,9 +389,28 @@ const Search = () => {
                     <Text className="text-text-secondary mt-3">
                         {searchMode === "transcriptions"
                             ? "🤖 Scanning transcriptions..."
+                            : searchMode === "creators"
+                            ? "Searching creators..."
                             : "Searching podcasts..."}
                     </Text>
                 </View>
+            ) : searchMode === "creators" && creatorResults.length > 0 ? (
+                <FlatList
+                    data={creatorResults}
+                    keyExtractor={(item) => `creator-${item.id}`}
+                    renderItem={({ item }) => (
+                        <CreatorCard
+                            creator={item}
+                            onPress={() =>
+                                router.push({
+                                    pathname: "/(main)/creator-profile",
+                                    params: { id: item.id },
+                                })
+                            }
+                        />
+                    )}
+                    contentContainerStyle={{ paddingBottom: 100 }}
+                />
             ) : searchResults.length > 0 ? (
                 <FlatList
                     data={searchResults}
@@ -305,15 +431,23 @@ const Search = () => {
                 </View>
             ) : (
                 <View className="flex-1 items-center justify-center px-8">
-                    <Ionicons name="search-outline" size={64} color="#444" />
+                    <Ionicons
+                        name={searchMode === "creators" ? "people-outline" : "search-outline"}
+                        size={64}
+                        color="#444"
+                    />
                     <Text className="text-text-primary text-xl font-semibold mt-4">
                         {searchMode === "transcriptions"
                             ? "Transcription Search"
+                            : searchMode === "creators"
+                            ? "Find Creators"
                             : "Search Podcasts"}
                     </Text>
                     <Text className="text-text-secondary text-center mt-2">
                         {searchMode === "transcriptions"
                             ? "Find podcasts by exact phrases spoken in the episode."
+                            : searchMode === "creators"
+                            ? "Search by name to discover and follow podcast creators."
                             : "Search by title or description across all public podcasts."}
                     </Text>
                 </View>

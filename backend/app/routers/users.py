@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pathlib import Path as SysPath
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 import os
 import asyncio
 import secrets
@@ -328,6 +328,33 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
         del reset_tokens[request.token]
 
     return {"msg": "Password reset successful."}
+
+
+
+@router.get("/search", response_model=List[schemas.PublicUserProfile])
+def search_users(
+    q: str = Query(..., min_length=1, max_length=100, description="Creator name search term"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: Optional[models.User] = Depends(auth.get_current_user_optional),
+):
+    """Search creators by name.
+
+    Returns a paginated list of matching active users with aggregate stats
+    (podcast_count, total_followers, total_plays) and an is_following flag
+    relative to the authenticated caller. Works for unauthenticated users too
+    — is_following will always be False.
+    """
+    current_user_id = current_user.id if current_user else None
+    results = crud.search_users(
+        db=db,
+        query=q,
+        current_user_id=current_user_id,
+        skip=skip,
+        limit=limit,
+    )
+    return results
 
 
 # ==================== Public User Profiles ====================

@@ -2625,3 +2625,107 @@ def check_push_receipts(
         "tokens_pruned": pruned_count,
         "tickets_remaining": remaining,
     }
+
+
+def search_users(
+    db: Session,
+    query: str,
+    current_user_id: Optional[int] = None,
+    skip: int = 0,
+    limit: int = 20,
+) -> list:
+    """Search active users by name using a case-insensitive partial match.
+
+    Returns a list of dicts compatible with PublicUserProfile, with aggregate
+    stats (podcast_count, total_followers, total_plays) and an is_following
+    flag relative to current_user_id.
+
+    Args:
+        db: Database session.
+        query: Search term matched against User.name via ILIKE.
+        current_user_id: Optional authenticated user — used to populate
+            is_following. Pass None for unauthenticated callers.
+        skip: Pagination offset.
+        limit: Max results (capped by the router).
+
+    Returns:
+        List of dicts ready to be serialised as PublicUserProfile.
+    """
+    search_term = f"%{query.strip()}%"
+    users = (
+        db.query(models.User)
+        .filter(
+            models.User.is_active == True,
+            models.User.name.ilike(search_term),
+        )
+        .order_by(models.User.name)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    if not users:
+        return []
+
+    user_ids = [u.id for u in users]
+
+    # Batch: public podcast counts per creator
+    podcast_counts: dict = dict(
+        db.query(models.Podcast.owner_id, func.count(models.Podcast.id))
+        .filter(
+            models.Podcast.owner_id.in_(user_ids),
+            models.Podcast.is_deleted == False,
+            models.Podcast.is_public == True,
+        )
+        .group_by(models.Podcast.owner_id)
+        .all()
+    )
+
+    # Batch: total plays per creator (via PodcastStats join)
+    play_counts: dict = dict(
+        db.query(models.Podcast.owner_id, func.sum(models.PodcastStats.play_count))
+        .join(models.PodcastStats, models.PodcastStats.podcast_id == models.Podcast.id, isouter=True)
+        .filter(
+            models.Podcast.owner_id.in_(user_ids),
+            models.Podcast.is_deleted == False,
+            models.Podcast.is_public == True,
+        )
+        .group_by(models.Podcast.owner_id)
+        .all()
+    )
+
+    # Batch: follower counts per creator
+    follower_counts: dict = dict(
+        db.query(models.UserFollow.followed_id, func.count(models.UserFollow.id))
+        .filter(models.UserFollow.followed_id.in_(user_ids))
+        .group_by(models.UserFollow.followed_id)
+        .all()
+    )
+
+    # Batch: which of these users the caller is already following
+    following_set: set = set()
+    if current_user_id is not None:
+        rows = (
+            db.query(models.UserFollow.followed_id)
+            .filter(
+                models.UserFollow.follower_id == current_user_id,
+                models.UserFollow.followed_id.in_(user_ids),
+            )
+            .all()
+        )
+        following_set = {row.followed_id for row in rows}
+
+    return [
+        {
+            "id": u.id,
+            "name": u.name,
+            "photo_url": u.photo_url,
+            "created_at": u.created_at,
+            "podcast_count": podcast_counts.get(u.id, 0),
+            "total_plays": int(play_counts.get(u.id, 0) or 0),
+            "total_likes": 0,
+            "total_followers": follower_counts.get(u.id, 0),
+            "is_following": u.id in following_set,
+        }
+        for u in users
+    ]
