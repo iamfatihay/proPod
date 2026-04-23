@@ -318,12 +318,8 @@ const Search = () => {
 
     const handleCategorySelect = (categoryId) => {
         setSelectedCategory(categoryId);
-        // Immediately re-search if there is already an active query.
-        // (The useEffect with selectedCategory dep handles this, but calling
-        // directly here gives zero-delay feedback on chip tap.)
-        if (searchQuery.trim().length >= 2) {
-            // Let the effect run — no need to double-call performSearch.
-        }
+        // The useEffect with selectedCategory in its dep array re-triggers
+        // the debounced search automatically — no manual call needed here.
     };
 
     const handlePodcastPress = (podcast) => {
@@ -462,7 +458,7 @@ const Search = () => {
                 </View>
 
                 {/* Category filter chips — Podcasts mode only */}
-                {searchMode === "all" && categories.length > 1 && (
+                {searchMode === "all" && (
                     <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
@@ -511,7 +507,7 @@ const Search = () => {
             </View>
 
             {/* Active filter label */}
-            {hasActiveFilter && searchResults.length > 0 && (
+            {hasActiveFilter && (
                 <View className="flex-row items-center px-4 py-2 bg-panel border-b border-border">
                     <Ionicons name="funnel" size={13} color={COLORS.primary} />
                     <Text className="text-text-secondary text-xs ml-1.5 flex-1">
