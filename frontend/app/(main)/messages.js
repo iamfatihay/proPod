@@ -10,6 +10,8 @@ import {
     Text,
     FlatList,
     SafeAreaView,
+    StatusBar,
+    Platform,
     TouchableOpacity,
     ActivityIndicator,
     RefreshControl,
@@ -168,7 +170,13 @@ export default function MessagesScreen() {
     );
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
+        <SafeAreaView
+            style={{
+                flex: 1,
+                backgroundColor: COLORS.background,
+                paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+            }}
+        >
             <Stack.Screen
                 options={{
                     title: "Messages",

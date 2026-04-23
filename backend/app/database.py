@@ -25,25 +25,32 @@ DATABASE_ECHO = str_to_bool(os.getenv("DATABASE_ECHO", "false"))
 # Determine if using PostgreSQL
 is_postgresql = DATABASE_URL.startswith("postgresql://") or DATABASE_URL.startswith("postgresql+")
 
-# PostgreSQL-specific connection arguments
-postgresql_connect_args = {
-    "connect_timeout": 10,  # Connection timeout in seconds
-    "options": "-c timezone=utc"  # Set timezone to UTC
-}
-
-# PostgreSQL engine with optimized connection pooling
-# Note: This configuration is optimized for PostgreSQL. For other databases,
-# adjust pool settings and remove PostgreSQL-specific connect_args.
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,  # Verify connections before using
-    echo=DATABASE_ECHO,  # SQL query logging
-    pool_size=10,  # Connection pool size (10 concurrent connections)
-    max_overflow=20,  # Extra connections when pool is full (total max: 30)
-    pool_recycle=3600,  # Recycle connections after 1 hour (prevent stale connections)
-    pool_timeout=30,  # Wait 30s for available connection
-    connect_args=postgresql_connect_args if is_postgresql else {}
-)
+if is_postgresql:
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        echo=DATABASE_ECHO,
+        pool_size=10,
+        max_overflow=20,
+        pool_recycle=3600,
+        pool_timeout=30,
+        connect_args={"connect_timeout": 10, "options": "-c timezone=utc"},
+    )
+else:
+    # SQLite needs check_same_thread=False when used with FastAPI's
+    # TestClient (which runs the ASGI app in a separate thread).
+    # Without this, SQLAlchemy raises "SQLite objects created in a thread
+    # can only be used in that same thread" for pooled connections.
+    _sqlite_connect_args = (
+        {"check_same_thread": False}
+        if DATABASE_URL.startswith("sqlite")
+        else {}
+    )
+    engine = create_engine(
+        DATABASE_URL,
+        echo=DATABASE_ECHO,
+        connect_args=_sqlite_connect_args,
+    )
 
 # Connection pool event listeners for debugging (optional)
 @event.listens_for(Pool, "connect")
@@ -91,7 +98,11 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     except Exception as e:
         db.rollback()  # Rollback on error
-        logger.error(f"Database error: {str(e)}")
+        # HTTPException is intentional control flow (e.g. 404 when a resource
+        # doesn't exist) — don't log it as a database error.
+        from fastapi import HTTPException
+        if not isinstance(e, HTTPException):
+            logger.error(f"Database error: {str(e)}")
         raise
     finally:
         db.close()  # Always close the session (returns to pool)

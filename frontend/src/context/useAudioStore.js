@@ -3,6 +3,7 @@ import { subscribeWithSelector } from "zustand/middleware";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Logger from "../utils/logger";
+import apiService from "../services/api/apiService";
 // import AudioService from "../services/audio"; // Temporarily disabled
 
 // AsyncStorage key for persisted sleep-on-episode-end preference
@@ -644,30 +645,85 @@ const useAudioStore = create(
 
         // Queue Navigation
         next: async () => {
-            const { queue, currentIndex, repeatMode } = get();
+            const { queue, currentIndex, repeatMode, currentTrack } = get();
 
-            if (queue.length === 0) return;
-
-            let nextIndex;
-
-            if (repeatMode === "one") {
-                // Repeat current track
-                nextIndex = currentIndex;
-            } else if (currentIndex < queue.length - 1) {
-                // Normal next
-                nextIndex = currentIndex + 1;
-            } else if (repeatMode === "all") {
-                // Loop to beginning
-                nextIndex = 0;
-            } else {
-                // End of queue
-                await get().stop();
+            // Repeat-one short-circuits all queue math.
+            if (repeatMode === "one" && currentTrack) {
+                await get().play(currentTrack);
                 return;
             }
 
-            const nextTrack = queue[nextIndex];
-            set({ currentIndex: nextIndex });
-            await get().play(nextTrack);
+            // If a real queue has more items ahead, advance in-queue.
+            if (queue.length > 0 && currentIndex < queue.length - 1) {
+                const nextTrack = queue[currentIndex + 1];
+                set({ currentIndex: currentIndex + 1 });
+                await get().play(nextTrack);
+                return;
+            }
+
+            // At end of queue (or no queue at all) with repeat=all → loop.
+            // Use >= 1 so a single-item queue also loops instead of falling
+            // through to the network fallback.
+            if (queue.length >= 1 && repeatMode === "all") {
+                const nextTrack = queue[0];
+                set({ currentIndex: 0 });
+                await get().play(nextTrack);
+                return;
+            }
+
+            // Fallback: no queue (or queue exhausted). Fetch a related podcast
+            // from the same creator first, else any recent podcast, and append
+            // it so subsequent next() calls keep advancing.
+            if (!currentTrack) return;
+
+            try {
+                const excludeIds = new Set(
+                    (queue.length ? queue : [currentTrack]).map((t) => t.id)
+                );
+
+                let candidates = [];
+                if (currentTrack.ownerId) {
+                    candidates = await apiService.getPodcasts({
+                        owner_id: currentTrack.ownerId,
+                        limit: 20,
+                    });
+                }
+                let pool = (candidates || []).filter(
+                    (p) => p && p.audio_url && !excludeIds.has(p.id)
+                );
+                if (pool.length === 0) {
+                    const recents = await apiService.getPodcasts({ limit: 20 });
+                    pool = (recents || []).filter(
+                        (p) => p && p.audio_url && !excludeIds.has(p.id)
+                    );
+                }
+
+                if (pool.length === 0) {
+                    Logger.warn("next(): no alternative podcast found to queue");
+                    return;
+                }
+
+                const pick = pool[0];
+                const nextTrack = {
+                    id: pick.id,
+                    uri: pick.audio_url,
+                    title: pick.title,
+                    artist: pick.owner?.name || "Unknown Artist",
+                    ownerId: pick.owner?.id || pick.owner_id,
+                    duration: (pick.duration || 0) * 1000,
+                    artwork: pick.thumbnail_url,
+                };
+
+                // Append to the existing queue (seed one if it was empty) and
+                // advance the cursor so repeat presses keep discovering new
+                // tracks instead of hitting the end-of-queue stop path.
+                const baseQueue = queue.length ? queue : [currentTrack];
+                const newQueue = [...baseQueue, nextTrack];
+                set({ queue: newQueue, currentIndex: newQueue.length - 1 });
+                await get().play(nextTrack);
+            } catch (err) {
+                Logger.error("next(): fallback lookup failed", err);
+            }
         },
 
         previous: async () => {

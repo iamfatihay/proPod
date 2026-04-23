@@ -375,6 +375,7 @@ export default function HomeScreen() {
                 uri: podcast.audio_url,
                 title: podcast.title,
                 artist: podcast.owner?.name || "Unknown Artist",
+                ownerId: podcast.owner?.id ?? podcast.owner_id,
                 duration: (podcast.duration || 0) * 1000, // Convert to milliseconds
                 artwork: podcast.thumbnail_url,
                 category: podcast.category,

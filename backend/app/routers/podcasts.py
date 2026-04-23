@@ -414,32 +414,8 @@ def get_following_feed(
     )
 
 
-@router.get("/{podcast_id}", response_model=schemas.Podcast)
-def get_podcast(
-    podcast_id: int = Path(...,
-                           description="The ID of the podcast to retrieve"),
-    db: Session = Depends(get_db),
-    current_user: Optional[models.User] = Depends(
-        auth.get_current_user_optional)
-):
-    """
-    Get a specific podcast by ID.
-
-    Note: This endpoint automatically increments the podcast's play count.
-    """
-    podcast = crud.get_podcast(
-        db=db,
-        podcast_id=podcast_id,
-        increment_play_count=True
-    )
-    if not podcast:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Podcast not found"
-        )
-    return podcast
-
-
+# IMPORTANT: /search must be registered BEFORE /{podcast_id}, otherwise
+# FastAPI tries to parse "search" as an integer podcast_id and returns 422.
 @router.get("/search", response_model=schemas.PodcastListResponse)
 def search_podcasts(
     query: str = Query(..., min_length=1, description="Search query"),
@@ -467,6 +443,32 @@ def search_podcasts(
         offset=skip,
         has_more=total > skip + limit
     )
+
+
+@router.get("/{podcast_id}", response_model=schemas.Podcast)
+def get_podcast(
+    podcast_id: int = Path(...,
+                           description="The ID of the podcast to retrieve"),
+    db: Session = Depends(get_db),
+    current_user: Optional[models.User] = Depends(
+        auth.get_current_user_optional)
+):
+    """
+    Get a specific podcast by ID.
+
+    Note: This endpoint automatically increments the podcast's play count.
+    """
+    podcast = crud.get_podcast(
+        db=db,
+        podcast_id=podcast_id,
+        increment_play_count=True
+    )
+    if not podcast:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Podcast not found"
+        )
+    return podcast
 
 
 @router.get("/", response_model=schemas.PodcastListResponse)
