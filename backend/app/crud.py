@@ -2517,9 +2517,9 @@ def check_push_receipts(
 
     Never raises — all errors are logged and a partial summary is returned.
     """
-    import datetime as _dt
-
-    cutoff = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(minutes=min_age_minutes)
+    cutoff = datetime.datetime.now(timezone.utc).replace(tzinfo=None) - datetime.timedelta(
+        minutes=min_age_minutes
+    )
     # Fetch up to batch_size old tickets
     ticket_rows = (
         db.query(models.PushTicket)
@@ -2593,11 +2593,13 @@ def check_push_receipts(
 
     # For any tickets that Expo didn't return (not ready yet or expired),
     # delete rows older than 25 hours — Expo receipts expire after 24 h.
-    cutoff_expired = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=25)
+    cutoff_expired = datetime.datetime.now(timezone.utc).replace(tzinfo=None) - datetime.timedelta(
+        hours=25
+    )
     for row in ticket_rows:
         sent = row.sent_at
-        if sent.tzinfo is None:
-            sent = sent.replace(tzinfo=_dt.timezone.utc)
+        if sent.tzinfo is not None:
+            sent = sent.astimezone(timezone.utc).replace(tzinfo=None)
         if row not in rows_to_delete and sent <= cutoff_expired:
             rows_to_delete.append(row)
 

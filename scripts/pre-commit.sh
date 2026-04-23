@@ -10,12 +10,18 @@ FAILED=0
 if git diff --cached --name-only | grep -q "^backend/"; then
     echo "Backend: testing..."
     cd backend
-    if ! pytest tests/ -x --tb=short -q 2>/dev/null; then
+    export DATABASE_URL="${DATABASE_URL:-sqlite:///./precommit_test.db}"
+    export BASE_URL="${BASE_URL:-http://localhost:8000}"
+    PYTHON_BIN="./venv/bin/python"
+    [ ! -x "$PYTHON_BIN" ] && PYTHON_BIN="python3"
+    if ! "$PYTHON_BIN" -m pytest tests/ -x --tb=short -q 2>/dev/null; then
         echo "❌ Backend tests failed"
         FAILED=1
     else
         echo "✅ Backend tests passed"
     fi
+    unset BASE_URL
+    unset DATABASE_URL
     cd ..
 fi
 

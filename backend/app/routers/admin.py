@@ -326,7 +326,7 @@ def deactivate_user(
 # Expo Push Receipt Polling
 # ---------------------------------------------------------------------------
 
-@router.post("/push-receipts/check", response_model=dict)
+@router.post("/push-receipts/check", response_model=schemas.PushReceiptCheckResponse)
 def check_push_receipts(
     min_age_minutes: int = Query(
         15,

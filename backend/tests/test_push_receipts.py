@@ -18,6 +18,7 @@ import datetime
 import pytest
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import IntegrityError
 
 from app.main import app
 from app import crud, models
@@ -212,6 +213,48 @@ class TestCheckPushReceiptsCrud:
         # receipts_returned is 0 because Expo returned no data.
         assert result["tickets_checked"] == 1
         assert result["receipts_returned"] == 0
+
+    def test_tickets_checked_counts_attempted_tickets(self, db_session):
+        db_session.query(models.PushTicket).delete()
+        db_session.commit()
+
+        user = _make_user(db_session, "receipt_partial@test.com", "Receipt Partial")
+        token_a = "ExponentPushToken[partial_tok_a]"
+        token_b = "ExponentPushToken[partial_tok_b]"
+        _make_device_token(db_session, user, token_a)
+        _make_device_token(db_session, user, token_b)
+        _make_ticket(db_session, "ticket-partial-001", token_a, age_minutes=20)
+        _make_ticket(db_session, "ticket-partial-002", token_b, age_minutes=20)
+
+        mock_resp = _mock_receipts_response({"ticket-partial-001": {"status": "ok"}})
+        with patch("app.crud.httpx.post", return_value=mock_resp):
+            result = crud.check_push_receipts(db_session, min_age_minutes=15)
+
+        assert result["tickets_checked"] == 2
+        assert result["ok"] == 1
+
+    def test_push_ticket_expo_id_is_unique(self, db_session):
+        db_session.query(models.PushTicket).delete()
+        db_session.commit()
+
+        user = _make_user(db_session, "receipt_unique@test.com", "Receipt Unique")
+        token_a = "ExponentPushToken[unique_tok_a]"
+        token_b = "ExponentPushToken[unique_tok_b]"
+        _make_device_token(db_session, user, token_a)
+        _make_device_token(db_session, user, token_b)
+        _make_ticket(db_session, "ticket-unique-001", token_a, age_minutes=20)
+
+        duplicate = models.PushTicket(
+            expo_ticket_id="ticket-unique-001",
+            token=token_b,
+            sent_at=datetime.datetime.now(datetime.timezone.utc),
+        )
+        db_session.add(duplicate)
+
+        with pytest.raises(IntegrityError):
+            db_session.commit()
+
+        db_session.rollback()
 
 
 # ---------------------------------------------------------------------------
