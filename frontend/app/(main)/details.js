@@ -1207,12 +1207,22 @@ const Details = () => {
                                 }
                                 className="flex-row items-center bg-panel rounded-lg p-4 mb-3"
                             >
-                                <View className="w-12 h-12 bg-card rounded-lg items-center justify-center mr-4">
-                                    <MaterialCommunityIcons
-                                        name="music-note"
-                                        size={24}
-                                        color={COLORS.text.muted}
-                                    />
+                                <View className="w-12 h-12 bg-card rounded-lg overflow-hidden mr-4">
+                                    {relatedPodcast.thumbnail_url ? (
+                                        <Image
+                                            source={{ uri: relatedPodcast.thumbnail_url }}
+                                            style={{ width: "100%", height: "100%" }}
+                                            resizeMode="cover"
+                                        />
+                                    ) : (
+                                        <View className="flex-1 items-center justify-center">
+                                            <MaterialCommunityIcons
+                                                name="waveform"
+                                                size={24}
+                                                color={COLORS.text.muted}
+                                            />
+                                        </View>
+                                    )}
                                 </View>
 
                                 <View className="flex-1">
