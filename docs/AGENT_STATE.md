@@ -8,7 +8,7 @@
 
 
 **Last updated:** 2026-04-24  
-**Last session:** Fix analytics screen insets crash + add profile entry point — PR #83  
+**Last session:** Add Playlists tab to Library screen — PR #84  
 **Test suite baseline:** ~436 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -17,7 +17,7 @@
 
 ---
 
-## ✅ Recently Shipped (PR #66–#81)
+## ✅ Recently Shipped (PR #66–#83)
 
 - ✅ Listening history screen — progress bar, completion badge, pagination (PR #66)
 - ✅ Listening history delete entry — `DELETE /podcasts/{id}/history`, 5 tests (PR #67)
@@ -36,12 +36,13 @@
 - ✅ Empty-state category browse grid on Search screen — 2-column card grid in Podcasts/idle mode (PR #80)
 - ✅ Trending reposition to horizontal scroll row + Related Podcasts cover art fix (PR #81)
 - ✅ Related Podcasts horizontal GradientCard scroll row in detail screen + `handlePlayRelated` callback (PR #82)
+- ✅ Fix `ReferenceError: insets is not defined` crash on Creator Analytics screen + profile shortcut (PR #83)
 
 ---
 
 ## 🔄 What's open
 
-- PR #83 `fix/analytics-screen-insets-crash` — Fix `ReferenceError: insets is not defined` crash on Creator Analytics screen (missing `useSafeAreaInsets` hook). Add Creator Analytics shortcut row on Profile page between ProfileStats and My Podcasts. Pure frontend.
+- PR #84 `feature/library-playlists-tab` — Add Playlists tab to Library screen. Extends Library from 3 tabs (Mine/Likes/Bookmarks) to 4 (My Episodes/Liked/Saved/Playlists). PlaylistRow component, empty state with Create CTA, Manage shortcut. Pure frontend.
 
 ---
 
@@ -56,16 +57,17 @@
 - `search_users` returns `total_likes: 0` (skipped for perf; not shown in UI)
 - Creator sort is Python-side — fine at current scale, needs SQL ORDER BY subquery for large datasets
 - `handlePlayRelated` queue logic in details.js has no Jest unit test coverage
+- Playlist tab in Library loads up to 50 playlists — no pagination yet
 
 ---
 
 ## 🗺️ Next Session Suggestions
 
-1. **[BACKEND+FRONTEND] APScheduler push receipt auto-run** — `backend/app/main.py`: add FastAPI `lifespan` context manager with an `apscheduler` `BackgroundScheduler` running `crud.check_push_receipts` every 30 min. Add `apscheduler` to `backend/requirements.txt`. No migration needed. Pair with a small admin UI note on the analytics screen or admin panel.
+1. **[BACKEND+FRONTEND] APScheduler push receipt auto-run** — `backend/app/main.py`: add FastAPI `lifespan` context manager with an `apscheduler` `BackgroundScheduler` running `crud.check_push_receipts` every 30 min. Add `apscheduler` to `backend/requirements.txt`. No migration needed. Genuinely improves push reliability.
 
-2. **[FEATURE] Public analytics badge on creator-profile.js** — Visitors to a creator's public profile could see a mini stats row (total plays, followers). Backend `/analytics/dashboard` is auth-gated for owner only; add a separate public `GET /users/{user_id}/stats` endpoint returning play count + follower count, then wire it into `creator-profile.js`.
+2. **[FEATURE] Play count trend chart on Analytics screen** — Add a `GET /analytics/plays-over-time?days=N` endpoint that groups `ListeningHistory.created_at` by day (SQLite `strftime('%Y-%m-%d', created_at)`), returning daily counts for the creator's podcasts. Render as a simple SVG bar chart in `analytics.js` using `react-native-svg` (already a common Expo dep — check if present first). No new model needed.
 
-3. **[FEATURE] Play count trend chart on analytics screen** — The analytics screen has all-time totals and a recent-delta row but no chart. Add a `GET /analytics/plays-over-time?days=N` endpoint returning daily play counts, and render a simple sparkline / bar chart using `react-native-svg` or Victory Native in `analytics.js`.
+3. **[FEATURE] Playlist cover art mosaic in Library Playlists tab** — Replace the single icon bubble in `PlaylistRow` with a 2×2 thumbnail grid using the first 4 episode `thumbnail_url` values from `playlist.items`. Backend: ensure `get_my_playlists` returns a `preview_thumbnails: list[str]` field (first 4 items). Frontend: render a 44×44 mosaic in `PlaylistRow`.
 
 ---
 
