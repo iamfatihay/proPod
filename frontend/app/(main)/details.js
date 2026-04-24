@@ -315,6 +315,7 @@ const Details = () => {
                     } catch (err) {
                         Logger.error("Failed to build queue from related podcast", err);
                         setQueue([track], 0);
+                        showToast("Playing current episode only", "warning");
                     }
                 });
             }
@@ -1266,7 +1267,11 @@ const Details = () => {
                             {relatedPodcasts.map((relatedPodcast) => (
                                 <GradientCard
                                     key={relatedPodcast.id}
-                                    podcast={relatedPodcast}
+                                    podcast={{
+                                        ...relatedPodcast,
+                                        // GradientCard expects duration in ms; API returns seconds
+                                        duration: (relatedPodcast.duration || 0) * 1000,
+                                    }}
                                     category={relatedPodcast.category || "default"}
                                     size="medium"
                                     onPress={() =>
