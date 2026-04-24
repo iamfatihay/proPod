@@ -562,6 +562,20 @@ export default function Profile() {
                         posts={podcastCount}
                     />
                 )}
+                {/* Creator Analytics Button */}
+                <TouchableOpacity
+                    className="mx-md mt-sm mb-xs flex-row items-center justify-between px-4 py-3 bg-panel rounded-xl border border-border"
+                    onPress={() => router.push("/(main)/analytics")}
+                    activeOpacity={0.75}
+                >
+                    <View className="flex-row items-center">
+                        <View className="w-8 h-8 rounded-lg bg-primary/15 items-center justify-center mr-3">
+                            <Ionicons name="bar-chart-outline" size={18} color={COLORS.primary} />
+                        </View>
+                        <Text className="text-text-primary font-semibold text-sm">Creator Analytics</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={COLORS.text.muted} />
+                </TouchableOpacity>
                 {/* My Podcasts */}
                 <View className="mt-lg px-md">
                     <Text className="text-headline text-text-primary mb-md">

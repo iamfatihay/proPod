@@ -8,7 +8,7 @@
 
 
 **Last updated:** 2026-04-24  
-**Last session:** Related Podcasts horizontal GradientCard scroll in detail screen — PR #82  
+**Last session:** Fix analytics screen insets crash + add profile entry point — PR #83  
 **Test suite baseline:** ~436 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -35,12 +35,13 @@
 - ✅ Creator search sort by followers — `sort_by` param to `GET /users/search`, Name/Followers toggle in Creators tab (PR #79)
 - ✅ Empty-state category browse grid on Search screen — 2-column card grid in Podcasts/idle mode (PR #80)
 - ✅ Trending reposition to horizontal scroll row + Related Podcasts cover art fix (PR #81)
+- ✅ Related Podcasts horizontal GradientCard scroll row in detail screen + `handlePlayRelated` callback (PR #82)
 
 ---
 
 ## 🔄 What's open
 
-- PR #82 `feature/related-podcasts-horizontal-scroll` — Replace vertical Related Podcasts list in detail screen with a horizontal GradientCard scroll row. Adds `handlePlayRelated` callback (plays card immediately, rebuilds queue with remaining items). Pure frontend.
+- PR #83 `fix/analytics-screen-insets-crash` — Fix `ReferenceError: insets is not defined` crash on Creator Analytics screen (missing `useSafeAreaInsets` hook). Add Creator Analytics shortcut row on Profile page between ProfileStats and My Podcasts. Pure frontend.
 
 ---
 
@@ -60,11 +61,11 @@
 
 ## 🗺️ Next Session Suggestions
 
-1. **[BACKEND] Wire push receipt check to APScheduler** — `backend/app/main.py`: add `apscheduler` `BackgroundScheduler` running `crud.check_push_receipts` every 30 min with a fresh DB session. Add `apscheduler` to `backend/requirements.txt`. Pure backend, no migration needed. Fixes the "manual-only" push receipt debt.
+1. **[BACKEND+FRONTEND] APScheduler push receipt auto-run** — `backend/app/main.py`: add FastAPI `lifespan` context manager with an `apscheduler` `BackgroundScheduler` running `crud.check_push_receipts` every 30 min. Add `apscheduler` to `backend/requirements.txt`. No migration needed. Pair with a small admin UI note on the analytics screen or admin panel.
 
-2. **[FEATURE] Podcast detail — episode list as collapsible/paginated section** — The detail screen currently loads all episodes. A "Show more" / paginated approach would improve scroll performance on podcasts with many episodes. Backend already supports `limit`/`offset` on episode endpoints.
+2. **[FEATURE] Public analytics badge on creator-profile.js** — Visitors to a creator's public profile could see a mini stats row (total plays, followers). Backend `/analytics/dashboard` is auth-gated for owner only; add a separate public `GET /users/{user_id}/stats` endpoint returning play count + follower count, then wire it into `creator-profile.js`.
 
-3. **[FEATURE] APScheduler push receipts + lifespan wiring** — Same as #1 but include wiring it into FastAPI's `lifespan` context manager instead of a bare `BackgroundScheduler` start, so it shuts down cleanly with the app.
+3. **[FEATURE] Play count trend chart on analytics screen** — The analytics screen has all-time totals and a recent-delta row but no chart. Add a `GET /analytics/plays-over-time?days=N` endpoint returning daily play counts, and render a simple sparkline / bar chart using `react-native-svg` or Victory Native in `analytics.js`.
 
 ---
 
