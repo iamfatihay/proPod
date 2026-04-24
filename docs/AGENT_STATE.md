@@ -8,7 +8,7 @@
 
 
 **Last updated:** 2026-04-24  
-**Last session:** Empty-state category browse grid on Search screen — 2-column card grid in Podcasts/idle mode using `browseCategoryPodcasts()` + `getPodcasts({category})` → PR #80  
+**Last session:** Reposition Trending to horizontal scroll row between For You and Recent Episodes; fix Related Podcasts cover art — PR #81  
 **Test suite baseline:** ~436 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -17,7 +17,7 @@
 
 ---
 
-## ✅ Recently Shipped (PR #66–#79)
+## ✅ Recently Shipped (PR #66–#80)
 
 - ✅ Listening history screen — progress bar, completion badge, pagination (PR #66)
 - ✅ Listening history delete entry — `DELETE /podcasts/{id}/history`, 5 tests (PR #67)
@@ -33,12 +33,13 @@
 - ✅ Creator Search tab — `GET /users/search`, `search_users` CRUD, `searchUsers` apiService, 3-tab toggle, `CreatorCard` with optimistic follow, 14 tests (PR #77)
 - ✅ Category filter chips in Search (Podcasts mode) — horizontal chips, `category=` param, active-filter label + Clear, mode-switch reset (PR #78)
 - ✅ Creator search sort by followers — `sort_by` param to `GET /users/search`, Name/Followers toggle in Creators tab (PR #79)
+- ✅ Empty-state category browse grid on Search screen — 2-column card grid in Podcasts/idle mode (PR #80)
 
 ---
 
 ## 🔄 What's open
 
-- PR #80 `feature/empty-state-category-browse` — 2-column category grid on Search idle screen. `browseCategoryPodcasts()` uses `getPodcasts({category, limit:50})`. Clear/chip reset returns to grid. Pure frontend. Awaiting merge.
+- PR #81 `feature/trending-row-reposition` — Move Trending from vertical list at bottom of feed to a GradientCard horizontal scroll row between "For You" and "Recent Episodes". Also fixes Related Podcasts cover art (thumbnail_url shown instead of static icon). Pure frontend.
 
 ---
 
@@ -57,11 +58,11 @@
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FEATURE] Wire push receipt check to APScheduler** — `backend/app/main.py`: add `apscheduler` `BackgroundScheduler` running `crud.check_push_receipts` every 30 min with a fresh DB session. Add `apscheduler` to `backend/requirements.txt`. Pure backend, no migration needed. Fixes the "manual-only" push receipt debt.
+1. **[BACKEND] Wire push receipt check to APScheduler** — `backend/app/main.py`: add `apscheduler` `BackgroundScheduler` running `crud.check_push_receipts` every 30 min with a fresh DB session. Add `apscheduler` to `backend/requirements.txt`. Pure backend, no migration needed. Fixes the "manual-only" push receipt debt.
 
-2. **[FEATURE] Podcast detail — Related podcasts section** — `GET /podcasts/discover/related/{podcast_id}` already exists. Add a horizontal scroll row of `PodcastCard` items at the bottom of the episode detail screen (`frontend/app/(main)/details.js`). Drives session time and cross-discovery.
+2. **[FEATURE] Podcast detail — Related Podcasts as horizontal scroll** — The Related Podcasts section in `details.js` currently renders as a vertical list. Changing it to a horizontal `GradientCard` scroll (like "For You" and now "Trending") would improve consistency and free up vertical space on the detail screen.
 
-3. **[FEATURE] Trending row on Home screen** — `GET /podcasts/discover/trending` already exists. Add a horizontal scroll row of trending podcasts above the Following Feed on the Home screen. Pure frontend, no migration needed. Immediately improves cold-start discoverability.
+3. **[FEATURE] Add cover art to Trending cards in home.js** — The `GradientCard` component already shows the thumbnail when `podcast.thumbnail_url` is set. If trending podcasts have no thumbnail, the card falls back gracefully. No extra work needed — but worth verifying on device that the card renders well with real data.
 
 ---
 
