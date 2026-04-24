@@ -552,3 +552,154 @@ class TestPlaylistDetailWithPodcasts:
         podcast_data = data["items"][0]["podcast"]
         assert podcast_data["title"] == "Test Podcast"
         assert podcast_data["id"] == test_podcast.id
+
+
+class TestPlaylistPreviewThumbnails:
+    """Tests for preview_thumbnails field in playlist list responses."""
+
+    def test_empty_playlist_has_no_thumbnails(self, test_user):
+        """A playlist with no items returns an empty preview_thumbnails list."""
+        _, token = test_user
+        resp = client.post(
+            "/playlists/",
+            json={"name": "Empty Playlist"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 201
+
+        listing = client.get(
+            "/playlists/my",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert listing.status_code == 200
+        playlists = listing.json()["playlists"]
+        assert any(p["name"] == "Empty Playlist" for p in playlists)
+        for p in playlists:
+            if p["name"] == "Empty Playlist":
+                assert p["preview_thumbnails"] == []
+
+    def test_playlist_with_items_returns_thumbnails(self, test_user, test_podcast):
+        """A playlist with podcasts that have thumbnails returns them in preview_thumbnails."""
+        _, token = test_user
+
+        # Give the podcast a thumbnail URL
+        from app.database import SessionLocal
+        db = SessionLocal()
+        try:
+            from app import models as m
+            pod = db.query(m.Podcast).filter(m.Podcast.id == test_podcast.id).first()
+            pod.thumbnail_url = "http://example.com/thumb1.jpg"
+            db.commit()
+        finally:
+            db.close()
+
+        resp = client.post(
+            "/playlists/",
+            json={"name": "Mosaic Test Playlist"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 201
+        playlist_id = resp.json()["id"]
+
+        client.post(
+            f"/playlists/{playlist_id}/items",
+            json={"podcast_id": test_podcast.id},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        listing = client.get(
+            "/playlists/my",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert listing.status_code == 200
+        playlists = listing.json()["playlists"]
+        target = next((p for p in playlists if p["name"] == "Mosaic Test Playlist"), None)
+        assert target is not None
+        assert "preview_thumbnails" in target
+        assert "http://example.com/thumb1.jpg" in target["preview_thumbnails"]
+
+    def test_preview_thumbnails_capped_at_four(self, test_user, db_session):
+        """preview_thumbnails returns at most 4 URLs even if the playlist has more items."""
+        user, token = test_user
+        from app import crud as c, schemas as s, models as m
+
+        # Create 6 podcasts with distinct thumbnails
+        podcast_ids = []
+        for i in range(6):
+            pd = c.create_podcast(
+                db_session,
+                s.PodcastCreate(
+                    title=f"Thumb Podcast {i}",
+                    description="desc",
+                    category="Technology",
+                    is_public=True,
+                    duration=60,
+                    audio_url=f"http://localhost/audio/{i}.mp3",
+                ),
+                owner_id=user.id,
+            )
+            pd.thumbnail_url = f"http://example.com/img{i}.jpg"
+            db_session.commit()
+            podcast_ids.append(pd.id)
+
+        resp = client.post(
+            "/playlists/",
+            json={"name": "Big Playlist"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 201
+        playlist_id = resp.json()["id"]
+
+        for pid in podcast_ids:
+            client.post(
+                f"/playlists/{playlist_id}/items",
+                json={"podcast_id": pid},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        listing = client.get(
+            "/playlists/my",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert listing.status_code == 200
+        playlists = listing.json()["playlists"]
+        target = next((p for p in playlists if p["name"] == "Big Playlist"), None)
+        assert target is not None
+        assert len(target["preview_thumbnails"]) == 4
+
+    def test_podcasts_without_thumbnails_excluded(self, test_user, test_podcast):
+        """Items whose podcast has no thumbnail_url are excluded from preview_thumbnails."""
+        _, token = test_user
+
+        # Ensure podcast has no thumbnail
+        from app.database import SessionLocal
+        db = SessionLocal()
+        try:
+            from app import models as m
+            pod = db.query(m.Podcast).filter(m.Podcast.id == test_podcast.id).first()
+            pod.thumbnail_url = None
+            db.commit()
+        finally:
+            db.close()
+
+        resp = client.post(
+            "/playlists/",
+            json={"name": "No Thumb Playlist"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        playlist_id = resp.json()["id"]
+        client.post(
+            f"/playlists/{playlist_id}/items",
+            json={"podcast_id": test_podcast.id},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        listing = client.get(
+            "/playlists/my",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert listing.status_code == 200
+        playlists = listing.json()["playlists"]
+        target = next((p for p in playlists if p["name"] == "No Thumb Playlist"), None)
+        assert target is not None
+        assert target["preview_thumbnails"] == []

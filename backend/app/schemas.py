@@ -533,6 +533,7 @@ class PlaylistResponse(BaseModel):
     is_public: bool = True
     owner_id: int
     item_count: int = 0
+    preview_thumbnails: List[str] = []
     created_at: datetime.datetime
     updated_at: datetime.datetime
 

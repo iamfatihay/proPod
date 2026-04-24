@@ -1,7 +1,7 @@
 """Playlist management endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import List, Optional
 
 from .. import schemas, crud, models, auth
 from ..database import get_db
@@ -32,7 +32,7 @@ def get_my_playlists(
         db=db, user_id=current_user.id, skip=skip, limit=limit,
     )
     return schemas.PlaylistListResponse(
-        playlists=[_playlist_to_response(p, count) for p, count in rows],
+        playlists=[_playlist_to_response(p, count, thumbs) for p, count, thumbs in rows],
         total=total,
         limit=limit,
         offset=skip,
@@ -229,12 +229,15 @@ def remove_item_from_playlist(
 
 
 def _playlist_to_response(
-    playlist: models.Playlist, item_count: Optional[int] = None
+    playlist: models.Playlist,
+    item_count: Optional[int] = None,
+    preview_thumbnails: Optional[List[str]] = None,
 ) -> schemas.PlaylistResponse:
     """Convert a Playlist model to a PlaylistResponse schema.
 
     Pass ``item_count`` explicitly when building responses from a list query
     that does not eager-load items, to avoid triggering a lazy SELECT per row.
+    Pass ``preview_thumbnails`` (up to 4 URLs) for the mosaic art in list views.
     """
     if item_count is None:
         # items are already in identity map (e.g. detail view); safe to use
@@ -246,6 +249,7 @@ def _playlist_to_response(
         is_public=playlist.is_public,
         owner_id=playlist.owner_id,
         item_count=item_count,
+        preview_thumbnails=preview_thumbnails or [],
         created_at=playlist.created_at,
         updated_at=playlist.updated_at,
     )

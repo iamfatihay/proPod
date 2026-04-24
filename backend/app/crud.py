@@ -1542,13 +1542,15 @@ def get_user_playlists(
     user_id: int,
     skip: int = 0,
     limit: int = 20,
-) -> Tuple[List[Tuple[models.Playlist, int]], int]:
+) -> Tuple[List[Tuple[models.Playlist, int, List[str]]], int]:
     """
     Get playlists owned by a user with pagination.
 
-    Returns a tuple of (rows, total) where each row is (Playlist, item_count).
-    The item_count is computed via a correlated subquery so no lazy loads are
-    needed when building the response.
+    Returns a tuple of (rows, total) where each row is
+    (Playlist, item_count, preview_thumbnails).
+    - item_count is computed via a correlated subquery (no lazy loads).
+    - preview_thumbnails is a list of up to 4 thumbnail_url strings from the
+      first items in each playlist (by position), used for the 2×2 mosaic UI.
 
     Args:
         db: Database session
@@ -1557,7 +1559,7 @@ def get_user_playlists(
         limit: Maximum number of records
 
     Returns:
-        Tuple of (list of (Playlist, item_count) tuples, total count)
+        Tuple of (list of (Playlist, item_count, preview_thumbnails) tuples, total count)
     """
     item_count_subq = (
         db.query(func.count(models.PlaylistItem.id))
@@ -1573,7 +1575,30 @@ def get_user_playlists(
         models.Playlist.owner_id == user_id,
     ).scalar() or 0
     rows = query.offset(skip).limit(limit).all()
-    return rows, total
+
+    # Fetch up to 4 thumbnail URLs per playlist in a single query.
+    # We join PlaylistItem → Podcast, filter to the returned playlist IDs,
+    # and rank by position so we always take the first 4 items.
+    playlist_ids = [p.id for p, _ in rows]
+    thumbnails_map: dict[int, List[str]] = {pid: [] for pid in playlist_ids}
+    if playlist_ids:
+        thumb_rows = (
+            db.query(models.PlaylistItem.playlist_id, models.Podcast.thumbnail_url)
+            .join(models.Podcast, models.PlaylistItem.podcast_id == models.Podcast.id)
+            .filter(
+                models.PlaylistItem.playlist_id.in_(playlist_ids),
+                models.Podcast.thumbnail_url.isnot(None),
+            )
+            .order_by(models.PlaylistItem.playlist_id, models.PlaylistItem.position)
+            .all()
+        )
+        for pid, url in thumb_rows:
+            lst = thumbnails_map[pid]
+            if len(lst) < 4:
+                lst.append(url)
+
+    enriched = [(p, count, thumbnails_map[p.id]) for p, count in rows]
+    return enriched, total
 
 
 def get_public_playlists(
