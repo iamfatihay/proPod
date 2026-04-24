@@ -6,6 +6,7 @@
 
 ## 📍 Current State
 
+
 **Last updated:** 2026-04-24  
 **Last session:** Empty-state category browse grid on Search screen — 2-column card grid in Podcasts/idle mode using `browseCategoryPodcasts()` + `getPodcasts({category})` → PR #80  
 **Test suite baseline:** ~436 backend tests
@@ -50,6 +51,7 @@
 - Sleep timer: `setInterval` — verify accuracy on real device
 - Frontend unit test coverage thin
 - `search_users` returns `total_likes: 0` (skipped for perf; not shown in UI)
+- Creator sort is Python-side — fine at current scale, needs SQL ORDER BY subquery for large datasets
 
 ---
 

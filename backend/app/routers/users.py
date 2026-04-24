@@ -336,6 +336,7 @@ def search_users(
     q: str = Query(..., min_length=1, max_length=100, description="Creator name search term"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=50),
+    sort_by: str = Query("name", pattern="^(name|followers)$", description="Sort order: name (alpha) or followers (desc)"),
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(auth.get_current_user_optional),
 ):
@@ -362,6 +363,7 @@ def search_users(
         current_user_id=current_user_id,
         skip=skip,
         limit=limit,
+        sort_by=sort_by,
     )
     return results
 

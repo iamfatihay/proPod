@@ -989,6 +989,7 @@ class ApiService {
         const queryParams = new URLSearchParams({ q });
         if (params.skip !== undefined) queryParams.append("skip", params.skip);
         if (params.limit !== undefined) queryParams.append("limit", params.limit);
+        if (params.sort_by) queryParams.append("sort_by", params.sort_by);
         return this.request(`/users/search?${queryParams.toString()}`);
     }
 

@@ -154,6 +154,9 @@ const Search = () => {
     const [creatorResults, setCreatorResults] = useState([]);
     const [showHistory, setShowHistory] = useState(true);
 
+    // Creator sort — only active in "creators" mode.
+    const [creatorSortBy, setCreatorSortBy] = useState("name"); // 'name' | 'followers'
+
     // Category filter — only active in "all" (Podcasts) mode.
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [categories, setCategories] = useState([ALL_CATEGORY]);
@@ -219,13 +222,13 @@ const Search = () => {
         loadSuggestions();
         const handle = setTimeout(() => {
             if (searchMode === "creators") {
-                performCreatorSearch(trimmed);
+                performCreatorSearch(trimmed, { sort_by: creatorSortBy });
             } else {
                 performSearch(trimmed, { silent: true });
             }
         }, 350);
         return () => clearTimeout(handle);
-    }, [searchQuery, searchMode, selectedCategory]);
+    }, [searchQuery, searchMode, selectedCategory, creatorSortBy]);
 
     const loadSearchHistory = () => {
         const history = SemanticSearchService.getSearchHistory();
@@ -281,7 +284,7 @@ const Search = () => {
         }
     };
 
-    const performCreatorSearch = async (query) => {
+    const performCreatorSearch = async (query, options = {}) => {
         const q = (query || "").trim();
         if (q.length === 0) {
             setCreatorResults([]);
@@ -290,7 +293,8 @@ const Search = () => {
         try {
             setIsSearching(true);
             setShowHistory(false);
-            const results = await apiService.searchUsers(q, { limit: 30 });
+            const { sort_by = "name" } = options;
+            const results = await apiService.searchUsers(q, { limit: 30, sort_by });
             setCreatorResults(Array.isArray(results) ? results : []);
         } catch (error) {
             Logger.error("Creator search failed:", error);
@@ -324,7 +328,7 @@ const Search = () => {
 
     const handleSearchSubmit = () => {
         if (searchMode === "creators") {
-            performCreatorSearch(searchQuery);
+            performCreatorSearch(searchQuery, { sort_by: creatorSortBy });
         } else {
             performSearch(searchQuery);
         }
@@ -497,6 +501,47 @@ const Search = () => {
                         </TouchableOpacity>
                     ))}
                 </View>
+
+                {/* Sort toggle — Creators mode only */}
+                {searchMode === "creators" && (
+                    <View className="flex-row items-center mt-3">
+                        <Text className="text-text-secondary text-xs mr-2">Sort:</Text>
+                        {[
+                            { key: "name", label: "Name" },
+                            { key: "followers", label: "Followers" },
+                        ].map(({ key, label }) => (
+                            <TouchableOpacity
+                                key={key}
+                                onPress={() => {
+                                    setCreatorSortBy(key);
+                                    // creatorSortBy is in the useEffect dep array — it
+                                    // re-fires the debounced search automatically.
+                                    // No manual call needed (avoids double request).
+                                }}
+                                style={{
+                                    paddingHorizontal: 12,
+                                    paddingVertical: 5,
+                                    borderRadius: 16,
+                                    marginRight: 6,
+                                    backgroundColor:
+                                        creatorSortBy === key
+                                            ? COLORS.primary
+                                            : "rgba(128,128,128,0.12)",
+                                }}
+                            >
+                                <Text
+                                    style={{
+                                        fontSize: 12,
+                                        fontWeight: creatorSortBy === key ? "700" : "500",
+                                        color: creatorSortBy === key ? "#fff" : "#888",
+                                    }}
+                                >
+                                    {label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
 
                 {/* Category filter chips — Podcasts mode only */}
                 {searchMode === "all" && (
