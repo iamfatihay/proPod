@@ -6,7 +6,7 @@ import {
     ActivityIndicator,
     TouchableOpacity,
 } from "react-native";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import apiService from "../../src/services/api/apiService";
 import PodcastCard from "../../src/components/PodcastCard";
@@ -107,29 +107,43 @@ const Library = () => {
     const [loading,   setLoading]   = useState(true);
     const [error,     setError]     = useState(null);
 
+    // Monotonically-increasing ID to guard against stale async responses.
+    // Each load() invocation captures the ID at call time; results are only
+    // applied if the ref still matches when the response arrives.
+    const loadIdRef = useRef(0);
+
     // ── Data loading ────────────────────────────────────────────────────────
     const load = useCallback(async () => {
+        // Capture a snapshot of the current sequence ID.  If a concurrent
+        // call increments loadIdRef before this one resolves, results are
+        // silently discarded (stale-response guard).
+        const myId = ++loadIdRef.current;
         try {
             let res;
             if (tab === "mine") {
                 res = await apiService.getMyPodcasts();
                 const list = res.podcasts || res || [];
+                if (loadIdRef.current !== myId) return;
                 setItems(list.map((p) => ({ ...p, duration: (p.duration || 0) * 1000 })));
             } else if (tab === "likes") {
                 res = await apiService.getLikedPodcasts();
                 const list = res.podcasts || res || [];
+                if (loadIdRef.current !== myId) return;
                 setItems(list.map((p) => ({ ...p, duration: (p.duration || 0) * 1000 })));
             } else if (tab === "bookmarks") {
                 res = await apiService.getBookmarkedPodcasts();
                 const list = res.podcasts || res || [];
+                if (loadIdRef.current !== myId) return;
                 setItems(list.map((p) => ({ ...p, duration: (p.duration || 0) * 1000 })));
             } else {
                 // playlists
                 res = await apiService.getMyPlaylists({ limit: 50 });
+                if (loadIdRef.current !== myId) return;
                 setItems(res.playlists || []);
             }
             setError(null);
         } catch (e) {
+            if (loadIdRef.current !== myId) return;
             setError(e?.detail || e?.message || "Failed to load library");
         }
     }, [tab]);
