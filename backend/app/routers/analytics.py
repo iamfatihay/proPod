@@ -368,3 +368,53 @@ def _get_category_breakdown(db: Session, owner_id: int) -> List[schemas.Category
         )
         for r in rows
     ]
+
+
+@router.get("/plays-over-time")
+def get_plays_over_time(
+    days: int = Query(
+        30, ge=7, le=365,
+        description="Number of days to look back (7–365)",
+    ),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """
+    Return daily listening-session counts for the creator's podcasts.
+
+    Each data point represents the number of unique user-podcast listening
+    sessions that were active (created or updated) on that calendar day.
+    Uses ListeningHistory.updated_at so that returning listeners count
+    toward the day they most recently played, not just first-play.
+
+    Works with both SQLite (func.date) and PostgreSQL (DATE cast).
+    """
+    cutoff = datetime.datetime.now(timezone.utc) - datetime.timedelta(days=days)
+
+    podcast_ids_subq = (
+        db.query(models.Podcast.id)
+        .filter(
+            models.Podcast.owner_id == current_user.id,
+            models.Podcast.is_deleted == False,
+        )
+        .scalar_subquery()
+    )
+
+    rows = (
+        db.query(
+            func.date(models.ListeningHistory.updated_at).label("day"),
+            func.count(models.ListeningHistory.id).label("plays"),
+        )
+        .filter(
+            models.ListeningHistory.podcast_id.in_(podcast_ids_subq),
+            models.ListeningHistory.updated_at >= cutoff,
+        )
+        .group_by(func.date(models.ListeningHistory.updated_at))
+        .order_by(func.date(models.ListeningHistory.updated_at))
+        .all()
+    )
+
+    return {
+        "data": [{"date": str(r.day), "plays": int(r.plays)} for r in rows],
+        "days": days,
+    }

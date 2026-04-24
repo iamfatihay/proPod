@@ -290,6 +290,139 @@ const CategoryRow = ({ cat, maxCount }) => {
     );
 };
 
+
+// ─── PlaysOverTimeChart ───────────────────────────────────────────────────────
+// Pure React Native bar chart — no SVG dependency required.
+// Each bar's height is proportional to the maximum play count in the window.
+
+const PlaysOverTimeChart = ({ chartData, days }) => {
+    if (!chartData || chartData.length === 0) {
+        return (
+            <View
+                style={{
+                    height: 80,
+                    alignItems: "center",
+                    justifyContent: "center",
+                }}
+            >
+                <Text style={{ color: COLORS.text.muted, fontSize: 13 }}>
+                    No listening data yet for this period.
+                </Text>
+            </View>
+        );
+    }
+
+    const maxPlays = Math.max(...chartData.map((d) => d.plays), 1);
+
+    // How many bars to show — cap at 14 for readability, evenly spaced
+    const MAX_BARS = days <= 14 ? days : 14;
+    // Build an evenly-sampled subset when we have more points than bars
+    let display = chartData;
+    if (chartData.length > MAX_BARS) {
+        const step = (chartData.length - 1) / (MAX_BARS - 1);
+        display = Array.from({ length: MAX_BARS }, (_, i) =>
+            chartData[Math.round(i * step)]
+        );
+    }
+
+    // Short label: "Apr 1" → "1" if <= 14 bars, else just show first/mid/last
+    const labelFor = (dateStr, idx, arr) => {
+        if (!dateStr) return "";
+        const d = new Date(dateStr + "T00:00:00");
+        const day = d.getDate();
+        if (arr.length <= 7) return String(day);
+        // show label at first, middle, last
+        if (idx === 0 || idx === arr.length - 1 || idx === Math.floor(arr.length / 2)) {
+            return `${d.toLocaleString("default", { month: "short" })} ${day}`;
+        }
+        return "";
+    };
+
+    return (
+        <View>
+            {/* Bars */}
+            <View
+                style={{
+                    flexDirection: "row",
+                    alignItems: "flex-end",
+                    height: 80,
+                    gap: 3,
+                }}
+            >
+                {display.map((point, idx) => {
+                    const heightPct = Math.max(
+                        4,
+                        Math.round((point.plays / maxPlays) * 100)
+                    );
+                    const isMax = point.plays === maxPlays;
+                    return (
+                        <View
+                            key={point.date || idx}
+                            style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", height: 80 }}
+                        >
+                            <View
+                                style={{
+                                    width: "100%",
+                                    height: `${heightPct}%`,
+                                    backgroundColor: isMax
+                                        ? COLORS.primary
+                                        : COLORS.primary + "55",
+                                    borderRadius: 3,
+                                    minHeight: 3,
+                                }}
+                            />
+                        </View>
+                    );
+                })}
+            </View>
+
+            {/* X-axis labels */}
+            <View
+                style={{
+                    flexDirection: "row",
+                    marginTop: 6,
+                    gap: 3,
+                }}
+            >
+                {display.map((point, idx) => (
+                    <View
+                        key={(point.date || idx) + "_lbl"}
+                        style={{ flex: 1, alignItems: "center" }}
+                    >
+                        <Text
+                            style={{
+                                color: COLORS.text.muted,
+                                fontSize: 9,
+                                textAlign: "center",
+                            }}
+                            numberOfLines={1}
+                        >
+                            {labelFor(point.date, idx, display)}
+                        </Text>
+                    </View>
+                ))}
+            </View>
+
+            {/* Peak annotation */}
+            <View
+                style={{
+                    flexDirection: "row",
+                    justifyContent: "flex-end",
+                    marginTop: 8,
+                }}
+            >
+                <Text style={{ color: COLORS.text.muted, fontSize: 11 }}>
+                    Peak:{" "}
+                    <Text style={{ color: COLORS.text.primary, fontWeight: "600" }}>
+                        {maxPlays}
+                    </Text>{" "}
+                    sessions/day
+                </Text>
+            </View>
+        </View>
+    );
+};
+
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 
 const Section = ({ title, children }) => (
@@ -334,6 +467,7 @@ const AnalyticsScreen = () => {
 
     const [days, setDays] = useState(30);
     const [data, setData] = useState(null);
+    const [chartData, setChartData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState(null);
@@ -343,8 +477,12 @@ const AnalyticsScreen = () => {
             if (isRefresh) setRefreshing(true);
             else setLoading(true);
             try {
-                const res = await apiService.getCreatorDashboard(days);
-                setData(res);
+                const [dashRes, chartRes] = await Promise.all([
+                    apiService.getCreatorDashboard(days),
+                    apiService.getPlaysOverTime(days),
+                ]);
+                setData(dashRes);
+                setChartData(chartRes?.data ?? []);
                 setError(null);
             } catch (e) {
                 setError(e?.message || "Failed to load analytics");
@@ -657,6 +795,11 @@ const AnalyticsScreen = () => {
                             value={data?.recent_comments}
                             color="#10B981"
                         />
+                    </Section>
+
+                    {/* ── Plays over time ─────────────────────────────── */}
+                    <Section title={`Listening Activity — Last ${days} Days`}>
+                        <PlaysOverTimeChart chartData={chartData} days={days} />
                     </Section>
 
                     {/* ── Top podcasts ─────────────────────────────────── */}
