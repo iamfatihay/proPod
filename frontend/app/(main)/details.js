@@ -28,6 +28,7 @@ import { normalizePodcast, normalizePodcasts } from "../../src/utils/urlHelper";
 import { getQualityMessage } from "../../src/utils/qualityHelpers";
 import { COLORS } from "../../src/constants/theme";
 import hapticFeedback from "../../src/services/haptics/hapticFeedback";
+import GradientCard from "../../src/components/GradientCard";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -265,6 +266,62 @@ const Details = () => {
         setQueue,
         showToast,
     ]);
+
+    /**
+     * Play a related podcast card directly (used by GradientCard onPlayPress).
+     * Starts playback of the tapped related podcast and rebuilds the queue so
+     * the remaining related items follow naturally.
+     */
+    const handlePlayRelated = useCallback(
+        (relatedPodcast) => {
+            if (!relatedPodcast?.audio_url) {
+                showToast("Audio not available", "error");
+                return;
+            }
+
+            const track = {
+                id: relatedPodcast.id,
+                uri: relatedPodcast.audio_url,
+                title: relatedPodcast.title,
+                artist: relatedPodcast.owner?.name || "Unknown Artist",
+                duration: (relatedPodcast.duration || 0) * 1000,
+                artwork: relatedPodcast.thumbnail_url,
+                category: relatedPodcast.category,
+                description: relatedPodcast.description,
+                ownerId: relatedPodcast.owner?.id ?? relatedPodcast.owner_id,
+            };
+
+            if (currentTrack?.id === relatedPodcast.id) {
+                if (isPlaying) {
+                    pause();
+                } else {
+                    play();
+                }
+            } else {
+                play(track);
+                requestAnimationFrame(() => {
+                    try {
+                        const others = relatedPodcasts
+                            .filter((p) => p.audio_url && p.id !== relatedPodcast.id)
+                            .map((p) => ({
+                                id: p.id,
+                                uri: p.audio_url,
+                                title: p.title,
+                                artist: p.owner?.name || "Unknown Artist",
+                                duration: (p.duration || 0) * 1000,
+                                artwork: p.thumbnail_url,
+                            }));
+                        setQueue([track, ...others], 0);
+                    } catch (err) {
+                        Logger.error("Failed to build queue from related podcast", err);
+                        setQueue([track], 0);
+                        showToast("Playing current episode only", "warning");
+                    }
+                });
+            }
+        },
+        [currentTrack?.id, isPlaying, play, pause, setQueue, relatedPodcasts, showToast]
+    );
 
     // PERFORMANCE: Memoize skip handlers to prevent ModernAudioPlayer re-renders
     // CRITICAL FIX: Remove position/duration from dependencies
@@ -1189,69 +1246,48 @@ const Details = () => {
                     </View>
                 )}
 
-                {/* Related Podcasts */}
+                {/* Related Podcasts — horizontal GradientCard scroll row */}
                 {relatedPodcasts.length > 0 && (
-                    <View className="px-6 mb-6">
-                        <Text className="text-text-primary text-lg font-semibold mb-4">
-                            Related Podcasts
-                        </Text>
-
-                        {relatedPodcasts.map((relatedPodcast) => (
-                            <TouchableOpacity
-                                key={relatedPodcast.id}
-                                onPress={() =>
-                                    router.push({
-                                        pathname: "/(main)/details",
-                                        params: { id: relatedPodcast.id },
-                                    })
-                                }
-                                className="flex-row items-center bg-panel rounded-lg p-4 mb-3"
-                            >
-                                <View className="w-12 h-12 bg-card rounded-lg overflow-hidden mr-4">
-                                    {relatedPodcast.thumbnail_url ? (
-                                        <Image
-                                            source={{ uri: relatedPodcast.thumbnail_url }}
-                                            style={{ width: "100%", height: "100%" }}
-                                            resizeMode="cover"
-                                        />
-                                    ) : (
-                                        <View className="flex-1 items-center justify-center">
-                                            <MaterialCommunityIcons
-                                                name="waveform"
-                                                size={24}
-                                                color={COLORS.text.muted}
-                                            />
-                                        </View>
-                                    )}
-                                </View>
-
-                                <View className="flex-1">
-                                    <Text
-                                        className="text-text-primary font-semibold"
-                                        numberOfLines={1}
-                                    >
-                                        {relatedPodcast.title}
-                                    </Text>
-                                    <Text
-                                        className="text-text-secondary text-sm"
-                                        numberOfLines={1}
-                                    >
-                                        {relatedPodcast.owner?.name ||
-                                            "Unknown Artist"}{" "}
-                                        •{" "}
-                                        {formatDuration(
-                                            relatedPodcast.duration
-                                        )}
-                                    </Text>
-                                </View>
-
-                                <MaterialCommunityIcons
-                                    name="chevron-right"
-                                    size={24}
-                                    color={COLORS.text.muted}
+                    <View className="mb-6">
+                        <View className="flex-row items-center px-6 mb-4">
+                            <MaterialCommunityIcons
+                                name="podcast"
+                                size={22}
+                                color={COLORS.primary}
+                            />
+                            <Text className="text-text-primary text-lg font-semibold ml-2">
+                                Related Podcasts
+                            </Text>
+                        </View>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={{ paddingLeft: 24, paddingRight: 8 }}
+                        >
+                            {relatedPodcasts.map((relatedPodcast) => (
+                                <GradientCard
+                                    key={relatedPodcast.id}
+                                    podcast={{
+                                        ...relatedPodcast,
+                                        // GradientCard expects duration in ms; API returns seconds
+                                        duration: (relatedPodcast.duration || 0) * 1000,
+                                    }}
+                                    category={relatedPodcast.category || "default"}
+                                    size="medium"
+                                    onPress={() =>
+                                        router.push({
+                                            pathname: "/(main)/details",
+                                            params: { id: relatedPodcast.id },
+                                        })
+                                    }
+                                    onPlayPress={() => handlePlayRelated(relatedPodcast)}
+                                    isPlaying={
+                                        currentTrack?.id === relatedPodcast.id &&
+                                        isPlaying
+                                    }
                                 />
-                            </TouchableOpacity>
-                        ))}
+                            ))}
+                        </ScrollView>
                     </View>
                 )}
 
