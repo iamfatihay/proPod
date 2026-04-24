@@ -16,7 +16,7 @@
 
 ---
 
-## ✅ Recently Shipped (PR #66–#77)
+## ✅ Recently Shipped (PR #66–#79)
 
 - ✅ Listening history screen — progress bar, completion badge, pagination (PR #66)
 - ✅ Listening history delete entry — `DELETE /podcasts/{id}/history`, 5 tests (PR #67)
@@ -37,7 +37,6 @@
 
 ## 🔄 What's open
 
-- PR #79 `feature/creator-search-sort-by` — `sort_by=followers` param added to `GET /users/search` and `crud.search_users`; Name/Followers sort toggle in Creators tab. Awaiting merge.
 - PR #80 `feature/empty-state-category-browse` — 2-column category grid on Search idle screen. `browseCategoryPodcasts()` uses `getPodcasts({category, limit:50})`. Clear/chip reset returns to grid. Pure frontend. Awaiting merge.
 
 ---

@@ -159,6 +159,9 @@ const Search = () => {
     const [categories, setCategories] = useState([ALL_CATEGORY]);
 
     const searchInputRef = useRef(null);
+    // Tracks the category of the most-recently initiated browse request so
+    // that stale responses from rapid taps are silently discarded.
+    const browseRequestRef = useRef(null);
 
     // Load search history on mount.
     useEffect(() => {
@@ -299,16 +302,23 @@ const Search = () => {
 
 
     const browseCategoryPodcasts = async (categoryId) => {
+        browseRequestRef.current = categoryId;
         try {
             setIsSearching(true);
             setShowHistory(false);
             const results = await apiService.getPodcasts({ category: categoryId, limit: 50 });
-            setSearchResults(Array.isArray(results) ? results : []);
+            // Discard if a newer tap has superseded this request
+            if (browseRequestRef.current !== categoryId) return;
+            setSearchResults(normalizePodcasts(Array.isArray(results) ? results : []));
         } catch (err) {
-            Logger.error("Category browse failed:", err);
-            setSearchResults([]);
+            if (browseRequestRef.current === categoryId) {
+                Logger.error("Category browse failed:", err);
+                setSearchResults([]);
+            }
         } finally {
-            setIsSearching(false);
+            if (browseRequestRef.current === categoryId) {
+                setIsSearching(false);
+            }
         }
     };
 
@@ -641,6 +651,8 @@ const Search = () => {
                                     key={cat.id}
                                     onPress={() => handleCategorySelect(cat.id)}
                                     activeOpacity={0.75}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Browse ${cat.label} podcasts`}
                                     style={{
                                         width: "47.5%",
                                         backgroundColor: "rgba(128,128,128,0.1)",
