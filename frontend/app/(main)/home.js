@@ -757,6 +757,49 @@ export default function HomeScreen() {
                         </ScrollView>
                     </View>
 
+                    {/* Trending Now — horizontal scroll row, shown only when data is ready */}
+                    {!loadingTrending && trendingPodcasts.length > 0 && (
+                        <View className="mb-6">
+                            <View className="flex-row items-center mb-4">
+                                <MaterialCommunityIcons
+                                    name="fire"
+                                    size={24}
+                                    color={COLORS.warning}
+                                />
+                                <Text className="text-xl font-bold text-text-primary ml-2">
+                                    Trending
+                                </Text>
+                            </View>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={{ paddingRight: 16 }}
+                            >
+                                {trendingPodcasts.map((podcast) => (
+                                    <GradientCard
+                                        key={podcast.id}
+                                        podcast={podcast}
+                                        category={podcast.category}
+                                        size="medium"
+                                        onPress={() =>
+                                            router.push({
+                                                pathname: "/(main)/details",
+                                                params: { id: podcast.id },
+                                            })
+                                        }
+                                        onPlayPress={() =>
+                                            handlePlayPodcast(podcast)
+                                        }
+                                        isPlaying={
+                                            currentTrack?.id === podcast.id &&
+                                            isPlaying
+                                        }
+                                    />
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+
                     {/* Episodes */}
                     <View className="flex-row items-center justify-between mb-3">
                         <Text className="text-xl font-semibold text-text-primary">
@@ -959,88 +1002,6 @@ export default function HomeScreen() {
                                     />
                                 ))}
                             </>
-                        )}
-                    </View>
-
-                    {/* Trending Now Section */}
-                    <View className="mb-6">
-                        <View className="flex-row items-center justify-between mb-4">
-                            <View className="flex-row items-center">
-                                <MaterialCommunityIcons
-                                    name="fire"
-                                    size={24}
-                                    color={COLORS.warning}
-                                />
-                                <Text className="text-xl font-bold text-text-primary ml-2">
-                                    Trending Now
-                                </Text>
-                            </View>
-                        </View>
-                        {loadingTrending ? (
-                            <>
-                                <View className="h-[72px] mb-3 bg-panel rounded-xl" />
-                                <View className="h-[72px] mb-3 bg-panel rounded-xl" />
-                                <View className="h-[72px] bg-panel rounded-xl" />
-                            </>
-                        ) : trendingPodcasts.length === 0 ? (
-                            <View className="p-4 bg-panel rounded-xl border border-border">
-                                <Text className="text-sm text-text-secondary">
-                                    Trending data is not available yet. Pull to
-                                    refresh after a few listens or interactions.
-                                </Text>
-                            </View>
-                        ) : (
-                            trendingPodcasts.map((podcast, index) => (
-                                <View
-                                    key={podcast.id}
-                                    className="flex-row items-center mb-3 p-3 bg-panel rounded-xl"
-                                >
-                                    <Text className="text-2xl font-bold text-primary mr-3">
-                                        #{index + 1}
-                                    </Text>
-                                    <View className="flex-1">
-                                        <TouchableOpacity
-                                            onPress={() =>
-                                                router.push({
-                                                    pathname: "/(main)/details",
-                                                    params: { id: podcast.id },
-                                                })
-                                            }
-                                        >
-                                            <Text
-                                                className="text-base font-semibold text-text-primary mb-1"
-                                                numberOfLines={1}
-                                            >
-                                                {podcast.title}
-                                            </Text>
-                                            <View className="flex-row items-center">
-                                                <MaterialCommunityIcons
-                                                    name="trending-up"
-                                                    size={12}
-                                                    color={COLORS.success}
-                                                />
-                                                <Text className="text-xs text-success ml-1">
-                                                    +{podcast.play_count || 0} plays
-                                                </Text>
-                                            </View>
-                                        </TouchableOpacity>
-                                    </View>
-                                    <TouchableOpacity
-                                        onPress={() => handlePlayPodcast(podcast)}
-                                    >
-                                        <MaterialCommunityIcons
-                                            name={
-                                                currentTrack?.id === podcast.id &&
-                                                    isPlaying
-                                                    ? "pause-circle"
-                                                    : "play-circle"
-                                            }
-                                            size={40}
-                                            color={COLORS.primary}
-                                        />
-                                    </TouchableOpacity>
-                                </View>
-                            ))
                         )}
                     </View>
 
