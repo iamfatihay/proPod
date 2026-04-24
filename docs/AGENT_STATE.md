@@ -6,8 +6,9 @@
 
 ## 📍 Current State
 
-**Last updated:** 2026-04-23  
-**Last session:** Creator search sort-by-followers — Name/Followers pill toggle in Creators tab, `sort_by` param in crud/router, 6 new tests → PR #79  
+
+**Last updated:** 2026-04-24  
+**Last session:** Empty-state category browse grid on Search screen — 2-column card grid in Podcasts/idle mode using `browseCategoryPodcasts()` + `getPodcasts({category})` → PR #80  
 **Test suite baseline:** ~436 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -16,7 +17,7 @@
 
 ---
 
-## ✅ Recently Shipped (PR #66–#78)
+## ✅ Recently Shipped (PR #66–#79)
 
 - ✅ Listening history screen — progress bar, completion badge, pagination (PR #66)
 - ✅ Listening history delete entry — `DELETE /podcasts/{id}/history`, 5 tests (PR #67)
@@ -30,13 +31,14 @@
 - ✅ Demo user error-handling feedback — next() fallback tests, pre-commit quoting fix, repeat=all single-item loop fix, conftest engine.dispose(), SQLite check_same_thread (PR #75)
 - ✅ Expo push receipt polling — PushTicket model, Alembic migration, `check_push_receipts()`, `POST /admin/push-receipts/check`, 15 tests (PR #76)
 - ✅ Creator Search tab — `GET /users/search`, `search_users` CRUD, `searchUsers` apiService, 3-tab toggle, `CreatorCard` with optimistic follow, 14 tests (PR #77)
-- ✅ Category filter chips in Search screen — horizontally scrollable chips, `category=` param, active-filter label + Clear (PR #78)
+- ✅ Category filter chips in Search (Podcasts mode) — horizontal chips, `category=` param, active-filter label + Clear, mode-switch reset (PR #78)
+- ✅ Creator search sort by followers — `sort_by` param to `GET /users/search`, Name/Followers toggle in Creators tab (PR #79)
 
 ---
 
 ## 🔄 What's open
 
-- PR #79 `feature/creator-search-sort-by` — Name / Followers pill toggle in Creators tab. `sort_by` param added to `crud.search_users` (Python-side sort after stat aggregation), router (pattern-validated), `apiService.searchUsers`, and `search.js` state. 6 new tests; 21/21 pass. Awaiting merge.
+- PR #80 `feature/empty-state-category-browse` — 2-column category grid on Search idle screen. `browseCategoryPodcasts()` uses `getPodcasts({category, limit:50})`. Clear/chip reset returns to grid. Pure frontend. Awaiting merge.
 
 ---
 
@@ -55,11 +57,11 @@
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FEATURE] Wire push receipt check to APScheduler** — `backend/app/main.py`: add APScheduler `BackgroundScheduler` (or `asyncio.create_task` in lifespan) running `crud.check_push_receipts` every 30 min with a fresh DB session. Add `apscheduler` to `backend/requirements.txt`. Pure backend, no migration needed. High reliability value.
+1. **[FEATURE] Wire push receipt check to APScheduler** — `backend/app/main.py`: add `apscheduler` `BackgroundScheduler` running `crud.check_push_receipts` every 30 min with a fresh DB session. Add `apscheduler` to `backend/requirements.txt`. Pure backend, no migration needed. Fixes the "manual-only" push receipt debt.
 
-2. **[FEATURE] Empty-state category browse** — When the Search screen opens (no query yet) and `searchMode === "all"`, show a 2-column grid of category cards instead of the empty "Search Podcasts" prompt. Tapping a category pre-fills the chips filter and calls `searchPodcasts("", {category})`. Turns the idle search screen into a discovery surface.
+2. **[FEATURE] Podcast detail — Related podcasts section** — `GET /podcasts/discover/related/{podcast_id}` already exists. Add a horizontal scroll row of `PodcastCard` items at the bottom of the episode detail screen (`frontend/app/(main)/details.js`). Drives session time and cross-discovery.
 
-3. **[FEATURE] Creator profile follower list** — Add `GET /users/{user_id}/followers` endpoint (paged, reuse `UserFollow` model) and a "X Followers" tappable link on the creator profile screen that opens a bottom sheet list of followers. Surfaces social proof and encourages follows.
+3. **[FEATURE] Trending row on Home screen** — `GET /podcasts/discover/trending` already exists. Add a horizontal scroll row of trending podcasts above the Following Feed on the Home screen. Pure frontend, no migration needed. Immediately improves cold-start discoverability.
 
 ---
 

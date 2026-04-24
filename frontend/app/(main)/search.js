@@ -162,6 +162,9 @@ const Search = () => {
     const [categories, setCategories] = useState([ALL_CATEGORY]);
 
     const searchInputRef = useRef(null);
+    // Tracks the category of the most-recently initiated browse request so
+    // that stale responses from rapid taps are silently discarded.
+    const browseRequestRef = useRef(null);
 
     // Load search history on mount.
     useEffect(() => {
@@ -207,8 +210,12 @@ const Search = () => {
         if (trimmed.length < 2) {
             setSuggestions([]);
             setShowHistory(true);
-            setSearchResults([]);
             setCreatorResults([]);
+            // Preserve browse results when a category chip is active with no
+            // typed query — browseCategoryPodcasts manages them in that case.
+            if (selectedCategory === "all") {
+                setSearchResults([]);
+            }
             return;
         }
 
@@ -297,6 +304,28 @@ const Search = () => {
         }
     };
 
+
+    const browseCategoryPodcasts = async (categoryId) => {
+        browseRequestRef.current = categoryId;
+        try {
+            setIsSearching(true);
+            setShowHistory(false);
+            const results = await apiService.getPodcasts({ category: categoryId, limit: 50 });
+            // Discard if a newer tap has superseded this request
+            if (browseRequestRef.current !== categoryId) return;
+            setSearchResults(normalizePodcasts(Array.isArray(results) ? results : []));
+        } catch (err) {
+            if (browseRequestRef.current === categoryId) {
+                Logger.error("Category browse failed:", err);
+                setSearchResults([]);
+            }
+        } finally {
+            if (browseRequestRef.current === categoryId) {
+                setIsSearching(false);
+            }
+        }
+    };
+
     const handleSearchSubmit = () => {
         if (searchMode === "creators") {
             performCreatorSearch(searchQuery, { sort_by: creatorSortBy });
@@ -322,8 +351,20 @@ const Search = () => {
 
     const handleCategorySelect = (categoryId) => {
         setSelectedCategory(categoryId);
-        // The useEffect with selectedCategory in its dep array re-triggers
-        // the debounced search automatically — no manual call needed here.
+        if (categoryId === "all") {
+            // Returning to "All" with no active query → clear browse results
+            // so the category grid reappears.
+            if (searchQuery.trim().length < 2) {
+                setSearchResults([]);
+            }
+            return;
+        }
+        // No active text query — load podcasts for this category directly.
+        if (searchQuery.trim().length < 2) {
+            browseCategoryPodcasts(categoryId);
+        }
+        // With an active query the useEffect re-triggers a filtered search
+        // automatically when selectedCategory changes — no explicit call needed.
     };
 
     const handlePodcastPress = (podcast) => {
@@ -561,7 +602,13 @@ const Search = () => {
                             {selectedCategory}
                         </Text>
                     </Text>
-                    <TouchableOpacity onPress={() => setSelectedCategory("all")}>
+                    <TouchableOpacity onPress={() => {
+                        setSelectedCategory("all");
+                        // Clear browse results so the category grid reappears
+                        if (searchQuery.trim().length < 2) {
+                            setSearchResults([]);
+                        }
+                    }}>
                         <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: "600" }}>
                             Clear
                         </Text>
@@ -579,7 +626,9 @@ const Search = () => {
                             : searchMode === "creators"
                             ? "Searching creators..."
                             : hasActiveFilter
-                            ? `Filtering by ${selectedCategory}...`
+                            ? (searchQuery.trim().length < 2
+                                ? `Browsing ${selectedCategory}...`
+                                : `Filtering by ${selectedCategory}...`)
                             : "Searching podcasts..."}
                     </Text>
                 </View>
@@ -618,6 +667,78 @@ const Search = () => {
                         keyExtractor={(item, index) => `suggestion-${index}`}
                     />
                 </View>
+            ) : searchMode === "all" && searchQuery.trim().length < 2 && selectedCategory === "all" && categories.length > 1 ? (
+                /* ── Category browse grid — idle discovery surface ── */
+                <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+                    <Text
+                        style={{
+                            color: "#888",
+                            fontSize: 12,
+                            fontWeight: "600",
+                            letterSpacing: 0.5,
+                            textTransform: "uppercase",
+                            marginBottom: 14,
+                        }}
+                    >
+                        Browse by category
+                    </Text>
+                    <View
+                        style={{
+                            flexDirection: "row",
+                            flexWrap: "wrap",
+                            justifyContent: "space-between",
+                        }}
+                    >
+                        {categories
+                            .filter((c) => c.id !== "all")
+                            .map((cat) => (
+                                <TouchableOpacity
+                                    key={cat.id}
+                                    onPress={() => handleCategorySelect(cat.id)}
+                                    activeOpacity={0.75}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Browse ${cat.label} podcasts`}
+                                    style={{
+                                        width: "47.5%",
+                                        backgroundColor: "rgba(128,128,128,0.1)",
+                                        borderRadius: 12,
+                                        padding: 16,
+                                        alignItems: "center",
+                                        marginBottom: 12,
+                                    }}
+                                >
+                                    <View
+                                        style={{
+                                            width: 48,
+                                            height: 48,
+                                            borderRadius: 24,
+                                            backgroundColor: COLORS.primary + "22",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            marginBottom: 10,
+                                        }}
+                                    >
+                                        <Ionicons
+                                            name={cat.icon}
+                                            size={22}
+                                            color={COLORS.primary}
+                                        />
+                                    </View>
+                                    <Text
+                                        style={{
+                                            color: "#ccc",
+                                            fontSize: 13,
+                                            fontWeight: "600",
+                                            textAlign: "center",
+                                        }}
+                                        numberOfLines={2}
+                                    >
+                                        {cat.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                    </View>
+                </ScrollView>
             ) : (
                 <View className="flex-1 items-center justify-center px-8">
                     <Ionicons
