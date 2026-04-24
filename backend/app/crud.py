@@ -2655,17 +2655,23 @@ def search_users(
         List of dicts ready to be serialised as PublicUserProfile.
     """
     search_term = f"%{query.strip()}%"
-    users = (
+
+    base_q = (
         db.query(models.User)
         .filter(
             models.User.is_active == True,
             models.User.name.ilike(search_term),
         )
-        .order_by(models.User.name)
-        .offset(skip)
-        .limit(limit)
-        .all()
     )
+
+    if sort_by == "followers":
+        # Fetch all matching users so we can rank by follower count across the
+        # full result set before applying skip/limit. A Python-side slice is
+        # applied below after stats are assembled.
+        users = base_q.order_by(models.User.name).all()
+    else:
+        # Default name sort: SQL-level pagination is safe and efficient.
+        users = base_q.order_by(models.User.name).offset(skip).limit(limit).all()
 
     if not users:
         return []
@@ -2735,5 +2741,7 @@ def search_users(
 
     if sort_by == "followers":
         results.sort(key=lambda r: r["total_followers"], reverse=True)
+        # Apply pagination after sorting so the ranking is global, not per-page.
+        results = results[skip: skip + limit]
 
     return results

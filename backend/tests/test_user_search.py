@@ -228,27 +228,33 @@ class TestUserSearchSortBy:
             f"/users/{user_bob['user'].id}/follow",
             headers=user_alice["headers"],
         )
-        resp = client.get("/users/search?q=b&sort_by=followers")
+        # "er" appears in both "Alice Wonder" and "Bob Builder" — guarantees
+        # both fixtures are in the result set so ordering is actually exercised.
+        resp = client.get("/users/search?q=er&sort_by=followers")
         assert resp.status_code == 200
         data = resp.json()
-        # Bob should be the first result (most followers)
-        bob_entries = [u for u in data if u["id"] == user_bob["user"].id]
-        alice_entries = [u for u in data if u["id"] == user_alice["user"].id]
-        if bob_entries and alice_entries:
-            bob_pos = data.index(bob_entries[0])
-            alice_pos = data.index(alice_entries[0])
-            assert bob_pos < alice_pos, "Bob (1 follower) should rank before Alice (0 followers)"
+        ids = [u["id"] for u in data]
+        assert user_bob["user"].id in ids, "Bob must be in results"
+        assert user_alice["user"].id in ids, "Alice must be in results"
+        bob_pos = ids.index(user_bob["user"].id)
+        alice_pos = ids.index(user_alice["user"].id)
+        assert bob_pos < alice_pos, "Bob (1 follower) should rank before Alice (0 followers)"
 
     def test_sort_by_name_ordering(self, db, user_alice, user_bob):
         """sort_by=name returns alphabetical order regardless of follow counts."""
-        # Give Alice a bunch of followers (from Bob)
+        # Give Alice a follower so she would rank first by followers — but by
+        # name she should still come after... wait, Alice < Bob alphabetically,
+        # so give Bob a follower to make follower-sort differ from name-sort.
         client.post(
-            f"/users/{user_alice['user'].id}/follow",
-            headers=user_bob["headers"],
+            f"/users/{user_bob['user'].id}/follow",
+            headers=user_alice["headers"],
         )
-        # Both names start with letters that differ; query broad enough to catch both
-        resp = client.get("/users/search?q=search&sort_by=name")
+        # "er" matches both "Alice Wonder" and "Bob Builder".
+        # name-sort should yield ["Alice Wonder", "Bob Builder"] (A < B).
+        resp = client.get("/users/search?q=er&sort_by=name")
         assert resp.status_code == 200
         names = [u["name"] for u in resp.json()]
-        assert names == sorted(names)
+        assert user_alice["user"].name in names, "Alice must be in results"
+        assert user_bob["user"].name in names, "Bob must be in results"
+        assert names == sorted(names), f"Expected alphabetical order, got {names}"
 

@@ -473,9 +473,9 @@ const Search = () => {
                                 key={key}
                                 onPress={() => {
                                     setCreatorSortBy(key);
-                                    if (searchQuery.trim().length >= 2) {
-                                        performCreatorSearch(searchQuery, { sort_by: key });
-                                    }
+                                    // creatorSortBy is in the useEffect dep array — it
+                                    // re-fires the debounced search automatically.
+                                    // No manual call needed (avoids double request).
                                 }}
                                 style={{
                                     paddingHorizontal: 12,
