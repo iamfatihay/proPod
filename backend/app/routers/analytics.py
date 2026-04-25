@@ -388,6 +388,13 @@ def get_plays_over_time(
     toward the day they most recently played, not just first-play.
 
     Works with both SQLite (func.date) and PostgreSQL (DATE cast).
+
+    The response always contains exactly ``days`` data points: one for every
+    calendar day in the window (oldest → today, UTC). Days with no listening
+    activity are represented as ``{"date": ..., "plays": 0}``. This guarantees
+    the frontend chart spans the full selected range without compressing gaps.
+    The cutoff is anchored to start-of-day (midnight UTC) so the oldest day is
+    always fully included regardless of the current time.
     """
     # Anchor to start of today (midnight UTC) so every calendar day in the
     # window is fully included, regardless of the current time of day.

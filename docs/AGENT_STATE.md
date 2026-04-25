@@ -8,7 +8,6 @@
 
 **Last updated:** 2026-04-25  
 **Last session:** Address PR #85 review comments (contiguous day range, midnight cutoff, dedup keys) — PR #87  
-**Test suite baseline:** ~436 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
 

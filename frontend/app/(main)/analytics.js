@@ -339,7 +339,7 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
         const step = (filledData.length - 1) / (MAX_BARS - 1);
         const seen = new Set();
         display = Array.from({ length: MAX_BARS }, (_, i) => {
-            let idx = Math.round(i * step);
+            let idx = Math.floor(i * step);
             while (seen.has(idx) && idx < filledData.length - 1) idx++;
             seen.add(idx);
             return filledData[idx];
