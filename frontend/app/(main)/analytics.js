@@ -316,13 +316,20 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
 
     // How many bars to show — cap at 14 for readability, evenly spaced
     const MAX_BARS = days <= 14 ? days : 14;
-    // Build an evenly-sampled subset when we have more points than bars
+    // Build an evenly-sampled subset when we have more points than bars.
+    // Math.round(i * step) can collapse two iterations to the same index when
+    // step is non-integer; advance through duplicates so every bar maps to a
+    // unique source index (and therefore a unique React key downstream).
     let display = chartData;
     if (chartData.length > MAX_BARS) {
         const step = (chartData.length - 1) / (MAX_BARS - 1);
-        display = Array.from({ length: MAX_BARS }, (_, i) =>
-            chartData[Math.round(i * step)]
-        );
+        const seen = new Set();
+        display = Array.from({ length: MAX_BARS }, (_, i) => {
+            let idx = Math.round(i * step);
+            while (seen.has(idx) && idx < chartData.length - 1) idx++;
+            seen.add(idx);
+            return chartData[idx];
+        });
     }
 
     // Short label: "Apr 1" → "1" if <= 14 bars, else just show first/mid/last
@@ -357,7 +364,7 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
                     const isMax = point.plays === maxPlays;
                     return (
                         <View
-                            key={point.date || idx}
+                            key={`bar-${idx}`}
                             style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", height: 80 }}
                         >
                             <View
@@ -386,7 +393,7 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
             >
                 {display.map((point, idx) => (
                     <View
-                        key={(point.date || idx) + "_lbl"}
+                        key={`lbl-${idx}`}
                         style={{ flex: 1, alignItems: "center" }}
                     >
                         <Text

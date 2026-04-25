@@ -388,8 +388,21 @@ def get_plays_over_time(
     toward the day they most recently played, not just first-play.
 
     Works with both SQLite (func.date) and PostgreSQL (DATE cast).
+
+    The response always contains exactly ``days`` data points: one for every
+    calendar day in the window (oldest → today, UTC). Days with no listening
+    activity are represented as ``{"date": ..., "plays": 0}``. This guarantees
+    the frontend chart spans the full selected range without compressing gaps.
+    The cutoff is anchored to start-of-day (midnight UTC) so the oldest day is
+    always fully included regardless of the current time.
     """
-    cutoff = datetime.datetime.now(timezone.utc) - datetime.timedelta(days=days)
+    # Anchor to midnight UTC so every calendar day in the window is fully
+    # included, regardless of the current time of day.
+    today = datetime.datetime.now(timezone.utc).date()
+    start_date = today - datetime.timedelta(days=days - 1)
+    cutoff = datetime.datetime(
+        start_date.year, start_date.month, start_date.day, tzinfo=timezone.utc
+    )
 
     podcast_ids_subq = (
         db.query(models.Podcast.id)
@@ -414,7 +427,20 @@ def get_plays_over_time(
         .all()
     )
 
+    # Build a sparse {date -> plays} map and project it onto the contiguous
+    # day range so days with no activity show up as zero.
+    plays_by_day = {str(r.day): int(r.plays) for r in rows}
+    data = [
+        {
+            "date": (start_date + datetime.timedelta(days=i)).isoformat(),
+            "plays": plays_by_day.get(
+                (start_date + datetime.timedelta(days=i)).isoformat(), 0
+            ),
+        }
+        for i in range(days)
+    ]
+
     return {
-        "data": [{"date": str(r.day), "plays": int(r.plays)} for r in rows],
+        "data": data,
         "days": days,
     }

@@ -129,15 +129,20 @@ class TestPlaysOverTimeEmpty:
         )
         body = resp.json()
         assert resp.status_code == 200
-        assert body["data"] == []
+        # Endpoint now returns a contiguous day range with zeros for empty days,
+        # so the response always has exactly ``days`` points.
         assert body["days"] == 30
+        assert len(body["data"]) == 30
+        assert all(d["plays"] == 0 for d in body["data"])
 
     def test_empty_when_no_history(self, creator, podcast):
         resp = client.get(
             "/analytics/plays-over-time?days=30",
             headers=_auth(creator["token"]),
         )
-        assert resp.json()["data"] == []
+        body = resp.json()
+        assert len(body["data"]) == 30
+        assert all(d["plays"] == 0 for d in body["data"])
 
 
 class TestPlaysOverTimeData:
@@ -199,7 +204,10 @@ class TestPlaysOverTimeData:
                 "/analytics/plays-over-time?days=30",
                 headers=_auth(creator["token"]),
             )
-            assert resp.json()["data"] == []
+            body = resp.json()
+            # Out-of-window history must not contribute to any day.
+            assert len(body["data"]) == 30
+            assert all(d["plays"] == 0 for d in body["data"])
         finally:
             db.query(ListeningHistory).filter(
                 ListeningHistory.podcast_id == pod.id
@@ -242,7 +250,10 @@ class TestPlaysOverTimeData:
                 "/analytics/plays-over-time?days=30",
                 headers=_auth(creator["token"]),
             )
-            assert resp.json()["data"] == []
+            body = resp.json()
+            # Other creator's history must not bleed into this creator's data.
+            assert len(body["data"]) == 30
+            assert all(d["plays"] == 0 for d in body["data"])
         finally:
             db.query(ListeningHistory).filter(
                 ListeningHistory.podcast_id == other_pod.id
@@ -277,3 +288,74 @@ class TestPlaysOverTimeDaysParam:
             headers=_auth(creator["token"]),
         )
         assert resp.status_code == 422
+
+
+class TestPlaysOverTimeContiguousRange:
+    """Verify the response always spans a contiguous day range, oldest-first,
+    with zero-fill for inactive days. Locks down the chart contract."""
+
+    def test_response_is_contiguous_and_oldest_first(self, creator):
+        resp = client.get(
+            "/analytics/plays-over-time?days=14",
+            headers=_auth(creator["token"]),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["data"]) == 14
+
+        # Dates must be ISO YYYY-MM-DD, strictly ascending, exactly 1 day apart.
+        dates = [datetime.date.fromisoformat(d["date"]) for d in body["data"]]
+        for prev, nxt in zip(dates, dates[1:]):
+            assert (nxt - prev).days == 1, (
+                f"non-contiguous gap between {prev} and {nxt}"
+            )
+
+        # The newest entry must be today (UTC).
+        assert dates[-1] == datetime.datetime.now(datetime.timezone.utc).date()
+        # The oldest entry must be exactly days-1 before today.
+        assert dates[0] == dates[-1] - datetime.timedelta(days=13)
+
+    def test_active_day_appears_in_contiguous_range(self, creator, listener, podcast):
+        """A single active day still yields a 7-element contiguous response,
+        with the active day showing the correct play count and the rest 0."""
+        db = creator["db"]
+        pod = podcast["podcast"]
+        # Pick a day clearly inside the 7-day window: 2 days ago, midday UTC.
+        active = datetime.datetime.now(datetime.timezone.utc).replace(
+            hour=12, minute=0, second=0, microsecond=0
+        ) - datetime.timedelta(days=2)
+        h = ListeningHistory(
+            user_id=listener["user"].id,
+            podcast_id=pod.id,
+            position=42,
+            updated_at=active,
+        )
+        db.add(h)
+        db.commit()
+
+        try:
+            resp = client.get(
+                "/analytics/plays-over-time?days=7",
+                headers=_auth(creator["token"]),
+            )
+            assert resp.status_code == 200
+            body = resp.json()
+            assert len(body["data"]) == 7
+
+            active_iso = active.date().isoformat()
+            active_point = next(
+                (d for d in body["data"] if d["date"] == active_iso), None
+            )
+            assert active_point is not None
+            assert active_point["plays"] == 1
+
+            # Every other day in the window must be zero.
+            other_total = sum(
+                d["plays"] for d in body["data"] if d["date"] != active_iso
+            )
+            assert other_total == 0
+        finally:
+            db.query(ListeningHistory).filter(
+                ListeningHistory.podcast_id == pod.id
+            ).delete()
+            db.commit()
