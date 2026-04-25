@@ -295,34 +295,63 @@ const Library = () => {
                     ))}
                 </View>
 
-                {/* "Manage" link — only shown on Playlists tab */}
+                {/* Action row — only shown on Playlists tab */}
                 {tab === "playlists" && (
-                    <TouchableOpacity
-                        onPress={() => router.push("/(main)/playlists")}
-                        activeOpacity={0.7}
+                    <View
                         style={{
                             flexDirection: "row",
                             alignItems: "center",
-                            alignSelf: "flex-end",
+                            justifyContent: "flex-end",
                             marginBottom: 12,
+                            gap: 16,
                         }}
                     >
-                        <Text
-                            style={{
-                                color: COLORS.primary,
-                                fontSize: 13,
-                                fontWeight: "600",
-                                marginRight: 4,
-                            }}
+                        {/* Discover public playlists */}
+                        <TouchableOpacity
+                            onPress={() => router.push("/(main)/public-playlists")}
+                            activeOpacity={0.7}
+                            style={{ flexDirection: "row", alignItems: "center" }}
                         >
-                            Manage
-                        </Text>
-                        <Ionicons
-                            name="settings-outline"
-                            size={14}
-                            color={COLORS.primary}
-                        />
-                    </TouchableOpacity>
+                            <Text
+                                style={{
+                                    color: COLORS.primary,
+                                    fontSize: 13,
+                                    fontWeight: "600",
+                                    marginRight: 4,
+                                }}
+                            >
+                                Discover
+                            </Text>
+                            <Ionicons
+                                name="globe-outline"
+                                size={14}
+                                color={COLORS.primary}
+                            />
+                        </TouchableOpacity>
+
+                        {/* Manage own playlists */}
+                        <TouchableOpacity
+                            onPress={() => router.push("/(main)/playlists")}
+                            activeOpacity={0.7}
+                            style={{ flexDirection: "row", alignItems: "center" }}
+                        >
+                            <Text
+                                style={{
+                                    color: COLORS.primary,
+                                    fontSize: 13,
+                                    fontWeight: "600",
+                                    marginRight: 4,
+                                }}
+                            >
+                                Manage
+                            </Text>
+                            <Ionicons
+                                name="settings-outline"
+                                size={14}
+                                color={COLORS.primary}
+                            />
+                        </TouchableOpacity>
+                    </View>
                 )}
 
                 {/* Content */}

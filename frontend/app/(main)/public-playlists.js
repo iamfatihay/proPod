@@ -1,0 +1,221 @@
+import React, { useState, useCallback } from "react";
+import {
+    View,
+    Text,
+    SafeAreaView,
+    FlatList,
+    TouchableOpacity,
+    ActivityIndicator,
+} from "react-native";
+import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import apiService from "../../src/services/api/apiService";
+import PlaylistMosaic from "../../src/components/PlaylistMosaic";
+import { COLORS } from "../../src/constants/theme";
+
+const PAGE_SIZE = 20;
+
+// ─── PublicPlaylistCard ────────────────────────────────────────────────────────
+
+const PublicPlaylistCard = ({ playlist, onPress }) => (
+    <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.8}
+        className="flex-row items-center bg-panel rounded-2xl px-4 py-4 mb-3 border border-border"
+    >
+        {/* Cover art mosaic */}
+        <View className="mr-4">
+            <PlaylistMosaic
+                thumbnails={playlist.preview_thumbnails}
+                isPublic={true}
+                size={56}
+            />
+        </View>
+
+        {/* Info */}
+        <View className="flex-1">
+            <Text
+                className="text-text-primary font-semibold text-base"
+                numberOfLines={1}
+            >
+                {playlist.name}
+            </Text>
+            {playlist.description ? (
+                <Text
+                    className="text-text-secondary text-xs mt-0.5"
+                    numberOfLines={1}
+                >
+                    {playlist.description}
+                </Text>
+            ) : null}
+            <Text className="text-text-secondary text-xs mt-1">
+                {playlist.item_count ?? 0} episode
+                {playlist.item_count !== 1 ? "s" : ""}
+            </Text>
+        </View>
+
+        {/* Chevron */}
+        <Ionicons
+            name="chevron-forward"
+            size={18}
+            color={COLORS.text.secondary}
+            style={{ marginLeft: 8 }}
+        />
+    </TouchableOpacity>
+);
+
+// ─── PublicPlaylists Screen ────────────────────────────────────────────────────
+
+const PublicPlaylists = () => {
+    const router = useRouter();
+    const insets = useSafeAreaInsets();
+
+    const [playlists, setPlaylists]     = useState([]);
+    const [loading, setLoading]         = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [error, setError]             = useState(null);
+    const [hasMore, setHasMore]         = useState(false);
+    const [offset, setOffset]           = useState(0);
+
+    // ── Initial / refresh load ─────────────────────────────────────────────
+    const loadFirst = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await apiService.getPublicPlaylists({ skip: 0, limit: PAGE_SIZE });
+            setPlaylists(res.playlists || []);
+            setOffset(PAGE_SIZE);
+            setHasMore(res.has_more ?? false);
+        } catch (e) {
+            setError(e?.detail || e?.message || "Failed to load playlists");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // ── Paginated load-more ────────────────────────────────────────────────
+    const loadMore = useCallback(async () => {
+        if (loadingMore || !hasMore) return;
+        setLoadingMore(true);
+        try {
+            const res = await apiService.getPublicPlaylists({ skip: offset, limit: PAGE_SIZE });
+            const next = res.playlists || [];
+            setPlaylists((prev) => {
+                const ids = new Set(prev.map((p) => p.id));
+                return [...prev, ...next.filter((p) => !ids.has(p.id))];
+            });
+            setOffset((o) => o + PAGE_SIZE);
+            setHasMore(res.has_more ?? false);
+        } catch {
+            // Non-critical — user can scroll up/retry
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [loadingMore, hasMore, offset]);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadFirst();
+        }, [loadFirst])
+    );
+
+    // ── Render ─────────────────────────────────────────────────────────────
+    const ListFooter = () =>
+        loadingMore ? (
+            <ActivityIndicator
+                color={COLORS.primary}
+                style={{ marginVertical: 16 }}
+            />
+        ) : null;
+
+    const ListEmpty = () =>
+        !loading ? (
+            <View className="flex-1 items-center justify-center pt-20">
+                <MaterialCommunityIcons
+                    name="playlist-music-outline"
+                    size={64}
+                    color={COLORS.text.muted}
+                />
+                <Text className="text-text-secondary mt-4 text-base text-center">
+                    No public playlists yet
+                </Text>
+                <Text className="text-text-secondary text-sm mt-1 text-center px-10">
+                    Be the first — make a playlist public from your Library.
+                </Text>
+            </View>
+        ) : null;
+
+    return (
+        <SafeAreaView
+            className="flex-1 bg-background"
+            style={{ paddingTop: insets.top }}
+        >
+            {/* Header */}
+            <View className="px-4 pt-4 pb-2 flex-row items-center">
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    className="mr-3"
+                >
+                    <Ionicons
+                        name="arrow-back"
+                        size={24}
+                        color={COLORS.text.primary}
+                    />
+                </TouchableOpacity>
+                <Text className="text-text-primary text-2xl font-bold flex-1">
+                    Discover Playlists
+                </Text>
+            </View>
+
+            {/* Content */}
+            <View className="flex-1 px-4 pt-2">
+                {loading ? (
+                    <View className="flex-1 items-center justify-center">
+                        <ActivityIndicator color={COLORS.primary} size="large" />
+                    </View>
+                ) : error ? (
+                    <View className="flex-1 items-center justify-center">
+                        <MaterialCommunityIcons
+                            name="alert-circle-outline"
+                            size={48}
+                            color={COLORS.error}
+                        />
+                        <Text className="text-error mt-3 text-center">{error}</Text>
+                        <TouchableOpacity
+                            onPress={loadFirst}
+                            className="mt-4 bg-panel border border-border px-5 py-2 rounded-xl"
+                        >
+                            <Text className="text-text-primary">Retry</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <FlatList
+                        data={playlists}
+                        keyExtractor={(item) => String(item.id)}
+                        renderItem={({ item }) => (
+                            <PublicPlaylistCard
+                                playlist={item}
+                                onPress={() =>
+                                    router.push({
+                                        pathname: "/(main)/playlist-detail",
+                                        params: { id: item.id, name: item.name },
+                                    })
+                                }
+                            />
+                        )}
+                        onEndReached={loadMore}
+                        onEndReachedThreshold={0.4}
+                        ListFooterComponent={<ListFooter />}
+                        ListEmptyComponent={<ListEmpty />}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
+                    />
+                )}
+            </View>
+        </SafeAreaView>
+    );
+};
+
+export default PublicPlaylists;
