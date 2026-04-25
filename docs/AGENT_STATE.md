@@ -6,9 +6,8 @@
 
 ## 📍 Current State
 
-
 **Last updated:** 2026-04-25  
-**Last session:** Add plays-over-time bar chart to Creator Analytics — PR #85  
+**Last session:** Address PR #85 review comments (contiguous day range, midnight cutoff, dedup keys) — PR #87  
 **Test suite baseline:** ~436 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -17,7 +16,7 @@
 
 ---
 
-## ✅ Recently Shipped (PR #66–#83)
+## ✅ Recently Shipped (PR #66–#84)
 
 - ✅ Listening history screen — progress bar, completion badge, pagination (PR #66)
 - ✅ Listening history delete entry — `DELETE /podcasts/{id}/history`, 5 tests (PR #67)
@@ -43,7 +42,9 @@
 
 ## 🔄 What's open
 
-- PR #85 `feature/analytics-plays-over-time` — Daily listening-activity bar chart on Creator Analytics screen. Pure-RN bars (no SVG), parallel fetch, 10 new tests.
+- PR #85 `feature/analytics-plays-over-time` — Daily listening-activity bar chart on Creator Analytics screen. Pure-RN bars (no SVG), parallel fetch, 10 tests. Has review comments addressed by PR #87.
+- PR #86 `feature/playlist-cover-art-mosaic` — 2×2 thumbnail mosaic in PlaylistRow; backend `preview_thumbnails` field in `get_my_playlists`; 151-line test suite for playlists.
+- PR #87 `fix/pr85-review-comments` — Addresses all 4 review comments on PR #85: midnight UTC cutoff, contiguous N-day zero-filled response, client-side zero-fill safety net, dedup sampling indices + stable React keys. 30/30 tests pass. Targets `feature/analytics-plays-over-time`.
 
 ---
 
@@ -60,17 +61,16 @@
 - `handlePlayRelated` queue logic in details.js has no Jest unit test coverage
 - Plays-over-time chart reflects last-session-per-user-per-podcast (unique constraint); a per-event play log would enable exact daily counts
 - Library Playlists tab loads up to 50 playlists — no pagination yet
-- Playlist cover art mosaic not yet implemented (PlaylistRow shows icon only)
 
 ---
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FEATURE] Playlist cover art mosaic in Library Playlists tab** — Replace the single icon bubble in `PlaylistRow` with a 2×2 thumbnail grid using the first 4 episode `thumbnail_url` values from `playlist.items`. Backend: ensure `get_my_playlists` returns a `preview_thumbnails: list[str]` field (first 4 items). Frontend: render a 44×44 mosaic in `PlaylistRow`. No new model or migration needed.
+1. **[BACKEND+FRONTEND] APScheduler push receipt auto-run** — `backend/app/main.py`: add FastAPI `lifespan` context manager with `apscheduler` `BackgroundScheduler` running `crud.check_push_receipts` every 30 min. Add `apscheduler` to `backend/requirements.txt`. No migration needed. Directly improves push delivery reliability.
 
-2. **[BACKEND+FRONTEND] APScheduler push receipt auto-run** — `backend/app/main.py`: add FastAPI `lifespan` context manager with an `apscheduler` `BackgroundScheduler` running `crud.check_push_receipts` every 30 min. Add `apscheduler` to `backend/requirements.txt`. No migration needed. Genuinely improves push reliability.
+2. **[FEATURE] Plays-over-time chart bar animation** — In `PlaysOverTimeChart` (`analytics.js`), wrap each bar's height in `Animated.Value` with a spring on mount and on data change. Small polish that makes the analytics screen feel alive. No backend changes.
 
-3. **[FEATURE] Plays-over-time chart bar animation** — Wrap bar height in `Animated.Value` with spring on mount / data change in `PlaysOverTimeChart`. Needs `Animated` import from RN. Small polish touch that makes the analytics screen feel alive.
+3. **[FEATURE] Playlist play-all button** — Add a "Play All" button to the Playlists tab detail view that enqueues all episodes in a playlist into the player queue. Requires wiring `setQueue` from the audio Zustand store. Useful once PR #86 (playlist tab) is merged.
 
 ---
 
