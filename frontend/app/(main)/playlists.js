@@ -348,4 +348,4 @@ const Playlists = () => {
     );
 };
 
-export defau
+export default Playlists;
