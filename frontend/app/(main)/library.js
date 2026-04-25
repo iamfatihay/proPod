@@ -1,6 +1,7 @@
 import {
     View,
     Text,
+    Image,
     SafeAreaView,
     FlatList,
     ActivityIndicator,
@@ -12,7 +13,7 @@ import apiService from "../../src/services/api/apiService";
 import PodcastCard from "../../src/components/PodcastCard";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { COLORS } from "../../src/constants/theme";
+import { COLORS, addAlpha } from "../../src/constants/theme";
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 
@@ -26,6 +27,69 @@ const TABS = [
 // ─── PlaylistRow ──────────────────────────────────────────────────────────────
 // Lightweight row used inside the Library playlists tab.
 // Tap → playlist-detail. "Manage" header → full playlists.js screen.
+
+// ─── PlaylistMosaic ───────────────────────────────────────────────────────────
+// Renders a 2×2 grid of cover art thumbnails when available, otherwise shows
+// a themed icon bubble. Accepts up to 4 URLs from `preview_thumbnails`.
+const PlaylistMosaic = ({ thumbnails, isPublic }) => {
+    const urls = (thumbnails || []).filter(Boolean).slice(0, 4);
+    if (urls.length === 0) {
+        return (
+            <View
+                style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: addAlpha(COLORS.primary, 0.1),
+                    borderWidth: 1,
+                    borderColor: addAlpha(COLORS.primary, 0.2),
+                    alignItems: "center",
+                    justifyContent: "center",
+                }}
+            >
+                <MaterialCommunityIcons
+                    name={isPublic ? "playlist-music" : "playlist-lock"}
+                    size={22}
+                    color={COLORS.primary}
+                />
+            </View>
+        );
+    }
+    // Pad to 4 slots so layout stays stable with 1–3 images
+    const slots = [...urls, ...Array(4 - urls.length).fill(null)];
+    return (
+        <View
+            style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                overflow: "hidden",
+                flexDirection: "row",
+                flexWrap: "wrap",
+            }}
+        >
+            {slots.map((url, i) =>
+                url ? (
+                    <Image
+                        key={i}
+                        source={{ uri: url }}
+                        style={{ width: 22, height: 22 }}
+                        resizeMode="cover"
+                    />
+                ) : (
+                    <View
+                        key={i}
+                        style={{
+                            width: 22,
+                            height: 22,
+                            backgroundColor: addAlpha(COLORS.primary, 0.1),
+                        }}
+                    />
+                )
+            )}
+        </View>
+    );
+};
 
 const PlaylistRow = ({ playlist, onPress }) => (
     <TouchableOpacity
@@ -43,24 +107,11 @@ const PlaylistRow = ({ playlist, onPress }) => (
             borderColor: COLORS.border,
         }}
     >
-        {/* Icon bubble */}
-        <View
-            style={{
-                width: 44,
-                height: 44,
-                borderRadius: 12,
-                backgroundColor: COLORS.primary + "1A",
-                borderWidth: 1,
-                borderColor: COLORS.primary + "33",
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: 14,
-            }}
-        >
-            <MaterialCommunityIcons
-                name={playlist.is_public ? "playlist-music" : "playlist-lock"}
-                size={22}
-                color={COLORS.primary}
+        {/* Cover art mosaic (falls back to icon bubble when no thumbnails) */}
+        <View style={{ marginRight: 14 }}>
+            <PlaylistMosaic
+                thumbnails={playlist.preview_thumbnails}
+                isPublic={playlist.is_public}
             />
         </View>
 

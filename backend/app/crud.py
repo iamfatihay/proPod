@@ -1537,18 +1537,67 @@ def get_playlist(db: Session, playlist_id: int) -> Optional[models.Playlist]:
     ).filter(models.Playlist.id == playlist_id).first()
 
 
+
+def _load_preview_thumbnails(
+    db: Session, playlist_ids: List[int]
+) -> Dict[int, List[str]]:
+    """Return ``{playlist_id: [up_to_4_thumbnail_urls]}`` ordered by item position.
+
+    Uses a single SQL query with ``ROW_NUMBER() OVER (PARTITION BY playlist_id
+    ORDER BY position)`` so the database only emits at most four rows per
+    playlist, instead of fetching every item and truncating in Python.
+    Supported on SQLite >= 3.25 and PostgreSQL 8.4+.
+    """
+    if not playlist_ids:
+        return {}
+
+    rn = func.row_number().over(
+        partition_by=models.PlaylistItem.playlist_id,
+        order_by=models.PlaylistItem.position,
+    ).label("rn")
+
+    ranked = (
+        db.query(
+            models.PlaylistItem.playlist_id.label("playlist_id"),
+            models.Podcast.thumbnail_url.label("thumbnail_url"),
+            rn,
+        )
+        .join(models.Podcast, models.PlaylistItem.podcast_id == models.Podcast.id)
+        .filter(
+            models.PlaylistItem.playlist_id.in_(playlist_ids),
+            models.Podcast.thumbnail_url.isnot(None),
+        )
+        .subquery()
+    )
+
+    thumb_rows = (
+        db.query(ranked.c.playlist_id, ranked.c.thumbnail_url)
+        .filter(ranked.c.rn <= 4)
+        .order_by(ranked.c.playlist_id, ranked.c.rn)
+        .all()
+    )
+
+    thumbnails_map: Dict[int, List[str]] = {pid: [] for pid in playlist_ids}
+    for pid, url in thumb_rows:
+        thumbnails_map[pid].append(url)
+    return thumbnails_map
+
+
+
 def get_user_playlists(
     db: Session,
     user_id: int,
     skip: int = 0,
     limit: int = 20,
-) -> Tuple[List[Tuple[models.Playlist, int]], int]:
+) -> Tuple[List[Tuple[models.Playlist, int, List[str]]], int]:
     """
     Get playlists owned by a user with pagination.
 
-    Returns a tuple of (rows, total) where each row is (Playlist, item_count).
-    The item_count is computed via a correlated subquery so no lazy loads are
-    needed when building the response.
+    Returns a tuple of (rows, total) where each row is
+    (Playlist, item_count, preview_thumbnails).
+    - item_count is computed via a correlated subquery (no lazy loads).
+    - preview_thumbnails is a list of up to 4 thumbnail_url strings from the
+      first items in each playlist (by position), used for the 2×2 mosaic UI.
 
     Args:
         db: Database session
@@ -1557,7 +1606,7 @@ def get_user_playlists(
         limit: Maximum number of records
 
     Returns:
-        Tuple of (list of (Playlist, item_count) tuples, total count)
+        Tuple of (list of (Playlist, item_count, preview_thumbnails) tuples, total count)
     """
     item_count_subq = (
         db.query(func.count(models.PlaylistItem.id))
@@ -1573,19 +1622,29 @@ def get_user_playlists(
         models.Playlist.owner_id == user_id,
     ).scalar() or 0
     rows = query.offset(skip).limit(limit).all()
-    return rows, total
+
+    # Up to 4 thumbnail URLs per playlist, ranked in SQL so the DB only sends
+    # the rows we actually need (no N+1 → no Python-side truncation).
+    playlist_ids = [p.id for p, _ in rows]
+    thumbnails_map = _load_preview_thumbnails(db, playlist_ids)
+
+    enriched = [(p, count, thumbnails_map.get(p.id, [])) for p, count in rows]
+    return enriched, total
 
 
 def get_public_playlists(
     db: Session,
     skip: int = 0,
     limit: int = 20,
-) -> Tuple[List[Tuple[models.Playlist, int]], int]:
+) -> Tuple[List[Tuple[models.Playlist, int, List[str]]], int]:
     """
     Get all public playlists with pagination.
 
-    Only includes playlists whose owner is active. Returns (rows, total)
-    where each row is (Playlist, item_count) to avoid N+1 lazy loads.
+    Only includes playlists whose owner is active. Returns ``(rows, total)``
+    where each row is ``(Playlist, item_count, preview_thumbnails)``. The
+    thumbnails are fetched in the same SQL window-function query used by
+    ``get_user_playlists`` so the public listing can render the cover-art
+    mosaic without an N+1.
 
     Args:
         db: Database session
@@ -1593,7 +1652,8 @@ def get_public_playlists(
         limit: Maximum number of records
 
     Returns:
-        Tuple of (list of (Playlist, item_count) tuples, total count)
+        Tuple of (list of (Playlist, item_count, preview_thumbnails) tuples,
+        total count)
     """
     item_count_subq = (
         db.query(func.count(models.PlaylistItem.id))
@@ -1619,7 +1679,12 @@ def get_public_playlists(
         .scalar() or 0
     )
     rows = query.offset(skip).limit(limit).all()
-    return rows, total
+
+    playlist_ids = [p.id for p, _ in rows]
+    thumbnails_map = _load_preview_thumbnails(db, playlist_ids)
+
+    enriched = [(p, count, thumbnails_map.get(p.id, [])) for p, count in rows]
+    return enriched, total
 
 
 def update_playlist(
