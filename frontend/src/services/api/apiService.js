@@ -1123,6 +1123,15 @@ class ApiService {
         return this.request(`/analytics/dashboard?days=${days}`);
     }
 
+    /**
+     * Get daily play counts for the creator's podcasts.
+     * @param {number} days - Look-back window (7–365, default 30)
+     * @returns {{ data: Array<{date: string, plays: number}>, days: number }}
+     */
+    async getPlaysOverTime(days = 30) {
+        return this.request(`/analytics/plays-over-time?days=${days}`);
+    }
+
     // AI Processing methods
     async getAIStatus() {
         return this.request("/ai/status");

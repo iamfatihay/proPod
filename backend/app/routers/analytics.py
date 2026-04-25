@@ -368,3 +368,79 @@ def _get_category_breakdown(db: Session, owner_id: int) -> List[schemas.Category
         )
         for r in rows
     ]
+
+
+@router.get("/plays-over-time")
+def get_plays_over_time(
+    days: int = Query(
+        30, ge=7, le=365,
+        description="Number of days to look back (7–365)",
+    ),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """
+    Return daily listening-session counts for the creator's podcasts.
+
+    Each data point represents the number of unique user-podcast listening
+    sessions that were active (created or updated) on that calendar day.
+    Uses ListeningHistory.updated_at so that returning listeners count
+    toward the day they most recently played, not just first-play.
+
+    Works with both SQLite (func.date) and PostgreSQL (DATE cast).
+
+    The response always contains exactly ``days`` data points: one for every
+    calendar day in the window (oldest → today, UTC). Days with no listening
+    activity are represented as ``{"date": ..., "plays": 0}``. This guarantees
+    the frontend chart spans the full selected range without compressing gaps.
+    The cutoff is anchored to start-of-day (midnight UTC) so the oldest day is
+    always fully included regardless of the current time.
+    """
+    # Anchor to midnight UTC so every calendar day in the window is fully
+    # included, regardless of the current time of day.
+    today = datetime.datetime.now(timezone.utc).date()
+    start_date = today - datetime.timedelta(days=days - 1)
+    cutoff = datetime.datetime(
+        start_date.year, start_date.month, start_date.day, tzinfo=timezone.utc
+    )
+
+    podcast_ids_subq = (
+        db.query(models.Podcast.id)
+        .filter(
+            models.Podcast.owner_id == current_user.id,
+            models.Podcast.is_deleted == False,
+        )
+        .scalar_subquery()
+    )
+
+    rows = (
+        db.query(
+            func.date(models.ListeningHistory.updated_at).label("day"),
+            func.count(models.ListeningHistory.id).label("plays"),
+        )
+        .filter(
+            models.ListeningHistory.podcast_id.in_(podcast_ids_subq),
+            models.ListeningHistory.updated_at >= cutoff,
+        )
+        .group_by(func.date(models.ListeningHistory.updated_at))
+        .order_by(func.date(models.ListeningHistory.updated_at))
+        .all()
+    )
+
+    # Build a sparse {date -> plays} map and project it onto the contiguous
+    # day range so days with no activity show up as zero.
+    plays_by_day = {str(r.day): int(r.plays) for r in rows}
+    data = [
+        {
+            "date": (start_date + datetime.timedelta(days=i)).isoformat(),
+            "plays": plays_by_day.get(
+                (start_date + datetime.timedelta(days=i)).isoformat(), 0
+            ),
+        }
+        for i in range(days)
+    ]
+
+    return {
+        "data": data,
+        "days": days,
+    }
