@@ -8,8 +8,13 @@
 
 
 **Last updated:** 2026-04-25  
+<<<<<<< feature/analytics-plays-over-time
 **Last session:** Add plays-over-time bar chart to Creator Analytics — PR #85  
 **Test suite baseline:** ~436 backend tests
+=======
+**Last session:** Playlist cover art mosaic in Library Playlists tab — PR #86  
+**Test suite baseline:** ~440 backend tests
+>>>>>>> master
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
 
@@ -17,7 +22,7 @@
 
 ---
 
-## ✅ Recently Shipped (PR #66–#83)
+## ✅ Recently Shipped (PR #66–#85)
 
 - ✅ Listening history screen — progress bar, completion badge, pagination (PR #66)
 - ✅ Listening history delete entry — `DELETE /podcasts/{id}/history`, 5 tests (PR #67)
@@ -38,12 +43,20 @@
 - ✅ Related Podcasts horizontal GradientCard scroll row in detail screen + `handlePlayRelated` callback (PR #82)
 - ✅ Fix `ReferenceError: insets is not defined` crash on Creator Analytics screen + profile shortcut (PR #83)
 - ✅ Add Playlists tab to Library screen — PlaylistRow, empty state, Manage shortcut (PR #84)
+<<<<<<< feature/analytics-plays-over-time
+=======
+- ✅ Daily listening-activity bar chart on Creator Analytics screen — pure-RN bars, parallel fetch, 10 tests (PR #85)
+>>>>>>> master
 
 ---
 
 ## 🔄 What's open
 
+<<<<<<< feature/analytics-plays-over-time
 - PR #85 `feature/analytics-plays-over-time` — Daily listening-activity bar chart on Creator Analytics screen. Pure-RN bars (no SVG), parallel fetch, 10 new tests.
+=======
+- PR #86 `feature/playlist-cover-art-mosaic` — 2×2 cover art mosaic in Library Playlists tab. `preview_thumbnails` field on `PlaylistResponse`, batched JOIN in CRUD, `PlaylistMosaic` RN component with icon-bubble fallback. 4 new backend tests (36 total).
+>>>>>>> master
 
 ---
 
@@ -60,7 +73,11 @@
 - `handlePlayRelated` queue logic in details.js has no Jest unit test coverage
 - Plays-over-time chart reflects last-session-per-user-per-podcast (unique constraint); a per-event play log would enable exact daily counts
 - Library Playlists tab loads up to 50 playlists — no pagination yet
+<<<<<<< feature/analytics-plays-over-time
 - Playlist cover art mosaic not yet implemented (PlaylistRow shows icon only)
+=======
+- Mosaic not yet applied to public playlists screen (`playlists.js`) UI — backend `GET /playlists/public` now populates `preview_thumbnails`, so the frontend just needs to consume them
+>>>>>>> master
 
 ---
 
@@ -68,9 +85,15 @@
 
 1. **[FEATURE] Playlist cover art mosaic in Library Playlists tab** — Replace the single icon bubble in `PlaylistRow` with a 2×2 thumbnail grid using the first 4 episode `thumbnail_url` values from `playlist.items`. Backend: ensure `get_my_playlists` returns a `preview_thumbnails: list[str]` field (first 4 items). Frontend: render a 44×44 mosaic in `PlaylistRow`. No new model or migration needed.
 
+<<<<<<< feature/analytics-plays-over-time
 2. **[BACKEND+FRONTEND] APScheduler push receipt auto-run** — `backend/app/main.py`: add FastAPI `lifespan` context manager with an `apscheduler` `BackgroundScheduler` running `crud.check_push_receipts` every 30 min. Add `apscheduler` to `backend/requirements.txt`. No migration needed. Genuinely improves push reliability.
 
 3. **[FEATURE] Plays-over-time chart bar animation** — Wrap bar height in `Animated.Value` with spring on mount / data change in `PlaysOverTimeChart`. Needs `Animated` import from RN. Small polish touch that makes the analytics screen feel alive.
+=======
+2. **[FEATURE] Mosaic on public playlists screen** — `frontend/app/(main)/playlists.js` already fetches `GET /playlists/public`, and as of PR #86 the public endpoint populates `preview_thumbnails` (SQL window-function fetch, max 4 thumbnails per playlist, no N+1). Extract `PlaylistMosaic` to `frontend/src/components/PlaylistMosaic.js` (shared) and import in both `library.js` and `playlists.js`. Small lift, consistent UX.
+
+3. **[FEATURE] Plays-over-time chart bar animation** — Wrap bar height in `Animated.Value` with spring on mount/data change in the `PlaysOverTimeChart` component (`analytics.js`). Import `Animated` from RN. Small polish that makes the analytics screen feel alive.
+>>>>>>> master
 
 ---
 
