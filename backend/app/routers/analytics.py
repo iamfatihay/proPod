@@ -396,13 +396,11 @@ def get_plays_over_time(
     The cutoff is anchored to start-of-day (midnight UTC) so the oldest day is
     always fully included regardless of the current time.
     """
-    # Anchor to midnight UTC so every calendar day in the window is fully
-    # included, regardless of the current time of day.
+    # Anchor to start of today (midnight UTC) so every calendar day in the
+    # window is fully included, regardless of the current time of day.
     today = datetime.datetime.now(timezone.utc).date()
-    start_date = today - datetime.timedelta(days=days - 1)
-    cutoff = datetime.datetime(
-        start_date.year, start_date.month, start_date.day, tzinfo=timezone.utc
-    )
+    cutoff_date = today - datetime.timedelta(days=days - 1)
+    cutoff = datetime.datetime(cutoff_date.year, cutoff_date.month, cutoff_date.day, tzinfo=timezone.utc)
 
     podcast_ids_subq = (
         db.query(models.Podcast.id)
@@ -427,20 +425,18 @@ def get_plays_over_time(
         .all()
     )
 
-    # Build a sparse {date -> plays} map and project it onto the contiguous
-    # day range so days with no activity show up as zero.
+    # Build a contiguous day-sequence filling zeros for days with no activity.
+    # This prevents the frontend chart from compressing gaps.
     plays_by_day = {str(r.day): int(r.plays) for r in rows}
-    data = [
+    full_range = [
         {
-            "date": (start_date + datetime.timedelta(days=i)).isoformat(),
-            "plays": plays_by_day.get(
-                (start_date + datetime.timedelta(days=i)).isoformat(), 0
-            ),
+            "date": str(cutoff_date + datetime.timedelta(days=i)),
+            "plays": plays_by_day.get(str(cutoff_date + datetime.timedelta(days=i)), 0),
         }
         for i in range(days)
     ]
 
     return {
-        "data": data,
+        "data": full_range,
         "days": days,
     }

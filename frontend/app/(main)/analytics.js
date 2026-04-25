@@ -312,23 +312,47 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
         );
     }
 
-    const maxPlays = Math.max(...chartData.map((d) => d.plays), 1);
+    // Safety-net: fill missing dates with plays:0 so the chart always spans
+    // the full selected range even if the API returns a sparse series.
+    const filledData = (() => {
+        // Build a contiguous N-day window ending today (UTC), zero-filling missing
+        // dates. The window end is derived from today rather than chartData[0] so we
+        // always render exactly `days` slots even when the backend returns sparse,
+        // unsorted, or partial data.
+        const map = Object.fromEntries((chartData || []).map((d) => [d.date, d.plays]));
+        const result = [];
+        const now = new Date();
+        const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+        for (let i = days - 1; i >= 0; i--) {
+            const d = new Date(end);
+            d.setUTCDate(end.getUTCDate() - i);
+            const key = d.toISOString().slice(0, 10);
+            result.push({ date: key, plays: map[key] ?? 0 });
+        }
+        return result;
+    })();
+
+    // Peak plays across the window — drives the "Peak" UI label and the per-bar
+    // "is this the peak?" highlight. May legitimately be 0 when there are no plays yet.
+    const peakPlays = filledData.reduce((m, d) => (d.plays > m ? d.plays : m), 0);
+    // Denominator for bar-height normalization. Floored at 1 to avoid division by 0
+    // and to keep the chart visually stable for an all-zero window.
+    const maxPlays = Math.max(peakPlays, 1);
+    const allZero = peakPlays === 0;
 
     // How many bars to show — cap at 14 for readability, evenly spaced
     const MAX_BARS = days <= 14 ? days : 14;
-    // Build an evenly-sampled subset when we have more points than bars.
-    // Math.round(i * step) can collapse two iterations to the same index when
-    // step is non-integer; advance through duplicates so every bar maps to a
-    // unique source index (and therefore a unique React key downstream).
-    let display = chartData;
-    if (chartData.length > MAX_BARS) {
-        const step = (chartData.length - 1) / (MAX_BARS - 1);
+    // Build an evenly-sampled subset when we have more points than bars
+    let display = filledData;
+    if (filledData.length > MAX_BARS) {
+        // Use floor + dedup to guarantee unique indices and avoid duplicate points
+        const step = (filledData.length - 1) / (MAX_BARS - 1);
         const seen = new Set();
         display = Array.from({ length: MAX_BARS }, (_, i) => {
-            let idx = Math.round(i * step);
-            while (seen.has(idx) && idx < chartData.length - 1) idx++;
+            let idx = Math.floor(i * step);
+            while (seen.has(idx) && idx < filledData.length - 1) idx++;
             seen.add(idx);
-            return chartData[idx];
+            return filledData[idx];
         });
     }
 
@@ -361,10 +385,10 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
                         4,
                         Math.round((point.plays / maxPlays) * 100)
                     );
-                    const isMax = point.plays === maxPlays;
+                    const isMax = point.plays > 0 && point.plays === peakPlays;
                     return (
                         <View
-                            key={`bar-${idx}`}
+                            key={idx}
                             style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", height: 80 }}
                         >
                             <View
@@ -393,7 +417,7 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
             >
                 {display.map((point, idx) => (
                     <View
-                        key={`lbl-${idx}`}
+                        key={idx + "_lbl"}
                         style={{ flex: 1, alignItems: "center" }}
                     >
                         <Text
@@ -421,7 +445,7 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
                 <Text style={{ color: COLORS.text.muted, fontSize: 11 }}>
                     Peak:{" "}
                     <Text style={{ color: COLORS.text.primary, fontWeight: "600" }}>
-                        {maxPlays}
+                        {peakPlays}
                     </Text>{" "}
                     sessions/day
                 </Text>
