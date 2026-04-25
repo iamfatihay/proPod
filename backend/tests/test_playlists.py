@@ -128,6 +128,40 @@ class TestGetPublicPlaylists:
         ids = [p["id"] for p in response.json()["playlists"]]
         assert hidden_id not in ids
 
+    def test_public_playlist_returns_preview_thumbnails(self, test_user, test_podcast):
+        """Public playlist endpoint must populate preview_thumbnails (PR #86)."""
+        _, token = test_user
+
+        # Give the test podcast a thumbnail and add it to a public playlist.
+        test_podcast.thumbnail_url = "http://example.com/public-thumb.jpg"
+        from app.database import SessionLocal
+        s = SessionLocal()
+        try:
+            db_pod = s.merge(test_podcast)
+            s.commit()
+        finally:
+            s.close()
+
+        create_resp = client.post(
+            "/playlists/",
+            json={"name": "Public Mosaic Playlist", "is_public": True},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        pl_id = create_resp.json()["id"]
+        client.post(
+            f"/playlists/{pl_id}/items",
+            json={"podcast_id": test_podcast.id},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        resp = client.get("/playlists/public")
+        assert resp.status_code == 200
+        playlists = resp.json()["playlists"]
+        target = next((p for p in playlists if p["id"] == pl_id), None)
+        assert target is not None, "newly created public playlist should appear"
+        assert "preview_thumbnails" in target
+        assert "http://example.com/public-thumb.jpg" in target["preview_thumbnails"]
+
 
 class TestGetPlaylistDetail:
     """Tests for GET /playlists/{playlist_id}"""

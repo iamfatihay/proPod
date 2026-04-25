@@ -13,7 +13,7 @@ import apiService from "../../src/services/api/apiService";
 import PodcastCard from "../../src/components/PodcastCard";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { COLORS } from "../../src/constants/theme";
+import { COLORS, addAlpha } from "../../src/constants/theme";
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 
@@ -40,9 +40,9 @@ const PlaylistMosaic = ({ thumbnails, isPublic }) => {
                     width: 44,
                     height: 44,
                     borderRadius: 12,
-                    backgroundColor: COLORS.primary + "1A",
+                    backgroundColor: addAlpha(COLORS.primary, 0.1),
                     borderWidth: 1,
-                    borderColor: COLORS.primary + "33",
+                    borderColor: addAlpha(COLORS.primary, 0.2),
                     alignItems: "center",
                     justifyContent: "center",
                 }}
@@ -82,7 +82,7 @@ const PlaylistMosaic = ({ thumbnails, isPublic }) => {
                         style={{
                             width: 22,
                             height: 22,
-                            backgroundColor: COLORS.primary + "1A",
+                            backgroundColor: addAlpha(COLORS.primary, 0.1),
                         }}
                     />
                 )
