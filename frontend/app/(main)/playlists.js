@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import apiService from "../../src/services/api/apiService";
 import CustomModal, { ModalActions } from "../../src/components/CustomModal";
 import ConfirmationModal from "../../src/components/ConfirmationModal";
+import PlaylistMosaic from "../../src/components/PlaylistMosaic";
 import { useToast } from "../../src/components/Toast";
 import { COLORS } from "../../src/constants/theme";
 
@@ -27,12 +28,12 @@ const PlaylistCard = ({ playlist, onPress, onEdit, onDelete }) => (
         activeOpacity={0.8}
         className="flex-row items-center bg-panel rounded-2xl px-4 py-4 mb-3 border border-border"
     >
-        {/* Icon */}
-        <View className="w-12 h-12 bg-primary/10 rounded-xl items-center justify-center mr-4 border border-primary/20">
-            <MaterialCommunityIcons
-                name={playlist.is_public ? "playlist-music" : "playlist-lock"}
-                size={26}
-                color={COLORS.primary}
+        {/* Cover art mosaic (falls back to icon bubble when no thumbnails) */}
+        <View className="mr-4">
+            <PlaylistMosaic
+                thumbnails={playlist.preview_thumbnails}
+                isPublic={playlist.is_public}
+                size={48}
             />
         </View>
 
