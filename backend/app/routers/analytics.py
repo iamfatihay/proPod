@@ -389,7 +389,11 @@ def get_plays_over_time(
 
     Works with both SQLite (func.date) and PostgreSQL (DATE cast).
     """
-    cutoff = datetime.datetime.now(timezone.utc) - datetime.timedelta(days=days)
+    # Anchor to start of today (midnight UTC) so every calendar day in the
+    # window is fully included, regardless of the current time of day.
+    today = datetime.datetime.now(timezone.utc).date()
+    cutoff_date = today - datetime.timedelta(days=days - 1)
+    cutoff = datetime.datetime(cutoff_date.year, cutoff_date.month, cutoff_date.day, tzinfo=timezone.utc)
 
     podcast_ids_subq = (
         db.query(models.Podcast.id)
@@ -414,7 +418,18 @@ def get_plays_over_time(
         .all()
     )
 
+    # Build a contiguous day-sequence filling zeros for days with no activity.
+    # This prevents the frontend chart from compressing gaps.
+    plays_by_day = {str(r.day): int(r.plays) for r in rows}
+    full_range = [
+        {
+            "date": str(cutoff_date + datetime.timedelta(days=i)),
+            "plays": plays_by_day.get(str(cutoff_date + datetime.timedelta(days=i)), 0),
+        }
+        for i in range(days)
+    ]
+
     return {
-        "data": [{"date": str(r.day), "plays": int(r.plays)} for r in rows],
+        "data": full_range,
         "days": days,
     }

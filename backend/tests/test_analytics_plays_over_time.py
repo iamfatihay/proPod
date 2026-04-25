@@ -129,7 +129,9 @@ class TestPlaysOverTimeEmpty:
         )
         body = resp.json()
         assert resp.status_code == 200
-        assert body["data"] == []
+        # API now returns a full contiguous range; no-podcast case is all zeros
+        assert len(body["data"]) == 30
+        assert all(d["plays"] == 0 for d in body["data"])
         assert body["days"] == 30
 
     def test_empty_when_no_history(self, creator, podcast):
@@ -137,7 +139,10 @@ class TestPlaysOverTimeEmpty:
             "/analytics/plays-over-time?days=30",
             headers=_auth(creator["token"]),
         )
-        assert resp.json()["data"] == []
+        body = resp.json()
+        # API returns full contiguous range with zeros when no history exists
+        assert len(body["data"]) == 30
+        assert all(d["plays"] == 0 for d in body["data"])
 
 
 class TestPlaysOverTimeData:
@@ -199,7 +204,10 @@ class TestPlaysOverTimeData:
                 "/analytics/plays-over-time?days=30",
                 headers=_auth(creator["token"]),
             )
-            assert resp.json()["data"] == []
+            body = resp.json()
+            # Old history excluded → all 30 days return with plays=0
+            assert len(body["data"]) == 30
+            assert all(d["plays"] == 0 for d in body["data"])
         finally:
             db.query(ListeningHistory).filter(
                 ListeningHistory.podcast_id == pod.id
@@ -242,7 +250,10 @@ class TestPlaysOverTimeData:
                 "/analytics/plays-over-time?days=30",
                 headers=_auth(creator["token"]),
             )
-            assert resp.json()["data"] == []
+            body = resp.json()
+            # Other creator's history excluded → all 30 days return with plays=0
+            assert len(body["data"]) == 30
+            assert all(d["plays"] == 0 for d in body["data"])
         finally:
             db.query(ListeningHistory).filter(
                 ListeningHistory.podcast_id == other_pod.id

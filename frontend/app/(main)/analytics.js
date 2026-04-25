@@ -312,17 +312,38 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
         );
     }
 
-    const maxPlays = Math.max(...chartData.map((d) => d.plays), 1);
+    // Safety-net: fill missing dates with plays:0 so the chart always spans
+    // the full selected range even if the API returns a sparse series.
+    const filledData = (() => {
+        if (!chartData.length) return chartData;
+        const map = Object.fromEntries(chartData.map((d) => [d.date, d.plays]));
+        const result = [];
+        const start = new Date(chartData[0].date + "T00:00:00Z");
+        for (let i = 0; i < days; i++) {
+            const d = new Date(start);
+            d.setUTCDate(start.getUTCDate() + i);
+            const key = d.toISOString().slice(0, 10);
+            result.push({ date: key, plays: map[key] ?? 0 });
+        }
+        return result;
+    })();
+
+    const maxPlays = Math.max(...filledData.map((d) => d.plays), 1);
 
     // How many bars to show — cap at 14 for readability, evenly spaced
     const MAX_BARS = days <= 14 ? days : 14;
     // Build an evenly-sampled subset when we have more points than bars
-    let display = chartData;
-    if (chartData.length > MAX_BARS) {
-        const step = (chartData.length - 1) / (MAX_BARS - 1);
-        display = Array.from({ length: MAX_BARS }, (_, i) =>
-            chartData[Math.round(i * step)]
-        );
+    let display = filledData;
+    if (filledData.length > MAX_BARS) {
+        // Use floor + dedup to guarantee unique indices and avoid duplicate points
+        const step = (filledData.length - 1) / (MAX_BARS - 1);
+        const seen = new Set();
+        display = Array.from({ length: MAX_BARS }, (_, i) => {
+            let idx = Math.round(i * step);
+            while (seen.has(idx) && idx < filledData.length - 1) idx++;
+            seen.add(idx);
+            return filledData[idx];
+        });
     }
 
     // Short label: "Apr 1" → "1" if <= 14 bars, else just show first/mid/last
@@ -357,7 +378,7 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
                     const isMax = point.plays === maxPlays;
                     return (
                         <View
-                            key={point.date || idx}
+                            key={idx}
                             style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", height: 80 }}
                         >
                             <View
@@ -386,7 +407,7 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
             >
                 {display.map((point, idx) => (
                     <View
-                        key={(point.date || idx) + "_lbl"}
+                        key={idx + "_lbl"}
                         style={{ flex: 1, alignItems: "center" }}
                     >
                         <Text
