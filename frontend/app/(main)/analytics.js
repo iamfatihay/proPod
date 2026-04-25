@@ -315,20 +315,30 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
     // Safety-net: fill missing dates with plays:0 so the chart always spans
     // the full selected range even if the API returns a sparse series.
     const filledData = (() => {
-        if (!chartData.length) return chartData;
-        const map = Object.fromEntries(chartData.map((d) => [d.date, d.plays]));
+        // Build a contiguous N-day window ending today (UTC), zero-filling missing
+        // dates. The window end is derived from today rather than chartData[0] so we
+        // always render exactly `days` slots even when the backend returns sparse,
+        // unsorted, or partial data.
+        const map = Object.fromEntries((chartData || []).map((d) => [d.date, d.plays]));
         const result = [];
-        const start = new Date(chartData[0].date + "T00:00:00Z");
-        for (let i = 0; i < days; i++) {
-            const d = new Date(start);
-            d.setUTCDate(start.getUTCDate() + i);
+        const now = new Date();
+        const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+        for (let i = days - 1; i >= 0; i--) {
+            const d = new Date(end);
+            d.setUTCDate(end.getUTCDate() - i);
             const key = d.toISOString().slice(0, 10);
             result.push({ date: key, plays: map[key] ?? 0 });
         }
         return result;
     })();
 
-    const maxPlays = Math.max(...filledData.map((d) => d.plays), 1);
+    // Peak plays across the window — drives the "Peak" UI label and the per-bar
+    // "is this the peak?" highlight. May legitimately be 0 when there are no plays yet.
+    const peakPlays = filledData.reduce((m, d) => (d.plays > m ? d.plays : m), 0);
+    // Denominator for bar-height normalization. Floored at 1 to avoid division by 0
+    // and to keep the chart visually stable for an all-zero window.
+    const maxPlays = Math.max(peakPlays, 1);
+    const allZero = peakPlays === 0;
 
     // How many bars to show — cap at 14 for readability, evenly spaced
     const MAX_BARS = days <= 14 ? days : 14;
@@ -375,7 +385,7 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
                         4,
                         Math.round((point.plays / maxPlays) * 100)
                     );
-                    const isMax = point.plays === maxPlays;
+                    const isMax = point.plays > 0 && point.plays === peakPlays;
                     return (
                         <View
                             key={idx}
@@ -435,7 +445,7 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
                 <Text style={{ color: COLORS.text.muted, fontSize: 11 }}>
                     Peak:{" "}
                     <Text style={{ color: COLORS.text.primary, fontWeight: "600" }}>
-                        {maxPlays}
+                        {peakPlays}
                     </Text>{" "}
                     sessions/day
                 </Text>
