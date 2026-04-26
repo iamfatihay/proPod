@@ -1242,6 +1242,16 @@ class ApiService {
         return this.request(`/playlists/my${query ? `?${query}` : ""}`);
     }
 
+    /** Fetch all public playlists (no auth required). */
+    async getPublicPlaylists(params = {}) {
+        const queryParams = new URLSearchParams();
+        if (params.skip !== undefined) queryParams.append("skip", params.skip);
+        if (params.limit !== undefined) queryParams.append("limit", params.limit);
+        const query = queryParams.toString();
+        return this.request(`/playlists/public${query ? `?${query}` : ""}`);
+    }
+
+
     /** Fetch a single playlist by ID (includes items). */
     async getPlaylist(playlistId) {
         return this.request(`/playlists/${playlistId}`);
