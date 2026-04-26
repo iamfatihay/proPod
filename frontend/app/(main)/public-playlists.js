@@ -41,6 +41,14 @@ const PublicPlaylistCard = ({ playlist, onPress }) => (
             >
                 {playlist.name}
             </Text>
+            {playlist.owner_name ? (
+                <Text
+                    className="text-text-secondary text-xs mt-0.5"
+                    numberOfLines={1}
+                >
+                    by {playlist.owner_name}
+                </Text>
+            ) : null}
             {playlist.description ? (
                 <Text
                     className="text-text-secondary text-xs mt-0.5"

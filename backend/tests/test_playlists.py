@@ -162,6 +162,26 @@ class TestGetPublicPlaylists:
         assert "preview_thumbnails" in target
         assert "http://example.com/public-thumb.jpg" in target["preview_thumbnails"]
 
+    def test_public_playlist_includes_owner_name(self, test_user):
+        """GET /playlists/public must include owner_name on each playlist card."""
+        user, token = test_user
+        client.post(
+            "/playlists/",
+            json={"name": "Named Owner Playlist", "is_public": True},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        resp = client.get("/playlists/public")
+        assert resp.status_code == 200
+        playlists = resp.json()["playlists"]
+        target = next(
+            (p for p in playlists if p["name"] == "Named Owner Playlist"), None
+        )
+        assert target is not None, "newly created public playlist should appear"
+        assert "owner_name" in target, "owner_name field must be present"
+        assert target["owner_name"] == user.name, (
+            "owner_name should match the creating user's display name"
+        )
+
 
 class TestGetPlaylistDetail:
     """Tests for GET /playlists/{playlist_id}"""
