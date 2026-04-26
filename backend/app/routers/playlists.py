@@ -49,7 +49,10 @@ def get_public_playlists(
     """Get all public playlists."""
     rows, total = crud.get_public_playlists(db=db, skip=skip, limit=limit)
     return schemas.PlaylistListResponse(
-        playlists=[_playlist_to_response(p, count, thumbs, owner_name) for p, count, thumbs, owner_name in rows],
+        playlists=[
+            _playlist_to_response(p, count, thumbs, owner_name, owner_username)
+            for p, count, thumbs, owner_name, owner_username in rows
+        ],
         total=total,
         limit=limit,
         offset=skip,
@@ -233,6 +236,7 @@ def _playlist_to_response(
     item_count: Optional[int] = None,
     preview_thumbnails: Optional[List[str]] = None,
     owner_name: Optional[str] = None,
+    owner_username: Optional[str] = None,
 ) -> schemas.PlaylistResponse:
     """Convert a Playlist model to a PlaylistResponse schema.
 
@@ -240,6 +244,7 @@ def _playlist_to_response(
     that does not eager-load items, to avoid triggering a lazy SELECT per row.
     Pass ``preview_thumbnails`` (up to 4 URLs) for the mosaic art in list views.
     Pass ``owner_name`` to surface the creator display name on public listing cards.
+    Pass ``owner_username`` (email-prefix handle) for tappable creator attribution.
     """
     if item_count is None:
         # items are already in identity map (e.g. detail view); safe to use
@@ -251,6 +256,7 @@ def _playlist_to_response(
         is_public=playlist.is_public,
         owner_id=playlist.owner_id,
         owner_name=owner_name,
+        owner_username=owner_username,
         item_count=item_count,
         preview_thumbnails=preview_thumbnails or [],
         created_at=playlist.created_at,
