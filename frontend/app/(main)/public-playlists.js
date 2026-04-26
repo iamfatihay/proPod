@@ -18,7 +18,9 @@ const PAGE_SIZE = 20;
 
 // ─── PublicPlaylistCard ────────────────────────────────────────────────────────
 
-const PublicPlaylistCard = ({ playlist, onPress }) => (
+const PublicPlaylistCard = ({ playlist, onPress }) => {
+    const router = useRouter();
+    return (
     <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.8}
@@ -49,6 +51,21 @@ const PublicPlaylistCard = ({ playlist, onPress }) => (
                     by {playlist.owner_name}
                 </Text>
             ) : null}
+            {playlist.owner_username ? (
+                <TouchableOpacity
+                    onPress={() =>
+                        router.push({
+                            pathname: "/(main)/creator-profile",
+                            params: { id: playlist.owner_id },
+                        })
+                    }
+                    hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                >
+                    <Text className="text-primary text-xs mt-0.5" numberOfLines={1}>
+                        @{playlist.owner_username}
+                    </Text>
+                </TouchableOpacity>
+            ) : null}
             {playlist.description ? (
                 <Text
                     className="text-text-secondary text-xs mt-0.5"
@@ -71,7 +88,8 @@ const PublicPlaylistCard = ({ playlist, onPress }) => (
             style={{ marginLeft: 8 }}
         />
     </TouchableOpacity>
-);
+    );
+};
 
 // ─── PublicPlaylists Screen ────────────────────────────────────────────────────
 

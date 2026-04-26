@@ -182,6 +182,27 @@ class TestGetPublicPlaylists:
             "owner_name should match the creating user's display name"
         )
 
+    def test_public_playlist_includes_owner_username(self, test_user):
+        """GET /playlists/public must include owner_username (email prefix) on each card."""
+        user, token = test_user
+        client.post(
+            "/playlists/",
+            json={"name": "Username Handle Playlist", "is_public": True},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        resp = client.get("/playlists/public")
+        assert resp.status_code == 200
+        playlists = resp.json()["playlists"]
+        target = next(
+            (p for p in playlists if p["name"] == "Username Handle Playlist"), None
+        )
+        assert target is not None, "newly created public playlist should appear"
+        assert "owner_username" in target, "owner_username field must be present"
+        expected_username = user.email.split("@")[0]
+        assert target["owner_username"] == expected_username, (
+            "owner_username should be the email-prefix handle of the creating user"
+        )
+
 
 class TestGetPlaylistDetail:
     """Tests for GET /playlists/{playlist_id}"""

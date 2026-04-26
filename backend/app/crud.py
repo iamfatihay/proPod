@@ -1641,7 +1641,7 @@ def get_public_playlists(
     Get all public playlists with pagination.
 
     Only includes playlists whose owner is active. Returns ``(rows, total)``
-    where each row is ``(Playlist, item_count, preview_thumbnails, owner_name)``.
+    where each row is ``(Playlist, item_count, preview_thumbnails, owner_name, owner_username)``.
     The thumbnails are fetched in the same SQL window-function query used by
     ``get_user_playlists`` so the public listing can render the cover-art
     mosaic without an N+1.  ``owner_name`` (the user's display name) is
@@ -1668,7 +1668,12 @@ def get_public_playlists(
         models.User.is_active == True,
     ]
     query = (
-        db.query(models.Playlist, item_count_subq.label("item_count"), models.User.name)
+        db.query(
+            models.Playlist,
+            item_count_subq.label("item_count"),
+            models.User.name,
+            models.User.email,
+        )
         .join(models.User, models.User.id == models.Playlist.owner_id)
         .filter(*base_filter)
         .order_by(desc(models.Playlist.updated_at))
@@ -1682,12 +1687,12 @@ def get_public_playlists(
     )
     rows = query.offset(skip).limit(limit).all()
 
-    playlist_ids = [p.id for p, _, _u in rows]
+    playlist_ids = [p.id for p, _, _n, _e in rows]
     thumbnails_map = _load_preview_thumbnails(db, playlist_ids)
 
     enriched = [
-        (p, count, thumbnails_map.get(p.id, []), username)
-        for p, count, username in rows
+        (p, count, thumbnails_map.get(p.id, []), name, email.split("@")[0])
+        for p, count, name, email in rows
     ]
     return enriched, total
 
