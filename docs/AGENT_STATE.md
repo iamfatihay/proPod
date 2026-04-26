@@ -7,7 +7,7 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-26
-**Last session:** PlaysOverTimeChart Animated.spring bar wave animation — PR #91
+**Last session:** CategoryRow progress-bar spring animation — `Animated.spring` width 0→barWidth%, same pattern as PlaysOverTimeChart (feature/analytics-category-row-animation)
 **Test suite baseline:** ~447 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -42,12 +42,13 @@
 - ✅ Extract `PlaylistMosaic` to shared component + wire into `playlists.js` PlaylistCard (size=48) (PR #88)
 - ✅ Public playlist browse screen — `public-playlists.js`, `getPublicPlaylists` apiService, Library "Discover" button, pull-to-refresh, loadMore error+retry footer, 3 apiService tests (PR #89)
 - ✅ APScheduler auto-run + owner name on public playlist cards — `lifespan()` + `BackgroundScheduler` every 30 min, 7 scheduler tests; `owner_name` on `PlaylistResponse`, 45 playlist tests pass (PR #90)
+- ✅ `PlaysOverTimeChart` `Animated.spring` bar wave animation + Rules of Hooks compliance (PR #91)
 
 ---
 
 ## 🔄 What's open
 
-- PR #91 `feature/analytics-bar-animation` — `Animated.spring` wave animation for `PlaysOverTimeChart` bars on Creator Analytics screen; hooks moved before early return (Rules of Hooks compliance); `node --check` passes.
+- PR #92 `feature/analytics-category-row-animation` — `Animated.spring` width animation for `CategoryRow` progress bars on Creator Analytics screen; springs from 0%→barWidth% on mount and on window-switch; `node --check` passes.
 
 ---
 
@@ -71,9 +72,9 @@
 
 ## 🗺️ Next Session Suggestions
 
-1. **[BACKEND+FRONTEND] Creator username on public playlist cards** — `PlaylistResponse` already has `owner_name` (PR #90). Extend with `owner_username: Optional[str] = None`. In `get_public_playlists` CRUD, join `User` (already joined) and include `User.username`. Update `_playlist_to_response` and the public endpoint in `playlists.py`. In `public-playlists.js` `PublicPlaylistCard`, add a `by @username` line beneath the owner name. Enables tapping through to creator profile.
+1. **[BACKEND+FRONTEND] Creator username on public playlist cards** — `PlaylistResponse` already has `owner_name` (PR #90). Extend with `owner_username: Optional[str] = None`. In `get_public_playlists` CRUD, join `User` (already joined) and include `User.username`. Update `_playlist_to_response` and the public endpoint in `playlists.py`. In `public-playlists.js` `PublicPlaylistCard`, add a `by @username` line beneath the owner name — tappable link to creator profile. Enables discovery of creators from public playlists.
 
-2. **[FRONTEND] CategoryRow width animation** — In `analytics.js` `CategoryRow`, the progress bar currently snaps to final width. Import `Animated` (already imported after PR #91), use `useRef` + `useEffect` + `Animated.spring` to animate `width` from 0 to `barWidth%` on mount. Direct follow-up to PR #91 — same pattern, same file.
+2. **[FRONTEND] Public playlist card → Creator profile navigation** — After #1 lands, wire the `by @username` tap in `PublicPlaylistCard` to navigate to the creator's public profile screen (`/profile/[id]`). Requires passing `owner_id` through `getPublicPlaylists` as well (add to CRUD JOIN and schema).
 
 3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace the in-memory scheduler jobstore with an SQLAlchemy-backed one so multi-worker Uvicorn deployments only fire one receipt check at a time. Adds an Alembic migration for the `apscheduler_jobs` table. Depends on PR #90 being merged (✅ done).
 
