@@ -872,4 +872,59 @@ describe("ApiService", () => {
             getPodcastCommentsSpy.mockRestore();
         });
     });
+    describe("Playlist Methods", () => {
+        test("getPublicPlaylists() should request correct URL with no params", async () => {
+            const mockResponse = {
+                playlists: [
+                    { id: 1, name: "Chill Vibes", item_count: 5, preview_thumbnails: [] },
+                ],
+                total: 1,
+                limit: 20,
+                offset: 0,
+                has_more: false,
+            };
+
+            global.mockApiResponse(mockResponse);
+
+            const result = await apiService.getPublicPlaylists();
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                "http://localhost:8000/playlists/public",
+                expect.any(Object)
+            );
+            expect(result).toEqual(mockResponse);
+        });
+
+        test("getPublicPlaylists() should append skip and limit as query params", async () => {
+            const mockResponse = {
+                playlists: [],
+                total: 40,
+                limit: 10,
+                offset: 20,
+                has_more: true,
+            };
+
+            global.mockApiResponse(mockResponse);
+
+            const result = await apiService.getPublicPlaylists({ skip: 20, limit: 10 });
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                "http://localhost:8000/playlists/public?skip=20&limit=10",
+                expect.any(Object)
+            );
+            expect(result).toEqual(mockResponse);
+        });
+
+        test("getPublicPlaylists() should omit params not provided", async () => {
+            global.mockApiResponse({ playlists: [], total: 0, limit: 20, offset: 0, has_more: false });
+
+            await apiService.getPublicPlaylists({ limit: 5 });
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                "http://localhost:8000/playlists/public?limit=5",
+                expect.any(Object)
+            );
+        });
+    });
+
 });

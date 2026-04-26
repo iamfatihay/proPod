@@ -71,17 +71,24 @@ const PublicPlaylists = () => {
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
-    const [playlists, setPlaylists]     = useState([]);
-    const [loading, setLoading]         = useState(true);
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [error, setError]             = useState(null);
-    const [hasMore, setHasMore]         = useState(false);
-    const [offset, setOffset]           = useState(0);
+    const [playlists, setPlaylists]         = useState([]);
+    const [loading, setLoading]             = useState(true);
+    const [refreshing, setRefreshing]       = useState(false);
+    const [loadingMore, setLoadingMore]     = useState(false);
+    const [loadMoreError, setLoadMoreError] = useState(null);
+    const [error, setError]                 = useState(null);
+    const [hasMore, setHasMore]             = useState(false);
+    const [offset, setOffset]               = useState(0);
 
     // ── Initial / refresh load ─────────────────────────────────────────────
-    const loadFirst = useCallback(async () => {
-        setLoading(true);
+    const loadFirst = useCallback(async ({ silent = false } = {}) => {
+        if (silent) {
+            setRefreshing(true);
+        } else {
+            setLoading(true);
+        }
         setError(null);
+        setLoadMoreError(null);
         try {
             const res = await apiService.getPublicPlaylists({ skip: 0, limit: PAGE_SIZE });
             setPlaylists(res.playlists || []);
@@ -91,12 +98,18 @@ const PublicPlaylists = () => {
             setError(e?.detail || e?.message || "Failed to load playlists");
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     }, []);
 
+    // Pull-to-refresh: show spinner in the list header, not a full-screen loader
+    const handleRefresh = useCallback(() => {
+        loadFirst({ silent: true });
+    }, [loadFirst]);
+
     // ── Paginated load-more ────────────────────────────────────────────────
     const loadMore = useCallback(async () => {
-        if (loadingMore || !hasMore) return;
+        if (loadingMore || !hasMore || loadMoreError) return;
         setLoadingMore(true);
         try {
             const res = await apiService.getPublicPlaylists({ skip: offset, limit: PAGE_SIZE });
@@ -107,12 +120,18 @@ const PublicPlaylists = () => {
             });
             setOffset((o) => o + PAGE_SIZE);
             setHasMore(res.has_more ?? false);
-        } catch {
-            // Non-critical — user can scroll up/retry
+        } catch (e) {
+            // Stop automatic re-triggers; show a manual retry button in the footer
+            setLoadMoreError(e?.detail || e?.message || "Failed to load more");
         } finally {
             setLoadingMore(false);
         }
-    }, [loadingMore, hasMore, offset]);
+    }, [loadingMore, hasMore, loadMoreError, offset]);
+
+    const retryLoadMore = useCallback(() => {
+        setLoadMoreError(null);
+        loadMore();
+    }, [loadMore]);
 
     useFocusEffect(
         useCallback(() => {
@@ -120,14 +139,33 @@ const PublicPlaylists = () => {
         }, [loadFirst])
     );
 
-    // ── Render ─────────────────────────────────────────────────────────────
-    const ListFooter = () =>
-        loadingMore ? (
-            <ActivityIndicator
-                color={COLORS.primary}
-                style={{ marginVertical: 16 }}
-            />
-        ) : null;
+    // ── Render helpers ─────────────────────────────────────────────────────
+    const ListFooter = () => {
+        if (loadingMore) {
+            return (
+                <ActivityIndicator
+                    color={COLORS.primary}
+                    style={{ marginVertical: 16 }}
+                />
+            );
+        }
+        if (loadMoreError) {
+            return (
+                <View className="items-center py-4">
+                    <Text className="text-text-secondary text-sm mb-2">
+                        {loadMoreError}
+                    </Text>
+                    <TouchableOpacity
+                        onPress={retryLoadMore}
+                        className="bg-panel border border-border px-5 py-2 rounded-xl"
+                    >
+                        <Text className="text-text-primary text-sm">Retry</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+        return null;
+    };
 
     const ListEmpty = () =>
         !loading ? (
@@ -205,6 +243,8 @@ const PublicPlaylists = () => {
                                 }
                             />
                         )}
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
                         onEndReached={loadMore}
                         onEndReachedThreshold={0.4}
                         ListFooterComponent={<ListFooter />}
