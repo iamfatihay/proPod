@@ -1641,11 +1641,12 @@ def get_public_playlists(
     Get all public playlists with pagination.
 
     Only includes playlists whose owner is active. Returns ``(rows, total)``
-    where each row is ``(Playlist, item_count, preview_thumbnails, owner_username)``.
+    where each row is ``(Playlist, item_count, preview_thumbnails, owner_name)``.
     The thumbnails are fetched in the same SQL window-function query used by
     ``get_user_playlists`` so the public listing can render the cover-art
-    mosaic without an N+1.  ``owner_username`` is included so the Discover
-    screen can display "by @<username>" without a secondary per-card request.
+    mosaic without an N+1.  ``owner_name`` (the user's display name) is
+    included so the Discover screen can show "by <name>" without a per-card
+    secondary request.
 
     Args:
         db: Database session

@@ -52,14 +52,16 @@ def _run_push_receipt_check() -> None:
     from app.database import SessionLocal  # noqa: PLC0415
     from app import crud  # noqa: PLC0415
 
-    db = SessionLocal()
+    db = None
     try:
+        db = SessionLocal()
         summary = crud.check_push_receipts(db)
         logger.info("Push receipt check completed: %s", summary)
     except Exception as exc:  # pragma: no cover — network/DB failures
         logger.exception("Push receipt check failed: %s", exc)
     finally:
-        db.close()
+        if db is not None:
+            db.close()
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +85,7 @@ async def lifespan(app: FastAPI):  # noqa: D401
     try:
         yield
     finally:
-        scheduler.shutdown(wait=False)
+        scheduler.shutdown()
         logger.info("APScheduler stopped")
 
 

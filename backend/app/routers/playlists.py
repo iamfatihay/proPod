@@ -49,7 +49,7 @@ def get_public_playlists(
     """Get all public playlists."""
     rows, total = crud.get_public_playlists(db=db, skip=skip, limit=limit)
     return schemas.PlaylistListResponse(
-        playlists=[_playlist_to_response(p, count, thumbs, uname) for p, count, thumbs, uname in rows],
+        playlists=[_playlist_to_response(p, count, thumbs, owner_name) for p, count, thumbs, owner_name in rows],
         total=total,
         limit=limit,
         offset=skip,
