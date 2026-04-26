@@ -56,7 +56,7 @@ const PublicPlaylistCard = ({ playlist, onPress }) => {
                     onPress={() =>
                         router.push({
                             pathname: "/(main)/creator-profile",
-                            params: { id: playlist.owner_id },
+                            params: { userId: String(playlist.owner_id) },
                         })
                     }
                     hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}

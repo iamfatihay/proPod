@@ -1636,7 +1636,7 @@ def get_public_playlists(
     db: Session,
     skip: int = 0,
     limit: int = 20,
-) -> Tuple[List[Tuple[models.Playlist, int, List[str], Optional[str]]], int]:
+) -> Tuple[List[Tuple[models.Playlist, int, List[str], Optional[str], Optional[str]]], int]:
     """
     Get all public playlists with pagination.
 
@@ -1654,7 +1654,7 @@ def get_public_playlists(
         limit: Maximum number of records
 
     Returns:
-        Tuple of (list of (Playlist, item_count, preview_thumbnails, owner_username)
+        Tuple of (list of (Playlist, item_count, preview_thumbnails, owner_name, owner_username)
         tuples, total count)
     """
     item_count_subq = (
@@ -1672,7 +1672,6 @@ def get_public_playlists(
             models.Playlist,
             item_count_subq.label("item_count"),
             models.User.name,
-            models.User.email,
         )
         .join(models.User, models.User.id == models.Playlist.owner_id)
         .filter(*base_filter)
@@ -1687,12 +1686,12 @@ def get_public_playlists(
     )
     rows = query.offset(skip).limit(limit).all()
 
-    playlist_ids = [p.id for p, _, _n, _e in rows]
+    playlist_ids = [p.id for p, _, _n in rows]
     thumbnails_map = _load_preview_thumbnails(db, playlist_ids)
 
     enriched = [
-        (p, count, thumbnails_map.get(p.id, []), name, email.split("@")[0])
-        for p, count, name, email in rows
+        (p, count, thumbnails_map.get(p.id, []), name, name.lower().replace(" ", "_"))
+        for p, count, name in rows
     ]
     return enriched, total
 

@@ -198,9 +198,9 @@ class TestGetPublicPlaylists:
         )
         assert target is not None, "newly created public playlist should appear"
         assert "owner_username" in target, "owner_username field must be present"
-        expected_username = user.email.split("@")[0]
+        expected_username = user.name.lower().replace(" ", "_")
         assert target["owner_username"] == expected_username, (
-            "owner_username should be the email-prefix handle of the creating user"
+            "owner_username should be a slug derived from the creator's display name"
         )
 
 
