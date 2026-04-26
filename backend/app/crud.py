@@ -1636,15 +1636,17 @@ def get_public_playlists(
     db: Session,
     skip: int = 0,
     limit: int = 20,
-) -> Tuple[List[Tuple[models.Playlist, int, List[str]]], int]:
+) -> Tuple[List[Tuple[models.Playlist, int, List[str], Optional[str]]], int]:
     """
     Get all public playlists with pagination.
 
     Only includes playlists whose owner is active. Returns ``(rows, total)``
-    where each row is ``(Playlist, item_count, preview_thumbnails)``. The
-    thumbnails are fetched in the same SQL window-function query used by
+    where each row is ``(Playlist, item_count, preview_thumbnails, owner_name)``.
+    The thumbnails are fetched in the same SQL window-function query used by
     ``get_user_playlists`` so the public listing can render the cover-art
-    mosaic without an N+1.
+    mosaic without an N+1.  ``owner_name`` (the user's display name) is
+    included so the Discover screen can show "by <name>" without a per-card
+    secondary request.
 
     Args:
         db: Database session
@@ -1652,8 +1654,8 @@ def get_public_playlists(
         limit: Maximum number of records
 
     Returns:
-        Tuple of (list of (Playlist, item_count, preview_thumbnails) tuples,
-        total count)
+        Tuple of (list of (Playlist, item_count, preview_thumbnails, owner_username)
+        tuples, total count)
     """
     item_count_subq = (
         db.query(func.count(models.PlaylistItem.id))
@@ -1666,7 +1668,7 @@ def get_public_playlists(
         models.User.is_active == True,
     ]
     query = (
-        db.query(models.Playlist, item_count_subq.label("item_count"))
+        db.query(models.Playlist, item_count_subq.label("item_count"), models.User.name)
         .join(models.User, models.User.id == models.Playlist.owner_id)
         .filter(*base_filter)
         .order_by(desc(models.Playlist.updated_at))
@@ -1680,10 +1682,13 @@ def get_public_playlists(
     )
     rows = query.offset(skip).limit(limit).all()
 
-    playlist_ids = [p.id for p, _ in rows]
+    playlist_ids = [p.id for p, _, _u in rows]
     thumbnails_map = _load_preview_thumbnails(db, playlist_ids)
 
-    enriched = [(p, count, thumbnails_map.get(p.id, [])) for p, count in rows]
+    enriched = [
+        (p, count, thumbnails_map.get(p.id, []), username)
+        for p, count, username in rows
+    ]
     return enriched, total
 
 

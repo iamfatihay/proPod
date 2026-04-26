@@ -49,7 +49,7 @@ def get_public_playlists(
     """Get all public playlists."""
     rows, total = crud.get_public_playlists(db=db, skip=skip, limit=limit)
     return schemas.PlaylistListResponse(
-        playlists=[_playlist_to_response(p, count, thumbs) for p, count, thumbs in rows],
+        playlists=[_playlist_to_response(p, count, thumbs, owner_name) for p, count, thumbs, owner_name in rows],
         total=total,
         limit=limit,
         offset=skip,
@@ -232,12 +232,14 @@ def _playlist_to_response(
     playlist: models.Playlist,
     item_count: Optional[int] = None,
     preview_thumbnails: Optional[List[str]] = None,
+    owner_name: Optional[str] = None,
 ) -> schemas.PlaylistResponse:
     """Convert a Playlist model to a PlaylistResponse schema.
 
     Pass ``item_count`` explicitly when building responses from a list query
     that does not eager-load items, to avoid triggering a lazy SELECT per row.
     Pass ``preview_thumbnails`` (up to 4 URLs) for the mosaic art in list views.
+    Pass ``owner_name`` to surface the creator display name on public listing cards.
     """
     if item_count is None:
         # items are already in identity map (e.g. detail view); safe to use
@@ -248,6 +250,7 @@ def _playlist_to_response(
         description=playlist.description,
         is_public=playlist.is_public,
         owner_id=playlist.owner_id,
+        owner_name=owner_name,
         item_count=item_count,
         preview_thumbnails=preview_thumbnails or [],
         created_at=playlist.created_at,

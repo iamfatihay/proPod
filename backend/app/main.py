@@ -4,27 +4,101 @@ ProPod FastAPI Backend Application.
 This module initializes the FastAPI application with all necessary
 middleware, exception handlers, and routers.
 """
+import logging
+import os
+from contextlib import asynccontextmanager
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from dotenv import load_dotenv
 from fastapi import FastAPI, status
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from dotenv import load_dotenv
-import os
 
-from app.routers import users, podcasts, ai, admin as admin_router, rtc, sharing, analytics, playlists, notifications, messages
+from app.routers import (
+    users,
+    podcasts,
+    ai,
+    admin as admin_router,
+    rtc,
+    sharing,
+    analytics,
+    playlists,
+    notifications,
+    messages,
+)
 from app.admin import setup_admin
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 load_dotenv(dotenv_path)
 
+
+# ---------------------------------------------------------------------------
+# Scheduled jobs
+# ---------------------------------------------------------------------------
+
+def _run_push_receipt_check() -> None:
+    """Run check_push_receipts in an isolated DB session.
+
+    Called by APScheduler every 30 minutes.  Any exception is caught and
+    logged so a transient failure never kills the scheduler thread.
+    """
+    # Late import to avoid circular imports at module load time.
+    from app.database import SessionLocal  # noqa: PLC0415
+    from app import crud  # noqa: PLC0415
+
+    db = None
+    try:
+        db = SessionLocal()
+        summary = crud.check_push_receipts(db)
+        logger.info("Push receipt check completed: %s", summary)
+    except Exception as exc:  # pragma: no cover — network/DB failures
+        logger.exception("Push receipt check failed: %s", exc)
+    finally:
+        if db is not None:
+            db.close()
+
+
+# ---------------------------------------------------------------------------
+# Lifespan
+# ---------------------------------------------------------------------------
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # noqa: D401
+    """Start/stop background scheduler around the application lifetime."""
+    scheduler = BackgroundScheduler(daemon=True)
+    scheduler.add_job(
+        _run_push_receipt_check,
+        trigger="interval",
+        minutes=30,
+        id="push_receipt_check",
+        replace_existing=True,
+        misfire_grace_time=120,  # tolerate up to 2-min startup delay
+    )
+    scheduler.start()
+    logger.info("APScheduler started — push receipt check every 30 min")
+    try:
+        yield
+    finally:
+        scheduler.shutdown()
+        logger.info("APScheduler stopped")
+
+
+# ---------------------------------------------------------------------------
+# Application
+# ---------------------------------------------------------------------------
+
 # Initialize FastAPI application
 app = FastAPI(
     title="ProPod API",
     description="Podcast creation and management API with AI features",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Add session middleware for admin auth (BEFORE other middlewares)
