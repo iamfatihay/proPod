@@ -247,6 +247,21 @@ const CategoryRow = ({ cat, maxCount }) => {
     const barWidth =
         maxCount > 0 ? Math.max(4, (cat.count / maxCount) * 100) : 4;
 
+    // Animate the bar width from 0% → barWidth% on mount and whenever the
+    // data window changes. Mirrors the Animated.spring pattern used by
+    // PlaysOverTimeChart bars (vertical) but applied horizontally.
+    const widthAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        widthAnim.setValue(0);
+        Animated.spring(widthAnim, {
+            toValue: 1,
+            useNativeDriver: false, // width is not a natively-drivable property
+            damping: 18,
+            stiffness: 120,
+        }).start();
+    }, [barWidth]); // re-fire whenever the target width changes (window switch)
+
     return (
         <View style={{ marginBottom: 12 }}>
             <View
@@ -269,7 +284,7 @@ const CategoryRow = ({ cat, maxCount }) => {
                     {cat.count} {cat.count === 1 ? "podcast" : "podcasts"}
                 </Text>
             </View>
-            {/* Progress bar */}
+            {/* Progress bar — spring-animated from 0% to barWidth% */}
             <View
                 style={{
                     height: 4,
@@ -278,10 +293,13 @@ const CategoryRow = ({ cat, maxCount }) => {
                     overflow: "hidden",
                 }}
             >
-                <View
+                <Animated.View
                     style={{
                         height: 4,
-                        width: `${barWidth}%`,
+                        width: widthAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ["0%", `${barWidth}%`],
+                        }),
                         backgroundColor: COLORS.primary,
                         borderRadius: 2,
                     }}
