@@ -7,7 +7,7 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-26
-**Last session:** Public playlist browse screen (Discover) + paginated FlatList + Library Discover button — PR #89
+**Last session:** Address PR #89 review comments — pull-to-refresh, loadMore error+retry footer, 3 apiService tests
 **Test suite baseline:** ~440 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -45,7 +45,7 @@
 
 ## 🔄 What's open
 
-- PR #89 `feature/public-playlists-browse` — New `public-playlists.js` screen; `getPublicPlaylists` in apiService; Library Playlists tab "Discover" button beside "Manage".
+- PR #89 `feature/public-playlists-browse` — New `public-playlists.js` screen; `getPublicPlaylists` in apiService; Library Playlists tab "Discover" button. Review comments addressed: pull-to-refresh, loadMore error+retry footer, 3 apiService Jest tests.
 
 ---
 
