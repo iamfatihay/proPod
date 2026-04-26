@@ -9,7 +9,7 @@
  *
  * Allows switching the look-back window between 7 / 30 / 90 / 365 days.
  */
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
     Animated,
     View,
@@ -306,21 +306,24 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
 
     // How many bars to show — cap at 14 for readability, evenly spaced
     const MAX_BARS = days <= 14 ? days : 14;
-    // Build an evenly-sampled subset when we have more points than bars.
+    // Memoize the evenly-sampled subset so the effect dependency is stable
+    // (avoids a new array reference — and therefore a spurious re-animation —
+    // on every render when chartData/days have not actually changed).
     // Math.round(i * step) can collapse two iterations to the same index when
     // step is non-integer; advance through duplicates so every bar maps to a
     // unique source index (and therefore a unique React key downstream).
-    let display = isEmpty ? [] : chartData;
-    if (!isEmpty && chartData.length > MAX_BARS) {
+    const display = useMemo(() => {
+        if (isEmpty) return [];
+        if (chartData.length <= MAX_BARS) return chartData;
         const step = (chartData.length - 1) / (MAX_BARS - 1);
         const seen = new Set();
-        display = Array.from({ length: MAX_BARS }, (_, i) => {
+        return Array.from({ length: MAX_BARS }, (_, i) => {
             let idx = Math.round(i * step);
             while (seen.has(idx) && idx < chartData.length - 1) idx++;
             seen.add(idx);
             return chartData[idx];
         });
-    }
+    }, [chartData, isEmpty, MAX_BARS]);
 
     // Synchronously keep the ref array in sync with bar count so the first
     // render can reference animRefs.current[idx] without crashing.
@@ -330,9 +333,14 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
 
     // Spring each bar to its target pixel height whenever data changes.
     // The container is 80 px tall; we map plays → [3, 80] px.
+    // Reset each value to 0 first so that every range-change (including ones
+    // where bar count stays the same, e.g. 30→90 both capped at 14) always
+    // replays the "grow from baseline" wave rather than animating from the
+    // previous height.
     useEffect(() => {
         if (isEmpty || animRefs.current.length === 0) return;
         const anims = animRefs.current.map((anim, idx) => {
+            anim.setValue(0); // reset to baseline before each spring sequence
             const targetPx = Math.max(
                 3,
                 Math.round((display[idx].plays / maxPlays) * 80)
@@ -346,7 +354,7 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
         });
         // Stagger for a left-to-right wave effect
         Animated.stagger(20, anims).start();
-    }, [chartData, days, isEmpty]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [display, maxPlays, isEmpty]); // display is memoized → stable ref; covers chartData + days + MAX_BARS
 
     // ── Short label helper ──────────────────────────────────────────────────
     const labelFor = (dateStr, idx, arr) => {
