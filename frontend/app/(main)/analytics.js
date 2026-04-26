@@ -9,8 +9,9 @@
  *
  * Allows switching the look-back window between 7 / 30 / 90 / 365 days.
  */
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
+    Animated,
     View,
     Text,
     SafeAreaView,
@@ -294,9 +295,74 @@ const CategoryRow = ({ cat, maxCount }) => {
 // ─── PlaysOverTimeChart ───────────────────────────────────────────────────────
 // Pure React Native bar chart — no SVG dependency required.
 // Each bar's height is proportional to the maximum play count in the window.
+// Bars spring-animate on mount and whenever chartData/days changes.
 
 const PlaysOverTimeChart = ({ chartData, days }) => {
-    if (!chartData || chartData.length === 0) {
+    // ── Hooks must come before any early return ─────────────────────────────
+    const animRefs = useRef([]);
+
+    const isEmpty = !chartData || chartData.length === 0;
+    const maxPlays = isEmpty ? 1 : Math.max(...chartData.map((d) => d.plays), 1);
+
+    // How many bars to show — cap at 14 for readability, evenly spaced
+    const MAX_BARS = days <= 14 ? days : 14;
+    // Build an evenly-sampled subset when we have more points than bars.
+    // Math.round(i * step) can collapse two iterations to the same index when
+    // step is non-integer; advance through duplicates so every bar maps to a
+    // unique source index (and therefore a unique React key downstream).
+    let display = isEmpty ? [] : chartData;
+    if (!isEmpty && chartData.length > MAX_BARS) {
+        const step = (chartData.length - 1) / (MAX_BARS - 1);
+        const seen = new Set();
+        display = Array.from({ length: MAX_BARS }, (_, i) => {
+            let idx = Math.round(i * step);
+            while (seen.has(idx) && idx < chartData.length - 1) idx++;
+            seen.add(idx);
+            return chartData[idx];
+        });
+    }
+
+    // Synchronously keep the ref array in sync with bar count so the first
+    // render can reference animRefs.current[idx] without crashing.
+    if (animRefs.current.length !== display.length) {
+        animRefs.current = display.map(() => new Animated.Value(0));
+    }
+
+    // Spring each bar to its target pixel height whenever data changes.
+    // The container is 80 px tall; we map plays → [3, 80] px.
+    useEffect(() => {
+        if (isEmpty || animRefs.current.length === 0) return;
+        const anims = animRefs.current.map((anim, idx) => {
+            const targetPx = Math.max(
+                3,
+                Math.round((display[idx].plays / maxPlays) * 80)
+            );
+            return Animated.spring(anim, {
+                toValue: targetPx,
+                useNativeDriver: false, // height is a layout prop
+                tension: 55,
+                friction: 7,
+            });
+        });
+        // Stagger for a left-to-right wave effect
+        Animated.stagger(20, anims).start();
+    }, [chartData, days, isEmpty]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // ── Short label helper ──────────────────────────────────────────────────
+    const labelFor = (dateStr, idx, arr) => {
+        if (!dateStr) return "";
+        const d = new Date(dateStr + "T00:00:00");
+        const day = d.getDate();
+        if (arr.length <= 7) return String(day);
+        // show label at first, middle, last
+        if (idx === 0 || idx === arr.length - 1 || idx === Math.floor(arr.length / 2)) {
+            return `${d.toLocaleString("default", { month: "short" })} ${day}`;
+        }
+        return "";
+    };
+
+    // ── Empty state ─────────────────────────────────────────────────────────
+    if (isEmpty) {
         return (
             <View
                 style={{
@@ -312,42 +378,9 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
         );
     }
 
-    const maxPlays = Math.max(...chartData.map((d) => d.plays), 1);
-
-    // How many bars to show — cap at 14 for readability, evenly spaced
-    const MAX_BARS = days <= 14 ? days : 14;
-    // Build an evenly-sampled subset when we have more points than bars.
-    // Math.round(i * step) can collapse two iterations to the same index when
-    // step is non-integer; advance through duplicates so every bar maps to a
-    // unique source index (and therefore a unique React key downstream).
-    let display = chartData;
-    if (chartData.length > MAX_BARS) {
-        const step = (chartData.length - 1) / (MAX_BARS - 1);
-        const seen = new Set();
-        display = Array.from({ length: MAX_BARS }, (_, i) => {
-            let idx = Math.round(i * step);
-            while (seen.has(idx) && idx < chartData.length - 1) idx++;
-            seen.add(idx);
-            return chartData[idx];
-        });
-    }
-
-    // Short label: "Apr 1" → "1" if <= 14 bars, else just show first/mid/last
-    const labelFor = (dateStr, idx, arr) => {
-        if (!dateStr) return "";
-        const d = new Date(dateStr + "T00:00:00");
-        const day = d.getDate();
-        if (arr.length <= 7) return String(day);
-        // show label at first, middle, last
-        if (idx === 0 || idx === arr.length - 1 || idx === Math.floor(arr.length / 2)) {
-            return `${d.toLocaleString("default", { month: "short" })} ${day}`;
-        }
-        return "";
-    };
-
     return (
         <View>
-            {/* Bars */}
+            {/* Bars — animated from 0 to target height via Animated.spring */}
             <View
                 style={{
                     flexDirection: "row",
@@ -357,25 +390,20 @@ const PlaysOverTimeChart = ({ chartData, days }) => {
                 }}
             >
                 {display.map((point, idx) => {
-                    const heightPct = Math.max(
-                        4,
-                        Math.round((point.plays / maxPlays) * 100)
-                    );
                     const isMax = point.plays === maxPlays;
                     return (
                         <View
                             key={`bar-${idx}`}
                             style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", height: 80 }}
                         >
-                            <View
+                            <Animated.View
                                 style={{
                                     width: "100%",
-                                    height: `${heightPct}%`,
+                                    height: animRefs.current[idx],
                                     backgroundColor: isMax
                                         ? COLORS.primary
                                         : COLORS.primary + "55",
                                     borderRadius: 3,
-                                    minHeight: 3,
                                 }}
                             />
                         </View>
