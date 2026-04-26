@@ -7,7 +7,7 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-26
-**Last session:** APScheduler push receipt auto-run every 30 min — PR #90
+**Last session:** APScheduler auto-run + owner name on public playlist cards — PR #90
 **Test suite baseline:** ~447 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -46,7 +46,7 @@
 
 ## 🔄 What's open
 
-- PR #90 `feature/apscheduler-push-receipt-autorun` — `lifespan()` context manager in `main.py` starts `BackgroundScheduler` running `check_push_receipts` every 30 min; `apscheduler>=3.10.0` in requirements; 7 new tests in `test_scheduler.py`.
+- PR #90 `feature/apscheduler-push-receipt-autorun` — `lifespan()` + `BackgroundScheduler` every 30 min, 7 scheduler tests; `owner_name` on `PlaylistResponse`, `get_public_playlists` 4-tuple, `PublicPlaylistCard` shows "by <name>", 45 playlist tests pass.
 
 ---
 
@@ -63,7 +63,7 @@
 - `handlePlayRelated` queue logic in details.js has no Jest unit test coverage
 - Plays-over-time chart reflects last-session-per-user-per-podcast (unique constraint); a per-event play log would enable exact daily counts
 - Library Playlists tab loads up to 50 playlists — no pagination yet
-- Public playlists Discover screen: no owner username shown on cards; no search/filter by name
+- Public playlists Discover screen: no search/filter by name (owner name now shown — PR #90)
 
 ---
 
