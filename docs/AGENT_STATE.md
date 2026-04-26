@@ -7,8 +7,8 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-26
-**Last session:** Public playlist browse screen (Discover) + paginated FlatList + Library Discover button — PR #89
-**Test suite baseline:** ~440 backend tests
+**Last session:** APScheduler push receipt auto-run every 30 min — PR #90
+**Test suite baseline:** ~447 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
 
@@ -16,7 +16,7 @@
 
 ---
 
-## ✅ Recently Shipped (PR #66–#88)
+## ✅ Recently Shipped (PR #66–#89)
 
 - ✅ Listening history screen — progress bar, completion badge, pagination (PR #66)
 - ✅ Listening history delete entry — `DELETE /podcasts/{id}/history`, 5 tests (PR #67)
@@ -40,18 +40,19 @@
 - ✅ Daily listening-activity bar chart on Creator Analytics screen — pure-RN bars, parallel fetch, 10 tests (PR #85)
 - ✅ Playlist cover art mosaic in Library Playlists tab — `preview_thumbnails` field, batched JOIN in CRUD, `PlaylistMosaic` RN component (PR #86)
 - ✅ Extract `PlaylistMosaic` to shared component + wire into `playlists.js` PlaylistCard (size=48) (PR #88)
+- ✅ Public playlist browse screen — `public-playlists.js`, `getPublicPlaylists` apiService, Library "Discover" button, pull-to-refresh, loadMore error+retry footer, 3 apiService tests (PR #89)
 
 ---
 
 ## 🔄 What's open
 
-- PR #89 `feature/public-playlists-browse` — New `public-playlists.js` screen; `getPublicPlaylists` in apiService; Library Playlists tab "Discover" button beside "Manage".
+- PR #90 `feature/apscheduler-push-receipt-autorun` — `lifespan()` context manager in `main.py` starts `BackgroundScheduler` running `check_push_receipts` every 30 min; `apscheduler>=3.10.0` in requirements; 7 new tests in `test_scheduler.py`.
 
 ---
 
 ## 🐛 Known issues / tech debt
 
-- Push receipt check is manual only — needs APScheduler or lifespan background task wired in `main.py`
+- APScheduler in multi-worker deployments (Uvicorn `--workers N`) runs one check per worker — harmless (idempotent) but wasteful. Future: SQLAlchemy jobstore + distributed lock.
 - Frontend ESLint blocked repo-wide (JSX parsing). Use `node --check` + Jest until fixed.
 - DM inbox: Python-side aggregation in `crud.get_dm_inbox` — needs SQL GROUP BY at scale
 - DM: text-only, no attachments
@@ -62,17 +63,17 @@
 - `handlePlayRelated` queue logic in details.js has no Jest unit test coverage
 - Plays-over-time chart reflects last-session-per-user-per-podcast (unique constraint); a per-event play log would enable exact daily counts
 - Library Playlists tab loads up to 50 playlists — no pagination yet
-- Public playlists Discover screen: no search/filter by name; no creator username shown on cards
+- Public playlists Discover screen: no owner username shown on cards; no search/filter by name
 
 ---
 
 ## 🗺️ Next Session Suggestions
 
-1. **[BACKEND+FRONTEND] APScheduler push receipt auto-run** — `backend/app/main.py`: add FastAPI `lifespan` context manager with `apscheduler` `BackgroundScheduler` running `crud.check_push_receipts` every 30 min. Add `apscheduler` to `backend/requirements.txt`. No migration needed. Genuine push reliability improvement.
+1. **[FRONTEND] Plays-over-time chart bar animation** — In `analytics.js` `PlaysOverTimeChart`, wrap each bar's height in `Animated.Value` and drive it with `Animated.spring` on mount and on data change. Import `Animated` from `react-native`. Purely additive — no backend changes, no schema touches. Makes the analytics screen feel alive.
 
-2. **[FEATURE] Creator username on public playlist cards** — In `public-playlists.js` `PublicPlaylistCard`, fetch or include owner username. Backend `PlaylistResponse` already has `owner_id`; add a `GET /users/{owner_id}` lookup or extend `PlaylistResponse` schema to include `owner_username`. Small but makes the Discover screen more useful.
+2. **[BACKEND+FRONTEND] Creator username on public playlist cards** — Extend `PlaylistResponse` schema with `owner_username: Optional[str] = None`. In `get_public_playlists` CRUD, join `User` (already joined for `is_active` filter) and include `User.username` in the returned tuple. Update `_playlist_to_response` and the public endpoint in `playlists.py`. In `public-playlists.js` `PublicPlaylistCard`, add a `by @username` line.
 
-3. **[FEATURE] Plays-over-time chart bar animation** — Wrap bar height in `Animated.Value` with spring on mount/data change in `PlaysOverTimeChart` inside `analytics.js`. Import `Animated` from RN. Small polish that makes the analytics screen feel alive.
+3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace the in-memory scheduler jobstore with an SQLAlchemy-backed one so multi-worker Uvicorn deployments only fire one receipt check at a time. Adds an Alembic migration for the `apscheduler_jobs` table. Depends on PR #90 being merged.
 
 ---
 
