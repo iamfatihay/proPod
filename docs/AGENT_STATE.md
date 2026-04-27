@@ -7,7 +7,7 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-27
-**Last session:** RTC live flow overhaul — host pre-join lobby, invite/deeplink guest join flow, processing notifications, persisted video podcast metadata/playback, review-comment polish (feature/rtc-live-lobby-video-flow)
+**Last session:** Public playlist search — q= backend filter (ILIKE on name + owner), debounced search bar + clear CTA in Discover screen, 5 new tests (feature/public-playlists-search)
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -45,12 +45,13 @@
 - ✅ `PlaysOverTimeChart` `Animated.spring` bar wave animation + Rules of Hooks compliance (PR #91)
 - ✅ Creator username on public playlist cards — `owner_username` (email-prefix) in `PlaylistResponse`; tappable `@handle` in `PublicPlaylistCard` → creator-profile; 1 new test, 477 pass (feature/public-playlist-creator-username)
 - ✅ RTC live lobby + video podcast playback — `Podcast.media_type`/`video_url` + Alembic migration, webhook-created video podcasts, host pre-join lobby in `create.js`, invite-code preview/join endpoints, guest deeplink screen `live.js`, `expo-video` playback in details, processing/ready notifications, and review-fix polish; targeted RTC + sharing tests pass, HmsRoom Jest passes (feature/rtc-live-lobby-video-flow)
+- ✅ Public playlist search/filter — `q=` ILIKE param on `GET /playlists/public`, debounced search bar + clear CTA in Discover screen, contextual empty state, 5 new tests; 44 playlist tests pass (PR #94 shipped; PR #95 open: feature/public-playlists-search)
 
 ---
 
 ## 🔄 What's open
 
-- PR #94 `feature/rtc-live-lobby-video-flow` — RTC live flow overhaul with host lobby, invite/deeplink guest join, processing notifications, persisted video podcast metadata, and inline video playback.
+- PR #95 `feature/public-playlists-search` — search/filter for public playlist Discover screen; q= ILIKE param on backend, debounced search bar on frontend.
 
 ---
 
@@ -68,18 +69,17 @@
 - `handlePlayRelated` queue logic in details.js has no Jest unit test coverage
 - Plays-over-time chart reflects last-session-per-user-per-podcast (unique constraint); a per-event play log would enable exact daily counts
 - Library Playlists tab loads up to 50 playlists — no pagination yet
-- Public playlists Discover screen: no search/filter by name (owner name shown — PR #90)
 - CategoryRow progress bar has no animation — width springs would match the new bar-chart feel
 
 ---
 
 ## 🗺️ Next Session Suggestions
 
-1. **[QA] Manual RTC end-to-end pass on device** — Verify host lobby → invite share → guest join via `volo://live/{inviteCode}` → host leave → processing notification → video podcast playback after native rebuild and latest migration.
+1. **[FRONTEND] Library Playlists tab pagination** — The tab currently loads up to 50 playlists with no load-more. Add a `loadMore` / `FlatList` pattern matching `public-playlists.js` and wire `GET /playlists/` `skip`/`limit` params. Tracked in tech debt.
 
-2. **[FRONTEND] Public playlist card → Creator profile navigation** — Wire the `by @username` tap in `PublicPlaylistCard` to navigate to the creator's public profile screen (`/profile/[id]`). Requires passing `owner_id` through `getPublicPlaylists` as well (add to CRUD JOIN and schema). *(owner_username + tap navigation already done in PR #93; just needs `owner_id` wired if not already in schema)*
+2. **[FRONTEND/BACKEND] Public playlist search by username** — Extend the `q=` ILIKE to also match `owner_username` (the slug). Requires fetching `User.email` or a stored `username` column in the CRUD query and comparing the email-prefix.
 
-3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace the in-memory scheduler jobstore with an SQLAlchemy-backed one so multi-worker Uvicorn deployments only fire one receipt check at a time. Adds an Alembic migration for the `apscheduler_jobs` table. Depends on PR #90 being merged (✅ done).
+3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace the in-memory scheduler jobstore with an SQLAlchemy-backed one so multi-worker Uvicorn deployments only fire one receipt check at a time. Adds an Alembic migration for the `apscheduler_jobs` table.
 
 ---
 

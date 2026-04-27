@@ -44,10 +44,11 @@ def get_my_playlists(
 def get_public_playlists(
     skip: int = Query(0, ge=0, description="Number of playlists to skip"),
     limit: int = Query(20, ge=1, le=100, description="Number of playlists to return"),
+    q: Optional[str] = Query(None, description="Search query — filters by playlist name or creator name"),
     db: Session = Depends(get_db),
 ):
-    """Get all public playlists."""
-    rows, total = crud.get_public_playlists(db=db, skip=skip, limit=limit)
+    """Get all public playlists. Optionally filter by playlist name or creator name with q=."""
+    rows, total = crud.get_public_playlists(db=db, skip=skip, limit=limit, q=q)
     return schemas.PlaylistListResponse(
         playlists=[
             _playlist_to_response(p, count, thumbs, owner_name, owner_username)

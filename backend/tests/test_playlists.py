@@ -204,6 +204,78 @@ class TestGetPublicPlaylists:
         )
 
 
+
+class TestPublicPlaylistSearch:
+    """Tests for GET /playlists/public?q= search filtering."""
+
+    def test_search_by_playlist_name_returns_match(self, test_user):
+        """q= matching playlist name should return that playlist."""
+        _, token = test_user
+        client.post(
+            "/playlists/",
+            json={"name": "Jazz Essentials", "is_public": True},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        resp = client.get("/playlists/public?q=Jazz")
+        assert resp.status_code == 200
+        names = [p["name"] for p in resp.json()["playlists"]]
+        assert any("Jazz" in n for n in names), f"Expected match in {names}"
+
+    def test_search_case_insensitive(self, test_user):
+        """q= search should be case-insensitive."""
+        _, token = test_user
+        client.post(
+            "/playlists/",
+            json={"name": "Chill Vibes Mix", "is_public": True},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        resp = client.get("/playlists/public?q=chill vibes")
+        assert resp.status_code == 200
+        names = [p["name"].lower() for p in resp.json()["playlists"]]
+        assert any("chill" in n for n in names), f"Expected case-insensitive match in {names}"
+
+    def test_search_no_match_returns_empty(self, test_user):
+        """q= with no matching playlists returns empty list with total=0."""
+        _, token = test_user
+        client.post(
+            "/playlists/",
+            json={"name": "SomeNormalPlaylist", "is_public": True},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        resp = client.get("/playlists/public?q=xyzzy_no_match_ever_12345")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["playlists"] == []
+        assert data["total"] == 0
+
+    def test_search_empty_q_returns_all(self, test_user):
+        """q= with empty string behaves like no filter (returns all public playlists)."""
+        _, token = test_user
+        client.post(
+            "/playlists/",
+            json={"name": "Ambient Sounds", "is_public": True},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        resp_all = client.get("/playlists/public")
+        resp_empty_q = client.get("/playlists/public?q=")
+        assert resp_empty_q.status_code == 200
+        assert resp_empty_q.json()["total"] == resp_all.json()["total"]
+
+    def test_search_excludes_private_playlists(self, test_user):
+        """Even if a private playlist matches q=, it must not appear in results."""
+        _, token = test_user
+        create_resp = client.post(
+            "/playlists/",
+            json={"name": "Secret Collection", "is_public": False},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        secret_id = create_resp.json()["id"]
+        resp = client.get("/playlists/public?q=Secret Collection")
+        ids = [p["id"] for p in resp.json()["playlists"]]
+        assert secret_id not in ids, "Private playlists must not appear in search results"
+
+
+
 class TestGetPlaylistDetail:
     """Tests for GET /playlists/{playlist_id}"""
 
