@@ -1636,6 +1636,7 @@ def get_public_playlists(
     db: Session,
     skip: int = 0,
     limit: int = 20,
+    q: Optional[str] = None,
 ) -> Tuple[List[Tuple[models.Playlist, int, List[str], Optional[str], Optional[str]]], int]:
     """
     Get all public playlists with pagination.
@@ -1652,6 +1653,7 @@ def get_public_playlists(
         db: Database session
         skip: Number of records to skip
         limit: Maximum number of records
+        q: Optional search query — filters by playlist name or owner display name (case-insensitive)
 
     Returns:
         Tuple of (list of (Playlist, item_count, preview_thumbnails, owner_name, owner_username)
@@ -1667,6 +1669,14 @@ def get_public_playlists(
         models.Playlist.is_public == True,
         models.User.is_active == True,
     ]
+    if q:
+        pattern = f"%{q.strip()}%"
+        base_filter.append(
+            or_(
+                models.Playlist.name.ilike(pattern),
+                models.User.name.ilike(pattern),
+            )
+        )
     query = (
         db.query(
             models.Playlist,

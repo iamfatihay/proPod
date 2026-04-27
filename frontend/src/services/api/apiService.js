@@ -1292,11 +1292,12 @@ class ApiService {
         return this.request(`/playlists/my${query ? `?${query}` : ""}`);
     }
 
-    /** Fetch all public playlists (no auth required). */
+    /** Fetch all public playlists (no auth required). Supports skip, limit, q (search). */
     async getPublicPlaylists(params = {}) {
         const queryParams = new URLSearchParams();
         if (params.skip !== undefined) queryParams.append("skip", params.skip);
         if (params.limit !== undefined) queryParams.append("limit", params.limit);
+        if (params.q !== undefined && params.q !== "") queryParams.append("q", params.q);
         const query = queryParams.toString();
         return this.request(`/playlists/public${query ? `?${query}` : ""}`);
     }
