@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
     View,
     Text,
@@ -113,6 +113,13 @@ const PublicPlaylists = () => {
     const debounceTimer = useRef(null);
     // Keep a ref so loadMore always reads the committed query without stale closure
     const activeQueryRef = useRef("");
+
+    // Clear pending debounce on unmount to avoid setState on unmounted component
+    useEffect(() => {
+        return () => {
+            if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        };
+    }, []);
 
     // ── Initial / refresh load ─────────────────────────────────────────────
     const loadFirst = useCallback(async ({ silent = false, q = activeQueryRef.current } = {}) => {

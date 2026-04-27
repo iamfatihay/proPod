@@ -1669,8 +1669,9 @@ def get_public_playlists(
         models.Playlist.is_public == True,
         models.User.is_active == True,
     ]
-    if q:
-        pattern = f"%{q.strip()}%"
+    q_normalized = q.strip() if q else ""
+    if q_normalized:
+        pattern = f"%{q_normalized}%"
         base_filter.append(
             or_(
                 models.Playlist.name.ilike(pattern),
