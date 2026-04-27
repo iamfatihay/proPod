@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import json
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
@@ -18,6 +19,7 @@ from app.models import User
 
 
 router = APIRouter(prefix="/rtc", tags=["RTC"])
+MAX_INVITE_CODE_RETRIES = 3
 
 
 def _rtc_log(action: str, **context: Any) -> None:
@@ -132,21 +134,33 @@ async def create_rtc_room(
                 detail="100ms API returned invalid response (missing room ID)",
             )
         
-        session = models.RTCSession(
-            room_id=room_id,
-            room_name=room.get("name") or request.name,
-            owner_id=current_user.id,
-            title=request.title or request.name,
-            description=request.description,
-            category=request.category or "General",
-            is_public=bool(request.is_public) if request.is_public is not None else False,
-            media_mode=request.media_mode or "video",
-            status="created",
-            invite_code=generate_invite_code(),
-        )
-        db.add(session)
-        db.commit()
-        db.refresh(session)
+        session = None
+        for _ in range(MAX_INVITE_CODE_RETRIES):
+            session = models.RTCSession(
+                room_id=room_id,
+                room_name=room.get("name") or request.name,
+                owner_id=current_user.id,
+                title=request.title or request.name,
+                description=request.description,
+                category=request.category or "General",
+                is_public=bool(request.is_public) if request.is_public is not None else False,
+                media_mode=request.media_mode or "video",
+                status="created",
+                invite_code=generate_invite_code(),
+            )
+            db.add(session)
+            try:
+                db.commit()
+                db.refresh(session)
+                break
+            except IntegrityError:
+                db.rollback()
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Could not generate a unique invite code",
+            )
+
         _rtc_log(
             "room.success",
             owner_id=current_user.id,
@@ -491,17 +505,11 @@ def get_rtc_invite_preview(
 
 @router.post("/join-by-invite", response_model=schemas_live_session.JoinSessionTokenResponse)
 async def join_rtc_by_invite(
-    request: schemas_live_session.JoinSessionRequest,
+    request: schemas_live_session.JoinSessionByInviteRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> schemas_live_session.JoinSessionTokenResponse:
     """Generate a guest/viewer token using a shareable invite code."""
-    if not request.invite_code:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="invite_code is required",
-        )
-
     if request.role not in {"guest", "viewer"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

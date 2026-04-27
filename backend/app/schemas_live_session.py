@@ -55,6 +55,21 @@ class JoinSessionRequest(BaseModel):
         return stripped_value
 
 
+class JoinSessionByInviteRequest(BaseModel):
+    """Request to join a session using a shareable invite code."""
+    invite_code: str = Field(..., description="Shareable invite code")
+    display_name: str = Field(..., description="Display name in session")
+    role: str = Field("viewer", description="Requested role: viewer, guest")
+
+    @field_validator("display_name")
+    @classmethod
+    def validate_display_name(cls, value: str) -> str:
+        stripped_value = value.strip()
+        if not stripped_value:
+            raise ValueError("display_name cannot be blank")
+        return stripped_value
+
+
 class ShareLink(BaseModel):
     """Shareable link response."""
     invite_code: str

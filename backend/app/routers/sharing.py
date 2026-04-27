@@ -279,8 +279,6 @@ async def share_live_session_web(
                 margin-bottom: 16px;
             }}
         </style>
-        
-        <!-- TODO: Enable deep link redirect when volo:// scheme handling is implemented -->
     </head>
     <body>
         <div class="container">

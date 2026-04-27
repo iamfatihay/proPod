@@ -47,6 +47,7 @@ export default function Layout() {
      * Supported patterns:
      *   volo://podcast/{id}   →  /(main)/details?id={id}
      *   volo://playlist/{id}  →  /(main)/playlist-detail?id={id}
+    *   volo://live/{code}    →  /live?inviteCode={code}
      */
     const handleDeepLink = useCallback((url) => {
         if (!url) return;

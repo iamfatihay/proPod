@@ -736,7 +736,7 @@ const Create = () => {
                 clearTimeout(timeoutId);
             }
         };
-    }, [recordingMode, rtcSessionState, fetchRtcSessionStatus]);
+    }, [fetchRtcSessionStatus, recordingMode, rtcProcessingNotifId, rtcSessionState, title]);
 
     // Intercept Android back button while recording is processing
     useEffect(() => {
