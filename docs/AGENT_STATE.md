@@ -6,9 +6,9 @@
 
 ## 📍 Current State
 
-**Last updated:** 2026-04-26
-**Last session:** CategoryRow progress-bar spring animation — `Animated.spring` width 0→barWidth%, same pattern as PlaysOverTimeChart (feature/analytics-category-row-animation)
-**Test suite baseline:** ~447 backend tests
+**Last updated:** 2026-04-27
+**Last session:** RTC live flow overhaul — host pre-join lobby, invite/deeplink guest join flow, processing notifications, persisted video podcast metadata/playback, review-comment polish (feature/rtc-live-lobby-video-flow)
+**Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
 
@@ -43,12 +43,14 @@
 - ✅ Public playlist browse screen — `public-playlists.js`, `getPublicPlaylists` apiService, Library "Discover" button, pull-to-refresh, loadMore error+retry footer, 3 apiService tests (PR #89)
 - ✅ APScheduler auto-run + owner name on public playlist cards — `lifespan()` + `BackgroundScheduler` every 30 min, 7 scheduler tests; `owner_name` on `PlaylistResponse`, 45 playlist tests pass (PR #90)
 - ✅ `PlaysOverTimeChart` `Animated.spring` bar wave animation + Rules of Hooks compliance (PR #91)
+- ✅ Creator username on public playlist cards — `owner_username` (email-prefix) in `PlaylistResponse`; tappable `@handle` in `PublicPlaylistCard` → creator-profile; 1 new test, 477 pass (feature/public-playlist-creator-username)
+- ✅ RTC live lobby + video podcast playback — `Podcast.media_type`/`video_url` + Alembic migration, webhook-created video podcasts, host pre-join lobby in `create.js`, invite-code preview/join endpoints, guest deeplink screen `live.js`, `expo-video` playback in details, processing/ready notifications, and review-fix polish; targeted RTC + sharing tests pass, HmsRoom Jest passes (feature/rtc-live-lobby-video-flow)
 
 ---
 
 ## 🔄 What's open
 
-- PR #92 `feature/analytics-category-row-animation` — `Animated.spring` width animation for `CategoryRow` progress bars on Creator Analytics screen; springs from 0%→barWidth% on mount and on window-switch; `node --check` passes.
+- PR #94 `feature/rtc-live-lobby-video-flow` — RTC live flow overhaul with host lobby, invite/deeplink guest join, processing notifications, persisted video podcast metadata, and inline video playback.
 
 ---
 
@@ -56,6 +58,7 @@
 
 - APScheduler in multi-worker deployments (Uvicorn `--workers N`) runs one check per worker — harmless (idempotent) but wasteful. Future: SQLAlchemy jobstore + distributed lock.
 - Frontend ESLint blocked repo-wide (JSX parsing). Use `node --check` + Jest until fixed.
+- `expo-video` flow requires a native rebuild/dev client refresh on devices before manual QA.
 - DM inbox: Python-side aggregation in `crud.get_dm_inbox` — needs SQL GROUP BY at scale
 - DM: text-only, no attachments
 - Sleep timer: `setInterval` — verify accuracy on real device
@@ -72,9 +75,9 @@
 
 ## 🗺️ Next Session Suggestions
 
-1. **[BACKEND+FRONTEND] Creator username on public playlist cards** — `PlaylistResponse` already has `owner_name` (PR #90). Extend with `owner_username: Optional[str] = None`. In `get_public_playlists` CRUD, join `User` (already joined) and include `User.username`. Update `_playlist_to_response` and the public endpoint in `playlists.py`. In `public-playlists.js` `PublicPlaylistCard`, add a `by @username` line beneath the owner name — tappable link to creator profile. Enables discovery of creators from public playlists.
+1. **[QA] Manual RTC end-to-end pass on device** — Verify host lobby → invite share → guest join via `volo://live/{inviteCode}` → host leave → processing notification → video podcast playback after native rebuild and latest migration.
 
-2. **[FRONTEND] Public playlist card → Creator profile navigation** — After #1 lands, wire the `by @username` tap in `PublicPlaylistCard` to navigate to the creator's public profile screen (`/profile/[id]`). Requires passing `owner_id` through `getPublicPlaylists` as well (add to CRUD JOIN and schema).
+2. **[FRONTEND] Public playlist card → Creator profile navigation** — Wire the `by @username` tap in `PublicPlaylistCard` to navigate to the creator's public profile screen (`/profile/[id]`). Requires passing `owner_id` through `getPublicPlaylists` as well (add to CRUD JOIN and schema). *(owner_username + tap navigation already done in PR #93; just needs `owner_id` wired if not already in schema)*
 
 3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace the in-memory scheduler jobstore with an SQLAlchemy-backed one so multi-worker Uvicorn deployments only fire one receipt check at a time. Adds an Alembic migration for the `apscheduler_jobs` table. Depends on PR #90 being merged (✅ done).
 
