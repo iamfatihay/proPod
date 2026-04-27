@@ -91,6 +91,7 @@ export default ({ config }) => ({
         "expo-font",
         "expo-image-picker",
         "expo-asset",
+        "expo-video",
         [
             "@react-native-google-signin/google-signin",
             {

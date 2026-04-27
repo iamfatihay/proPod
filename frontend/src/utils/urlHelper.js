@@ -36,7 +36,9 @@ export const normalizePodcast = (podcast) => {
 
     return {
         ...podcast,
+        media_type: podcast.media_type || "audio",
         audio_url: toAbsoluteUrl(podcast.audio_url),
+        video_url: toAbsoluteUrl(podcast.video_url),
         thumbnail_url: toAbsoluteUrl(podcast.thumbnail_url),
         owner: podcast.owner
             ? {

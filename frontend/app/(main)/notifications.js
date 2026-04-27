@@ -1,5 +1,5 @@
-/**
 import { formatTimeAgo } from "../../src/utils/formatTimeAgo";
+/**
  * Notifications Screen
  * 
  * Displays all in-app notifications with:
@@ -56,6 +56,14 @@ const NOTIFICATION_TYPES = {
     system: {
         icon: "information-circle",
         ...getNotificationColors('system'),
+    },
+    rtc_processing: {
+        icon: "hourglass-outline",
+        ...getNotificationColors('rtc_processing'),
+    },
+    rtc_ready: {
+        icon: "mic-circle",
+        ...getNotificationColors('rtc_ready'),
     },
 };
 

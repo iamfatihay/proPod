@@ -67,6 +67,13 @@ export default function Layout() {
                 router.push({ pathname: '/(main)/playlist-detail', params: { id } });
                 return true;
             }
+
+            if (parsed.hostname === 'live' && id) {
+                deepLinkNavigationInProgressRef.current = true;
+                Logger.info('Deep link: navigating to live invite', id);
+                router.push({ pathname: '/live', params: { inviteCode: id } });
+                return true;
+            }
         } catch (err) {
             Logger.error('Deep link parse error:', err);
         }

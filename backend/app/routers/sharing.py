@@ -290,7 +290,7 @@ async def share_live_session_web(
                 <p>Hosted by {safe_owner_name}</p>
                 <p>{session.participant_count} speakers • {session.viewer_count} viewers</p>
             </div>
-            <a href="#" class="cta" onclick="alert('Live session joining coming soon!'); return false;">
+            <a href="volo://live/{invite_code}" class="cta">
                 🎙️ Join Live Session
             </a>
             <p style="color: #a0aec0; margin-top: 24px;">

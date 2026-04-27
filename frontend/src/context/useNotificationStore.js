@@ -90,6 +90,21 @@ const useNotificationStore = create((set, get) => ({
     },
 
     /**
+     * Update an existing notification in-place (e.g. rtc_processing → rtc_ready)
+     * @param {string} id - Notification ID
+     * @param {Object} updates - Fields to merge into the notification
+     */
+    updateNotification: (id, updates) => {
+        set((state) => ({
+            notifications: state.notifications.map(n =>
+                n.id === id ? { ...n, ...updates } : n
+            ),
+        }));
+
+        get().saveToStorage();
+    },
+
+    /**
      * Remove notification
      * @param {string} id - Notification ID
      */

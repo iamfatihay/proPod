@@ -67,6 +67,8 @@ const HmsRoom = ({
     userName,
     roomName,
     enableVideo,
+    startAudioMuted = false,
+    startVideoMuted = false,
     onJoin,
     onLeave,
     onError: onErrorCallback,
@@ -157,19 +159,33 @@ const HmsRoom = ({
 
         const localAudioTrack = getPeerTrack(localPeer, "localAudioTrack");
         const localVideoTrack = getPeerTrack(localPeer, "localVideoTrack");
-        setIsAudioMuted(localAudioTrack?.isMute?.() ?? false);
-        setIsVideoMuted(localVideoTrack?.isMute?.() ?? false);
+
+        let nextAudioMuted = localAudioTrack?.isMute?.() ?? false;
+        let nextVideoMuted = localVideoTrack?.isMute?.() ?? false;
+
+        if (localAudioTrack && startAudioMuted !== nextAudioMuted) {
+            localAudioTrack.setMute(startAudioMuted);
+            nextAudioMuted = startAudioMuted;
+        }
+
+        if (enableVideo && localVideoTrack && startVideoMuted !== nextVideoMuted) {
+            localVideoTrack.setMute(startVideoMuted);
+            nextVideoMuted = startVideoMuted;
+        }
+
+        setIsAudioMuted(nextAudioMuted);
+        setIsVideoMuted(nextVideoMuted);
         setLoading(false);
 
         Logger.info("[RTC] Join success applied", {
             ...getLogContext(),
             localPeerId: localPeer?.peerID,
-            audioMuted: localAudioTrack?.isMute?.() ?? false,
-            videoMuted: localVideoTrack?.isMute?.() ?? false,
+            audioMuted: nextAudioMuted,
+            videoMuted: nextVideoMuted,
         });
 
         onJoinRef.current && onJoinRef.current();
-    }, [getLogContext]);
+    }, [enableVideo, getLogContext, startAudioMuted, startVideoMuted]);
 
     const handlePeerUpdate = useCallback(({ peer, type }) => {
         if (!peer) {

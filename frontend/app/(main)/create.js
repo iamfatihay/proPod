@@ -9,6 +9,9 @@ import {
     Platform,
     Linking,
     ActivityIndicator,
+    BackHandler,
+    Alert,
+    Share,
 } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,6 +26,7 @@ import PermissionModal from "../../src/components/PermissionModal";
 import ConfirmationModal from "../../src/components/ConfirmationModal";
 import { COLORS } from "../../src/constants/theme";
 import protectionService from "../../src/services/recording/protectionService";
+import useNotificationStore from "../../src/context/useNotificationStore";
 import backgroundService from "../../src/services/recording/backgroundService";
 
 const Create = () => {
@@ -50,6 +54,9 @@ const Create = () => {
     const [rtcError, setRtcError] = useState(null);
     const [userDisplayName, setUserDisplayName] = useState("Host");
     const [rtcStatusMessage, setRtcStatusMessage] = useState(null);
+    const [rtcProcessingNotifId, setRtcProcessingNotifId] = useState(null);
+    const [rtcLobbyAudioMuted, setRtcLobbyAudioMuted] = useState(false);
+    const [rtcLobbyVideoMuted, setRtcLobbyVideoMuted] = useState(false);
 
     // Podcast metadata
     const [title, setTitle] = useState("");
@@ -168,6 +175,9 @@ const Create = () => {
                 setRtcLoading(false);
                 setRtcError(null);
                 setRtcStatusMessage(null);
+                setRtcProcessingNotifId(null);
+                setRtcLobbyAudioMuted(false);
+                setRtcLobbyVideoMuted(false);
             };
             
             checkActiveSession();
@@ -489,6 +499,9 @@ const Create = () => {
         setRtcSessionState("idle");
         setRtcSessionSummary(null);
         setRtcStatusMessage(null);
+        setRtcProcessingNotifId(null);
+        setRtcLobbyAudioMuted(false);
+        setRtcLobbyVideoMuted(false);
 
         router.back();
     };
@@ -547,8 +560,24 @@ const Create = () => {
                 roomName: room.name,
                 token: tokenResponse.token,
                 sessionId: room.session_id,
+                inviteCode: room.invite_code,
+                shareUrl: room.invite_code
+                    ? `${apiService.baseURL.replace(/\/$/, "")}/share/live/${room.invite_code}`
+                    : null,
             });
-            setRtcSessionState("joining");
+            setRtcSessionSummary({
+                id: room.session_id,
+                room_id: room.id,
+                room_name: room.name,
+                title: title.trim(),
+                category,
+                media_mode: rtcMediaMode,
+                status: "created",
+                is_live: false,
+                invite_code: room.invite_code,
+            });
+            setRtcSessionState("lobby");
+            setRtcStatusMessage("Invite guests, then go live when you're ready.");
             setCurrentStep("recording");
             Logger.info("[RTC] UI transitioned to recording step", {
                 roomId: room?.id,
@@ -598,6 +627,43 @@ const Create = () => {
         }
     }, [rtcSession?.sessionId]);
 
+    const handleShareRtcInvite = useCallback(async () => {
+        if (!rtcSession?.shareUrl) {
+            showToast("Invite link is not ready yet", "error");
+            return;
+        }
+
+        try {
+            const shareText = [
+                `Join my live podcast: ${title || "Live Session"}`,
+                description?.trim() || null,
+                rtcSession.shareUrl,
+                rtcSession.inviteCode ? `Invite code: ${rtcSession.inviteCode}` : null,
+            ]
+                .filter(Boolean)
+                .join("\n\n");
+
+            await Share.share({
+                message: shareText,
+                url: rtcSession.shareUrl,
+            });
+        } catch (error) {
+            Logger.error("RTC share failed:", error);
+            showToast("Could not open the share sheet", "error");
+        }
+    }, [description, rtcSession?.inviteCode, rtcSession?.shareUrl, showToast, title]);
+
+    const handleGoLive = useCallback(() => {
+        if (!rtcSession?.token) {
+            showToast("Live session is not ready yet", "error");
+            return;
+        }
+
+        setRtcError(null);
+        setRtcStatusMessage("Joining room...");
+        setRtcSessionState("joining");
+    }, [rtcSession?.token, showToast]);
+
     useEffect(() => {
         if (recordingMode !== "multi") {
             return;
@@ -611,6 +677,22 @@ const Create = () => {
         let attempts = 0;
         let timeoutId;
 
+        const getNextPollDelay = (attemptNumber) => {
+            if (attemptNumber < 6) {
+                return 5000;
+            }
+
+            if (attemptNumber < 18) {
+                return 10000;
+            }
+
+            if (attemptNumber < 34) {
+                return 15000;
+            }
+
+            return null;
+        };
+
         const pollStatus = async () => {
             attempts += 1;
             const session = await fetchRtcSessionStatus();
@@ -622,13 +704,27 @@ const Create = () => {
             if (session?.recording_url || session?.podcast_id) {
                 setRtcSessionState("ready");
                 setRtcStatusMessage("Recording ready");
+                // Upgrade the processing notification to "ready"
+                if (rtcProcessingNotifId) {
+                    useNotificationStore.getState().updateNotification(rtcProcessingNotifId, {
+                        type: "rtc_ready",
+                        title: "Podcast Ready! 🎙️",
+                        message: `"${title || "Your session"}" is ready to listen. Tap to open.`,
+                        action: {
+                            type: "navigate",
+                            screen: "details",
+                            params: { id: session.podcast_id },
+                        },
+                    });
+                }
                 return;
             }
 
-            if (attempts < 40) {
-                timeoutId = setTimeout(pollStatus, 15000);
+            const nextDelay = getNextPollDelay(attempts);
+            if (nextDelay) {
+                timeoutId = setTimeout(pollStatus, nextDelay);
             } else {
-                setRtcStatusMessage("Recording still processing. Please try again later.");
+                setRtcStatusMessage("Recording still processing. Check back in a few minutes.");
             }
         };
 
@@ -641,6 +737,32 @@ const Create = () => {
             }
         };
     }, [recordingMode, rtcSessionState, fetchRtcSessionStatus]);
+
+    // Intercept Android back button while recording is processing
+    useEffect(() => {
+        if (
+            recordingMode !== "multi" ||
+            rtcSessionState !== "ended" ||
+            rtcSessionSummary?.podcast_id
+        ) {
+            return;
+        }
+
+        const backAction = () => {
+            Alert.alert(
+                "Recording is Processing",
+                "Your recording is still being processed. A notification will appear in the Notifications tab when it's ready.\n\nLeave anyway?",
+                [
+                    { text: "Stay", style: "cancel" },
+                    { text: "Leave", style: "destructive", onPress: () => router.back() },
+                ]
+            );
+            return true; // prevent default back action
+        };
+
+        const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
+        return () => backHandler.remove();
+    }, [recordingMode, rtcSessionState, rtcSessionSummary?.podcast_id]);
 
     const renderSetupStep = () => (
         <ScrollView className="flex-1 px-6 pt-6">
@@ -817,8 +939,8 @@ const Create = () => {
                 <Text className="text-white text-center font-semibold text-lg">
                     {recordingMode === "multi"
                         ? rtcLoading
-                            ? "Starting session..."
-                            : "Start Live Session"
+                            ? "Preparing lobby..."
+                            : "Continue to Live Setup"
                         : "Start Recording"}
                 </Text>
             </TouchableOpacity>
@@ -827,6 +949,117 @@ const Create = () => {
 
     const renderRecordingStep = () => {
         if (recordingMode === "multi") {
+            if (rtcSessionState === "lobby") {
+                return (
+                    <ScrollView className="flex-1 px-6 pt-6">
+                        <Text className="text-2xl font-bold text-text-primary text-center mb-3">
+                            Ready Check
+                        </Text>
+                        <Text className="text-text-secondary text-center mb-6 leading-6">
+                            Invite your guests, choose your initial mic and camera state, then go live when everyone is ready.
+                        </Text>
+
+                        <View className="bg-panel rounded-2xl p-4 mb-4 border border-border">
+                            <Text className="text-text-primary font-semibold mb-3">
+                                Session Info
+                            </Text>
+                            <Text className="text-text-secondary mb-1">
+                                Title: {title || "Live Session"}
+                            </Text>
+                            <Text className="text-text-secondary mb-1">
+                                Format: {rtcMediaMode === "video" ? "Video" : "Audio"}
+                            </Text>
+                            <Text className="text-text-secondary mb-1">
+                                Room: {rtcSession?.roomName || "Preparing..."}
+                            </Text>
+                            {rtcSession?.inviteCode && (
+                                <Text className="text-text-secondary">
+                                    Invite code: {rtcSession.inviteCode}
+                                </Text>
+                            )}
+                        </View>
+
+                        <View className="bg-card rounded-2xl p-4 mb-4 border border-border">
+                            <Text className="text-text-primary font-semibold mb-3">
+                                Join Defaults
+                            </Text>
+
+                            <TouchableOpacity
+                                onPress={() => setRtcLobbyAudioMuted((prev) => !prev)}
+                                className="flex-row items-center justify-between py-3 border-b border-border"
+                            >
+                                <View className="flex-row items-center">
+                                    <Ionicons
+                                        name={rtcLobbyAudioMuted ? "mic-off" : "mic"}
+                                        size={20}
+                                        color={rtcLobbyAudioMuted ? COLORS.error : COLORS.text.primary}
+                                    />
+                                    <Text className="text-text-primary ml-3 font-medium">
+                                        Start with microphone {rtcLobbyAudioMuted ? "off" : "on"}
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
+                            </TouchableOpacity>
+
+                            {rtcMediaMode === "video" && (
+                                <TouchableOpacity
+                                    onPress={() => setRtcLobbyVideoMuted((prev) => !prev)}
+                                    className="flex-row items-center justify-between py-3"
+                                >
+                                    <View className="flex-row items-center">
+                                        <Ionicons
+                                            name={rtcLobbyVideoMuted ? "videocam-off" : "videocam"}
+                                            size={20}
+                                            color={rtcLobbyVideoMuted ? COLORS.error : COLORS.text.primary}
+                                        />
+                                        <Text className="text-text-primary ml-3 font-medium">
+                                            Start with camera {rtcLobbyVideoMuted ? "off" : "on"}
+                                        </Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        <View className="bg-success/10 rounded-2xl p-4 mb-6 border border-success/20">
+                            <Text className="text-success font-semibold mb-2">
+                                Invite Guests
+                            </Text>
+                            <Text className="text-text-secondary leading-6">
+                                Share the invite link now. The room is prepared, but your live session will not begin until you tap Go Live.
+                            </Text>
+                        </View>
+
+                        <TouchableOpacity
+                            onPress={handleShareRtcInvite}
+                            className="border border-border py-4 rounded-lg mb-3"
+                        >
+                            <Text className="text-text-primary text-center font-semibold text-base">
+                                Share Invite Link
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={handleGoLive}
+                            className="bg-primary py-4 rounded-lg mb-3"
+                        >
+                            <Text className="text-white text-center font-semibold text-base">
+                                Go Live Now
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={handleDiscard}
+                            className="border border-error py-4 rounded-lg mb-8"
+                        >
+                            <Text className="text-error text-center font-semibold">
+                                Cancel Session
+                            </Text>
+                        </TouchableOpacity>
+                    </ScrollView>
+                );
+            }
+
             return (
                 <View className="flex-1 px-6">
                     <Text className="text-2xl font-bold text-text-primary text-center mt-6 mb-4">
@@ -859,13 +1092,28 @@ const Create = () => {
                             roomName={rtcSession.roomName}
                             userName={userDisplayName}
                             enableVideo={rtcMediaMode === "video"}
-                            onJoin={() => setRtcSessionState("live")}
+                            startAudioMuted={rtcLobbyAudioMuted}
+                            startVideoMuted={rtcLobbyVideoMuted}
+                            onJoin={() => {
+                                setRtcSessionState("live");
+                                setRtcStatusMessage("You're live.");
+                                if (rtcSession?.sessionId) {
+                                    apiService.startRtcSession(rtcSession.sessionId).catch((error) => {
+                                        Logger.error("Failed to mark RTC session live:", error);
+                                    });
+                                }
+                            }}
                             onError={(errorMsg) => {
                                 Logger.error("HMS Room error:", errorMsg);
                                 setRtcError(errorMsg);
                                 showToast(errorMsg, "error");
                             }}
                             onLeave={(summary) => {
+                                if (rtcSession?.sessionId) {
+                                    apiService.endRtcSession(rtcSession.sessionId).catch((error) => {
+                                        Logger.error("Failed to mark RTC session ended:", error);
+                                    });
+                                }
                                 Logger.info("[RTC] HmsRoom onLeave received", {
                                     summary,
                                     sessionId: rtcSession?.sessionId,
@@ -877,6 +1125,15 @@ const Create = () => {
                                     ...summary,
                                 }));
                                 setCurrentStep("review");
+                                // Dispatch a persistent "processing" notification
+                                // so the user can safely navigate away and return
+                                const notif = useNotificationStore.getState().addNotification({
+                                    type: "rtc_processing",
+                                    title: "Recording Processing",
+                                    message: `"${title || "Your session"}" is being processed. We'll notify you when it's ready.`,
+                                    action: { type: "navigate", screen: "library" },
+                                });
+                                setRtcProcessingNotifId(notif.id);
                             }}
                         />
                     ) : (
@@ -936,6 +1193,8 @@ const Create = () => {
                 0;
             const minutes = Math.floor(durationSeconds / 60);
             const seconds = durationSeconds % 60;
+            const isReady = Boolean(rtcSessionSummary?.podcast_id);
+            const isProcessing = !isReady && rtcSessionState === "ended";
 
             return (
                 <ScrollView className="flex-1 px-6 pt-6">
@@ -943,7 +1202,7 @@ const Create = () => {
                         Session Summary
                     </Text>
 
-                    <View className="bg-panel rounded-lg p-4 mb-6">
+                    <View className="bg-panel rounded-lg p-4 mb-4">
                         <Text className="text-text-primary font-semibold mb-2">
                             Live Session Details
                         </Text>
@@ -961,52 +1220,69 @@ const Create = () => {
                         <Text className="text-text-secondary">
                             Participants: {rtcSessionSummary?.participantCount || 1}
                         </Text>
-                        <Text className="text-text-secondary">
-                            Status: {rtcSessionSummary?.status || "processing"}
-                        </Text>
                     </View>
 
-                    {rtcSessionSummary?.recording_url ? (
-                        <View className="bg-panel rounded-lg p-4 mb-6">
-                            <Text className="text-text-primary font-semibold mb-2">
-                                Recording
-                            </Text>
-                            <Text className="text-text-secondary">
-                                {rtcSessionSummary.recording_url}
+                    {isReady ? (
+                        <View
+                            className="rounded-lg p-4 mb-6 flex-row items-center"
+                            style={{ backgroundColor: "rgba(16,185,129,0.15)" }}
+                        >
+                            <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
+                            <Text className="text-success font-semibold ml-3 flex-1">
+                                Podcast is ready!
                             </Text>
                         </View>
                     ) : (
-                        <View className="bg-warning/20 rounded-lg p-4 mb-6">
-                            <Text className="text-warning text-center">
-                                Recording is being processed. Refresh to check status.
+                        <View
+                            className="rounded-lg p-4 mb-6"
+                            style={{ backgroundColor: "rgba(245,158,11,0.15)" }}
+                        >
+                            <View className="flex-row items-center justify-center mb-2">
+                                <ActivityIndicator size="small" color={COLORS.warning} />
+                                <Text className="text-warning font-semibold ml-2">
+                                    Processing recording...
+                                </Text>
+                            </View>
+                            <Text className="text-text-secondary text-center text-sm">
+                                This usually takes 1–3 minutes. You'll get a notification when it's done — you can safely go home and wait.
                             </Text>
                         </View>
                     )}
 
-                    <View className="space-y-4 mb-6">
-                        {rtcSessionSummary?.podcast_id ? (
+                    <View className="space-y-3 mb-6">
+                        {isReady ? (
                             <TouchableOpacity
                                 onPress={() =>
-                                    router.push({
+                                    router.replace({
                                         pathname: "/(main)/details",
                                         params: { id: rtcSessionSummary.podcast_id },
                                     })
                                 }
-                                className="bg-primary py-4 mb-4 rounded-lg"
+                                className="bg-primary py-4 mb-3 rounded-lg"
                             >
-                                <Text className="text-white text-center font-semibold">
+                                <Text className="text-white text-center font-semibold text-base">
                                     Open Podcast
                                 </Text>
                             </TouchableOpacity>
                         ) : (
-                            <TouchableOpacity
-                                onPress={fetchRtcSessionStatus}
-                                className="bg-primary py-4 mb-4 rounded-lg"
-                            >
-                                <Text className="text-white text-center font-semibold">
-                                    Refresh Status
-                                </Text>
-                            </TouchableOpacity>
+                            <>
+                                <TouchableOpacity
+                                    onPress={() => router.replace("/(main)/home")}
+                                    className="bg-primary py-4 mb-3 rounded-lg"
+                                >
+                                    <Text className="text-white text-center font-semibold text-base">
+                                        Go to Home
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={fetchRtcSessionStatus}
+                                    className="border border-border py-3 mb-3 rounded-lg"
+                                >
+                                    <Text className="text-text-secondary text-center text-sm">
+                                        Check Status Manually
+                                    </Text>
+                                </TouchableOpacity>
+                            </>
                         )}
 
                         <TouchableOpacity

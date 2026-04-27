@@ -68,6 +68,8 @@ export const COLORS = {
         like: "#EF4444",
         follow: "#10B981",
         system: "#6B7280",
+        rtc_processing: "#F59E0B",
+        rtc_ready: "#10B981",
     },
 };
 
@@ -131,6 +133,8 @@ export const getNotificationColors = (type) => {
         like: { color: COLORS.notification.like, bgColor: addAlpha(COLORS.notification.like, 0.12) },
         follow: { color: COLORS.notification.follow, bgColor: addAlpha(COLORS.notification.follow, 0.12) },
         system: { color: COLORS.notification.system, bgColor: addAlpha(COLORS.notification.system, 0.12) },
+        rtc_processing: { color: COLORS.notification.rtc_processing, bgColor: addAlpha(COLORS.notification.rtc_processing, 0.12) },
+        rtc_ready: { color: COLORS.notification.rtc_ready, bgColor: addAlpha(COLORS.notification.rtc_ready, 0.12) },
     };
     
     return colorMap[type] || colorMap.system;
