@@ -15,6 +15,7 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import ModernAudioPlayer from "../../src/components/audio/ModernAudioPlayer";
+import PodcastVideoPlayer from "../../src/components/video/PodcastVideoPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
 import useNotificationStore from "../../src/context/useNotificationStore";
 import apiService from "../../src/services/api/apiService";
@@ -91,6 +92,10 @@ const Details = () => {
     const [myPlaylists, setMyPlaylists] = useState([]);
     const [loadingPlaylists, setLoadingPlaylists] = useState(false);
     const [addingToPlaylist, setAddingToPlaylist] = useState(null); // playlistId being added to
+
+    const isVideoPodcast = Boolean(
+        podcast?.media_type === "video" && podcast?.video_url
+    );
 
     // Watch for audio playback errors and show toast
     useEffect(() => {
@@ -425,7 +430,9 @@ const Details = () => {
 
     const handleShare = async () => {
         try {
-            const shareMessage = `Check out this podcast: ${podcast.title}\n\nListen on Volo App!`;
+            const shareMessage = isVideoPodcast
+                ? `Watch this podcast: ${podcast.title}\n\nOpen it in Volo App!`
+                : `Check out this podcast: ${podcast.title}\n\nListen on Volo App!`;
 
             if (Platform.OS === "ios") {
                 await Share.share({
@@ -984,8 +991,13 @@ const Details = () => {
                     </ScrollView>
                 </View>
 
-                {/* Audio Player - Show full player when this track is playing */}
-                {currentTrack?.id === podcast.id && podcast.audio_url ? (
+                {isVideoPodcast ? (
+                    <PodcastVideoPlayer
+                        uri={podcast.video_url}
+                        title={podcast.title}
+                        subtitle={podcast.owner?.name || "Unknown Artist"}
+                    />
+                ) : currentTrack?.id === podcast.id && podcast.audio_url ? (
                     <View className="px-6 mb-6">
                         <ModernAudioPlayer
                             uri={podcast.audio_url}

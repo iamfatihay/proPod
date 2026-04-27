@@ -47,6 +47,7 @@ export default function Layout() {
      * Supported patterns:
      *   volo://podcast/{id}   →  /(main)/details?id={id}
      *   volo://playlist/{id}  →  /(main)/playlist-detail?id={id}
+    *   volo://live/{code}    →  /live?inviteCode={code}
      */
     const handleDeepLink = useCallback((url) => {
         if (!url) return;
@@ -65,6 +66,13 @@ export default function Layout() {
                 deepLinkNavigationInProgressRef.current = true;
                 Logger.info('Deep link: navigating to playlist', id);
                 router.push({ pathname: '/(main)/playlist-detail', params: { id } });
+                return true;
+            }
+
+            if (parsed.hostname === 'live' && id) {
+                deepLinkNavigationInProgressRef.current = true;
+                Logger.info('Deep link: navigating to live invite', id);
+                router.push({ pathname: '/live', params: { inviteCode: id } });
                 return true;
             }
         } catch (err) {

@@ -3,20 +3,23 @@ from typing import Any, Dict, List, Optional, Tuple
 import json
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from app import schemas
+from app import schemas_live_session
 from app.auth import get_current_user
 from app.config import settings
 from app.database import get_db
 from app import models, crud
 from app.services.hms_service import create_room, generate_auth_token
-from app.services.live_session_service import get_active_participants
+from app.services.live_session_service import end_session, generate_invite_code, get_active_participants, start_session
 from app.models import User
 
 
 router = APIRouter(prefix="/rtc", tags=["RTC"])
+MAX_INVITE_CODE_RETRIES = 3
 
 
 def _rtc_log(action: str, **context: Any) -> None:
@@ -131,20 +134,33 @@ async def create_rtc_room(
                 detail="100ms API returned invalid response (missing room ID)",
             )
         
-        session = models.RTCSession(
-            room_id=room_id,
-            room_name=room.get("name") or request.name,
-            owner_id=current_user.id,
-            title=request.title or request.name,
-            description=request.description,
-            category=request.category or "General",
-            is_public=bool(request.is_public) if request.is_public is not None else False,
-            media_mode=request.media_mode or "video",
-            status="created",
-        )
-        db.add(session)
-        db.commit()
-        db.refresh(session)
+        session = None
+        for _ in range(MAX_INVITE_CODE_RETRIES):
+            session = models.RTCSession(
+                room_id=room_id,
+                room_name=room.get("name") or request.name,
+                owner_id=current_user.id,
+                title=request.title or request.name,
+                description=request.description,
+                category=request.category or "General",
+                is_public=bool(request.is_public) if request.is_public is not None else False,
+                media_mode=request.media_mode or "video",
+                status="created",
+                invite_code=generate_invite_code(),
+            )
+            db.add(session)
+            try:
+                db.commit()
+                db.refresh(session)
+                break
+            except IntegrityError:
+                db.rollback()
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Could not generate a unique invite code",
+            )
+
         _rtc_log(
             "room.success",
             owner_id=current_user.id,
@@ -183,6 +199,7 @@ async def create_rtc_room(
         template_id=room.get("template_id"),
         region=room.get("region"),
         session_id=session.id,
+        invite_code=session.invite_code,
     )
 
 
@@ -289,8 +306,10 @@ async def hms_webhook(
             description=session.description,
             category=session.category or "General",
             is_public=session.is_public,
+            media_type="video" if session.media_mode == "video" else "audio",
             duration=duration_seconds,
             audio_url=recording_url,
+            video_url=recording_url if session.media_mode == "video" else None,
         )
 
         podcast = crud.create_podcast(db, podcast_data, session.owner_id)
@@ -370,6 +389,54 @@ def get_rtc_session(
     return session
 
 
+@router.post("/sessions/{session_id}/start", response_model=schemas.RTCSessionResponse)
+def start_rtc_session(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> schemas.RTCSessionResponse:
+    """Mark a created RTC session as live when the host actually joins."""
+    session = (
+        db.query(models.RTCSession)
+        .filter(
+            models.RTCSession.id == session_id,
+            models.RTCSession.owner_id == current_user.id,
+        )
+        .first()
+    )
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="RTC session not found",
+        )
+
+    return start_session(db, session_id)
+
+
+@router.post("/sessions/{session_id}/end", response_model=schemas.RTCSessionResponse)
+def end_rtc_session(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> schemas.RTCSessionResponse:
+    """Mark a live RTC session as ended after the host leaves."""
+    session = (
+        db.query(models.RTCSession)
+        .filter(
+            models.RTCSession.id == session_id,
+            models.RTCSession.owner_id == current_user.id,
+        )
+        .first()
+    )
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="RTC session not found",
+        )
+
+    return end_session(db, session_id)
+
+
 @router.get("/sessions/{session_id}/participants", response_model=List[schemas.RTCParticipantResponse])
 def list_session_participants(
     session_id: int,
@@ -398,6 +465,91 @@ def list_session_participants(
         )
 
     return get_active_participants(db, session_id)
+
+
+@router.get("/invite/{invite_code}", response_model=schemas_live_session.LiveSessionPreview)
+def get_rtc_invite_preview(
+    invite_code: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> schemas_live_session.LiveSessionPreview:
+    """Return a lightweight preview for an invited live session."""
+    session = (
+        db.query(models.RTCSession)
+        .filter(models.RTCSession.invite_code == invite_code)
+        .first()
+    )
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="RTC invite not found",
+        )
+
+    owner = db.query(models.User).filter(models.User.id == session.owner_id).first()
+
+    return schemas_live_session.LiveSessionPreview(
+        session_id=session.id,
+        room_id=session.room_id,
+        title=session.title or session.room_name or "Live Session",
+        description=session.description,
+        owner_name=owner.name if owner else "Unknown host",
+        category=session.category,
+        media_mode=session.media_mode,
+        invite_code=session.invite_code or invite_code,
+        is_live=session.is_live,
+        is_public=session.is_public,
+        participant_count=session.participant_count,
+        viewer_count=session.viewer_count,
+    )
+
+
+@router.post("/join-by-invite", response_model=schemas_live_session.JoinSessionTokenResponse)
+async def join_rtc_by_invite(
+    request: schemas_live_session.JoinSessionByInviteRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> schemas_live_session.JoinSessionTokenResponse:
+    """Generate a guest/viewer token using a shareable invite code."""
+    if request.role not in {"guest", "viewer"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="role must be 'guest' or 'viewer'",
+        )
+
+    session = (
+        db.query(models.RTCSession)
+        .filter(models.RTCSession.invite_code == request.invite_code)
+        .first()
+    )
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="RTC invite not found",
+        )
+
+    if session.status == "completed" or session.recording_url:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="This live session has already ended",
+        )
+
+    token = generate_auth_token(
+        room_id=session.room_id,
+        user_id=str(current_user.id),
+        role=request.role,
+        expires_in_seconds=86400,
+    )
+
+    return schemas_live_session.JoinSessionTokenResponse(
+        token=token,
+        room_id=session.room_id,
+        room_name=session.room_name,
+        session_id=session.id,
+        media_mode=session.media_mode,
+        title=session.title or session.room_name or "Live Session",
+        invite_code=session.invite_code or request.invite_code,
+        role=request.role,
+    )
 
 
 # ==================== Template Management ====================

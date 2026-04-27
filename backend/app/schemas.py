@@ -19,6 +19,12 @@ class UserRoleSchema(str, Enum):
     SUPER_ADMIN = "super_admin"
 
 
+class MediaTypeSchema(str, Enum):
+    """Supported podcast media types."""
+    AUDIO = "audio"
+    VIDEO = "video"
+
+
 # ==================== User Schemas ====================
 
 class UserBase(BaseModel):
@@ -116,8 +122,13 @@ class PodcastBase(BaseModel):
 
 class PodcastCreate(PodcastBase):
     """Schema for creating a new podcast."""
+    media_type: MediaTypeSchema = Field(
+        default=MediaTypeSchema.AUDIO,
+        description="audio or video",
+    )
     duration: int = Field(default=0, ge=0, description="Duration in seconds")
     audio_url: Optional[str] = Field(None, description="URL to the audio file")
+    video_url: Optional[str] = Field(None, description="URL to the video file")
     thumbnail_url: Optional[str] = Field(
         None, description="URL to the thumbnail image")
 
@@ -183,7 +194,9 @@ class AIProcessingResult(BaseModel):
 
 class Podcast(PodcastBase):
     id: int
+    media_type: MediaTypeSchema = MediaTypeSchema.AUDIO
     audio_url: Optional[str] = None
+    video_url: Optional[str] = None
     thumbnail_url: Optional[str] = None
     duration: int
     ai_enhanced: bool
@@ -267,6 +280,7 @@ class RTCRoomCreateResponse(BaseModel):
     template_id: Optional[str] = None
     region: Optional[str] = None
     session_id: Optional[int] = None
+    invite_code: Optional[str] = None
 
 
 class RTCSessionResponse(BaseModel):

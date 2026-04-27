@@ -93,6 +93,9 @@ class ApiService {
         if (podcast.audio_url && !podcast.audio_url.startsWith("http")) {
             podcast.audio_url = `${this.baseURL}${podcast.audio_url}`;
         }
+        if (podcast.video_url && !podcast.video_url.startsWith("http")) {
+            podcast.video_url = `${this.baseURL}${podcast.video_url}`;
+        }
         if (podcast.thumbnail_url && !podcast.thumbnail_url.startsWith("http")) {
             podcast.thumbnail_url = `${this.baseURL}${podcast.thumbnail_url}`;
         }
@@ -617,6 +620,53 @@ class ApiService {
      */
     async getRtcSession(sessionId) {
         return this.request(`/rtc/sessions/${sessionId}`);
+    }
+
+    /**
+     * Mark an RTC session as live
+     *
+     * @param {number} sessionId - RTC session ID
+     * @returns {Promise<Object>} RTC session data
+     */
+    async startRtcSession(sessionId) {
+        return this.request(`/rtc/sessions/${sessionId}/start`, {
+            method: "POST",
+        });
+    }
+
+    /**
+     * Mark an RTC session as ended
+     *
+     * @param {number} sessionId - RTC session ID
+     * @returns {Promise<Object>} RTC session data
+     */
+    async endRtcSession(sessionId) {
+        return this.request(`/rtc/sessions/${sessionId}/end`, {
+            method: "POST",
+        });
+    }
+
+    /**
+     * Get preview data for a live invite code
+     *
+     * @param {string} inviteCode - Shared invite code
+     * @returns {Promise<Object>} Live session preview data
+     */
+    async getRtcInviteSession(inviteCode) {
+        return this.request(`/rtc/invite/${inviteCode}`);
+    }
+
+    /**
+     * Join an RTC session through its invite code
+     *
+     * @param {Object} joinData - Invite join payload
+     * @returns {Promise<Object>} Token plus room metadata
+     */
+    async joinRtcByInvite(joinData) {
+        return this.request("/rtc/join-by-invite", {
+            method: "POST",
+            body: JSON.stringify(joinData),
+        });
     }
 
     /**

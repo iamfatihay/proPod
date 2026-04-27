@@ -55,6 +55,7 @@
     "expo-secure-store": "~14.2.4",
     "expo-system-ui": "~5.0.11",
     "expo-task-manager": "~13.1.6",
+    "expo-video": "~2.2.2",
     "metro": "^0.82.0",
     "metro-config": "^0.82.0",
     "metro-resolver": "^0.82.0",
