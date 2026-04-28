@@ -6,6 +6,7 @@ import {
     FlatList,
     TouchableOpacity,
     ActivityIndicator,
+    RefreshControl,
     TextInput,
     Switch,
 } from "react-native";
@@ -168,6 +169,7 @@ const Playlists = () => {
 
     const [playlists, setPlaylists] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState(null);
 
     // Form modal state
@@ -187,6 +189,12 @@ const Playlists = () => {
             setError(e?.detail || e?.message || "Failed to load playlists");
         }
     }, []);
+
+    const handleRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await loadPlaylists();
+        setRefreshing(false);
+    }, [loadPlaylists]);
 
     useFocusEffect(
         useCallback(() => {
@@ -319,6 +327,13 @@ const Playlists = () => {
                         )}
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={{ paddingBottom: 100 }}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={handleRefresh}
+                                tintColor={COLORS.primary}
+                            />
+                        }
                     />
                 )}
             </View>
