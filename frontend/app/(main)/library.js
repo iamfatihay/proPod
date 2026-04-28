@@ -3,6 +3,7 @@ import {
     Text,
     SafeAreaView,
     FlatList,
+    RefreshControl,
     ActivityIndicator,
     TouchableOpacity,
 } from "react-native";
@@ -103,6 +104,7 @@ const Library = () => {
     const [playlistHasMore, setPlaylistHasMore] = useState(false);
     const [loadingMore,     setLoadingMore]     = useState(false);
     const [loadMoreError,   setLoadMoreError]   = useState(null);
+    const [refreshing,      setRefreshing]      = useState(false);
 
     // Monotonically-increasing ID to guard against stale async responses.
     // Each load() invocation captures the ID at call time; results are only
@@ -188,6 +190,13 @@ const Library = () => {
     const retryLoadMore = useCallback(() => {
         loadMorePlaylists();
     }, [loadMorePlaylists]);
+
+    // ── Pull-to-refresh (all tabs) ─────────────────────────────────────
+    const handleRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await load();
+        setRefreshing(false);
+    }, [load]);
 
     // Reload when tab changes
     useEffect(() => {
@@ -480,6 +489,14 @@ const Library = () => {
                             paddingBottom: 100,
                             flexGrow: 1,
                         }}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={handleRefresh}
+                                tintColor={COLORS.primary}
+                                colors={[COLORS.primary]}
+                            />
+                        }
                         onEndReached={loadMorePlaylists}
                         onEndReachedThreshold={0.4}
                         ListFooterComponent={<PlaylistsFooter />}
@@ -491,6 +508,14 @@ const Library = () => {
                         keyExtractor={(item) => String(item.id)}
                         renderItem={renderPodcast}
                         showsVerticalScrollIndicator={false}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={handleRefresh}
+                                tintColor={COLORS.primary}
+                                colors={[COLORS.primary]}
+                            />
+                        }
                         contentContainerStyle={{ paddingBottom: 100 }}
                     />
                 )}
