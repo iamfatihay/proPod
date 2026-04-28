@@ -1653,7 +1653,7 @@ def get_public_playlists(
         db: Database session
         skip: Number of records to skip
         limit: Maximum number of records
-        q: Optional search query — filters by playlist name or owner display name (case-insensitive)
+        q: Optional search query — filters by playlist name, owner display name, or owner username slug (name lowercased with spaces replaced by underscores). Case-insensitive.
 
     Returns:
         Tuple of (list of (Playlist, item_count, preview_thumbnails, owner_name, owner_username)
@@ -1672,10 +1672,14 @@ def get_public_playlists(
     q_normalized = q.strip() if q else ""
     if q_normalized:
         pattern = f"%{q_normalized}%"
+        # Also match against the owner_username slug (spaces → underscores, lowercased)
+        # so that e.g. searching "john_doe" finds playlists by user "John Doe".
+        owner_username_expr = func.replace(func.lower(models.User.name), " ", "_")
         base_filter.append(
             or_(
                 models.Playlist.name.ilike(pattern),
                 models.User.name.ilike(pattern),
+                owner_username_expr.ilike(pattern),
             )
         )
     query = (
