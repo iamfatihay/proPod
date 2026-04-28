@@ -274,6 +274,38 @@ class TestPublicPlaylistSearch:
         ids = [p["id"] for p in resp.json()["playlists"]]
         assert secret_id not in ids, "Private playlists must not appear in search results"
 
+    def test_search_by_owner_username_slug(self, test_user):
+        """q= matching the owner_username slug (name with spaces→underscores) should return that user's playlists."""
+        user, token = test_user
+        # owner_username for "Test User" is "test_user"
+        client.post(
+            "/playlists/",
+            json={"name": "Slug Search Target", "is_public": True},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        expected_slug = user.name.lower().replace(" ", "_")  # "test_user"
+        resp = client.get(f"/playlists/public?q={expected_slug}")
+        assert resp.status_code == 200
+        owner_usernames = [p["owner_username"] for p in resp.json()["playlists"]]
+        assert any(u == expected_slug for u in owner_usernames), (
+            f"Expected at least one result with owner_username='{expected_slug}', got {owner_usernames}"
+        )
+
+    def test_search_by_partial_username_slug(self, test_user):
+        """q= partial match on username slug should still return results."""
+        user, token = test_user
+        client.post(
+            "/playlists/",
+            json={"name": "Partial Slug Playlist", "is_public": True},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        # "test_us" is a substring of "test_user" — should still match
+        partial = user.name.lower().replace(" ", "_")[:7]  # "test_us"
+        resp = client.get(f"/playlists/public?q={partial}")
+        assert resp.status_code == 200
+        assert resp.json()["total"] > 0, (
+            f"Expected results for partial slug '{partial}' but got total=0"
+        )
 
 
 class TestGetPlaylistDetail:

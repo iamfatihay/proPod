@@ -20,6 +20,30 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # ==================== Helper Functions ====================
 
+# ---------------------------------------------------------------------------
+# Username-slug helpers
+# These two functions MUST stay in sync: the SQL expression is used for
+# server-side filtering; the Python function is used when building response
+# objects.  Both implement the same rule: lowercase + spaces → underscores.
+# ---------------------------------------------------------------------------
+
+def _owner_username_slug(name: str) -> str:
+    """Return the owner-username slug for a display name.
+
+    Rule: lowercase the name and replace every space with an underscore.
+    Example: "John Doe" → "john_doe"
+    """
+    return name.lower().replace(" ", "_")
+
+
+def _owner_username_slug_expr(col):
+    """SQLAlchemy column expression equivalent of ``_owner_username_slug``.
+
+    Use this in query filters so the slugging rule stays in one place.
+    """
+    return func.replace(func.lower(col), " ", "_")
+
+
 def enrich_podcast_with_stats(podcast: models.Podcast) -> models.Podcast:
     """
     Enrich podcast object with stats and AI data for serialization.
@@ -1653,7 +1677,7 @@ def get_public_playlists(
         db: Database session
         skip: Number of records to skip
         limit: Maximum number of records
-        q: Optional search query — filters by playlist name or owner display name (case-insensitive)
+        q: Optional search query — filters by playlist name, owner display name, or owner username slug (name lowercased with spaces replaced by underscores). Case-insensitive.
 
     Returns:
         Tuple of (list of (Playlist, item_count, preview_thumbnails, owner_name, owner_username)
@@ -1676,6 +1700,7 @@ def get_public_playlists(
             or_(
                 models.Playlist.name.ilike(pattern),
                 models.User.name.ilike(pattern),
+                _owner_username_slug_expr(models.User.name).ilike(pattern),
             )
         )
     query = (
@@ -1701,7 +1726,7 @@ def get_public_playlists(
     thumbnails_map = _load_preview_thumbnails(db, playlist_ids)
 
     enriched = [
-        (p, count, thumbnails_map.get(p.id, []), name, name.lower().replace(" ", "_"))
+        (p, count, thumbnails_map.get(p.id, []), name, _owner_username_slug(name))
         for p, count, name in rows
     ]
     return enriched, total
