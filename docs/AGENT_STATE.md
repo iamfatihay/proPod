@@ -7,7 +7,7 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-28
-**Last session:** Library Playlists tab pagination — replaced limit:50 with paged GET /playlists/my (skip/limit/has_more), loadMorePlaylists, PlaylistsFooter with spinner+retry, onEndReached wiring (feature/library-playlists-pagination, PR #96)
+**Last session:** Library pull-to-refresh on all tabs — RefreshControl added to playlists + podcasts FlatLists, handleRefresh callback, refreshing state (feature/library-pull-to-refresh, PR #97)
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -46,12 +46,13 @@
 - ✅ Creator username on public playlist cards — `owner_username` (email-prefix) in `PlaylistResponse`; tappable `@handle` in `PublicPlaylistCard` → creator-profile; 1 new test, 477 pass (PR #93)
 - ✅ RTC live lobby + video podcast playback — `Podcast.media_type`/`video_url` + Alembic migration, webhook-created video podcasts, host pre-join lobby in `create.js`, invite-code preview/join endpoints, guest deeplink screen `live.js`, `expo-video` playback in details, processing/ready notifications, and review-fix polish (PR #94)
 - ✅ Public playlist search/filter — `q=` ILIKE param on `GET /playlists/public`, debounced search bar + clear CTA in Discover screen, contextual empty state, 5 new tests; 44 playlist tests pass (PR #95)
+- ✅ Library Playlists tab infinite scroll — paged GET /playlists/my (skip/limit/has_more), loadMorePlaylists, PlaylistsFooter with spinner+retry, onEndReached wiring (PR #96)
 
 ---
 
 ## 🔄 What's open
 
-- PR #96 `feature/library-playlists-pagination` — Library Playlists tab infinite scroll; 44 backend tests pass, syntax clean.
+- PR #97 `feature/library-pull-to-refresh` — RefreshControl on all Library tabs; syntax clean, no backend changes.
 
 ---
 
@@ -68,16 +69,15 @@
 - Creator sort is Python-side — fine at current scale, needs SQL ORDER BY subquery for large datasets
 - `handlePlayRelated` queue logic in details.js has no Jest unit test coverage
 - Plays-over-time chart reflects last-session-per-user-per-podcast (unique constraint); a per-event play log would enable exact daily counts
-- Library Playlists tab has no pull-to-refresh — focus reload covers it, but an explicit swipe gesture would be more discoverable
 - CategoryRow progress bar has no animation — width springs would match the new bar-chart feel
 
 ---
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FRONTEND] Pull-to-refresh on Library Playlists tab** — The tab refreshes on focus and tab-switch, but has no explicit swipe-to-refresh gesture. Add `refreshing` + `onRefresh` props to the playlists FlatList (reset to page 0, call `load()`). Small change, high discoverability gain.
+1. **[FRONTEND/BACKEND] Public playlist search by username** — Extend the `q=` ILIKE in `crud.get_public_playlists` to also match `owner_username` (email-prefix slug). Backend change in `crud.py` + 1-2 new tests; frontend picks it up automatically since the search bar already passes `q=`.
 
-2. **[FRONTEND/BACKEND] Public playlist search by username** — Extend the `q=` ILIKE in `crud.get_public_playlists` to also match `owner_username` (email-prefix slug). Backend change in `crud.py` + 1-2 new tests; frontend picks it up automatically since the search bar already passes `q=`.
+2. **[FRONTEND] Pull-to-refresh on `playlists.js` (Manage screen)** — The standalone playlist management screen has no swipe-to-refresh; add `RefreshControl` to its FlatList for consistency with the Library tabs now that that pattern is established.
 
 3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace the in-memory scheduler jobstore with an SQLAlchemy-backed one so multi-worker Uvicorn deployments only fire one receipt check at a time. Adds an Alembic migration for the `apscheduler_jobs` table.
 
