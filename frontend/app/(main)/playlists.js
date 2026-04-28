@@ -277,37 +277,6 @@ const Playlists = () => {
                     <View className="flex-1 items-center justify-center">
                         <ActivityIndicator color={COLORS.primary} size="large" />
                     </View>
-                ) : error ? (
-                    <View className="flex-1 items-center justify-center">
-                        <MaterialCommunityIcons name="alert-circle-outline" size={48} color={COLORS.error} />
-                        <Text className="text-error mt-3 text-center">{error}</Text>
-                        <TouchableOpacity
-                            onPress={loadPlaylists}
-                            className="mt-4 bg-panel border border-border px-5 py-2 rounded-xl"
-                        >
-                            <Text className="text-text-primary">Retry</Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : playlists.length === 0 ? (
-                    <View className="flex-1 items-center justify-center">
-                        <MaterialCommunityIcons
-                            name="playlist-music-outline"
-                            size={64}
-                            color={COLORS.text.muted}
-                        />
-                        <Text className="text-text-secondary mt-4 text-base">No playlists yet</Text>
-                        <Text className="text-text-secondary text-sm mt-1 text-center px-8">
-                            Create your first playlist to organise episodes you love.
-                        </Text>
-                        <TouchableOpacity
-                            onPress={openCreate}
-                            className="mt-6 bg-primary px-6 py-3 rounded-xl flex-row items-center"
-                            activeOpacity={0.8}
-                        >
-                            <MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />
-                            <Text className="text-white font-semibold ml-2">Create Playlist</Text>
-                        </TouchableOpacity>
-                    </View>
                 ) : (
                     <FlatList
                         data={playlists}
@@ -326,13 +295,47 @@ const Playlists = () => {
                             />
                         )}
                         showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ paddingBottom: 100 }}
+                        contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
                         refreshControl={
                             <RefreshControl
                                 refreshing={refreshing}
                                 onRefresh={handleRefresh}
                                 tintColor={COLORS.primary}
                             />
+                        }
+                        ListEmptyComponent={
+                            error ? (
+                                <View className="flex-1 items-center justify-center pt-20">
+                                    <MaterialCommunityIcons name="alert-circle-outline" size={48} color={COLORS.error} />
+                                    <Text className="text-error mt-3 text-center">{error}</Text>
+                                    <TouchableOpacity
+                                        onPress={loadPlaylists}
+                                        className="mt-4 bg-panel border border-border px-5 py-2 rounded-xl"
+                                    >
+                                        <Text className="text-text-primary">Retry</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <View className="flex-1 items-center justify-center pt-20">
+                                    <MaterialCommunityIcons
+                                        name="playlist-music-outline"
+                                        size={64}
+                                        color={COLORS.text.muted}
+                                    />
+                                    <Text className="text-text-secondary mt-4 text-base">No playlists yet</Text>
+                                    <Text className="text-text-secondary text-sm mt-1 text-center px-8">
+                                        Create your first playlist to organise episodes you love.
+                                    </Text>
+                                    <TouchableOpacity
+                                        onPress={openCreate}
+                                        className="mt-6 bg-primary px-6 py-3 rounded-xl flex-row items-center"
+                                        activeOpacity={0.8}
+                                    >
+                                        <MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />
+                                        <Text className="text-white font-semibold ml-2">Create Playlist</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )
                         }
                     />
                 )}
