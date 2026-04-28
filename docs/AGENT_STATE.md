@@ -6,8 +6,8 @@
 
 ## 📍 Current State
 
-**Last updated:** 2026-04-27
-**Last session:** Public playlist search — q= backend filter (ILIKE on name + owner), debounced search bar + clear CTA in Discover screen, 5 new tests (feature/public-playlists-search)
+**Last updated:** 2026-04-28
+**Last session:** Library Playlists tab pagination — replaced limit:50 with paged GET /playlists/my (skip/limit/has_more), loadMorePlaylists, PlaylistsFooter with spinner+retry, onEndReached wiring (feature/library-playlists-pagination, PR #96)
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -16,7 +16,7 @@
 
 ---
 
-## ✅ Recently Shipped (PR #66–#90)
+## ✅ Recently Shipped (PR #66–#95)
 
 - ✅ Listening history screen — progress bar, completion badge, pagination (PR #66)
 - ✅ Listening history delete entry — `DELETE /podcasts/{id}/history`, 5 tests (PR #67)
@@ -43,15 +43,15 @@
 - ✅ Public playlist browse screen — `public-playlists.js`, `getPublicPlaylists` apiService, Library "Discover" button, pull-to-refresh, loadMore error+retry footer, 3 apiService tests (PR #89)
 - ✅ APScheduler auto-run + owner name on public playlist cards — `lifespan()` + `BackgroundScheduler` every 30 min, 7 scheduler tests; `owner_name` on `PlaylistResponse`, 45 playlist tests pass (PR #90)
 - ✅ `PlaysOverTimeChart` `Animated.spring` bar wave animation + Rules of Hooks compliance (PR #91)
-- ✅ Creator username on public playlist cards — `owner_username` (email-prefix) in `PlaylistResponse`; tappable `@handle` in `PublicPlaylistCard` → creator-profile; 1 new test, 477 pass (feature/public-playlist-creator-username)
-- ✅ RTC live lobby + video podcast playback — `Podcast.media_type`/`video_url` + Alembic migration, webhook-created video podcasts, host pre-join lobby in `create.js`, invite-code preview/join endpoints, guest deeplink screen `live.js`, `expo-video` playback in details, processing/ready notifications, and review-fix polish; targeted RTC + sharing tests pass, HmsRoom Jest passes (feature/rtc-live-lobby-video-flow)
-- ✅ Public playlist search/filter — `q=` ILIKE param on `GET /playlists/public`, debounced search bar + clear CTA in Discover screen, contextual empty state, 5 new tests; 44 playlist tests pass (PR #94 shipped; PR #95 open: feature/public-playlists-search)
+- ✅ Creator username on public playlist cards — `owner_username` (email-prefix) in `PlaylistResponse`; tappable `@handle` in `PublicPlaylistCard` → creator-profile; 1 new test, 477 pass (PR #93)
+- ✅ RTC live lobby + video podcast playback — `Podcast.media_type`/`video_url` + Alembic migration, webhook-created video podcasts, host pre-join lobby in `create.js`, invite-code preview/join endpoints, guest deeplink screen `live.js`, `expo-video` playback in details, processing/ready notifications, and review-fix polish (PR #94)
+- ✅ Public playlist search/filter — `q=` ILIKE param on `GET /playlists/public`, debounced search bar + clear CTA in Discover screen, contextual empty state, 5 new tests; 44 playlist tests pass (PR #95)
 
 ---
 
 ## 🔄 What's open
 
-- PR #95 `feature/public-playlists-search` — search/filter for public playlist Discover screen; q= ILIKE param on backend, debounced search bar on frontend.
+- PR #96 `feature/library-playlists-pagination` — Library Playlists tab infinite scroll; 44 backend tests pass, syntax clean.
 
 ---
 
@@ -68,16 +68,16 @@
 - Creator sort is Python-side — fine at current scale, needs SQL ORDER BY subquery for large datasets
 - `handlePlayRelated` queue logic in details.js has no Jest unit test coverage
 - Plays-over-time chart reflects last-session-per-user-per-podcast (unique constraint); a per-event play log would enable exact daily counts
-- Library Playlists tab loads up to 50 playlists — no pagination yet
+- Library Playlists tab has no pull-to-refresh — focus reload covers it, but an explicit swipe gesture would be more discoverable
 - CategoryRow progress bar has no animation — width springs would match the new bar-chart feel
 
 ---
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FRONTEND] Library Playlists tab pagination** — The tab currently loads up to 50 playlists with no load-more. Add a `loadMore` / `FlatList` pattern matching `public-playlists.js` and wire `GET /playlists/` `skip`/`limit` params. Tracked in tech debt.
+1. **[FRONTEND] Pull-to-refresh on Library Playlists tab** — The tab refreshes on focus and tab-switch, but has no explicit swipe-to-refresh gesture. Add `refreshing` + `onRefresh` props to the playlists FlatList (reset to page 0, call `load()`). Small change, high discoverability gain.
 
-2. **[FRONTEND/BACKEND] Public playlist search by username** — Extend the `q=` ILIKE to also match `owner_username` (the slug). Requires fetching `User.email` or a stored `username` column in the CRUD query and comparing the email-prefix.
+2. **[FRONTEND/BACKEND] Public playlist search by username** — Extend the `q=` ILIKE in `crud.get_public_playlists` to also match `owner_username` (email-prefix slug). Backend change in `crud.py` + 1-2 new tests; frontend picks it up automatically since the search bar already passes `q=`.
 
 3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace the in-memory scheduler jobstore with an SQLAlchemy-backed one so multi-worker Uvicorn deployments only fire one receipt check at a time. Adds an Alembic migration for the `apscheduler_jobs` table.
 

@@ -24,6 +24,8 @@ const TABS = [
     { key: "playlists", label: "Playlists"   },
 ];
 
+const PLAYLIST_PAGE_SIZE = 20;
+
 // ─── PlaylistRow ──────────────────────────────────────────────────────────────
 // Lightweight row used inside the Library playlists tab.
 // Tap → playlist-detail. "Manage" header → full playlists.js screen.
@@ -95,6 +97,13 @@ const Library = () => {
     const [loading,   setLoading]   = useState(true);
     const [error,     setError]     = useState(null);
 
+    // ── Playlist-specific pagination state ──────────────────────────────────
+    const [playlists,       setPlaylists]       = useState([]);
+    const [playlistOffset,  setPlaylistOffset]  = useState(0);
+    const [playlistHasMore, setPlaylistHasMore] = useState(false);
+    const [loadingMore,     setLoadingMore]     = useState(false);
+    const [loadMoreError,   setLoadMoreError]   = useState(null);
+
     // Monotonically-increasing ID to guard against stale async responses.
     // Each load() invocation captures the ID at call time; results are only
     // applied if the ref still matches when the response arrives.
@@ -106,6 +115,8 @@ const Library = () => {
         // call increments loadIdRef before this one resolves, results are
         // silently discarded (stale-response guard).
         const myId = ++loadIdRef.current;
+        // Reset load-more error on every fresh load
+        setLoadMoreError(null);
         try {
             let res;
             if (tab === "mine") {
@@ -124,10 +135,12 @@ const Library = () => {
                 if (loadIdRef.current !== myId) return;
                 setItems(list.map((p) => ({ ...p, duration: (p.duration || 0) * 1000 })));
             } else {
-                // playlists
-                res = await apiService.getMyPlaylists({ limit: 50 });
+                // playlists — first page; resets pagination state
+                res = await apiService.getMyPlaylists({ skip: 0, limit: PLAYLIST_PAGE_SIZE });
                 if (loadIdRef.current !== myId) return;
-                setItems(res.playlists || []);
+                setPlaylists(res.playlists || []);
+                setPlaylistOffset(PLAYLIST_PAGE_SIZE);
+                setPlaylistHasMore(res.has_more ?? false);
             }
             setError(null);
         } catch (e) {
@@ -135,6 +148,46 @@ const Library = () => {
             setError(e?.detail || e?.message || "Failed to load library");
         }
     }, [tab]);
+
+    // ── Load-more (playlists only) ───────────────────────────────────────────
+    const loadMorePlaylists = useCallback(async () => {
+        // Guard: don't start if already loading or nothing left.
+        // loadMoreError is intentionally NOT checked here — removing it from the
+        // guard fixes the stale-closure bug where retryLoadMore() called this
+        // callback but the memoized closure still saw the old truthy error and
+        // returned early (no-op on first tap).
+        if (loadingMore || !playlistHasMore) return;
+
+        // Stale-response guard: capture the current load generation counter.
+        // If the user switches tabs while this request is in flight, load()
+        // increments loadIdRef.current; we detect that below and discard results.
+        const guardId = loadIdRef.current;
+        setLoadingMore(true);
+        setLoadMoreError(null);
+        try {
+            const res = await apiService.getMyPlaylists({
+                skip: playlistOffset,
+                limit: PLAYLIST_PAGE_SIZE,
+            });
+            if (loadIdRef.current !== guardId) return; // stale — load() reset state
+            const next = res.playlists || [];
+            setPlaylists((prev) => {
+                const ids = new Set(prev.map((p) => p.id));
+                return [...prev, ...next.filter((p) => !ids.has(p.id))];
+            });
+            setPlaylistOffset((o) => o + PLAYLIST_PAGE_SIZE);
+            setPlaylistHasMore(res.has_more ?? false);
+        } catch (e) {
+            if (loadIdRef.current !== guardId) return; // stale — discard error too
+            setLoadMoreError(e?.detail || e?.message || "Failed to load more");
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [loadingMore, playlistHasMore, playlistOffset]);
+
+    const retryLoadMore = useCallback(() => {
+        loadMorePlaylists();
+    }, [loadMorePlaylists]);
 
     // Reload when tab changes
     useEffect(() => {
@@ -242,6 +295,60 @@ const Library = () => {
             </TouchableOpacity>
         </View>
     );
+
+    // Footer shown at the bottom of the playlists FlatList
+    const PlaylistsFooter = () => {
+        if (loadingMore) {
+            return (
+                <ActivityIndicator
+                    color={COLORS.primary}
+                    style={{ marginVertical: 16 }}
+                />
+            );
+        }
+        if (loadMoreError) {
+            return (
+                <View
+                    style={{
+                        alignItems: "center",
+                        paddingVertical: 16,
+                    }}
+                >
+                    <Text
+                        style={{
+                            color: COLORS.text.secondary,
+                            fontSize: 13,
+                            marginBottom: 8,
+                        }}
+                    >
+                        {loadMoreError}
+                    </Text>
+                    <TouchableOpacity
+                        onPress={retryLoadMore}
+                        activeOpacity={0.8}
+                        style={{
+                            paddingHorizontal: 20,
+                            paddingVertical: 8,
+                            borderRadius: 12,
+                            backgroundColor: COLORS.panel,
+                            borderWidth: 1,
+                            borderColor: COLORS.border,
+                        }}
+                    >
+                        <Text
+                            style={{
+                                color: COLORS.text.primary,
+                                fontSize: 13,
+                            }}
+                        >
+                            Retry
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+        return null;
+    };
 
     // ── Layout ──────────────────────────────────────────────────────────────
 
@@ -365,7 +472,7 @@ const Library = () => {
                     </Text>
                 ) : tab === "playlists" ? (
                     <FlatList
-                        data={items}
+                        data={playlists}
                         keyExtractor={(item) => String(item.id)}
                         renderItem={renderPlaylist}
                         showsVerticalScrollIndicator={false}
@@ -373,6 +480,9 @@ const Library = () => {
                             paddingBottom: 100,
                             flexGrow: 1,
                         }}
+                        onEndReached={loadMorePlaylists}
+                        onEndReachedThreshold={0.4}
+                        ListFooterComponent={<PlaylistsFooter />}
                         ListEmptyComponent={<PlaylistsEmpty />}
                     />
                 ) : (
