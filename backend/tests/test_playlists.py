@@ -299,7 +299,7 @@ class TestPublicPlaylistSearch:
             json={"name": "Partial Slug Playlist", "is_public": True},
             headers={"Authorization": f"Bearer {token}"},
         )
-        # "test_use" is a substring of "test_user" — should still match
+        # "test_us" is a substring of "test_user" — should still match
         partial = user.name.lower().replace(" ", "_")[:7]  # "test_us"
         resp = client.get(f"/playlists/public?q={partial}")
         assert resp.status_code == 200
