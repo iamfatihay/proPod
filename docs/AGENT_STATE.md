@@ -7,7 +7,7 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-28
-**Last session:** Library pull-to-refresh on all tabs — RefreshControl added to playlists + podcasts FlatLists, handleRefresh callback, refreshing state (feature/library-pull-to-refresh, PR #97)
+**Last session:** Public playlist search extended to match owner_username slug — `func.replace(func.lower(User.name),' ','_').ilike()` added as third OR branch in `crud.get_public_playlists`; 2 new tests; 46 playlist tests pass (feature/public-playlist-search-by-username, PR #98)
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -16,7 +16,7 @@
 
 ---
 
-## ✅ Recently Shipped (PR #66–#95)
+## ✅ Recently Shipped (PR #66–#97)
 
 - ✅ Listening history screen — progress bar, completion badge, pagination (PR #66)
 - ✅ Listening history delete entry — `DELETE /podcasts/{id}/history`, 5 tests (PR #67)
@@ -47,12 +47,13 @@
 - ✅ RTC live lobby + video podcast playback — `Podcast.media_type`/`video_url` + Alembic migration, webhook-created video podcasts, host pre-join lobby in `create.js`, invite-code preview/join endpoints, guest deeplink screen `live.js`, `expo-video` playback in details, processing/ready notifications, and review-fix polish (PR #94)
 - ✅ Public playlist search/filter — `q=` ILIKE param on `GET /playlists/public`, debounced search bar + clear CTA in Discover screen, contextual empty state, 5 new tests; 44 playlist tests pass (PR #95)
 - ✅ Library Playlists tab infinite scroll — paged GET /playlists/my (skip/limit/has_more), loadMorePlaylists, PlaylistsFooter with spinner+retry, onEndReached wiring (PR #96)
+- ✅ Library pull-to-refresh on all tabs — RefreshControl added to playlists + podcasts FlatLists, handleRefresh callback, refreshing state (PR #97)
 
 ---
 
 ## 🔄 What's open
 
-- PR #97 `feature/library-pull-to-refresh` — RefreshControl on all Library tabs; syntax clean, no backend changes.
+- PR #98 `feature/public-playlist-search-by-username` — Extends `q=` search on `GET /playlists/public` to also match owner_username slug; 2 new tests; 46 playlist tests pass.
 
 ---
 
@@ -75,11 +76,11 @@
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FRONTEND/BACKEND] Public playlist search by username** — Extend the `q=` ILIKE in `crud.get_public_playlists` to also match `owner_username` (email-prefix slug). Backend change in `crud.py` + 1-2 new tests; frontend picks it up automatically since the search bar already passes `q=`.
+1. **[FRONTEND] Pull-to-refresh on `playlists.js` (Manage screen)** — The standalone playlist management screen has no swipe-to-refresh; add `RefreshControl` + `refreshing` state to its FlatList for consistency with the Library tabs (PR #97 pattern). Pure frontend, ~10 lines.
 
-2. **[FRONTEND] Pull-to-refresh on `playlists.js` (Manage screen)** — The standalone playlist management screen has no swipe-to-refresh; add `RefreshControl` to its FlatList for consistency with the Library tabs now that that pattern is established.
+2. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace the in-memory scheduler jobstore with an SQLAlchemy-backed one so multi-worker Uvicorn deployments only fire one receipt check at a time. Adds an Alembic migration for the `apscheduler_jobs` table.
 
-3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace the in-memory scheduler jobstore with an SQLAlchemy-backed one so multi-worker Uvicorn deployments only fire one receipt check at a time. Adds an Alembic migration for the `apscheduler_jobs` table.
+3. **[FRONTEND/BACKEND] Offline download indicator** — Add a download button to EpisodeRow / detail screen, store `file://` URI in AsyncStorage, and fall back to local URI in the audio player. Backend: no changes needed. High user value for commuters.
 
 ---
 
