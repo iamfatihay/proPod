@@ -54,7 +54,7 @@
 
 ## 🔄 What's open
 
-- PR #99 `feature/playlists-manage-pull-to-refresh` — Adds swipe-down RefreshControl to the Playlists manage screen FlatList; consistent with PR #97 Library tabs pattern; +15 lines, syntax-checked.
+- PR #99 `feature/playlists-manage-pull-to-refresh` — Adds swipe-down RefreshControl to Playlists manage screen; review feedback addressed: RefreshControl now active in all states (populated/empty/error) via single FlatList + ListEmptyComponent pattern; syntax-checked.
 
 ---
 
