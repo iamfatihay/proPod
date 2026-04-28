@@ -4,6 +4,7 @@ import {
     Text,
     SafeAreaView,
     FlatList,
+    RefreshControl,
     TouchableOpacity,
     ActivityIndicator,
     Image,
@@ -191,6 +192,7 @@ const PlaylistDetail = () => {
 
     const [playlist, setPlaylist] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState(null);
 
     // Remove confirmation
@@ -210,6 +212,12 @@ const PlaylistDetail = () => {
             setError(e?.detail || e?.message || "Failed to load playlist");
         }
     }, [playlistId]);
+
+    const handleRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await loadPlaylist();
+        setRefreshing(false);
+    }, [loadPlaylist]);
 
     useFocusEffect(
         useCallback(() => {
@@ -385,29 +393,6 @@ const PlaylistDetail = () => {
                     <View className="flex-1 items-center justify-center">
                         <ActivityIndicator color={COLORS.primary} size="large" />
                     </View>
-                ) : error ? (
-                    <View className="flex-1 items-center justify-center">
-                        <MaterialCommunityIcons name="alert-circle-outline" size={48} color={COLORS.error} />
-                        <Text className="text-error mt-3 text-center">{error}</Text>
-                        <TouchableOpacity
-                            onPress={loadPlaylist}
-                            className="mt-4 bg-panel border border-border px-5 py-2 rounded-xl"
-                        >
-                            <Text className="text-text-primary">Retry</Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : items.length === 0 ? (
-                    <View className="flex-1 items-center justify-center">
-                        <MaterialCommunityIcons
-                            name="playlist-remove"
-                            size={64}
-                            color={COLORS.text.muted}
-                        />
-                        <Text className="text-text-secondary mt-4 text-base">No episodes yet</Text>
-                        <Text className="text-text-secondary text-sm mt-1 text-center px-8">
-                            Open any episode and tap "Add to Playlist" to add it here.
-                        </Text>
-                    </View>
                 ) : (
                     <FlatList
                         data={items}
@@ -430,7 +415,40 @@ const PlaylistDetail = () => {
                             />
                         )}
                         showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ paddingBottom: 100 }}
+                        contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={handleRefresh}
+                                tintColor={COLORS.primary}
+                            />
+                        }
+                        ListEmptyComponent={
+                            error ? (
+                                <View className="flex-1 items-center justify-center pt-20">
+                                    <MaterialCommunityIcons name="alert-circle-outline" size={48} color={COLORS.error} />
+                                    <Text className="text-error mt-3 text-center">{error}</Text>
+                                    <TouchableOpacity
+                                        onPress={loadPlaylist}
+                                        className="mt-4 bg-panel border border-border px-5 py-2 rounded-xl"
+                                    >
+                                        <Text className="text-text-primary">Retry</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <View className="flex-1 items-center justify-center pt-20">
+                                    <MaterialCommunityIcons
+                                        name="playlist-remove"
+                                        size={64}
+                                        color={COLORS.text.muted}
+                                    />
+                                    <Text className="text-text-secondary mt-4 text-base">No episodes yet</Text>
+                                    <Text className="text-text-secondary text-sm mt-1 text-center px-8">
+                                        Open any episode and tap "Add to Playlist" to add it here.
+                                    </Text>
+                                </View>
+                            )
+                        }
                     />
                 )}
             </View>

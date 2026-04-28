@@ -7,7 +7,7 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-28
-**Last session:** Pull-to-refresh added to Playlists manage screen — RefreshControl wired to FlatList, consistent with Library tabs (PR #97 pattern); syntax-checked; PR #99 opened (`feature/playlists-manage-pull-to-refresh`)
+**Last session:** Pull-to-refresh added to playlist detail episode list — RefreshControl + ListEmptyComponent pattern (same as PR #97/#99); syntax-checked; PR #100 opened (`feature/playlist-detail-pull-to-refresh`)
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -16,7 +16,7 @@
 
 ---
 
-## ✅ Recently Shipped (PR #66–#98)
+## ✅ Recently Shipped (PR #66–#99)
 
 - ✅ Listening history screen — progress bar, completion badge, pagination (PR #66)
 - ✅ Listening history delete entry — `DELETE /podcasts/{id}/history`, 5 tests (PR #67)
@@ -49,12 +49,13 @@
 - ✅ Library Playlists tab infinite scroll — paged GET /playlists/my (skip/limit/has_more), loadMorePlaylists, PlaylistsFooter with spinner+retry, onEndReached wiring (PR #96)
 - ✅ Library pull-to-refresh on all tabs — RefreshControl added to playlists + podcasts FlatLists, handleRefresh callback, refreshing state (PR #97)
 - ✅ Public playlist search extended to match owner_username slug — `func.replace(func.lower(User.name),' ','_').ilike()` added as third OR branch in `crud.get_public_playlists`; 2 new tests; 46 playlist tests pass (PR #98)
+- ✅ Pull-to-refresh on Playlists manage screen — RefreshControl wired via single FlatList + ListEmptyComponent pattern (PR #99)
 
 ---
 
 ## 🔄 What's open
 
-- PR #99 `feature/playlists-manage-pull-to-refresh` — Adds swipe-down RefreshControl to Playlists manage screen; review feedback addressed: RefreshControl now active in all states (populated/empty/error) via single FlatList + ListEmptyComponent pattern; syntax-checked.
+- PR #100 `feature/playlist-detail-pull-to-refresh` — Adds swipe-down RefreshControl to playlist detail episode list; error/empty states moved to ListEmptyComponent so refresh is available in all states; syntax-checked.
 
 ---
 
@@ -72,15 +73,14 @@
 - `handlePlayRelated` queue logic in details.js has no Jest unit test coverage
 - Plays-over-time chart reflects last-session-per-user-per-podcast (unique constraint); a per-event play log would enable exact daily counts
 - CategoryRow progress bar has no animation — width springs would match the new bar-chart feel
-- `playlist-detail.js` episode list has no pull-to-refresh (consistent gap after PR #99)
 
 ---
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FRONTEND] Pull-to-refresh on `playlist-detail.js` (episode list)** — The playlist detail screen shows episodes but lacks RefreshControl. Follows exact same PR #97/#99 pattern, ~10 lines. Completes the pull-to-refresh consistency story across all list screens.
+1. **[FRONTEND/BACKEND] Offline download indicator** — Download button on EpisodeRow / detail screen, store `file://` URI in AsyncStorage, fall back to local URI in audio player. High user value for commuters. Top item in TODO_IMPROVEMENTS.md High Priority.
 
-2. **[FRONTEND/BACKEND] Offline download indicator** — Download button on EpisodeRow / detail screen, store `file://` URI in AsyncStorage, fall back to local URI in audio player. High user value for commuters. TODO_IMPROVEMENTS.md High Priority.
+2. **[FRONTEND] Deep link handler for `volo://` scheme** — `Linking.addEventListener()` in `_layout.js`, handle `volo://podcast/{id}` and `volo://join/{invite_code}`. Backend sharing endpoints already exist; frontend side is the gap. TODO_IMPROVEMENTS.md High Priority.
 
 3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory scheduler jobstore with SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check. Adds Alembic migration for `apscheduler_jobs` table.
 
