@@ -7,7 +7,7 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-28
-**Last session:** Public playlist search extended to match owner_username slug — `func.replace(func.lower(User.name),' ','_').ilike()` added as third OR branch in `crud.get_public_playlists`; 2 new tests; 46 playlist tests pass (feature/public-playlist-search-by-username, PR #98)
+**Last session:** Pull-to-refresh added to Playlists manage screen — RefreshControl wired to FlatList, consistent with Library tabs (PR #97 pattern); syntax-checked; PR #99 opened (`feature/playlists-manage-pull-to-refresh`)
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -16,7 +16,7 @@
 
 ---
 
-## ✅ Recently Shipped (PR #66–#97)
+## ✅ Recently Shipped (PR #66–#98)
 
 - ✅ Listening history screen — progress bar, completion badge, pagination (PR #66)
 - ✅ Listening history delete entry — `DELETE /podcasts/{id}/history`, 5 tests (PR #67)
@@ -48,12 +48,13 @@
 - ✅ Public playlist search/filter — `q=` ILIKE param on `GET /playlists/public`, debounced search bar + clear CTA in Discover screen, contextual empty state, 5 new tests; 44 playlist tests pass (PR #95)
 - ✅ Library Playlists tab infinite scroll — paged GET /playlists/my (skip/limit/has_more), loadMorePlaylists, PlaylistsFooter with spinner+retry, onEndReached wiring (PR #96)
 - ✅ Library pull-to-refresh on all tabs — RefreshControl added to playlists + podcasts FlatLists, handleRefresh callback, refreshing state (PR #97)
+- ✅ Public playlist search extended to match owner_username slug — `func.replace(func.lower(User.name),' ','_').ilike()` added as third OR branch in `crud.get_public_playlists`; 2 new tests; 46 playlist tests pass (PR #98)
 
 ---
 
 ## 🔄 What's open
 
-- PR #98 `feature/public-playlist-search-by-username` — Extends `q=` search on `GET /playlists/public` to also match owner_username slug; 2 new tests; 46 playlist tests pass.
+- PR #99 `feature/playlists-manage-pull-to-refresh` — Adds swipe-down RefreshControl to Playlists manage screen; review feedback addressed: RefreshControl now active in all states (populated/empty/error) via single FlatList + ListEmptyComponent pattern; syntax-checked.
 
 ---
 
@@ -71,16 +72,17 @@
 - `handlePlayRelated` queue logic in details.js has no Jest unit test coverage
 - Plays-over-time chart reflects last-session-per-user-per-podcast (unique constraint); a per-event play log would enable exact daily counts
 - CategoryRow progress bar has no animation — width springs would match the new bar-chart feel
+- `playlist-detail.js` episode list has no pull-to-refresh (consistent gap after PR #99)
 
 ---
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FRONTEND] Pull-to-refresh on `playlists.js` (Manage screen)** — The standalone playlist management screen has no swipe-to-refresh; add `RefreshControl` + `refreshing` state to its FlatList for consistency with the Library tabs (PR #97 pattern). Pure frontend, ~10 lines.
+1. **[FRONTEND] Pull-to-refresh on `playlist-detail.js` (episode list)** — The playlist detail screen shows episodes but lacks RefreshControl. Follows exact same PR #97/#99 pattern, ~10 lines. Completes the pull-to-refresh consistency story across all list screens.
 
-2. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace the in-memory scheduler jobstore with an SQLAlchemy-backed one so multi-worker Uvicorn deployments only fire one receipt check at a time. Adds an Alembic migration for the `apscheduler_jobs` table.
+2. **[FRONTEND/BACKEND] Offline download indicator** — Download button on EpisodeRow / detail screen, store `file://` URI in AsyncStorage, fall back to local URI in audio player. High user value for commuters. TODO_IMPROVEMENTS.md High Priority.
 
-3. **[FRONTEND/BACKEND] Offline download indicator** — Add a download button to EpisodeRow / detail screen, store `file://` URI in AsyncStorage, and fall back to local URI in the audio player. Backend: no changes needed. High user value for commuters.
+3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory scheduler jobstore with SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check. Adds Alembic migration for `apscheduler_jobs` table.
 
 ---
 
