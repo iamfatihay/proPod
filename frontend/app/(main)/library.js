@@ -151,13 +151,25 @@ const Library = () => {
 
     // ── Load-more (playlists only) ───────────────────────────────────────────
     const loadMorePlaylists = useCallback(async () => {
-        if (loadingMore || !playlistHasMore || loadMoreError) return;
+        // Guard: don't start if already loading or nothing left.
+        // loadMoreError is intentionally NOT checked here — removing it from the
+        // guard fixes the stale-closure bug where retryLoadMore() called this
+        // callback but the memoized closure still saw the old truthy error and
+        // returned early (no-op on first tap).
+        if (loadingMore || !playlistHasMore) return;
+
+        // Stale-response guard: capture the current load generation counter.
+        // If the user switches tabs while this request is in flight, load()
+        // increments loadIdRef.current; we detect that below and discard results.
+        const guardId = loadIdRef.current;
         setLoadingMore(true);
+        setLoadMoreError(null);
         try {
             const res = await apiService.getMyPlaylists({
                 skip: playlistOffset,
                 limit: PLAYLIST_PAGE_SIZE,
             });
+            if (loadIdRef.current !== guardId) return; // stale — load() reset state
             const next = res.playlists || [];
             setPlaylists((prev) => {
                 const ids = new Set(prev.map((p) => p.id));
@@ -166,14 +178,14 @@ const Library = () => {
             setPlaylistOffset((o) => o + PLAYLIST_PAGE_SIZE);
             setPlaylistHasMore(res.has_more ?? false);
         } catch (e) {
+            if (loadIdRef.current !== guardId) return; // stale — discard error too
             setLoadMoreError(e?.detail || e?.message || "Failed to load more");
         } finally {
             setLoadingMore(false);
         }
-    }, [loadingMore, playlistHasMore, loadMoreError, playlistOffset]);
+    }, [loadingMore, playlistHasMore, playlistOffset]);
 
     const retryLoadMore = useCallback(() => {
-        setLoadMoreError(null);
         loadMorePlaylists();
     }, [loadMorePlaylists]);
 

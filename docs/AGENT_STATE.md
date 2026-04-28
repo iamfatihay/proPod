@@ -16,7 +16,7 @@
 
 ---
 
-## ✅ Recently Shipped (PR #66–#96)
+## ✅ Recently Shipped (PR #66–#95)
 
 - ✅ Listening history screen — progress bar, completion badge, pagination (PR #66)
 - ✅ Listening history delete entry — `DELETE /podcasts/{id}/history`, 5 tests (PR #67)
@@ -46,7 +46,6 @@
 - ✅ Creator username on public playlist cards — `owner_username` (email-prefix) in `PlaylistResponse`; tappable `@handle` in `PublicPlaylistCard` → creator-profile; 1 new test, 477 pass (PR #93)
 - ✅ RTC live lobby + video podcast playback — `Podcast.media_type`/`video_url` + Alembic migration, webhook-created video podcasts, host pre-join lobby in `create.js`, invite-code preview/join endpoints, guest deeplink screen `live.js`, `expo-video` playback in details, processing/ready notifications, and review-fix polish (PR #94)
 - ✅ Public playlist search/filter — `q=` ILIKE param on `GET /playlists/public`, debounced search bar + clear CTA in Discover screen, contextual empty state, 5 new tests; 44 playlist tests pass (PR #95)
-- ✅ Library Playlists tab pagination — `PLAYLIST_PAGE_SIZE=20`, dedicated `playlists[]` state, `loadMorePlaylists` callback with dedup guard, `PlaylistsFooter` (spinner + error+Retry), FlatList `onEndReached`/`onEndReachedThreshold=0.4`; 44 playlist tests pass (PR #96)
 
 ---
 
