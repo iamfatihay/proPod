@@ -132,14 +132,21 @@ async function downloadEpisode(podcast, onProgress) {
         const result = await download.downloadAsync();
         if (!result?.uri) throw new Error('Download failed — no URI returned');
 
-        // Persist metadata
-        const store = await readStore();
-        store[String(id)] = {
-            localUri: result.uri,
-            title: title || ('Episode ' + id),
-            downloadedAt: new Date().toISOString(),
-        };
-        await writeStore(store);
+        // Persist metadata — if this fails, roll back the file so we
+        // don't leave an orphaned file that the user can't manage via the app.
+        try {
+            const store = await readStore();
+            store[String(id)] = {
+                localUri: result.uri,
+                title: title || ('Episode ' + id),
+                downloadedAt: new Date().toISOString(),
+            };
+            await writeStore(store);
+        } catch (storeErr) {
+            Logger.error('[downloads] Metadata persist failed, rolling back file:', storeErr);
+            await FileSystem.deleteAsync(result.uri, { idempotent: true }).catch(() => {});
+            throw storeErr;
+        }
 
         Logger.info('[downloads] Saved podcast ' + id + ' -> ' + result.uri);
         if (onProgress) onProgress(1);

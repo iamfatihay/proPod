@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     View,
     Text,
@@ -98,6 +98,8 @@ const Details = () => {
     const [localUri, setLocalUri] = useState(null);       // file:// URI when downloaded
     const [isDownloading, setIsDownloading] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState(0);
+    // Ref to suppress "Download failed" toast when the user intentionally cancels
+    const downloadCancelledRef = useRef(false);
 
     const isVideoPodcast = Boolean(
         podcast?.media_type === "video" && podcast?.video_url
@@ -155,6 +157,13 @@ const Details = () => {
     const loadPodcastDetails = async () => {
         try {
             setIsLoading(true);
+
+            // Reset download state for the incoming episode so we never
+            // briefly show a previous episode's downloaded/progress state.
+            setLocalUri(null);
+            setIsDownloading(false);
+            setDownloadProgress(0);
+            downloadCancelledRef.current = false;
 
             // Load podcast details
             const podcastData = await apiService.getPodcast(params.id);
@@ -447,7 +456,10 @@ const Details = () => {
         if (!podcast?.audio_url) return;
 
         if (isDownloading) {
-            // Cancel in-progress download
+            // Mark as intentional cancel BEFORE awaiting cancelAsync so the
+            // catch block in the download invocation can distinguish a user
+            // cancel from a real error (and suppress the "Download failed" toast).
+            downloadCancelledRef.current = true;
             await downloadService.cancelDownload(podcast.id);
             setIsDownloading(false);
             setDownloadProgress(0);
@@ -469,6 +481,7 @@ const Details = () => {
         }
 
         // Start download
+        downloadCancelledRef.current = false;
         setIsDownloading(true);
         setDownloadProgress(0);
         showToast("Downloading episode…", "info");
@@ -481,8 +494,11 @@ const Details = () => {
             setLocalUri(result.localUri);
             showToast("Episode saved for offline listening", "success");
         } catch (err) {
-            Logger.error("Download failed:", err);
-            showToast("Download failed. Please try again.", "error");
+            // Suppress error toast when the user intentionally cancelled
+            if (!downloadCancelledRef.current) {
+                Logger.error("Download failed:", err);
+                showToast("Download failed. Please try again.", "error");
+            }
         } finally {
             setIsDownloading(false);
             setDownloadProgress(0);
