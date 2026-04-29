@@ -467,10 +467,12 @@ const useAudioStore = create(
         stop: async () => {
             const { sound } = get();
 
-            // Immediate state update
+            // Immediate state update — also clear playlist context so the
+            // Library row indicator doesn't stay highlighted after stop.
             set({
                 isPlaying: false,
                 showMiniPlayer: false,
+                activePlaylistId: null,
             });
 
             // Cleanup sound asynchronously (non-blocking)
