@@ -7,6 +7,7 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     TextInput,
+    Animated,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -14,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import apiService from "../../src/services/api/apiService";
 import PlaylistMosaic from "../../src/components/PlaylistMosaic";
 import { COLORS } from "../../src/constants/theme";
+import useAudioStore from "../../src/context/useAudioStore";
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 350;
@@ -22,11 +24,44 @@ const SEARCH_DEBOUNCE_MS = 350;
 
 const PublicPlaylistCard = ({ playlist, onPress }) => {
     const router = useRouter();
+
+    // Now-playing indicator — mirrors PlaylistCard in playlists.js
+    const { isActive, isPlaying } = useAudioStore((state) => {
+        const active = String(state.activePlaylistId) === String(playlist.id);
+        return { isActive: active, isPlaying: active && state.isPlaying };
+    });
+    const pulseAnim = React.useRef(new Animated.Value(1)).current;
+    const animRef = React.useRef(null);
+    React.useEffect(() => {
+        if (isActive && isPlaying) {
+            animRef.current = Animated.loop(
+                Animated.sequence([
+                    Animated.timing(pulseAnim, {
+                        toValue: 0.3,
+                        duration: 600,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(pulseAnim, {
+                        toValue: 1,
+                        duration: 600,
+                        useNativeDriver: true,
+                    }),
+                ])
+            );
+            animRef.current.start();
+        } else {
+            animRef.current?.stop();
+            pulseAnim.setValue(isActive ? 0.7 : 1);
+        }
+        return () => animRef.current?.stop();
+    }, [isActive, isPlaying, pulseAnim]);
+
     return (
     <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.8}
         className="flex-row items-center bg-panel rounded-2xl px-4 py-4 mb-3 border border-border"
+        style={isActive ? { borderColor: COLORS.primary, borderWidth: 1.5 } : undefined}
     >
         {/* Cover art mosaic */}
         <View className="mr-4">
@@ -39,12 +74,24 @@ const PublicPlaylistCard = ({ playlist, onPress }) => {
 
         {/* Info */}
         <View className="flex-1">
-            <Text
-                className="text-text-primary font-semibold text-base"
-                numberOfLines={1}
-            >
-                {playlist.name}
-            </Text>
+            <View className="flex-row items-center">
+                <Text
+                    className="text-text-primary font-semibold text-base flex-shrink"
+                    numberOfLines={1}
+                    style={isActive ? { color: COLORS.primary } : undefined}
+                >
+                    {playlist.name}
+                </Text>
+                {isActive && (
+                    <Animated.View style={{ opacity: pulseAnim, marginLeft: 6 }}>
+                        <MaterialCommunityIcons
+                            name={isPlaying ? "waveform" : "pause-circle"}
+                            size={16}
+                            color={COLORS.primary}
+                        />
+                    </Animated.View>
+                )}
+            </View>
             {playlist.owner_name ? (
                 <Text
                     className="text-text-secondary text-xs mt-0.5"
