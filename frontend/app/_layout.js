@@ -154,6 +154,19 @@ export default function Layout() {
         }
     }, []);
 
+    // Auth-driven polling effect: start polling when auth completes and a
+    // user is present; stop when the user logs out.
+    // This handles the case where the app starts unauthenticated and the
+    // user logs in without any background/foreground AppState transition,
+    // which would otherwise leave the badge polling loop never started.
+    useEffect(() => {
+        if (!isInitializing && user) {
+            startDMPolling();
+        } else {
+            stopDMPolling();
+        }
+    }, [isInitializing, user, startDMPolling, stopDMPolling]);
+
     useEffect(() => {
         // Load tokens and user data from SecureStore when the app starts
         initAuth();
