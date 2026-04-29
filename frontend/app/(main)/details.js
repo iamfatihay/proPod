@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     View,
     Text,
@@ -30,6 +30,7 @@ import { getQualityMessage } from "../../src/utils/qualityHelpers";
 import { COLORS } from "../../src/constants/theme";
 import hapticFeedback from "../../src/services/haptics/hapticFeedback";
 import GradientCard from "../../src/components/GradientCard";
+import downloadService from "../../src/services/downloads/downloadService";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -93,6 +94,13 @@ const Details = () => {
     const [loadingPlaylists, setLoadingPlaylists] = useState(false);
     const [addingToPlaylist, setAddingToPlaylist] = useState(null); // playlistId being added to
 
+    // Download state
+    const [localUri, setLocalUri] = useState(null);       // file:// URI when downloaded
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [downloadProgress, setDownloadProgress] = useState(0);
+    // Ref to suppress "Download failed" toast when the user intentionally cancels
+    const downloadCancelledRef = useRef(false);
+
     const isVideoPodcast = Boolean(
         podcast?.media_type === "video" && podcast?.video_url
     );
@@ -150,6 +158,13 @@ const Details = () => {
         try {
             setIsLoading(true);
 
+            // Reset download state for the incoming episode so we never
+            // briefly show a previous episode's downloaded/progress state.
+            setLocalUri(null);
+            setIsDownloading(false);
+            setDownloadProgress(0);
+            downloadCancelledRef.current = false;
+
             // Load podcast details
             const podcastData = await apiService.getPodcast(params.id);
             // Normalize URLs (relative to absolute)
@@ -170,6 +185,14 @@ const Details = () => {
             const related = await apiService.getRelatedPodcasts(params.id);
             // Normalize related podcasts URLs
             setRelatedPodcasts(normalizePodcasts(related));
+
+            // Check for offline download
+            try {
+                const uri = await downloadService.getLocalUri(podcastData.id);
+                setLocalUri(uri);
+            } catch (dlErr) {
+                Logger.error("Download state check failed:", dlErr);
+            }
 
             // Load AI data if podcast is AI enhanced
             if (podcastData.ai_enhanced) {
@@ -199,7 +222,7 @@ const Details = () => {
 
         const track = {
             id: podcast.id,
-            uri: podcast.audio_url,
+            uri: localUri || podcast.audio_url,
             title: podcast.title,
             artist: podcast.owner?.name || "Unknown Artist",
             duration: (podcast.duration || 0) * 1000, // Convert to milliseconds
@@ -258,6 +281,7 @@ const Details = () => {
         podcast?.audio_url,
         podcast?.title,
         podcast?.owner?.name,
+        localUri,
         podcast?.duration,
         podcast?.thumbnail_url,
         podcast?.category,
@@ -425,6 +449,59 @@ const Details = () => {
             showToast(e?.detail || e?.message || "Failed to add to playlist", "error");
         } finally {
             setAddingToPlaylist(null);
+        }
+    };
+
+    const handleDownload = async () => {
+        if (!podcast?.audio_url) return;
+
+        if (isDownloading) {
+            // Mark as intentional cancel BEFORE awaiting cancelAsync so the
+            // catch block in the download invocation can distinguish a user
+            // cancel from a real error (and suppress the "Download failed" toast).
+            downloadCancelledRef.current = true;
+            await downloadService.cancelDownload(podcast.id);
+            setIsDownloading(false);
+            setDownloadProgress(0);
+            showToast("Download cancelled", "info");
+            return;
+        }
+
+        if (localUri) {
+            // Already downloaded — confirm deletion
+            try {
+                await downloadService.deleteDownload(podcast.id);
+                setLocalUri(null);
+                showToast("Download removed", "success");
+            } catch (err) {
+                Logger.error("Failed to delete download:", err);
+                showToast("Failed to remove download", "error");
+            }
+            return;
+        }
+
+        // Start download
+        downloadCancelledRef.current = false;
+        setIsDownloading(true);
+        setDownloadProgress(0);
+        showToast("Downloading episode…", "info");
+
+        try {
+            const result = await downloadService.downloadEpisode(
+                podcast,
+                (progress) => setDownloadProgress(progress),
+            );
+            setLocalUri(result.localUri);
+            showToast("Episode saved for offline listening", "success");
+        } catch (err) {
+            // Suppress error toast when the user intentionally cancelled
+            if (!downloadCancelledRef.current) {
+                Logger.error("Download failed:", err);
+                showToast("Download failed. Please try again.", "error");
+            }
+        } finally {
+            setIsDownloading(false);
+            setDownloadProgress(0);
         }
     };
 
@@ -934,6 +1011,41 @@ const Details = () => {
                                 Queue
                             </Text>
                         </TouchableOpacity>
+
+                        {/* Download for offline listening */}
+                        {!isVideoPodcast && podcast?.audio_url && (
+                            <TouchableOpacity
+                                onPress={handleDownload}
+                                className={`flex-row items-center px-4 py-1 rounded-xl ${
+                                    localUri ? "bg-success/20 border border-success/30" : "bg-panel"
+                                }`}
+                                activeOpacity={0.7}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                {isDownloading ? (
+                                    <View style={{ width: 18, height: 18, alignItems: "center", justifyContent: "center" }}>
+                                        <ActivityIndicator size="small" color={COLORS.primary} />
+                                    </View>
+                                ) : (
+                                    <MaterialCommunityIcons
+                                        name={localUri ? "check-circle" : "download-outline"}
+                                        size={18}
+                                        color={localUri ? COLORS.success || "#4CAF50" : COLORS.text.muted}
+                                    />
+                                )}
+                                <Text
+                                    className={`ml-1.5 text-sm font-medium ${
+                                        localUri ? "text-green-400" : "text-text-secondary"
+                                    }`}
+                                >
+                                    {isDownloading
+                                        ? Math.round(downloadProgress * 100) + "%"
+                                        : localUri
+                                        ? "Downloaded"
+                                        : "Download"}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
 
                         {/* Add to Playlist */}
                         <TouchableOpacity
