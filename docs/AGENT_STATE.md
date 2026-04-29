@@ -7,7 +7,7 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-29
-**Last session:** Offline episode download — downloadService.js (expo-file-system + AsyncStorage) + Download chip in detail screen with live % progress, cancel, delete, and offline playback via local URI (PR #101 opened `feature/offline-episode-download`)
+**Last session:** PR #101 review fixes — metadata rollback guard, 13 Jest tests for downloadService, cancel-toast suppression (downloadCancelledRef), stale download state reset on episode switch; all 4 Copilot comments replied to — downloadService.js (expo-file-system + AsyncStorage) + Download chip in detail screen with live % progress, cancel, delete, and offline playback via local URI (PR #101 opened `feature/offline-episode-download`)
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -56,7 +56,7 @@
 
 ## 🔄 What's open
 
-- PR #101 `feature/offline-episode-download` — Offline episode download: `downloadService.js` (expo-file-system DownloadResumable + AsyncStorage persistence), Download chip in detail action row with live % progress label, cancel mid-download, remove download, offline playback via `localUri || audio_url` in `handlePlay`.
+- PR #101 `feature/offline-episode-download` — Offline episode download: `downloadService.js` (expo-file-system DownloadResumable + AsyncStorage persistence), Download chip in detail action row with live % progress label, cancel mid-download, remove download, offline playback via `localUri || audio_url` in `handlePlay`. Review comments addressed: metadata rollback on writeStore failure, 13 Jest tests added, cancel-toast suppression via `downloadCancelledRef`, stale-state reset on episode switch.
 
 ---
 
