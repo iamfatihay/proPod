@@ -7,7 +7,7 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-29
-**Last session:** DM unread badge wired end-to-end — new `GET /messages/unread-count` backend endpoint + `fetchDMUnreadCount` hooked into `_layout.js` cold-start/foreground, `home.js` messages badge fixed; PR #102 review comments addressed (JSDoc update, test mock fix, 401-guard in `_layout.js`, catch-log wording) (branch `feature/dm-unread-badge-wire`)
+**Last session:** DM badge 30s polling interval — `startDMPolling`/`stopDMPolling` helpers in `_layout.js` using useCallback+useRef; poll pauses on background/inactive, resumes on foreground, clears on unmount; 72 backend tests pass (branch `feature/dm-badge-polling-interval`)
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -55,9 +55,13 @@
 
 ---
 
+## ✅ Recently Shipped (continued)
+
+- ✅ DM unread badge wired end-to-end — `GET /messages/unread-count`, `_layout.js` cold-start + foreground hook, `home.js` badge fix (PR #102)
+
 ## 🔄 What's open
 
-- PR #102 `feature/dm-unread-badge-wire` — Wire DM unread badge: `GET /messages/unread-count` endpoint + `_layout.js` lifecycle hook + `home.js` badge fix; review comments addressed (JSDoc, test mocks, 401-guard, log wording); 25 backend tests pass
+- PR #103 `feature/dm-badge-polling-interval` — Poll DM unread count every 30 s in foreground; `startDMPolling`/`stopDMPolling` (useCallback+useRef), pauses on background, resumes on foreground, clears on unmount
 
 ---
 
@@ -75,18 +79,18 @@
 - `handlePlayRelated` queue logic in details.js has no Jest unit test coverage
 - Plays-over-time chart reflects last-session-per-user-per-podcast (unique constraint); a per-event play log would enable exact daily counts
 - CategoryRow progress bar has no animation — width springs would match the new bar-chart feel
-- DM unread badge polling interval not set — badge refreshes on cold start + foreground return only; add 30s interval for long-lived sessions
+- DM unread badge: polling interval added (30s, PR #103); interval duration could be extracted as a named constant if more polling loops are introduced
 - `TODO_IMPROVEMENTS.md` deep-link section is stale — `volo://podcast/{id}`, `volo://live/{code}`, and `volo://playlist/{id}` are already implemented in `_layout.js`
 
 ---
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FRONTEND] DM badge polling interval** — Add a `setInterval` (30 s) in `_layout.js` to call `fetchDMUnreadCount()` while the app is open, so users in long sessions get badge updates without relying solely on foreground/cold-start. Trivial addition; high UX polish.
+1. **[FRONTEND] CategoryRow progress-bar animation** — `Animated.spring` width transition on the listening-progress bars in the Creator Analytics category breakdown row, matching the bar-chart wave feel from PR #91. Pure frontend, no backend required.
 
-2. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory scheduler with SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check. Adds Alembic migration for `apscheduler_jobs` table.
+2. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory `BackgroundScheduler` with a SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check per interval. Adds Alembic migration for `apscheduler_jobs` table.
 
-3. **[FRONTEND] CategoryRow progress-bar animation** — Animated.spring width transition on the listening-progress bars in the analytics category breakdown row, matching the new bar-chart wave feel from PR #91. Pure frontend, no backend required.
+3. **[FRONTEND] Playlist "Now Playing" indicator** — Show a small animated equaliser icon on the active playlist row in Library, mirroring the EpisodeRow indicator pattern already shipped.
 
 ---
 
