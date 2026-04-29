@@ -7,7 +7,7 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-29
-**Last session:** DM badge 30s polling interval — `startDMPolling`/`stopDMPolling` helpers in `_layout.js` using useCallback+useRef; poll pauses on background/inactive, resumes on foreground, clears on unmount; 72 backend tests pass (branch `feature/dm-badge-polling-interval`)
+**Last session:** Playlist Now-Playing indicator — animated waveform icon + primary border on active playlist row in Library; `activePlaylistId` in useAudioStore; 82 backend + 27 frontend tests pass (branch `feature/playlist-now-playing-indicator`)
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -58,10 +58,11 @@
 ## ✅ Recently Shipped (continued)
 
 - ✅ DM unread badge wired end-to-end — `GET /messages/unread-count`, `_layout.js` cold-start + foreground hook, `home.js` badge fix (PR #102)
+- ✅ DM badge 30 s polling interval — `startDMPolling`/`stopDMPolling` helpers in `_layout.js`, pauses on background, clears on unmount (PR #103)
 
 ## 🔄 What's open
 
-- PR #103 `feature/dm-badge-polling-interval` — Poll DM unread count every 30 s in foreground; `startDMPolling`/`stopDMPolling` (useCallback+useRef), pauses on background, resumes on foreground, clears on unmount
+- PR #104 `feature/playlist-now-playing-indicator` — Animated waveform icon + primary-colour border on active playlist row in Library; `activePlaylistId` in useAudioStore; backward-compatible `setQueue` third param
 
 ---
 
@@ -86,11 +87,11 @@
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FRONTEND] CategoryRow progress-bar animation** — `Animated.spring` width transition on the listening-progress bars in the Creator Analytics category breakdown row, matching the bar-chart wave feel from PR #91. Pure frontend, no backend required.
+1. **[FRONTEND] Extend Now-Playing indicator to Discover (Public Playlists)** — `PublicPlaylistCard` in `public-playlists.js` doesn't show the indicator yet. Read `activePlaylistId` from store and apply the same pulsing waveform pattern. Zero backend work needed.
 
 2. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory `BackgroundScheduler` with a SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check per interval. Adds Alembic migration for `apscheduler_jobs` table.
 
-3. **[FRONTEND] Playlist "Now Playing" indicator** — Show a small animated equaliser icon on the active playlist row in Library, mirroring the EpisodeRow indicator pattern already shipped.
+3. **[FRONTEND] CategoryRow progress-bar animation** — `Animated.spring` width transition on the listening-progress bars in the Creator Analytics category breakdown row, matching the bar-chart wave feel from PR #91. Pure frontend, no backend required. (Note: verify not already in master before starting.)
 
 ---
 

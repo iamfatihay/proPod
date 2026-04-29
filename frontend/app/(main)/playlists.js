@@ -9,6 +9,7 @@ import {
     RefreshControl,
     TextInput,
     Switch,
+    Animated,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -20,59 +21,113 @@ import ConfirmationModal from "../../src/components/ConfirmationModal";
 import PlaylistMosaic from "../../src/components/PlaylistMosaic";
 import { useToast } from "../../src/components/Toast";
 import { COLORS } from "../../src/constants/theme";
+import useAudioStore from "../../src/context/useAudioStore";
 
 // ─── Playlist Card ─────────────────────────────────────────────────────────────
 
-const PlaylistCard = ({ playlist, onPress, onEdit, onDelete }) => (
-    <TouchableOpacity
-        onPress={onPress}
-        activeOpacity={0.8}
-        className="flex-row items-center bg-panel rounded-2xl px-4 py-4 mb-3 border border-border"
-    >
-        {/* Cover art mosaic (falls back to icon bubble when no thumbnails) */}
-        <View className="mr-4">
-            <PlaylistMosaic
-                thumbnails={playlist.preview_thumbnails}
-                isPublic={playlist.is_public}
-                size={48}
-            />
-        </View>
+const PlaylistCard = ({ playlist, onPress, onEdit, onDelete }) => {
+    // Single combined selector: inactive cards always receive { isActive:false, isPlaying:false }
+    // so a global play/pause toggle causes zero re-renders on non-active rows.
+    const { isActive, isPlaying } = useAudioStore((state) => {
+        const active = String(state.activePlaylistId) === String(playlist.id);
+        return { isActive: active, isPlaying: active && state.isPlaying };
+    });
 
-        {/* Info */}
-        <View className="flex-1">
-            <Text className="text-text-primary font-semibold text-base" numberOfLines={1}>
-                {playlist.name}
-            </Text>
-            {playlist.description ? (
-                <Text className="text-text-secondary text-xs mt-0.5" numberOfLines={1}>
-                    {playlist.description}
+    // Pulse animation for the waveform icon (mirrors EpisodeRow in playlist-detail)
+    const pulseAnim = React.useRef(new Animated.Value(1)).current;
+    const animRef = React.useRef(null);
+
+    React.useEffect(() => {
+        if (isActive && isPlaying) {
+            animRef.current = Animated.loop(
+                Animated.sequence([
+                    Animated.timing(pulseAnim, {
+                        toValue: 0.3,
+                        duration: 600,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(pulseAnim, {
+                        toValue: 1,
+                        duration: 600,
+                        useNativeDriver: true,
+                    }),
+                ])
+            );
+            animRef.current.start();
+        } else {
+            animRef.current?.stop();
+            pulseAnim.setValue(isActive ? 0.7 : 1);
+        }
+        return () => animRef.current?.stop();
+    }, [isActive, isPlaying, pulseAnim]);
+
+    return (
+        <TouchableOpacity
+            onPress={onPress}
+            activeOpacity={0.8}
+            className="flex-row items-center bg-panel rounded-2xl px-4 py-4 mb-3 border border-border"
+            style={isActive ? { borderColor: COLORS.primary, borderWidth: 1.5 } : undefined}
+        >
+            {/* Cover art mosaic (falls back to icon bubble when no thumbnails) */}
+            <View className="mr-4">
+                <PlaylistMosaic
+                    thumbnails={playlist.preview_thumbnails}
+                    isPublic={playlist.is_public}
+                    size={48}
+                />
+            </View>
+
+            {/* Info */}
+            <View className="flex-1">
+                <View className="flex-row items-center">
+                    <Text
+                        className="text-text-primary font-semibold text-base flex-shrink"
+                        numberOfLines={1}
+                        style={isActive ? { color: COLORS.primary } : undefined}
+                    >
+                        {playlist.name}
+                    </Text>
+                    {isActive && (
+                        <Animated.View style={{ opacity: pulseAnim, marginLeft: 6 }}>
+                            <MaterialCommunityIcons
+                                name={isPlaying ? "waveform" : "pause-circle"}
+                                size={16}
+                                color={COLORS.primary}
+                            />
+                        </Animated.View>
+                    )}
+                </View>
+                {playlist.description ? (
+                    <Text className="text-text-secondary text-xs mt-0.5" numberOfLines={1}>
+                        {playlist.description}
+                    </Text>
+                ) : null}
+                <Text className="text-text-secondary text-xs mt-1">
+                    {playlist.item_count ?? 0} episode{playlist.item_count !== 1 ? "s" : ""} ·{" "}
+                    {playlist.is_public ? "Public" : "Private"}
                 </Text>
-            ) : null}
-            <Text className="text-text-secondary text-xs mt-1">
-                {playlist.item_count ?? 0} episode{playlist.item_count !== 1 ? "s" : ""} ·{" "}
-                {playlist.is_public ? "Public" : "Private"}
-            </Text>
-        </View>
+            </View>
 
-        {/* Actions */}
-        <View className="flex-row items-center ml-2">
-            <TouchableOpacity
-                onPress={(e) => { e.stopPropagation(); onEdit(); }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                className="p-1 mr-2"
-            >
-                <MaterialCommunityIcons name="pencil-outline" size={18} color={COLORS.text.secondary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-                onPress={(e) => { e.stopPropagation(); onDelete(); }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                className="p-1"
-            >
-                <MaterialCommunityIcons name="delete-outline" size={18} color={COLORS.error} />
-            </TouchableOpacity>
-        </View>
-    </TouchableOpacity>
-);
+            {/* Actions */}
+            <View className="flex-row items-center ml-2">
+                <TouchableOpacity
+                    onPress={(e) => { e.stopPropagation(); onEdit(); }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    className="p-1 mr-2"
+                >
+                    <MaterialCommunityIcons name="pencil-outline" size={18} color={COLORS.text.secondary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={(e) => { e.stopPropagation(); onDelete(); }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    className="p-1"
+                >
+                    <MaterialCommunityIcons name="delete-outline" size={18} color={COLORS.error} />
+                </TouchableOpacity>
+            </View>
+        </TouchableOpacity>
+    );
+};
 
 // ─── Playlist Form Modal ────────────────────────────────────────────────────────
 
