@@ -34,6 +34,7 @@ const useAudioStore = create(
         currentIndex: 0,
         shuffleMode: false,
         repeatMode: "none", // 'none', 'one', 'all'
+        activePlaylistId: null, // ID of the playlist currently loaded into queue
 
         // UI State
         showMiniPlayer: false,
@@ -62,11 +63,12 @@ const useAudioStore = create(
             set(state);
         },
 
-        setQueue: (tracks, startIndex = 0) => {
+        setQueue: (tracks, startIndex = 0, sourcePlaylistId = null) => {
             set({
                 queue: tracks,
                 currentIndex: startIndex,
                 currentTrack: tracks[startIndex] || null,
+                activePlaylistId: sourcePlaylistId,
             });
         },
 
@@ -1074,6 +1076,7 @@ const useAudioStore = create(
                 sleepTimerRemaining: 0,
                 _sleepTimerIntervalId: null,
                 sleepOnEpisodeEnd: false,
+                activePlaylistId: null,
             });
         },
     }))

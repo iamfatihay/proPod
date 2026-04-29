@@ -274,9 +274,9 @@ const PlaylistDetail = () => {
         // from currentTrack.id at call time) and unloads the old sound before
         // creating a new player. setQueue() runs after to register queue context.
         play(tracks[0]);
-        setQueue(tracks, 0);
+        setQueue(tracks, 0, playlistId);
         showToast(`Playing ${tracks.length} episode${tracks.length !== 1 ? "s" : ""}`, "success");
-    }, [buildTracks, setQueue, play, showToast]);
+    }, [buildTracks, setQueue, play, showToast, playlistId]);
 
     // Shuffle episodes using Fisher-Yates and start from the first shuffled track
     const handleShuffle = useCallback(() => {
@@ -293,9 +293,9 @@ const PlaylistDetail = () => {
         // Same ordering rationale as handlePlayAll: play() before setQueue() so the
         // audio store sees a track change and properly unloads any previously-loaded sound.
         play(shuffled[0]);
-        setQueue(shuffled, 0);
+        setQueue(shuffled, 0, playlistId);
         showToast(`Shuffling ${shuffled.length} episode${shuffled.length !== 1 ? "s" : ""}`, "success");
-    }, [buildTracks, setQueue, play, showToast]);
+    }, [buildTracks, setQueue, play, showToast, playlistId]);
 
     // Share the playlist as a text list of episode titles + deep link
     const handleShare = useCallback(async () => {
