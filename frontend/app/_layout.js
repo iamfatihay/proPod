@@ -137,8 +137,11 @@ export default function Layout() {
         // reads as false before AsyncStorage resolves).
         useAudioStore.getState().loadSleepSettings();
         void hapticFeedback.loadPreference();
-        // Fetch DM unread count on cold start so the badge is populated immediately
-        useDMStore.getState().fetchDMUnreadCount();
+        // Fetch DM unread count on cold start (only when user is already authenticated)
+        const _authState = useAuthStore.getState();
+        if (!_authState.isInitializing && _authState.user) {
+            useDMStore.getState().fetchDMUnreadCount();
+        }
 
         // Register session expired handler - will automatically redirect to login
         apiService.setSessionExpiredHandler(() => {
@@ -154,8 +157,11 @@ export default function Layout() {
             if (nextAppState === 'active') {
                 // App came to foreground - check for drafts again
                 checkForDrafts();
-                // Refresh DM unread badge when user returns to the app
-                useDMStore.getState().fetchDMUnreadCount();
+                // Refresh DM unread badge when user returns to the app (auth required)
+                const _as = useAuthStore.getState();
+                if (!_as.isInitializing && _as.user) {
+                    useDMStore.getState().fetchDMUnreadCount();
+                }
             }
         });
 

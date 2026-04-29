@@ -17,17 +17,20 @@ const useDMStore = create((set) => ({
     unreadDMCount: 0,
 
     /**
-     * Fetch the DM inbox and sum unread_count across all threads.
+     * Fetch the total unread DM count from the lightweight
+     * GET /messages/unread-count endpoint (single indexed COUNT query).
      * Call this on app mount and when the app returns to the foreground.
-     * Fails silently on network error so the badge degrades gracefully.
+     * Fails silently on any error so the badge degrades gracefully.
      */
     fetchDMUnreadCount: async () => {
         try {
             const data = await apiService.getTotalDMUnreadCount();
             set({ unreadDMCount: data?.total_unread ?? 0 });
         } catch (err) {
-            // Network errors are expected offline — degrade silently
-            Logger.warn('fetchDMUnreadCount: could not reach server', err?.message);
+            // 401 (logged out), network errors, etc. — degrade silently; badge stays at last known value
+            if (err?.status !== 401) {
+                Logger.warn('fetchDMUnreadCount failed', err?.message);
+            }
         }
     },
 

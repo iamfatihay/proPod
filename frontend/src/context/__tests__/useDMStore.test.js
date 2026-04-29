@@ -6,23 +6,22 @@
  * useViewModeStore.test.js and keeps the suite fast.
  *
  * Covers:
- *   - fetchDMUnreadCount — sums unread_count across threads
- *   - fetchDMUnreadCount — handles empty/missing threads
- *   - fetchDMUnreadCount — handles missing unread_count on a thread
- *   - fetchDMUnreadCount — fails silently on API error (badge stays at last value)
+ *   - fetchDMUnreadCount — reads total_unread from GET /messages/unread-count
+ *   - fetchDMUnreadCount — handles zero / missing field in response
+ *   - fetchDMUnreadCount — fails silently on network error (badge unchanged)
+ *   - fetchDMUnreadCount — fails silently on 401 (no log noise)
  *   - resetDMUnread     — sets unreadDMCount to 0
  */
 
-import { renderHook, act } from "@testing-library/react-native";
 import useDMStore from "../useDMStore";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 jest.mock("../../services/api/apiService", () => ({
-    getDMInbox: jest.fn(),
+    getTotalDMUnreadCount: jest.fn(),
 }));
 
-// Logger.warn calls are intentional silent-fail paths — suppress test output
+// Logger calls are intentional silent-fail paths — suppress test output
 jest.mock("../../utils/logger", () => ({
     warn: jest.fn(),
     log: jest.fn(),
@@ -30,23 +29,12 @@ jest.mock("../../utils/logger", () => ({
 }));
 
 import apiService from "../../services/api/apiService";
+import Logger from "../../utils/logger";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Reset store to initial state before each test */
 function resetStore() {
     useDMStore.setState({ unreadDMCount: 0 });
-}
-
-function makeThread(overrides = {}) {
-    return {
-        partner_id: 1,
-        partner_name: "Alice",
-        last_message_body: "Hey!",
-        last_message_at: new Date().toISOString(),
-        unread_count: 0,
-        ...overrides,
-    };
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -65,73 +53,63 @@ describe("useDMStore", () => {
 
     // ── fetchDMUnreadCount ─────────────────────────────────────────────────
 
-    it("sums unread_count across multiple threads", async () => {
-        apiService.getDMInbox.mockResolvedValue({
-            threads: [
-                makeThread({ partner_id: 1, unread_count: 3 }),
-                makeThread({ partner_id: 2, unread_count: 1 }),
-                makeThread({ partner_id: 3, unread_count: 0 }),
-            ],
-        });
+    it("sets unreadDMCount to total_unread from the endpoint", async () => {
+        apiService.getTotalDMUnreadCount.mockResolvedValue({ total_unread: 4 });
 
         await useDMStore.getState().fetchDMUnreadCount();
 
         expect(useDMStore.getState().unreadDMCount).toBe(4);
     });
 
-    it("sets unreadDMCount to 0 when all threads are read", async () => {
-        apiService.getDMInbox.mockResolvedValue({
-            threads: [
-                makeThread({ unread_count: 0 }),
-                makeThread({ partner_id: 2, unread_count: 0 }),
-            ],
-        });
+    it("sets unreadDMCount to 0 when total_unread is 0", async () => {
+        apiService.getTotalDMUnreadCount.mockResolvedValue({ total_unread: 0 });
 
         await useDMStore.getState().fetchDMUnreadCount();
 
         expect(useDMStore.getState().unreadDMCount).toBe(0);
     });
 
-    it("handles empty threads array", async () => {
-        apiService.getDMInbox.mockResolvedValue({ threads: [] });
+    it("handles missing total_unread field (defaults to 0)", async () => {
+        apiService.getTotalDMUnreadCount.mockResolvedValue({});
 
         await useDMStore.getState().fetchDMUnreadCount();
 
         expect(useDMStore.getState().unreadDMCount).toBe(0);
     });
 
-    it("handles missing threads key in response", async () => {
-        // API returns data without 'threads' — should default to []
-        apiService.getDMInbox.mockResolvedValue({});
+    it("handles null response (defaults to 0)", async () => {
+        apiService.getTotalDMUnreadCount.mockResolvedValue(null);
 
         await useDMStore.getState().fetchDMUnreadCount();
 
         expect(useDMStore.getState().unreadDMCount).toBe(0);
     });
 
-    it("handles threads with missing unread_count field", async () => {
-        // unread_count may be undefined if API changes — should treat as 0
-        apiService.getDMInbox.mockResolvedValue({
-            threads: [
-                { partner_id: 1, partner_name: "Bob" },          // no unread_count
-                makeThread({ partner_id: 2, unread_count: 2 }),
-            ],
-        });
-
-        await useDMStore.getState().fetchDMUnreadCount();
-
-        expect(useDMStore.getState().unreadDMCount).toBe(2);
-    });
-
-    it("leaves unreadDMCount unchanged on API error (silent fail)", async () => {
-        // Pre-seed a non-zero count so we can verify it stays put
+    it("leaves unreadDMCount unchanged on network error (silent fail)", async () => {
         useDMStore.setState({ unreadDMCount: 5 });
-        apiService.getDMInbox.mockRejectedValue(new Error("Network error"));
+        const err = new Error("Network error");
+        apiService.getTotalDMUnreadCount.mockRejectedValue(err);
 
         await useDMStore.getState().fetchDMUnreadCount();
 
-        // Should NOT reset the badge on error — keeps last known value
+        // Badge must NOT be reset on error — keeps last known value
         expect(useDMStore.getState().unreadDMCount).toBe(5);
+        expect(Logger.warn).toHaveBeenCalledWith(
+            "fetchDMUnreadCount failed",
+            err.message,
+        );
+    });
+
+    it("leaves unreadDMCount unchanged on 401 and does NOT log a warning", async () => {
+        useDMStore.setState({ unreadDMCount: 3 });
+        const err = Object.assign(new Error("Unauthorized"), { status: 401 });
+        apiService.getTotalDMUnreadCount.mockRejectedValue(err);
+
+        await useDMStore.getState().fetchDMUnreadCount();
+
+        expect(useDMStore.getState().unreadDMCount).toBe(3);
+        // 401 is a normal logged-out state — must not log noise
+        expect(Logger.warn).not.toHaveBeenCalled();
     });
 
     // ── resetDMUnread ──────────────────────────────────────────────────────
@@ -152,13 +130,8 @@ describe("useDMStore", () => {
 
     // ── Full round-trip ────────────────────────────────────────────────────
 
-    it("fetch then reset reflects correct badge lifecycle", async () => {
-        apiService.getDMInbox.mockResolvedValue({
-            threads: [
-                makeThread({ unread_count: 2 }),
-                makeThread({ partner_id: 2, unread_count: 1 }),
-            ],
-        });
+    it("fetch → reset → re-fetch reflects correct badge lifecycle", async () => {
+        apiService.getTotalDMUnreadCount.mockResolvedValue({ total_unread: 3 });
 
         // 1. Fetch populates the badge
         await useDMStore.getState().fetchDMUnreadCount();
@@ -169,7 +142,7 @@ describe("useDMStore", () => {
         expect(useDMStore.getState().unreadDMCount).toBe(0);
 
         // 3. Next foreground refresh with no new DMs
-        apiService.getDMInbox.mockResolvedValue({ threads: [] });
+        apiService.getTotalDMUnreadCount.mockResolvedValue({ total_unread: 0 });
         await useDMStore.getState().fetchDMUnreadCount();
         expect(useDMStore.getState().unreadDMCount).toBe(0);
     });
