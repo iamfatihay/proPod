@@ -41,6 +41,9 @@ export default function Layout() {
     // Ref to hold a deep link URL that arrived before auth was ready (cold start)
     const pendingDeepLinkRef = useRef(null);
     const deepLinkNavigationInProgressRef = useRef(false);
+    // Ref for the DM unread-badge poll interval so we can clear it on unmount
+    // or when the app moves to the background.
+    const dmPollRef = useRef(null);
 
     /**
      * Parse a deep link URL and navigate to the appropriate screen.
@@ -128,6 +131,42 @@ export default function Layout() {
         }
     }, [segments]);
 
+    /**
+     * Start a 30-second polling interval that refreshes the DM unread badge
+     * while the app is in the foreground.  Safe to call multiple times — the
+     * guard at the top prevents duplicate intervals.
+     */
+    const startDMPolling = useCallback(() => {
+        if (dmPollRef.current) return; // already running
+        dmPollRef.current = setInterval(() => {
+            const _as = useAuthStore.getState();
+            if (!_as.isInitializing && _as.user) {
+                useDMStore.getState().fetchDMUnreadCount();
+            }
+        }, 30_000);
+    }, []);
+
+    /** Stop the DM badge polling interval (background / unmount). */
+    const stopDMPolling = useCallback(() => {
+        if (dmPollRef.current) {
+            clearInterval(dmPollRef.current);
+            dmPollRef.current = null;
+        }
+    }, []);
+
+    // Auth-driven polling effect: start polling when auth completes and a
+    // user is present; stop when the user logs out.
+    // This handles the case where the app starts unauthenticated and the
+    // user logs in without any background/foreground AppState transition,
+    // which would otherwise leave the badge polling loop never started.
+    useEffect(() => {
+        if (!isInitializing && user) {
+            startDMPolling();
+        } else {
+            stopDMPolling();
+        }
+    }, [isInitializing, user, startDMPolling, stopDMPolling]);
+
     useEffect(() => {
         // Load tokens and user data from SecureStore when the app starts
         initAuth();
@@ -138,9 +177,11 @@ export default function Layout() {
         useAudioStore.getState().loadSleepSettings();
         void hapticFeedback.loadPreference();
         // Fetch DM unread count on cold start (only when user is already authenticated)
+        // and kick off the 30 s background polling loop.
         const _authState = useAuthStore.getState();
         if (!_authState.isInitializing && _authState.user) {
             useDMStore.getState().fetchDMUnreadCount();
+            startDMPolling();
         }
 
         // Register session expired handler - will automatically redirect to login
@@ -157,11 +198,15 @@ export default function Layout() {
             if (nextAppState === 'active') {
                 // App came to foreground - check for drafts again
                 checkForDrafts();
-                // Refresh DM unread badge when user returns to the app (auth required)
+                // Refresh DM unread badge immediately and restart the 30 s poll loop.
                 const _as = useAuthStore.getState();
                 if (!_as.isInitializing && _as.user) {
                     useDMStore.getState().fetchDMUnreadCount();
+                    startDMPolling();
                 }
+            } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+                // Pause polling while the app is not visible — saves battery/data.
+                stopDMPolling();
             }
         });
 
@@ -208,11 +253,12 @@ export default function Layout() {
         return () => {
             apiService.setSessionExpiredHandler(null);
             appStateSubscription.remove();
+            stopDMPolling();
             if (notificationSubscription) {
                 notificationSubscription.remove();
             }
         };
-    }, []);
+    }, [startDMPolling, stopDMPolling]); // eslint-disable-line react-hooks/exhaustive-deps -- stable callbacks
 
     const checkForDrafts = async () => {
         // Skip if modal is already showing to prevent unnecessary state updates
