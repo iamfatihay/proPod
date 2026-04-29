@@ -20,6 +20,7 @@ import useAuthStore from "../../src/context/useAuthStore";
 import useAudioStore from "../../src/context/useAudioStore";
 import useViewModeStore from "../../src/context/useViewModeStore";
 import useNotificationStore from "../../src/context/useNotificationStore";
+import useDMStore from "../../src/context/useDMStore";
 import PodcastCard from "../../src/components/PodcastCard";
 import GradientCard from "../../src/components/GradientCard";
 import ModeToggle from "../../src/components/ModeToggle";
@@ -89,6 +90,7 @@ export default function HomeScreen() {
 
     // Notification store
     const unreadCount = useNotificationStore((state) => state.unreadCount);
+    const unreadDMCount = useDMStore((state) => state.unreadDMCount);
     const isLoaded = useNotificationStore((state) => state.isLoaded);
     const loadFromStorage = useNotificationStore((state) => state.loadFromStorage); // Stable action
 
@@ -622,7 +624,7 @@ export default function HomeScreen() {
                         <QuickActionsBar
                             onActionPress={handleQuickAction}
                             notifications={{
-                                messages: recentCommentCount,
+                                messages: unreadDMCount,
                                 analytics: 0,
                                 activity: unreadCount,
                                 drafts: hasActiveDraft ? 1 : 0,

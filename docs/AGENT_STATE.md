@@ -7,7 +7,7 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-29
-**Last session:** PR #101 review fixes — metadata rollback guard, 13 Jest tests for downloadService, cancel-toast suppression (downloadCancelledRef), stale download state reset on episode switch; all 4 Copilot comments replied to — downloadService.js (expo-file-system + AsyncStorage) + Download chip in detail screen with live % progress, cancel, delete, and offline playback via local URI (PR #101 opened `feature/offline-episode-download`)
+**Last session:** DM unread badge wired end-to-end — new `GET /messages/unread-count` backend endpoint + `fetchDMUnreadCount` hooked into `_layout.js` cold-start/foreground, `home.js` messages badge fixed; PR #102 review comments addressed (JSDoc update, test mock fix, 401-guard in `_layout.js`, catch-log wording) (branch `feature/dm-unread-badge-wire`)
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -16,7 +16,7 @@
 
 ---
 
-## ✅ Recently Shipped (PR #66–#100)
+## ✅ Recently Shipped (PR #66–#101)
 
 - ✅ Listening history screen — progress bar, completion badge, pagination (PR #66)
 - ✅ Listening history delete entry — `DELETE /podcasts/{id}/history`, 5 tests (PR #67)
@@ -48,15 +48,16 @@
 - ✅ Public playlist search/filter — `q=` ILIKE param on `GET /playlists/public`, debounced search bar + clear CTA in Discover screen, contextual empty state, 5 new tests; 44 playlist tests pass (PR #95)
 - ✅ Library Playlists tab infinite scroll — paged GET /playlists/my (skip/limit/has_more), loadMorePlaylists, PlaylistsFooter with spinner+retry, onEndReached wiring (PR #96)
 - ✅ Library pull-to-refresh on all tabs — RefreshControl added to playlists + podcasts FlatLists, handleRefresh callback, refreshing state (PR #97)
-- ✅ Public playlist search extended to match owner_username slug — `func.replace(func.lower(User.name),' ','_').ilike()` added as third OR branch in `crud.get_public_playlists`; 2 new tests; 46 playlist tests pass (PR #98)
-- ✅ Pull-to-refresh on Playlists manage screen — RefreshControl wired via single FlatList + ListEmptyComponent pattern (PR #99)
-- ✅ Pull-to-refresh on playlist detail episode list — RefreshControl + ListEmptyComponent pattern (PR #100)
+- ✅ Public playlist search extended to match owner_username slug (PR #98)
+- ✅ Pull-to-refresh on Playlists manage screen (PR #99)
+- ✅ Pull-to-refresh on playlist detail episode list (PR #100)
+- ✅ Offline episode download — `downloadService.js` (expo-file-system + AsyncStorage), Download chip in detail screen with live % progress, cancel, delete, offline playback via local URI; review fixes: metadata rollback guard, 13 Jest tests, cancel-toast suppression, stale-state reset on episode switch (PR #101)
 
 ---
 
 ## 🔄 What's open
 
-- PR #101 `feature/offline-episode-download` — Offline episode download: `downloadService.js` (expo-file-system DownloadResumable + AsyncStorage persistence), Download chip in detail action row with live % progress label, cancel mid-download, remove download, offline playback via `localUri || audio_url` in `handlePlay`. Review comments addressed: metadata rollback on writeStore failure, 13 Jest tests added, cancel-toast suppression via `downloadCancelledRef`, stale-state reset on episode switch.
+- PR #102 `feature/dm-unread-badge-wire` — Wire DM unread badge: `GET /messages/unread-count` endpoint + `_layout.js` lifecycle hook + `home.js` badge fix; review comments addressed (JSDoc, test mocks, 401-guard, log wording); 25 backend tests pass
 
 ---
 
@@ -74,24 +75,24 @@
 - `handlePlayRelated` queue logic in details.js has no Jest unit test coverage
 - Plays-over-time chart reflects last-session-per-user-per-podcast (unique constraint); a per-event play log would enable exact daily counts
 - CategoryRow progress bar has no animation — width springs would match the new bar-chart feel
-- Downloads: no file-size preview before download (needs HEAD request for Content-Length)
-- Downloads: no "Downloads" Library tab listing all saved episodes
+- DM unread badge polling interval not set — badge refreshes on cold start + foreground return only; add 30s interval for long-lived sessions
+- `TODO_IMPROVEMENTS.md` deep-link section is stale — `volo://podcast/{id}`, `volo://live/{code}`, and `volo://playlist/{id}` are already implemented in `_layout.js`
 
 ---
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FRONTEND] Downloads Library tab** — Add a "Downloads" section/tab to the Library screen listing all locally saved episodes (read from `downloadService.getDownloads()`), with delete swipe action and tap-to-play. Pairs cleanly with PR #101 once merged.
+1. **[FRONTEND] DM badge polling interval** — Add a `setInterval` (30 s) in `_layout.js` to call `fetchDMUnreadCount()` while the app is open, so users in long sessions get badge updates without relying solely on foreground/cold-start. Trivial addition; high UX polish.
 
-2. **[FRONTEND/BACKEND] File size preview before download** — On the Download chip in details.js, show estimated file size (MB) by firing a HEAD request to `audio_url` and reading `Content-Length`. Small, self-contained improvement to PR #101 follow-up.
+2. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory scheduler with SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check. Adds Alembic migration for `apscheduler_jobs` table.
 
-3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory scheduler jobstore with SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check. Adds Alembic migration for `apscheduler_jobs` table.
+3. **[FRONTEND] CategoryRow progress-bar animation** — Animated.spring width transition on the listening-progress bars in the analytics category breakdown row, matching the new bar-chart wave feel from PR #91. Pure frontend, no backend required.
 
 ---
 
 ## 🔧 Permanent Notes (do not delete)
 
-**Route ordering:** Literal routes (`/following-feed`, `/search`) BEFORE parameterized (`/{id}`) in `backend/app/routers/podcasts.py`. Same rule in `users.py`: `/me`, `/search` before `/{user_id}/...`.
+**Route ordering:** Literal routes (`/following-feed`, `/search`) BEFORE parameterized (`/{id}`) in `backend/app/routers/podcasts.py`. Same rule in `users.py`: `/me`, `/search` before `/{user_id}/...`. Also in `messages.py`: `/inbox`, `/unread-count` before `/{partner_id}`.
 **apiService token cache:** `apiService.clearToken()` in `beforeEach` after 401-retry tests.
 **Duplicate declaration guard:** `node --check frontend/app/(main)/home.js` after merging PRs touching same file.
 **Full test suite timeout:** ~436 tests > 45s limit. Run targeted groups of 3-4 files.
