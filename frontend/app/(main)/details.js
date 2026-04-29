@@ -30,6 +30,7 @@ import { getQualityMessage } from "../../src/utils/qualityHelpers";
 import { COLORS } from "../../src/constants/theme";
 import hapticFeedback from "../../src/services/haptics/hapticFeedback";
 import GradientCard from "../../src/components/GradientCard";
+import downloadService from "../../src/services/downloads/downloadService";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -92,6 +93,11 @@ const Details = () => {
     const [myPlaylists, setMyPlaylists] = useState([]);
     const [loadingPlaylists, setLoadingPlaylists] = useState(false);
     const [addingToPlaylist, setAddingToPlaylist] = useState(null); // playlistId being added to
+
+    // Download state
+    const [localUri, setLocalUri] = useState(null);       // file:// URI when downloaded
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [downloadProgress, setDownloadProgress] = useState(0);
 
     const isVideoPodcast = Boolean(
         podcast?.media_type === "video" && podcast?.video_url
@@ -171,6 +177,14 @@ const Details = () => {
             // Normalize related podcasts URLs
             setRelatedPodcasts(normalizePodcasts(related));
 
+            // Check for offline download
+            try {
+                const uri = await downloadService.getLocalUri(podcastData.id);
+                setLocalUri(uri);
+            } catch (dlErr) {
+                Logger.error("Download state check failed:", dlErr);
+            }
+
             // Load AI data if podcast is AI enhanced
             if (podcastData.ai_enhanced) {
                 try {
@@ -199,7 +213,7 @@ const Details = () => {
 
         const track = {
             id: podcast.id,
-            uri: podcast.audio_url,
+            uri: localUri || podcast.audio_url,
             title: podcast.title,
             artist: podcast.owner?.name || "Unknown Artist",
             duration: (podcast.duration || 0) * 1000, // Convert to milliseconds
@@ -258,6 +272,7 @@ const Details = () => {
         podcast?.audio_url,
         podcast?.title,
         podcast?.owner?.name,
+        localUri,
         podcast?.duration,
         podcast?.thumbnail_url,
         podcast?.category,
@@ -425,6 +440,52 @@ const Details = () => {
             showToast(e?.detail || e?.message || "Failed to add to playlist", "error");
         } finally {
             setAddingToPlaylist(null);
+        }
+    };
+
+    const handleDownload = async () => {
+        if (!podcast?.audio_url) return;
+
+        if (isDownloading) {
+            // Cancel in-progress download
+            await downloadService.cancelDownload(podcast.id);
+            setIsDownloading(false);
+            setDownloadProgress(0);
+            showToast("Download cancelled", "info");
+            return;
+        }
+
+        if (localUri) {
+            // Already downloaded — confirm deletion
+            try {
+                await downloadService.deleteDownload(podcast.id);
+                setLocalUri(null);
+                showToast("Download removed", "success");
+            } catch (err) {
+                Logger.error("Failed to delete download:", err);
+                showToast("Failed to remove download", "error");
+            }
+            return;
+        }
+
+        // Start download
+        setIsDownloading(true);
+        setDownloadProgress(0);
+        showToast("Downloading episode…", "info");
+
+        try {
+            const result = await downloadService.downloadEpisode(
+                podcast,
+                (progress) => setDownloadProgress(progress),
+            );
+            setLocalUri(result.localUri);
+            showToast("Episode saved for offline listening", "success");
+        } catch (err) {
+            Logger.error("Download failed:", err);
+            showToast("Download failed. Please try again.", "error");
+        } finally {
+            setIsDownloading(false);
+            setDownloadProgress(0);
         }
     };
 
@@ -934,6 +995,41 @@ const Details = () => {
                                 Queue
                             </Text>
                         </TouchableOpacity>
+
+                        {/* Download for offline listening */}
+                        {!isVideoPodcast && podcast?.audio_url && (
+                            <TouchableOpacity
+                                onPress={handleDownload}
+                                className={`flex-row items-center px-4 py-1 rounded-xl ${
+                                    localUri ? "bg-success/20 border border-success/30" : "bg-panel"
+                                }`}
+                                activeOpacity={0.7}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                {isDownloading ? (
+                                    <View style={{ width: 18, height: 18, alignItems: "center", justifyContent: "center" }}>
+                                        <ActivityIndicator size="small" color={COLORS.primary} />
+                                    </View>
+                                ) : (
+                                    <MaterialCommunityIcons
+                                        name={localUri ? "check-circle" : "download-outline"}
+                                        size={18}
+                                        color={localUri ? COLORS.success || "#4CAF50" : COLORS.text.muted}
+                                    />
+                                )}
+                                <Text
+                                    className={`ml-1.5 text-sm font-medium ${
+                                        localUri ? "text-green-400" : "text-text-secondary"
+                                    }`}
+                                >
+                                    {isDownloading
+                                        ? Math.round(downloadProgress * 100) + "%"
+                                        : localUri
+                                        ? "Downloaded"
+                                        : "Download"}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
 
                         {/* Add to Playlist */}
                         <TouchableOpacity
