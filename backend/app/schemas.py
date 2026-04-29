@@ -800,6 +800,12 @@ class DMInboxResponse(BaseModel):
     total: int
 
 
+class DMUnreadCountResponse(BaseModel):
+    """Lightweight response for GET /messages/unread-count."""
+    total_unread: int
+
+
+
 # ── Push Notification Device Tokens ──────────────────────────────────────────
 
 class DeviceTokenRegister(BaseModel):

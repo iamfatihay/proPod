@@ -69,6 +69,22 @@ def get_inbox(
     return schemas.DMInboxResponse(threads=threads, total=len(threads))
 
 
+
+@router.get("/unread-count", response_model=schemas.DMUnreadCountResponse)
+def get_unread_count(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Return the total number of unread direct messages for the authenticated user.
+
+    Cheaper than fetching the full inbox — used by the frontend to poll and
+    update the tab-bar badge without loading all thread data.
+    """
+    total = crud.get_total_unread_dm_count(db=db, user_id=current_user.id)
+    return schemas.DMUnreadCountResponse(total_unread=total)
+
+
 @router.get("/{partner_id}", response_model=schemas.ConversationResponse)
 def get_conversation(
     partner_id: int = Path(..., description="ID of the conversation partner"),

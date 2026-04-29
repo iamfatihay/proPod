@@ -1509,6 +1509,19 @@ class ApiService {
         return this.request("/messages/inbox");
     }
 
+
+    /**
+     * Fetch the total number of unread DMs for the current user.
+     * Lightweight alternative to loading the full inbox — use this for badge polling.
+     *
+     * Maps to GET /messages/unread-count
+     *
+     * @returns {Promise<{total_unread: number}>}
+     */
+    async getTotalDMUnreadCount() {
+        return this.request("/messages/unread-count");
+    }
+
     /**
      * Fetch the conversation with a specific partner (newest messages first).
      * Also marks all unread messages from that partner as read.

@@ -2420,6 +2420,24 @@ def get_dm_inbox(
     return list(threads.values())
 
 
+def get_total_unread_dm_count(db: Session, user_id: int) -> int:
+    """
+    Return the total number of unread direct messages received by user_id.
+
+    Uses the (recipient_id, is_read) index for an efficient single-query count.
+    Called by GET /messages/unread-count for lightweight badge polling.
+    """
+    return (
+        db.query(models.DirectMessage)
+        .filter(
+            models.DirectMessage.recipient_id == user_id,
+            models.DirectMessage.is_read.is_(False),
+        )
+        .count()
+    )
+
+
+
 # ── Device Token / Push Notification CRUD ────────────────────────────────────
 
 def register_device_token(

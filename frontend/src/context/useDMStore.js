@@ -23,13 +23,8 @@ const useDMStore = create((set) => ({
      */
     fetchDMUnreadCount: async () => {
         try {
-            const data = await apiService.getDMInbox();
-            const threads = data?.threads ?? [];
-            const total = threads.reduce(
-                (sum, thread) => sum + (thread.unread_count ?? 0),
-                0
-            );
-            set({ unreadDMCount: total });
+            const data = await apiService.getTotalDMUnreadCount();
+            set({ unreadDMCount: data?.total_unread ?? 0 });
         } catch (err) {
             // Network errors are expected offline — degrade silently
             Logger.warn('fetchDMUnreadCount: could not reach server', err?.message);

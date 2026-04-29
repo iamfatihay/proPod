@@ -327,3 +327,68 @@ class TestDMNotifications:
             .first()
         )
         assert sender_notif is None, "Sender must not receive a dm notification for their own message"
+
+
+# ---------------------------------------------------------------------------
+# GET /messages/unread-count — lightweight unread badge endpoint
+# ---------------------------------------------------------------------------
+
+class TestUnreadCount:
+    def test_unread_count_zero_no_messages(self, db_session):
+        """User with no DMs gets total_unread=0."""
+        user = _make_user(db_session, "uc_nobody@example.com", "Nobody")
+        resp = client.get("/messages/unread-count", headers=_auth(user))
+        assert resp.status_code == 200
+        assert resp.json()["total_unread"] == 0
+
+    def test_unread_count_reflects_received_unread_messages(self, db_session):
+        """Unread count equals the number of unread messages received by the user."""
+        sender = _make_user(db_session, "uc_sender@example.com", "UCSender")
+        recip  = _make_user(db_session, "uc_recip@example.com",  "UCRecip")
+
+        with patch("app.crud._send_expo_push"):
+            _send_dm(db_session, sender, recip, "Msg 1")
+            _send_dm(db_session, sender, recip, "Msg 2")
+            _send_dm(db_session, sender, recip, "Msg 3")
+
+        resp = client.get("/messages/unread-count", headers=_auth(recip))
+        assert resp.status_code == 200
+        assert resp.json()["total_unread"] == 3
+
+    def test_unread_count_does_not_count_sent_messages(self, db_session):
+        """Messages sent by the user do not inflate their own unread count."""
+        sender = _make_user(db_session, "uc_sender2@example.com", "UCSender2")
+        recip  = _make_user(db_session, "uc_recip2@example.com",  "UCRecip2")
+
+        with patch("app.crud._send_expo_push"):
+            _send_dm(db_session, sender, recip, "Outgoing")
+
+        # Sender's own badge should still be 0
+        resp = client.get("/messages/unread-count", headers=_auth(sender))
+        assert resp.status_code == 200
+        assert resp.json()["total_unread"] == 0
+
+    def test_unread_count_drops_after_conversation_read(self, db_session):
+        """Once the conversation is marked read, unread count falls back to zero."""
+        sender = _make_user(db_session, "uc_read_sender@example.com", "UCReadSender")
+        recip  = _make_user(db_session, "uc_read_recip@example.com",  "UCReadRecip")
+
+        with patch("app.crud._send_expo_push"):
+            _send_dm(db_session, sender, recip, "Read me")
+
+        # Before reading: count should be 1
+        resp = client.get("/messages/unread-count", headers=_auth(recip))
+        assert resp.json()["total_unread"] == 1
+
+        # Open the conversation (marks messages read)
+        client.get(f"/messages/{sender.id}", headers=_auth(recip))
+
+        # After reading: count should be 0
+        resp = client.get("/messages/unread-count", headers=_auth(recip))
+        assert resp.status_code == 200
+        assert resp.json()["total_unread"] == 0
+
+    def test_unread_count_requires_auth(self, db_session):
+        """Unauthenticated requests are rejected with 401."""
+        resp = client.get("/messages/unread-count")
+        assert resp.status_code == 401
