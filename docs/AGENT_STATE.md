@@ -6,8 +6,8 @@
 
 ## 📍 Current State
 
-**Last updated:** 2026-04-28
-**Last session:** Pull-to-refresh added to playlist detail episode list — RefreshControl + ListEmptyComponent pattern (same as PR #97/#99); syntax-checked; PR #100 opened (`feature/playlist-detail-pull-to-refresh`)
+**Last updated:** 2026-04-29
+**Last session:** Offline episode download — downloadService.js (expo-file-system + AsyncStorage) + Download chip in detail screen with live % progress, cancel, delete, and offline playback via local URI (PR #101 opened `feature/offline-episode-download`)
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -16,7 +16,7 @@
 
 ---
 
-## ✅ Recently Shipped (PR #66–#99)
+## ✅ Recently Shipped (PR #66–#100)
 
 - ✅ Listening history screen — progress bar, completion badge, pagination (PR #66)
 - ✅ Listening history delete entry — `DELETE /podcasts/{id}/history`, 5 tests (PR #67)
@@ -50,12 +50,13 @@
 - ✅ Library pull-to-refresh on all tabs — RefreshControl added to playlists + podcasts FlatLists, handleRefresh callback, refreshing state (PR #97)
 - ✅ Public playlist search extended to match owner_username slug — `func.replace(func.lower(User.name),' ','_').ilike()` added as third OR branch in `crud.get_public_playlists`; 2 new tests; 46 playlist tests pass (PR #98)
 - ✅ Pull-to-refresh on Playlists manage screen — RefreshControl wired via single FlatList + ListEmptyComponent pattern (PR #99)
+- ✅ Pull-to-refresh on playlist detail episode list — RefreshControl + ListEmptyComponent pattern (PR #100)
 
 ---
 
 ## 🔄 What's open
 
-- PR #100 `feature/playlist-detail-pull-to-refresh` — Adds swipe-down RefreshControl to playlist detail episode list; error/empty states moved to ListEmptyComponent so refresh is available in all states; syntax-checked.
+- PR #101 `feature/offline-episode-download` — Offline episode download: `downloadService.js` (expo-file-system DownloadResumable + AsyncStorage persistence), Download chip in detail action row with live % progress label, cancel mid-download, remove download, offline playback via `localUri || audio_url` in `handlePlay`.
 
 ---
 
@@ -73,14 +74,16 @@
 - `handlePlayRelated` queue logic in details.js has no Jest unit test coverage
 - Plays-over-time chart reflects last-session-per-user-per-podcast (unique constraint); a per-event play log would enable exact daily counts
 - CategoryRow progress bar has no animation — width springs would match the new bar-chart feel
+- Downloads: no file-size preview before download (needs HEAD request for Content-Length)
+- Downloads: no "Downloads" Library tab listing all saved episodes
 
 ---
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FRONTEND/BACKEND] Offline download indicator** — Download button on EpisodeRow / detail screen, store `file://` URI in AsyncStorage, fall back to local URI in audio player. High user value for commuters. Top item in TODO_IMPROVEMENTS.md High Priority.
+1. **[FRONTEND] Downloads Library tab** — Add a "Downloads" section/tab to the Library screen listing all locally saved episodes (read from `downloadService.getDownloads()`), with delete swipe action and tap-to-play. Pairs cleanly with PR #101 once merged.
 
-2. **[FRONTEND] Deep link handler for `volo://` scheme** — `Linking.addEventListener()` in `_layout.js`, handle `volo://podcast/{id}` and `volo://join/{invite_code}`. Backend sharing endpoints already exist; frontend side is the gap. TODO_IMPROVEMENTS.md High Priority.
+2. **[FRONTEND/BACKEND] File size preview before download** — On the Download chip in details.js, show estimated file size (MB) by firing a HEAD request to `audio_url` and reading `Content-Length`. Small, self-contained improvement to PR #101 follow-up.
 
 3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory scheduler jobstore with SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check. Adds Alembic migration for `apscheduler_jobs` table.
 
