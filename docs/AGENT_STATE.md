@@ -7,7 +7,7 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-30
-**Last session:** Discover now-playing indicator (PR #105) — animated waveform + primary border + chevron tint on active `PublicPlaylistCard` in `public-playlists.js`; review fix: primitive boolean selectors (no object allocation on every store update); `node --check` passes
+**Last session:** Refactor PlaylistCard Zustand selector — two primitive boolean selectors replacing combined-object pattern in playlists.js; PR #106 open (refactor/playlist-card-primitive-selectors) — animated waveform + primary border + chevron tint on active `PublicPlaylistCard` in `public-playlists.js`; review fix: primitive boolean selectors (no object allocation on every store update); `node --check` passes
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -66,7 +66,7 @@
 
 ## 🔄 What's open
 
-*(none)*
+- PR #106 `refactor/playlist-card-primitive-selectors` — Split combined-object Zustand selector into two primitive boolean selectors in `PlaylistCard`; zero re-renders on inactive cards during play/pause; `node --check` passes
 
 ---
 
@@ -86,17 +86,16 @@
 - CategoryRow progress bar has no animation — width springs would match the new bar-chart feel
 - DM unread badge: polling interval added (30s, PR #103); interval duration could be extracted as a named constant if more polling loops are introduced
 - `TODO_IMPROVEMENTS.md` deep-link section is stale — `volo://podcast/{id}`, `volo://live/{code}`, and `volo://playlist/{id}` are already implemented in `_layout.js`
-- `PlaylistCard` in `playlists.js` still uses a combined-object selector (same perf concern raised in PR #105 review) — should be migrated to two primitive selectors to match the fix in `public-playlists.js`
 
 ---
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FRONTEND] CategoryRow progress-bar animation** — `Animated.spring` width transition on the listening-progress bars in the Creator Analytics category breakdown row, matching the bar-chart wave feel from PR #91. Pure frontend, no backend required. Verify not already in master before starting (`grep -n "Animated" frontend/app/(main)/creator-analytics.js`).
+1. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory `BackgroundScheduler` with a SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check per interval. Adds Alembic migration for `apscheduler_jobs` table.
 
-2. **[REFACTOR] Fix `PlaylistCard` combined-object Zustand selector** — `playlists.js` has the same object-allocation selector pattern flagged in PR #105 review. Migrate to two primitive boolean selectors (same pattern as the fix in `public-playlists.js`). Low-risk, pure refactor, no UI change.
+2. **[FRONTEND] DM push notifications** — Wire `expo-notifications` to incoming DM events so users get a push badge and system notification when they receive a new message while the app is backgrounded. Backend endpoint `POST /messages/` already exists; needs `_notify_dm_recipient()` fan-out (similar to `_notify_followers_new_episode()`).
 
-3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory `BackgroundScheduler` with a SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check per interval. Adds Alembic migration for `apscheduler_jobs` table.
+3. **[FRONTEND] Sleep timer named-constant refactor** — Extract the hardcoded `setInterval` duration in the sleep timer into a named constant and add a Jest unit test verifying the countdown accuracy. Low-risk, improves testability.
 
 ---
 
