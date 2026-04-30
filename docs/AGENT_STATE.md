@@ -7,7 +7,7 @@
 ## 📍 Current State
 
 **Last updated:** 2026-04-30
-**Last session:** Discover now-playing indicator — animated waveform icon + primary border + chevron tint on active `PublicPlaylistCard` in Discover Playlists screen; syntax check OK (branch `feature/discover-now-playing-indicator`, PR needs manual open — Chrome MCP unavailable during scheduled run)
+**Last session:** Discover now-playing indicator (PR #105) — animated waveform + primary border + chevron tint on active `PublicPlaylistCard` in `public-playlists.js`; review fix: primitive boolean selectors (no object allocation on every store update); `node --check` passes
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -65,7 +65,7 @@
 
 ## 🔄 What's open
 
-- `feature/discover-now-playing-indicator` — Animated waveform icon + primary border + chevron tint on active `PublicPlaylistCard` in Discover Playlists; mirrors PR #104 pattern exactly; syntax OK. **Branch pushed; PR not yet opened** (Chrome MCP unavailable during scheduled run — open manually or next session will create it).
+- PR #105 `feature/discover-now-playing-indicator` — Animated waveform + primary border + chevron tint on active `PublicPlaylistCard` in Discover Playlists; primitive boolean selectors; review feedback addressed
 
 ---
 
@@ -85,14 +85,15 @@
 - CategoryRow progress bar has no animation — width springs would match the new bar-chart feel
 - DM unread badge: polling interval added (30s, PR #103); interval duration could be extracted as a named constant if more polling loops are introduced
 - `TODO_IMPROVEMENTS.md` deep-link section is stale — `volo://podcast/{id}`, `volo://live/{code}`, and `volo://playlist/{id}` are already implemented in `_layout.js`
+- `PlaylistCard` in `playlists.js` still uses a combined-object selector (same perf concern raised in PR #105 review) — should be migrated to two primitive selectors to match the fix in `public-playlists.js`
 
 ---
 
 ## 🗺️ Next Session Suggestions
 
-1. **[ACTION REQUIRED] Open PR for `feature/discover-now-playing-indicator`** — Branch is pushed and ready. If Chrome MCP is connected, use browser JS to POST to `api.github.com/repos/iamfatihay/proPod/pulls`. Title: "feat: animated now-playing indicator on active playlist cards in Discover". Then proceed to the next task below.
+1. **[FRONTEND] CategoryRow progress-bar animation** — `Animated.spring` width transition on the listening-progress bars in the Creator Analytics category breakdown row, matching the bar-chart wave feel from PR #91. Pure frontend, no backend required. Verify not already in master before starting (`grep -n "Animated" frontend/app/(main)/creator-analytics.js`).
 
-2. **[FRONTEND] CategoryRow progress-bar animation** — `Animated.spring` width transition on the listening-progress bars in the Creator Analytics category breakdown row, matching the bar-chart wave feel from PR #91. Pure frontend, no backend required. Verify not already in master before starting.
+2. **[REFACTOR] Fix `PlaylistCard` combined-object Zustand selector** — `playlists.js` has the same object-allocation selector pattern flagged in PR #105 review. Migrate to two primitive boolean selectors (same pattern as the fix in `public-playlists.js`). Low-risk, pure refactor, no UI change.
 
 3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory `BackgroundScheduler` with a SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check per interval. Adds Alembic migration for `apscheduler_jobs` table.
 

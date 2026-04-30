@@ -25,11 +25,15 @@ const SEARCH_DEBOUNCE_MS = 350;
 const PublicPlaylistCard = ({ playlist, onPress }) => {
     const router = useRouter();
 
-    // Now-playing indicator — mirrors PlaylistCard in playlists.js
-    const { isActive, isPlaying } = useAudioStore((state) => {
-        const active = String(state.activePlaylistId) === String(playlist.id);
-        return { isActive: active, isPlaying: active && state.isPlaying };
-    });
+    // Now-playing indicator: two separate primitive selectors so Zustand's
+    // default Object.is equality prevents re-renders on unrelated store changes.
+    // Inactive cards see no re-renders from global play/pause toggles.
+    const isActive = useAudioStore(
+        (state) => String(state.activePlaylistId) === String(playlist.id)
+    );
+    const isPlaying = useAudioStore(
+        (state) => String(state.activePlaylistId) === String(playlist.id) && state.isPlaying
+    );
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
     const animRef = React.useRef(null);
     React.useEffect(() => {
