@@ -133,7 +133,7 @@ const PublicPlaylistCard = ({ playlist, onPress }) => {
         <Ionicons
             name="chevron-forward"
             size={18}
-            color={COLORS.text.secondary}
+            color={isActive ? COLORS.primary : COLORS.text.secondary}
             style={{ marginLeft: 8 }}
         />
     </TouchableOpacity>
