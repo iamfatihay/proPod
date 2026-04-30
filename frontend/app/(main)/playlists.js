@@ -29,11 +29,14 @@ const PlaylistCard = ({ playlist, onPress, onEdit, onDelete }) => {
     // Two separate primitive selectors: Zustand's default Object.is equality
     // prevents re-renders when the returned boolean hasn't changed, so inactive
     // cards produce zero re-renders during global play/pause toggles.
+    // playlistId is hoisted so String() is only called once per render, not
+    // on every store tick inside both selector functions.
+    const playlistId = String(playlist.id);
     const isActive = useAudioStore(
-        (state) => String(state.activePlaylistId) === String(playlist.id)
+        (state) => String(state.activePlaylistId) === playlistId
     );
     const isPlaying = useAudioStore(
-        (state) => String(state.activePlaylistId) === String(playlist.id) && state.isPlaying
+        (state) => String(state.activePlaylistId) === playlistId && state.isPlaying
     );
 
     // Pulse animation for the waveform icon (mirrors EpisodeRow in playlist-detail)
