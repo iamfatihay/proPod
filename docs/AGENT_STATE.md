@@ -6,8 +6,8 @@
 
 ## 📍 Current State
 
-**Last updated:** 2026-04-29
-**Last session:** Playlist Now-Playing indicator — animated waveform icon + primary border on active playlist row in Library; `activePlaylistId` in useAudioStore; 82 backend + 27 frontend tests pass (branch `feature/playlist-now-playing-indicator`)
+**Last updated:** 2026-04-30
+**Last session:** Discover now-playing indicator — animated waveform icon + primary border + chevron tint on active `PublicPlaylistCard` in Discover Playlists screen; syntax check OK (branch `feature/discover-now-playing-indicator`, PR needs manual open — Chrome MCP unavailable during scheduled run)
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -59,10 +59,13 @@
 
 - ✅ DM unread badge wired end-to-end — `GET /messages/unread-count`, `_layout.js` cold-start + foreground hook, `home.js` badge fix (PR #102)
 - ✅ DM badge 30 s polling interval — `startDMPolling`/`stopDMPolling` helpers in `_layout.js`, pauses on background, clears on unmount (PR #103)
+- ✅ Playlist now-playing indicator in Library — animated waveform icon + primary border on active `PlaylistCard`; `activePlaylistId` in useAudioStore; backward-compatible `setQueue` third param (PR #104)
+
+---
 
 ## 🔄 What's open
 
-- PR #104 `feature/playlist-now-playing-indicator` — Animated waveform icon + primary-colour border on active playlist row in Library; `activePlaylistId` in useAudioStore; backward-compatible `setQueue` third param
+- `feature/discover-now-playing-indicator` — Animated waveform icon + primary border + chevron tint on active `PublicPlaylistCard` in Discover Playlists; mirrors PR #104 pattern exactly; syntax OK. **Branch pushed; PR not yet opened** (Chrome MCP unavailable during scheduled run — open manually or next session will create it).
 
 ---
 
@@ -87,11 +90,11 @@
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FRONTEND] Extend Now-Playing indicator to Discover (Public Playlists)** — `PublicPlaylistCard` in `public-playlists.js` doesn't show the indicator yet. Read `activePlaylistId` from store and apply the same pulsing waveform pattern. Zero backend work needed.
+1. **[ACTION REQUIRED] Open PR for `feature/discover-now-playing-indicator`** — Branch is pushed and ready. If Chrome MCP is connected, use browser JS to POST to `api.github.com/repos/iamfatihay/proPod/pulls`. Title: "feat: animated now-playing indicator on active playlist cards in Discover". Then proceed to the next task below.
 
-2. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory `BackgroundScheduler` with a SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check per interval. Adds Alembic migration for `apscheduler_jobs` table.
+2. **[FRONTEND] CategoryRow progress-bar animation** — `Animated.spring` width transition on the listening-progress bars in the Creator Analytics category breakdown row, matching the bar-chart wave feel from PR #91. Pure frontend, no backend required. Verify not already in master before starting.
 
-3. **[FRONTEND] CategoryRow progress-bar animation** — `Animated.spring` width transition on the listening-progress bars in the Creator Analytics category breakdown row, matching the bar-chart wave feel from PR #91. Pure frontend, no backend required. (Note: verify not already in master before starting.)
+3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory `BackgroundScheduler` with a SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check per interval. Adds Alembic migration for `apscheduler_jobs` table.
 
 ---
 
