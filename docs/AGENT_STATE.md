@@ -6,8 +6,8 @@
 
 ## 📍 Current State
 
-**Last updated:** 2026-04-29
-**Last session:** Playlist Now-Playing indicator — animated waveform icon + primary border on active playlist row in Library; `activePlaylistId` in useAudioStore; 82 backend + 27 frontend tests pass (branch `feature/playlist-now-playing-indicator`)
+**Last updated:** 2026-04-30
+**Last session:** Discover now-playing indicator (PR #105) — animated waveform + primary border + chevron tint on active `PublicPlaylistCard` in `public-playlists.js`; review fix: primitive boolean selectors (no object allocation on every store update); `node --check` passes
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -59,10 +59,13 @@
 
 - ✅ DM unread badge wired end-to-end — `GET /messages/unread-count`, `_layout.js` cold-start + foreground hook, `home.js` badge fix (PR #102)
 - ✅ DM badge 30 s polling interval — `startDMPolling`/`stopDMPolling` helpers in `_layout.js`, pauses on background, clears on unmount (PR #103)
+- ✅ Playlist now-playing indicator in Library — animated waveform icon + primary border on active `PlaylistCard`; `activePlaylistId` in useAudioStore; backward-compatible `setQueue` third param (PR #104)
+
+---
 
 ## 🔄 What's open
 
-- PR #104 `feature/playlist-now-playing-indicator` — Animated waveform icon + primary-colour border on active playlist row in Library; `activePlaylistId` in useAudioStore; backward-compatible `setQueue` third param
+- PR #105 `feature/discover-now-playing-indicator` — Animated waveform + primary border + chevron tint on active `PublicPlaylistCard` in Discover Playlists; primitive boolean selectors; review feedback addressed
 
 ---
 
@@ -82,16 +85,17 @@
 - CategoryRow progress bar has no animation — width springs would match the new bar-chart feel
 - DM unread badge: polling interval added (30s, PR #103); interval duration could be extracted as a named constant if more polling loops are introduced
 - `TODO_IMPROVEMENTS.md` deep-link section is stale — `volo://podcast/{id}`, `volo://live/{code}`, and `volo://playlist/{id}` are already implemented in `_layout.js`
+- `PlaylistCard` in `playlists.js` still uses a combined-object selector (same perf concern raised in PR #105 review) — should be migrated to two primitive selectors to match the fix in `public-playlists.js`
 
 ---
 
 ## 🗺️ Next Session Suggestions
 
-1. **[FRONTEND] Extend Now-Playing indicator to Discover (Public Playlists)** — `PublicPlaylistCard` in `public-playlists.js` doesn't show the indicator yet. Read `activePlaylistId` from store and apply the same pulsing waveform pattern. Zero backend work needed.
+1. **[FRONTEND] CategoryRow progress-bar animation** — `Animated.spring` width transition on the listening-progress bars in the Creator Analytics category breakdown row, matching the bar-chart wave feel from PR #91. Pure frontend, no backend required. Verify not already in master before starting (`grep -n "Animated" frontend/app/(main)/creator-analytics.js`).
 
-2. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory `BackgroundScheduler` with a SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check per interval. Adds Alembic migration for `apscheduler_jobs` table.
+2. **[REFACTOR] Fix `PlaylistCard` combined-object Zustand selector** — `playlists.js` has the same object-allocation selector pattern flagged in PR #105 review. Migrate to two primitive boolean selectors (same pattern as the fix in `public-playlists.js`). Low-risk, pure refactor, no UI change.
 
-3. **[FRONTEND] CategoryRow progress-bar animation** — `Animated.spring` width transition on the listening-progress bars in the Creator Analytics category breakdown row, matching the bar-chart wave feel from PR #91. Pure frontend, no backend required. (Note: verify not already in master before starting.)
+3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory `BackgroundScheduler` with a SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check per interval. Adds Alembic migration for `apscheduler_jobs` table.
 
 ---
 
