@@ -26,12 +26,15 @@ import useAudioStore from "../../src/context/useAudioStore";
 // ─── Playlist Card ─────────────────────────────────────────────────────────────
 
 const PlaylistCard = ({ playlist, onPress, onEdit, onDelete }) => {
-    // Single combined selector: inactive cards always receive { isActive:false, isPlaying:false }
-    // so a global play/pause toggle causes zero re-renders on non-active rows.
-    const { isActive, isPlaying } = useAudioStore((state) => {
-        const active = String(state.activePlaylistId) === String(playlist.id);
-        return { isActive: active, isPlaying: active && state.isPlaying };
-    });
+    // Two separate primitive selectors: Zustand's default Object.is equality
+    // prevents re-renders when the returned boolean hasn't changed, so inactive
+    // cards produce zero re-renders during global play/pause toggles.
+    const isActive = useAudioStore(
+        (state) => String(state.activePlaylistId) === String(playlist.id)
+    );
+    const isPlaying = useAudioStore(
+        (state) => String(state.activePlaylistId) === String(playlist.id) && state.isPlaying
+    );
 
     // Pulse animation for the waveform icon (mirrors EpisodeRow in playlist-detail)
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
