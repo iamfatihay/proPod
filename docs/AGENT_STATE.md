@@ -60,12 +60,13 @@
 - ✅ DM unread badge wired end-to-end — `GET /messages/unread-count`, `_layout.js` cold-start + foreground hook, `home.js` badge fix (PR #102)
 - ✅ DM badge 30 s polling interval — `startDMPolling`/`stopDMPolling` helpers in `_layout.js`, pauses on background, clears on unmount (PR #103)
 - ✅ Playlist now-playing indicator in Library — animated waveform icon + primary border on active `PlaylistCard`; `activePlaylistId` in useAudioStore; backward-compatible `setQueue` third param (PR #104)
+- ✅ Discover Playlists now-playing indicator — pulsing waveform icon + primary border + chevron tint on active `PublicPlaylistCard`; primitive boolean Zustand selectors; review fix: eliminated object-allocation selector pattern (PR #105)
 
 ---
 
 ## 🔄 What's open
 
-- PR #105 `feature/discover-now-playing-indicator` — Animated waveform + primary border + chevron tint on active `PublicPlaylistCard` in Discover Playlists; primitive boolean selectors; review feedback addressed
+*(none)*
 
 ---
 
