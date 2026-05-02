@@ -227,6 +227,8 @@ const useNotificationStore = create((set, get) => ({
                 type: n.type,
                 title: n.title,
                 message: n.message,
+                // actor_id lets tap handlers route to the right partner (e.g. DM conversation)
+                actor_id: n.actor_id ?? null,
                 // Allow navigation to the podcast detail when tapped
                 // 'details' matches the existing frontend/app/(main)/details.js screen
                 action: n.podcast_id
@@ -237,7 +239,7 @@ const useNotificationStore = create((set, get) => ({
             // Keep local notifications that are NOT already represented by a
             // server notification (device-only types: ai_complete, system).
             // 'new_episode' is also server-backed — exclude it from local merging.
-            const serverTypes = new Set(['like', 'comment', 'new_episode']);
+            const serverTypes = new Set(['like', 'comment', 'new_episode', 'dm']);
             const localNotifs = get().notifications.filter(
                 (n) => !serverTypes.has(n.type) && !n.id.startsWith('srv_')
             );
