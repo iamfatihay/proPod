@@ -102,11 +102,17 @@ export default function ActivityScreen() {
                 type: item.type,
                 time: formatTimeAgo(item.created_at),
                 podcastId: item.action?.params?.id ? String(item.action.params.id) : null,
+                actorId: item.actor_id ?? null,
             }));
     }, [notifications]);
 
     const handlePress = useCallback(
         (item) => {
+            // follow → open the follower's creator profile; fall back to activity-details if actor deleted
+            if (item.type === 'follow' && item.actorId) {
+                router.push({ pathname: '/(main)/creator-profile', params: { userId: String(item.actorId) } });
+                return;
+            }
             router.push({
                 pathname: "/(main)/activity-details",
                 params: {
