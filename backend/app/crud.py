@@ -24,14 +24,14 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # Username-slug helpers
 # These two functions MUST stay in sync: the SQL expression is used for
 # server-side filtering; the Python function is used when building response
-# objects.  Both implement the same rule: lowercase + spaces → underscores.
+# objects.  Both implement the same rule: lowercase + spaces â underscores.
 # ---------------------------------------------------------------------------
 
 def _owner_username_slug(name: str) -> str:
     """Return the owner-username slug for a display name.
 
     Rule: lowercase the name and replace every space with an underscore.
-    Example: "John Doe" → "john_doe"
+    Example: "John Doe" â "john_doe"
     """
     return name.lower().replace(" ", "_")
 
@@ -318,7 +318,7 @@ def create_podcast(db: Session, podcast: schemas.PodcastCreate, owner_id: int) -
     # NOTE: The new_episode follower notification fan-out is intentionally NOT
     # called here.  It is dispatched as a FastAPI BackgroundTask in the router
     # (routers/podcasts.py) so that the HTTP response is returned to the creator
-    # immediately — without blocking on potentially many push/DB writes.
+    # immediately â without blocking on potentially many push/DB writes.
     # To fan out manually (e.g. in tests), call _notify_followers_new_episode()
     # directly.
 
@@ -333,7 +333,7 @@ def _notify_followers_new_episode(
     Fan out an in-app notification (+ push) to every follower of *owner_id*
     when a new podcast episode is published.
 
-    Private podcasts are silently skipped — followers must not learn about
+    Private podcasts are silently skipped â followers must not learn about
     content that has not been made public.
 
     All ``Notification`` rows are bulk-inserted in a single commit, and push
@@ -345,7 +345,7 @@ def _notify_followers_new_episode(
         podcast:  The newly-created ``Podcast`` object.
         owner_id: ID of the creator who published the episode.
     """
-    # Do not notify for private episodes — leaks metadata to followers.
+    # Do not notify for private episodes â leaks metadata to followers.
     if not podcast.is_public:
         return
 
@@ -365,7 +365,7 @@ def _notify_followers_new_episode(
     notif_title = f"New episode from {creator_name}"
     notif_message = f'{creator_name} just published \u201c{podcast.title}\u201d'
 
-    # Bulk insert — single commit instead of one commit per follower.
+    # Bulk insert â single commit instead of one commit per follower.
     notifications = [
         models.Notification(
             user_id=fid,
@@ -410,7 +410,7 @@ def notify_followers_new_episode_background(podcast_id: int) -> None:
     This function creates its own short-lived session so it can safely
     reach the database without touching the caller's session.
 
-    ``owner_id`` is intentionally NOT a parameter — it is read from the
+    ``owner_id`` is intentionally NOT a parameter â it is read from the
     persisted podcast row to avoid any risk of caller/model mismatch.
 
     Args:
@@ -431,9 +431,9 @@ def notify_followers_new_episode_background(podcast_id: int) -> None:
                 "notify_followers_new_episode_background: podcast %s not found", podcast_id
             )
             return
-        # Derive owner_id from the persisted row — single source of truth.
+        # Derive owner_id from the persisted row â single source of truth.
         _notify_followers_new_episode(db=db, podcast=podcast, owner_id=podcast.owner_id)
-    except Exception as exc:  # pragma: no cover — network / DB failures in background
+    except Exception as exc:  # pragma: no cover â network / DB failures in background
         logger.warning("Background new_episode fan-out failed (podcast %s): %s", podcast_id, exc)
     finally:
         db.close()
@@ -707,7 +707,7 @@ def get_user_podcast_interactions(db: Session, user_id: int, podcast_id: int) ->
 
 def _safe_create_notification(db: Session, **kwargs) -> None:
     """
-    Create a notification without raising — notification failures must never
+    Create a notification without raising â notification failures must never
     break the primary action (like / comment).
     """
     try:
@@ -762,7 +762,7 @@ def like_podcast(db: Session, user_id: int, podcast_id: int) -> models.PodcastLi
     db.commit()
     db.refresh(like)
 
-    # ── Notification: notify the podcast owner (skip self-likes) ──────────
+    # ââ Notification: notify the podcast owner (skip self-likes) ââââââââââ
     podcast = db.query(models.Podcast).filter(models.Podcast.id == podcast_id).first()
     if podcast and podcast.owner_id != user_id:
         actor = db.query(models.User).filter(models.User.id == user_id).first()
@@ -771,7 +771,7 @@ def like_podcast(db: Session, user_id: int, podcast_id: int) -> models.PodcastLi
             db,
             user_id=podcast.owner_id,
             type="like",
-            title="New Like ❤️",
+            title="New Like â¤ï¸",
             message=f"{actor_name} liked your podcast \"{podcast.title}\"",
             podcast_id=podcast_id,
             actor_id=user_id,
@@ -1169,17 +1169,17 @@ def create_comment(db: Session, comment: schemas.PodcastCommentCreate, user_id: 
     db.commit()
     db.refresh(db_comment)
 
-    # ── Notification: notify the podcast owner (skip self-comments) ───────
+    # ââ Notification: notify the podcast owner (skip self-comments) âââââââ
     podcast = db.query(models.Podcast).filter(models.Podcast.id == comment.podcast_id).first()
     if podcast and podcast.owner_id != user_id:
         actor = db.query(models.User).filter(models.User.id == user_id).first()
         actor_name = actor.name if actor else "Someone"
-        preview = comment.content[:60] + ("…" if len(comment.content) > 60 else "")
+        preview = comment.content[:60] + ("â¦" if len(comment.content) > 60 else "")
         _safe_create_notification(
             db,
             user_id=podcast.owner_id,
             type="comment",
-            title="New Comment 💬",
+            title="New Comment ð¬",
             message=f"{actor_name} commented on \"{podcast.title}\": {preview}",
             podcast_id=comment.podcast_id,
             actor_id=user_id,
@@ -1395,7 +1395,7 @@ def get_recommended_podcasts(db: Session, user_id: int, limit: int = 10):
         return get_trending_podcasts(db, limit)
 
     # Build the set of podcast IDs the user has already interacted with using
-    # Core select() + union() — this avoids the legacy db.query() coercion
+    # Core select() + union() â this avoids the legacy db.query() coercion
     # warning and is fully compatible with SQLAlchemy 2.0.
     user_podcast_ids = union(
         select(models.PodcastLike.podcast_id).where(
@@ -1621,7 +1621,7 @@ def get_user_playlists(
     (Playlist, item_count, preview_thumbnails).
     - item_count is computed via a correlated subquery (no lazy loads).
     - preview_thumbnails is a list of up to 4 thumbnail_url strings from the
-      first items in each playlist (by position), used for the 2×2 mosaic UI.
+      first items in each playlist (by position), used for the 2Ã2 mosaic UI.
 
     Args:
         db: Database session
@@ -1648,7 +1648,7 @@ def get_user_playlists(
     rows = query.offset(skip).limit(limit).all()
 
     # Up to 4 thumbnail URLs per playlist, ranked in SQL so the DB only sends
-    # the rows we actually need (no N+1 → no Python-side truncation).
+    # the rows we actually need (no N+1 â no Python-side truncation).
     playlist_ids = [p.id for p, _ in rows]
     thumbnails_map = _load_preview_thumbnails(db, playlist_ids)
 
@@ -1677,7 +1677,7 @@ def get_public_playlists(
         db: Database session
         skip: Number of records to skip
         limit: Maximum number of records
-        q: Optional search query — filters by playlist name, owner display name, or owner username slug (name lowercased with spaces replaced by underscores). Case-insensitive.
+        q: Optional search query â filters by playlist name, owner display name, or owner username slug (name lowercased with spaces replaced by underscores). Case-insensitive.
 
     Returns:
         Tuple of (list of (Playlist, item_count, preview_thumbnails, owner_name, owner_username)
@@ -2095,6 +2095,18 @@ def follow_creator(db: Session, follower_id: int, followed_id: int) -> models.Us
             detail="Already following this creator",
         )
     db.refresh(follow)
+
+    # Notify the followed user about their new follower
+    follower = db.query(models.User).filter(models.User.id == follower_id).first()
+    follower_name = follower.name if follower else "Someone"
+    _safe_create_notification(
+        db,
+        user_id=followed_id,
+        type="follow",
+        title="New Follower",
+        message=f"{follower_name} started following you",
+        actor_id=follower_id,
+    )
     return follow
 
 
@@ -2263,11 +2275,11 @@ def send_direct_message(
         .one()
     )
 
-    # ── Notify recipient of incoming DM (in-app + push) ──────────────────
+    # ââ Notify recipient of incoming DM (in-app + push) ââââââââââââââââââ
     # Wrap in try/except so a notification or push failure never blocks the DM.
     try:
         sender_name = result.sender.name if result.sender else "Someone"
-        preview = body[:80] + ("…" if len(body) > 80 else "")
+        preview = body[:80] + ("â¦" if len(body) > 80 else "")
         create_notification(
             db=db,
             user_id=recipient_id,
@@ -2346,7 +2358,7 @@ def mark_conversation_read(
     partner_id: int,
 ) -> int:
     """
-    Mark all unread messages from partner_id → reader_id as read.
+    Mark all unread messages from partner_id â reader_id as read.
 
     Returns:
         Number of messages updated
@@ -2438,7 +2450,7 @@ def get_total_unread_dm_count(db: Session, user_id: int) -> int:
 
 
 
-# ── Device Token / Push Notification CRUD ────────────────────────────────────
+# ââ Device Token / Push Notification CRUD ââââââââââââââââââââââââââââââââââââ
 
 def register_device_token(
     db: Session,
@@ -2525,7 +2537,7 @@ def _send_expo_push(
     db: "Session | None" = None,
 ) -> None:
     """
-    Best-effort synchronous Expo Push API call.  Never raises — failures are logged.
+    Best-effort synchronous Expo Push API call.  Never raises â failures are logged.
 
     When *db* is provided, successfully-sent ticket IDs (status="ok") are
     persisted to the ``push_tickets`` table so that a receipt-check job can
@@ -2588,7 +2600,7 @@ def _send_expo_push(
                     status = ticket.get("status")
                     if status == "error":
                         logger.warning(
-                            "Expo Push ticket error — details: %s",
+                            "Expo Push ticket error â details: %s",
                             ticket.get("details", ticket.get("message", "unknown")),
                         )
                     elif status == "ok" and db is not None:
@@ -2628,10 +2640,10 @@ def check_push_receipts(
 
     Expo guarantees receipts are available within ~15 minutes of delivery.
     For each receipt:
-    - status "ok"  → ticket resolved successfully; delete the row.
-    - status "error" + error "DeviceNotRegistered" → delete the device_token
+    - status "ok"  â ticket resolved successfully; delete the row.
+    - status "error" + error "DeviceNotRegistered" â delete the device_token
       row (Expo confirmed the token is dead) and the ticket row.
-    - status "error" (other) → log the error and delete the ticket row.
+    - status "error" (other) â log the error and delete the ticket row.
 
     Returns a summary dict:
         {
@@ -2643,7 +2655,7 @@ def check_push_receipts(
           "tickets_remaining": int,
         }
 
-    Never raises — all errors are logged and a partial summary is returned.
+    Never raises â all errors are logged and a partial summary is returned.
     """
     cutoff = datetime.datetime.now(timezone.utc).replace(tzinfo=None) - datetime.timedelta(
         minutes=min_age_minutes
@@ -2720,7 +2732,7 @@ def check_push_receipts(
         # If a ticket ID isn't in the receipts yet, leave it for the next check.
 
     # For any tickets that Expo didn't return (not ready yet or expired),
-    # delete rows older than 25 hours — Expo receipts expire after 24 h.
+    # delete rows older than 25 hours â Expo receipts expire after 24 h.
     cutoff_expired = datetime.datetime.now(timezone.utc).replace(tzinfo=None) - datetime.timedelta(
         hours=25
     )
@@ -2744,7 +2756,7 @@ def check_push_receipts(
     return {
         # Number of tickets attempted this run: rows fetched from DB and
         # submitted to Expo's getReceipts endpoint. Not all may have receipts
-        # returned yet — see receipts_returned for the count Expo actually
+        # returned yet â see receipts_returned for the count Expo actually
         # resolved in this call.
         "tickets_checked": len(ticket_rows),
         "receipts_returned": len(receipts),
@@ -2772,7 +2784,7 @@ def search_users(
     Args:
         db: Database session.
         query: Search term matched against User.name via ILIKE.
-        current_user_id: Optional authenticated user — used to populate
+        current_user_id: Optional authenticated user â used to populate
             is_following. Pass None for unauthenticated callers.
         skip: Pagination offset.
         limit: Max results (capped by the router).
