@@ -2,10 +2,10 @@
 Tests for the creator follow / unfollow feature.
 
 Covers:
-- POST /users/{user_id}/follow   â authenticated follow
-- DELETE /users/{user_id}/follow â authenticated unfollow
-- GET /users/me/following         â paginated following list
-- GET /users/{user_id}/profile    â total_followers and is_following fields
+- POST /users/{user_id}/follow   Ã¢ÂÂ authenticated follow
+- DELETE /users/{user_id}/follow Ã¢ÂÂ authenticated unfollow
+- GET /users/me/following         Ã¢ÂÂ paginated following list
+- GET /users/{user_id}/profile    Ã¢ÂÂ total_followers and is_following fields
 - Guard: cannot follow yourself
 - Guard: duplicate follow returns 400
 - Guard: unfollow non-existent follow returns 404
@@ -26,7 +26,7 @@ client = TestClient(app)
 
 
 # ---------------------------------------------------------------------------
-# Helpers â create test data directly in the conftest db_session database
+# Helpers Ã¢ÂÂ create test data directly in the conftest db_session database
 # ---------------------------------------------------------------------------
 
 def _make_user(db, email: str, name: str = "Test User") -> models.User:
@@ -59,7 +59,7 @@ def _cleanup_follows(db):
 
 
 # ---------------------------------------------------------------------------
-# Tests â follow / unfollow
+# Tests Ã¢ÂÂ follow / unfollow
 # ---------------------------------------------------------------------------
 
 class TestFollowCreator:
@@ -142,7 +142,7 @@ class TestUnfollowCreator:
 
 
 # ---------------------------------------------------------------------------
-# Tests â GET /users/me/following
+# Tests Ã¢ÂÂ GET /users/me/following
 # ---------------------------------------------------------------------------
 
 class TestGetFollowingList:
@@ -191,11 +191,11 @@ class TestGetFollowingList:
 
 
 # ---------------------------------------------------------------------------
-# Tests â profile endpoint: total_followers + is_following
+# Tests Ã¢ÂÂ profile endpoint: total_followers + is_following
 # ---------------------------------------------------------------------------
 
 class TestProfileFollowerFields:
-    """GET /users/{user_id}/profile â follower-related fields."""
+    """GET /users/{user_id}/profile Ã¢ÂÂ follower-related fields."""
 
     def test_profile_total_followers_initially_zero(self, db_session):
         _cleanup_follows(db_session)
@@ -275,7 +275,7 @@ class TestProfileFollowerFields:
 
 
 # ---------------------------------------------------------------------------
-# Tests – follow creates an in-app notification
+# Tests â follow creates an in-app notification
 # ---------------------------------------------------------------------------
 
 class TestFollowNotification:
@@ -331,10 +331,47 @@ class TestFollowNotification:
             .filter(models.Notification.user_id == user.id, models.Notification.type == "follow")
             .count()
         )
-        client.post(f"/users/{user.id}/follow", headers=_auth_header(user))
+        resp = client.post(f"/users/{user.id}/follow", headers=_auth_header(user))
+        assert resp.status_code == 400
         after = (
             db_session.query(models.Notification)
             .filter(models.Notification.user_id == user.id, models.Notification.type == "follow")
             .count()
         )
         assert before == after, "self-follow must not create a notification"
+
+    def test_duplicate_follow_no_extra_notification(self, db_session):
+        """Second POST /follow returns 400 and must not create a duplicate notification."""
+        _cleanup_follows(db_session)
+        follower = _make_user(db_session, "fn_dup_follower@example.com", "FNDupFollower")
+        creator  = _make_user(db_session, "fn_dup_creator@example.com",  "FNDupCreator")
+
+        # First follow — succeeds and creates one notification
+        resp1 = client.post(f"/users/{creator.id}/follow", headers=_auth_header(follower))
+        assert resp1.status_code == 201
+
+        count_after_first = (
+            db_session.query(models.Notification)
+            .filter(
+                models.Notification.user_id == creator.id,
+                models.Notification.type == "follow",
+                models.Notification.actor_id == follower.id,
+            )
+            .count()
+        )
+        assert count_after_first == 1
+
+        # Second follow — blocked with 400, notification count must not increase
+        resp2 = client.post(f"/users/{creator.id}/follow", headers=_auth_header(follower))
+        assert resp2.status_code == 400
+
+        count_after_second = (
+            db_session.query(models.Notification)
+            .filter(
+                models.Notification.user_id == creator.id,
+                models.Notification.type == "follow",
+                models.Notification.actor_id == follower.id,
+            )
+            .count()
+        )
+        assert count_after_second == 1, "duplicate follow must not create an extra notification"
