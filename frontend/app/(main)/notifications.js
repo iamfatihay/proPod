@@ -65,6 +65,14 @@ const NOTIFICATION_TYPES = {
         icon: "mic-circle",
         ...getNotificationColors('rtc_ready'),
     },
+    new_episode: {
+        icon: "radio",
+        ...getNotificationColors('new_episode'),
+    },
+    dm: {
+        icon: "chatbubble-ellipses",
+        ...getNotificationColors('dm'),
+    },
 };
 
 const NotificationCard = ({ notification, onPress, onMarkRead }) => {
@@ -238,6 +246,28 @@ export default function NotificationsScreen() {
                 });
                 return;
             }
+        }
+
+        // DM notification → open the conversation or DM inbox as fallback
+        if (notification.type === 'dm') {
+            const partnerId = notification.actor_id;
+            if (partnerId) {
+                router.push({ pathname: '/(main)/chat-details', params: { partnerId } });
+            } else {
+                router.push('/(main)/messages');
+            }
+            return;
+        }
+
+        // new_episode notification → open the episode detail if podcast id present
+        if (notification.type === 'new_episode') {
+            const podcastId = notification.action?.params?.id;
+            if (podcastId) {
+                router.push({ pathname: '/(main)/details', params: { id: String(podcastId) } });
+            } else {
+                router.push('/(main)/notifications');
+            }
+            return;
         }
 
         router.push({
