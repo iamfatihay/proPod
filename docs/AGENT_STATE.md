@@ -6,8 +6,8 @@
 
 ## 📍 Current State
 
-**Last updated:** 2026-04-30
-**Last session:** Refactor PlaylistCard Zustand selector — two primitive boolean selectors replacing combined-object pattern in playlists.js; PR #106 open (refactor/playlist-card-primitive-selectors) — animated waveform + primary border + chevron tint on active `PublicPlaylistCard` in `public-playlists.js`; review fix: primitive boolean selectors (no object allocation on every store update); `node --check` passes
+**Last updated:** 2026-05-02
+**Last session:** Fix missing notification types for dm + new_episode (PR #107) — new icons, colours, actor_id forwarding, smart tap routing to chat-details / episode details; `node --check` passes on all 3 files
 **Test suite baseline:** ~477 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -57,6 +57,8 @@
 
 ## ✅ Recently Shipped (continued)
 
+- ✅ Refactor `PlaylistCard` to primitive Zustand selectors — two `useAudioStore` boolean primitives replacing combined-object pattern; zero re-renders on inactive cards during play/pause (PR #106)
+
 - ✅ DM unread badge wired end-to-end — `GET /messages/unread-count`, `_layout.js` cold-start + foreground hook, `home.js` badge fix (PR #102)
 - ✅ DM badge 30 s polling interval — `startDMPolling`/`stopDMPolling` helpers in `_layout.js`, pauses on background, clears on unmount (PR #103)
 - ✅ Playlist now-playing indicator in Library — animated waveform icon + primary border on active `PlaylistCard`; `activePlaylistId` in useAudioStore; backward-compatible `setQueue` third param (PR #104)
@@ -66,7 +68,7 @@
 
 ## 🔄 What's open
 
-- PR #106 `refactor/playlist-card-primitive-selectors` — Split combined-object Zustand selector into two primitive boolean selectors in `PlaylistCard`; zero re-renders on inactive cards during play/pause; `node --check` passes
+- PR #107 `fix/notification-types-dm-new-episode` — Add `new_episode` (radio icon, orange) and `dm` (chatbubble icon, sky-blue) to `NOTIFICATION_TYPES`; forward `actor_id` from server; tap routes to episode detail / chat-details respectively; `node --check` passes
 
 ---
 
@@ -91,11 +93,11 @@
 
 ## 🗺️ Next Session Suggestions
 
-1. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory `BackgroundScheduler` with a SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check per interval. Adds Alembic migration for `apscheduler_jobs` table.
+1. **[FRONTEND] `follow` notification tap → creator profile** — `handleNotificationPress` has no branch for `follow` type; tapping falls through to generic activity-details. Add routing to `/(main)/creator-profile` using `notification.actor_id` as `userId`. One-liner change, mirrors dm/new_episode fix from PR #107.
 
-2. **[FRONTEND] DM push notifications** — Wire `expo-notifications` to incoming DM events so users get a push badge and system notification when they receive a new message while the app is backgrounded. Backend endpoint `POST /messages/` already exists; needs `_notify_dm_recipient()` fan-out (similar to `_notify_followers_new_episode()`).
+2. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory `BackgroundScheduler` with a SQLAlchemy-backed store so multi-worker Uvicorn deployments only fire one receipt check per interval. Adds Alembic migration for `apscheduler_jobs` table.
 
-3. **[FRONTEND] Sleep timer named-constant refactor** — Extract the hardcoded `setInterval` duration in the sleep timer into a named constant and add a Jest unit test verifying the countdown accuracy. Low-risk, improves testability.
+3. **[FRONTEND] Notification badge for new episodes** — `useNotificationStore` merges server `new_episode` notifications but `serverTypes` previously excluded `dm`; now fixed. Verify the unread badge count increments correctly when a new-episode push arrives while app is foregrounded (manual QA item, no code change needed unless a bug surfaces).
 
 ---
 
