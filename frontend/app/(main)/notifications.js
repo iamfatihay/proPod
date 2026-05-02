@@ -232,7 +232,33 @@ export default function NotificationsScreen() {
             markAsReadWithSync(notification.id);
         }
 
-        // Handle navigation based on action
+        // Type-specific routing runs BEFORE the generic action block so these
+        // branches are never shadowed by notification.action being set.
+
+        // dm → open the conversation (actor_id is the sender); fall back to inbox
+        if (notification.type === 'dm') {
+            const partnerId = notification.actor_id;
+            if (partnerId) {
+                // Coerce to string — chat-details expects a string route param
+                router.push({ pathname: '/(main)/chat-details', params: { partnerId: String(partnerId) } });
+            } else {
+                router.push('/(main)/messages');
+            }
+            return;
+        }
+
+        // new_episode → open the episode detail; podcast id lives in action.params
+        if (notification.type === 'new_episode') {
+            const podcastId = notification.action?.params?.id;
+            if (podcastId) {
+                router.push({ pathname: '/(main)/details', params: { id: String(podcastId) } });
+            } else {
+                router.push('/(main)/notifications');
+            }
+            return;
+        }
+
+        // Generic action-based routing (like, comment, follow, system, rtc_*, etc.)
         if (notification.action) {
             const { type, screen, params } = notification.action;
 
@@ -246,28 +272,6 @@ export default function NotificationsScreen() {
                 });
                 return;
             }
-        }
-
-        // DM notification → open the conversation or DM inbox as fallback
-        if (notification.type === 'dm') {
-            const partnerId = notification.actor_id;
-            if (partnerId) {
-                router.push({ pathname: '/(main)/chat-details', params: { partnerId } });
-            } else {
-                router.push('/(main)/messages');
-            }
-            return;
-        }
-
-        // new_episode notification → open the episode detail if podcast id present
-        if (notification.type === 'new_episode') {
-            const podcastId = notification.action?.params?.id;
-            if (podcastId) {
-                router.push({ pathname: '/(main)/details', params: { id: String(podcastId) } });
-            } else {
-                router.push('/(main)/notifications');
-            }
-            return;
         }
 
         router.push({
