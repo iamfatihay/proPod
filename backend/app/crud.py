@@ -2349,6 +2349,25 @@ def send_direct_message(
         db.rollback()
         logger.warning("DM notification dispatch failed (non-fatal): %s", exc)
 
+    # Send Expo push notification to recipient (best-effort)
+    try:
+        push_tokens = (
+            db.query(models.DeviceToken.token)
+            .filter(models.DeviceToken.user_id == recipient_id)
+            .all()
+        )
+        token_strings = [row.token for row in push_tokens]
+        if token_strings:
+            _send_expo_push(
+                tokens=token_strings,
+                title=f"New message from {sender_name}",
+                body=preview,
+                data={"type": "dm", "actorId": sender_id},
+                db=db,
+            )
+    except Exception as exc:
+        logger.warning("DM push notification failed (non-fatal): %s", exc)
+
     return result
 
 
