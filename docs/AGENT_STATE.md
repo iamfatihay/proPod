@@ -7,7 +7,7 @@
 ## U0001f9ed Current State
 
 **Last updated:** 2026-05-03
-**Last session (2):** Encoding fix PR #112 — scanned all 32 affected backend Python files, applied iterative double-decode to restore correct UTF-8 (emoji, arrows, em-dashes in docstrings/strings)
+**Last session (3):** DM push notifications PR #113 — added _send_expo_push in send_direct_message (query DeviceToken for recipient, type="dm" payload); 3 new tests in TestDMPushNotification. Bash sandbox down again.
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo · FastAPI + SQLAlchemy · PostgreSQL (prod) / SQLite (test only)
@@ -26,12 +26,13 @@
 - ✅ Follow notification — backend + frontend bell badge + tap routing (PR #108)
 - ✅ Follow push notification — _send_expo_push in follow_creator (PR #110)
 - ✅ Like/comment push notifications — _send_expo_push in like_podcast and create_comment; 6 new pytest cases (PR #111)
+— Encoding fix: restore correct UTF-8 in 32 backend files, use \uXXXX escapes (PR #112)
 
 ---
 
 ## U0001f500 What's open
 
-- PR #112 `fix/encoding-mojibake-cleanup` → Restore correct UTF-8 in 32 backend Python files: iterative double-decode removes all layers of mojibake (double/triple-encoded emoji, arrows, em-dashes) introduced by repeated atob/btoa agent commits
+- PR #113 `feature/dm-push-notifications` → Expo push in send_direct_message: query DeviceToken for recipient, call _send_expo_push with type="dm" payload; 3 tests in TestDMPushNotification (test_notifications.py)
 
 ---
 
@@ -57,6 +58,6 @@
 
 1. **[FRONTEND] Notification read-state badge sync** — Persist last-read timestamp to AsyncStorage so bell badge doesn't flicker on cold-start. Frontend-only, medium user impact.
 
-2. **[BACKEND+FRONTEND] DM push notifications** — `send_message` creates no push at all; add `_send_expo_push` call in `crud.send_message` mirroring the established pattern.
+2. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory `BackgroundScheduler` with persistent jobstore so scheduled tasks survive restarts
 
-3. **[BACKEND] APScheduler SQLAlchemy jobstore** — Replace in-memory `BackgroundScheduler` with persistent jobstore so scheduled tasks survive restarts.
+3. **[FRONTEND] DM push deep-link routing** — tapping a DM push notification currently lands on home; wire `type=="dm"` in the notification tap handler to navigate directly to the DM conversation screen with the correct `actorId`..
