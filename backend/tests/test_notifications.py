@@ -1,9 +1,9 @@
 """Tests for the /notifications endpoints.
 
 Covers:
-- GET /notifications â list, pagination, unread count
-- PATCH /notifications/{id}/read â mark single as read
-- POST /notifications/mark-all-read â mark all as read
+- GET /notifications Ã¢ÂÂ list, pagination, unread count
+- PATCH /notifications/{id}/read Ã¢ÂÂ mark single as read
+- POST /notifications/mark-all-read Ã¢ÂÂ mark all as read
 - Notification creation side-effects on like and comment
 """
 import pytest
@@ -542,6 +542,7 @@ class TestLikePushNotification:
             models.DeviceToken.user_id.in_(user_ids)
         ).delete(synchronize_session=False)
         db.commit()
+
     def test_like_sends_push_when_device_registered(self, db_session):
         """Expo push fires with correct payload when the owner has a device token."""
         from unittest.mock import patch, MagicMock
@@ -606,6 +607,7 @@ class TestCommentPushNotification:
             models.DeviceToken.user_id.in_(user_ids)
         ).delete(synchronize_session=False)
         db.commit()
+
     def test_comment_sends_push_when_device_registered(self, db_session):
         """Expo push fires with correct payload when the owner has a device token."""
         from unittest.mock import patch, MagicMock
