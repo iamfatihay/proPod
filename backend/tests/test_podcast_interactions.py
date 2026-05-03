@@ -58,7 +58,7 @@ class TestPodcastLike:
             f"/podcasts/{test_podcast.id}/like",
             headers=auth_header(token),
         )
-        # Like again â should fail
+        # Like again — should fail
         resp = client.post(
             f"/podcasts/{test_podcast.id}/like",
             headers=auth_header(token),
