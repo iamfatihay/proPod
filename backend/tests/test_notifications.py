@@ -670,3 +670,89 @@ class TestCommentPushNotification:
         assert resp.status_code == 200
         mock_post.assert_not_called()
 
+
+
+class TestDMPushNotification:
+    """create_notification() fires a best-effort Expo push for every notification type,
+    including 'dm'. These tests verify the push reaches the recipient via that path."""
+
+    def _cleanup(self, db, *user_ids):
+        from app import models as _m
+        db.query(_m.DirectMessage).filter(
+            (_m.DirectMessage.sender_id.in_(user_ids)) |
+            (_m.DirectMessage.recipient_id.in_(user_ids))
+        ).delete(synchronize_session=False)
+        db.query(_m.Notification).filter(
+            _m.Notification.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+        db.query(_m.DeviceToken).filter(
+            _m.DeviceToken.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+        db.commit()
+
+    def test_dm_sends_push_when_device_registered(self, db_session):
+        """Expo push fires with correct payload when recipient has a device token."""
+        from unittest.mock import patch, MagicMock
+        sender    = _make_user(db_session, "dmp_sender@example.com",    "DMPushSender")
+        recipient = _make_user(db_session, "dmp_recipient@example.com", "DMPushRecipient")
+        self._cleanup(db_session, sender.id, recipient.id)
+
+        from app import crud as _crud, models as _m
+        _crud.register_device_token(
+            db_session, recipient.id, "ExponentPushToken[dm-push-test-001]", "ios"
+        )
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"data": [{"status": "ok", "id": "dm-ticket-001"}]}
+        with patch("app.crud.httpx.post", return_value=mock_resp) as mock_post:
+            resp = client.post(
+                "/messages/",
+                json={"recipient_id": recipient.id, "body": "Hello there!"},
+                headers=_auth(sender),
+            )
+        assert resp.status_code == 201
+
+        mock_post.assert_called_once()
+        messages = mock_post.call_args.kwargs["json"]
+        assert isinstance(messages, list) and len(messages) == 1
+        assert messages[0]["data"]["type"] == "dm"
+        assert messages[0]["data"]["actorId"] == sender.id
+
+    def test_dm_no_push_when_no_device_token(self, db_session):
+        """No Expo push is attempted when the recipient has no registered device tokens."""
+        from unittest.mock import patch
+        sender    = _make_user(db_session, "dmnp_sender@example.com",    "DMNoPushSender")
+        recipient = _make_user(db_session, "dmnp_recipient@example.com", "DMNoPushRecipient")
+        self._cleanup(db_session, sender.id, recipient.id)
+
+        with patch("app.crud.httpx.post") as mock_post:
+            resp = client.post(
+                "/messages/",
+                json={"recipient_id": recipient.id, "body": "Silent message"},
+                headers=_auth(sender),
+            )
+        assert resp.status_code == 201
+        mock_post.assert_not_called()
+
+    def test_dm_sender_receives_no_push(self, db_session):
+        """The sender must not receive a push for their own message."""
+        from unittest.mock import patch, MagicMock
+        sender    = _make_user(db_session, "dmsp_sender@example.com",    "DMSelfPushSender")
+        recipient = _make_user(db_session, "dmsp_recipient@example.com", "DMSelfPushRecipient")
+        self._cleanup(db_session, sender.id, recipient.id)
+
+        from app import crud as _crud
+        # Register token for SENDER, not recipient
+        _crud.register_device_token(
+            db_session, sender.id, "ExponentPushToken[dm-sender-self-test]", "android"
+        )
+
+        with patch("app.crud.httpx.post") as mock_post:
+            resp = client.post(
+                "/messages/",
+                json={"recipient_id": recipient.id, "body": "Self-push guard"},
+                headers=_auth(sender),
+            )
+        assert resp.status_code == 201
+        mock_post.assert_not_called()
