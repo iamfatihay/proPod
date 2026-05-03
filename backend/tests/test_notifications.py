@@ -1,9 +1,9 @@
 """Tests for the /notifications endpoints.
 
 Covers:
-- GET /notifications — list, pagination, unread count
-- PATCH /notifications/{id}/read — mark single as read
-- POST /notifications/mark-all-read — mark all as read
+- GET /notifications Ã¢ÂÂ list, pagination, unread count
+- PATCH /notifications/{id}/read Ã¢ÂÂ mark single as read
+- POST /notifications/mark-all-read Ã¢ÂÂ mark all as read
 - Notification creation side-effects on like and comment
 """
 import pytest
@@ -521,3 +521,152 @@ class TestFollowNotification:
             resp = client.post(f"/users/{creator.id}/follow", headers=_auth(fan))
         assert resp.status_code == 201
         mock_post.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Tests -- like / comment trigger Expo push notifications
+# ---------------------------------------------------------------------------
+
+
+class TestLikePushNotification:
+    """like_podcast sends a best-effort Expo push to the podcast owner."""
+
+    def _cleanup(self, db, *user_ids):
+        db.query(models.PodcastLike).filter(
+            models.PodcastLike.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+        db.query(models.Notification).filter(
+            models.Notification.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+        db.query(models.DeviceToken).filter(
+            models.DeviceToken.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+        db.commit()
+
+    def test_like_sends_push_when_device_registered(self, db_session):
+        """Expo push fires with correct payload when the owner has a device token."""
+        from unittest.mock import patch, MagicMock
+        owner   = _make_user(db_session, "lp_owner@example.com",  "LikePushOwner")
+        liker   = _make_user(db_session, "lp_liker@example.com",  "LikePushLiker")
+        podcast = _make_podcast(db_session, owner, "Push-worthy Show")
+        self._cleanup(db_session, owner.id, liker.id)
+
+        crud.register_device_token(db_session, owner.id, "ExponentPushToken[like-push-test]", "ios")
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"data": [{"status": "ok", "id": "like-ticket-001"}]}
+        with patch("app.crud.httpx.post", return_value=mock_resp) as mock_post:
+            resp = client.post(f"/podcasts/{podcast.id}/like", headers=_auth(liker))
+        assert resp.status_code == 200
+
+        mock_post.assert_called_once()
+        messages = mock_post.call_args.kwargs["json"]
+        assert isinstance(messages, list) and len(messages) == 1
+        assert messages[0]["data"]["type"] == "like"
+        assert messages[0]["data"]["actorId"] == liker.id
+        assert messages[0]["data"]["podcastId"] == podcast.id
+    def test_like_no_push_when_no_device_token(self, db_session):
+        """No Expo push is attempted when the owner has no registered device tokens."""
+        from unittest.mock import patch
+        owner   = _make_user(db_session, "lnp_owner@example.com", "LikeNoPushOwner")
+        liker   = _make_user(db_session, "lnp_liker@example.com", "LikeNoPushLiker")
+        podcast = _make_podcast(db_session, owner, "No Push Show")
+        self._cleanup(db_session, owner.id, liker.id)
+
+        with patch("app.crud.httpx.post") as mock_post:
+            resp = client.post(f"/podcasts/{podcast.id}/like", headers=_auth(liker))
+        assert resp.status_code == 200
+        mock_post.assert_not_called()
+
+    def test_self_like_no_push(self, db_session):
+        """Owner liking their own podcast must not trigger a push notification."""
+        from unittest.mock import patch
+        owner   = _make_user(db_session, "lself_owner@example.com", "LikeSelfOwner")
+        podcast = _make_podcast(db_session, owner, "Self Like Show")
+        self._cleanup(db_session, owner.id)
+
+        crud.register_device_token(db_session, owner.id, "ExponentPushToken[like-self-test]", "ios")
+
+        with patch("app.crud.httpx.post") as mock_post:
+            resp = client.post(f"/podcasts/{podcast.id}/like", headers=_auth(owner))
+        assert resp.status_code == 200
+        mock_post.assert_not_called()
+
+class TestCommentPushNotification:
+    """create_comment sends a best-effort Expo push to the podcast owner."""
+
+    def _cleanup(self, db, *user_ids):
+        db.query(models.PodcastComment).filter(
+            models.PodcastComment.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+        db.query(models.Notification).filter(
+            models.Notification.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+        db.query(models.DeviceToken).filter(
+            models.DeviceToken.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+        db.commit()
+
+    def test_comment_sends_push_when_device_registered(self, db_session):
+        """Expo push fires with correct payload when the owner has a device token."""
+        from unittest.mock import patch, MagicMock
+        owner     = _make_user(db_session, "cp_owner@example.com",     "CommentPushOwner")
+        commenter = _make_user(db_session, "cp_commenter@example.com", "CommentPushLiker")
+        podcast   = _make_podcast(db_session, owner, "Comment Push Show")
+        self._cleanup(db_session, owner.id, commenter.id)
+
+        crud.register_device_token(db_session, owner.id, "ExponentPushToken[comment-push-test]", "ios")
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"data": [{"status": "ok", "id": "comment-ticket-001"}]}
+        with patch("app.crud.httpx.post", return_value=mock_resp) as mock_post:
+            resp = client.post(
+                f"/podcasts/{podcast.id}/comments",
+                json={"podcast_id": podcast.id, "content": "Great episode!"},
+                headers=_auth(commenter),
+            )
+        assert resp.status_code == 200
+
+        mock_post.assert_called_once()
+        messages = mock_post.call_args.kwargs["json"]
+        assert isinstance(messages, list) and len(messages) == 1
+        assert messages[0]["data"]["type"] == "comment"
+        assert messages[0]["data"]["actorId"] == commenter.id
+        assert messages[0]["data"]["podcastId"] == podcast.id
+    def test_comment_no_push_when_no_device_token(self, db_session):
+        """No Expo push is attempted when the owner has no registered device tokens."""
+        from unittest.mock import patch
+        owner     = _make_user(db_session, "cnp_owner@example.com",     "CommentNoPushOwner")
+        commenter = _make_user(db_session, "cnp_commenter@example.com", "CommentNoPushCommenter")
+        podcast   = _make_podcast(db_session, owner, "Comment No Push Show")
+        self._cleanup(db_session, owner.id, commenter.id)
+
+        with patch("app.crud.httpx.post") as mock_post:
+            resp = client.post(
+                f"/podcasts/{podcast.id}/comments",
+                json={"podcast_id": podcast.id, "content": "No push comment"},
+                headers=_auth(commenter),
+            )
+        assert resp.status_code == 200
+        mock_post.assert_not_called()
+
+    def test_self_comment_no_push(self, db_session):
+        """Owner commenting on their own podcast must not trigger a push notification."""
+        from unittest.mock import patch
+        owner   = _make_user(db_session, "cself_owner@example.com", "CommentSelfOwner")
+        podcast = _make_podcast(db_session, owner, "Self Comment Show")
+        self._cleanup(db_session, owner.id)
+
+        crud.register_device_token(db_session, owner.id, "ExponentPushToken[comment-self-test]", "ios")
+
+        with patch("app.crud.httpx.post") as mock_post:
+            resp = client.post(
+                f"/podcasts/{podcast.id}/comments",
+                json={"podcast_id": podcast.id, "content": "Talking to myself"},
+                headers=_auth(owner),
+            )
+        assert resp.status_code == 200
+        mock_post.assert_not_called()
+
