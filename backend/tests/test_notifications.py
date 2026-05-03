@@ -1,9 +1,9 @@
 """Tests for the /notifications endpoints.
 
 Covers:
-- GET /notifications Ã¢ÂÂ list, pagination, unread count
-- PATCH /notifications/{id}/read Ã¢ÂÂ mark single as read
-- POST /notifications/mark-all-read Ã¢ÂÂ mark all as read
+- GET /notifications — list, pagination, unread count
+- PATCH /notifications/{id}/read — mark single as read
+- POST /notifications/mark-all-read — mark all as read
 - Notification creation side-effects on like and comment
 """
 import pytest
