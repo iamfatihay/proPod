@@ -2107,6 +2107,25 @@ def follow_creator(db: Session, follower_id: int, followed_id: int) -> models.Us
         message=f"{follower_name} started following you",
         actor_id=follower_id,
     )
+
+    # Send Expo push notification to the followed user (best-effort)
+    try:
+        push_tokens = (
+            db.query(models.DeviceToken.token)
+            .filter(models.DeviceToken.user_id == followed_id)
+            .all()
+        )
+        token_strings = [row.token for row in push_tokens]
+        if token_strings:
+            _send_expo_push(
+                tokens=token_strings,
+                title="New Follower",
+                body=f"{follower_name} started following you",
+                data={"type": "follow", "actorId": follower_id},
+                db=db,
+            )
+    except Exception as exc:
+        logger.warning("Follow push notification failed (non-fatal): %s", exc)
     return follow
 
 

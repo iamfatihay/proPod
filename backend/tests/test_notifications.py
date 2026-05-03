@@ -440,3 +440,84 @@ class TestNewEpisodeNotification:
             models.Notification.type == "new_episode",
         ).count()
         assert after == before, "Private podcast must not generate new_episode notifications"
+
+
+# ---------------------------------------------------------------------------
+# TestFollowNotification
+# ---------------------------------------------------------------------------
+
+class TestFollowNotification:
+    """Verify that following a creator triggers in-app + Expo push notifications."""
+
+    def _cleanup(self, db, *user_ids):
+        db.query(models.UserFollow).filter(
+            models.UserFollow.follower_id.in_(user_ids)
+            | models.UserFollow.followed_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+        db.query(models.Notification).filter(
+            models.Notification.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+        db.query(models.DeviceToken).filter(
+            models.DeviceToken.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+        db.commit()
+
+    def test_follow_creates_in_app_notification(self, db_session):
+        """POSTing to /{id}/follow creates a 'follow' in-app notification for the creator."""
+        from unittest.mock import patch, MagicMock
+        fan     = _make_user(db_session, "fn_fan@example.com",     "Fan")
+        creator = _make_user(db_session, "fn_creator@example.com", "Creator")
+        self._cleanup(db_session, fan.id, creator.id)
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"data": []}
+        with patch("app.crud.httpx.post", return_value=mock_resp):
+            resp = client.post(f"/users/{creator.id}/follow", headers=_auth(fan))
+        assert resp.status_code == 201
+
+        notif = (
+            db_session.query(models.Notification)
+            .filter(
+                models.Notification.user_id == creator.id,
+                models.Notification.type == "follow",
+            )
+            .first()
+        )
+        assert notif is not None
+        assert notif.actor_id == fan.id
+        assert "following" in notif.message.lower()
+
+    def test_follow_sends_push_when_device_registered(self, db_session):
+        """Expo push is sent with correct payload when the creator has a registered device token."""
+        from unittest.mock import patch, MagicMock
+        fan     = _make_user(db_session, "fp_fan@example.com",     "PushFan")
+        creator = _make_user(db_session, "fp_creator@example.com", "PushCreator")
+        self._cleanup(db_session, fan.id, creator.id)
+
+        crud.register_device_token(db_session, creator.id, "ExponentPushToken[follow-push-test]", "ios")
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"data": [{"status": "ok", "id": "follow-ticket-001"}]}
+        with patch("app.crud.httpx.post", return_value=mock_resp) as mock_post:
+            resp = client.post(f"/users/{creator.id}/follow", headers=_auth(fan))
+        assert resp.status_code == 201
+
+        mock_post.assert_called_once()
+        messages = mock_post.call_args.kwargs["json"]
+        assert isinstance(messages, list) and len(messages) == 1
+        assert messages[0]["data"]["type"] == "follow"
+        assert messages[0]["data"]["actorId"] == fan.id
+
+    def test_follow_no_push_when_no_device_token(self, db_session):
+        """No Expo push is attempted when the followed creator has no device tokens."""
+        from unittest.mock import patch
+        fan     = _make_user(db_session, "np_fan@example.com",     "NoPushFan")
+        creator = _make_user(db_session, "np_creator@example.com", "NoPushCreator")
+        self._cleanup(db_session, fan.id, creator.id)
+
+        with patch("app.crud.httpx.post") as mock_post:
+            resp = client.post(f"/users/{creator.id}/follow", headers=_auth(fan))
+        assert resp.status_code == 201
+        mock_post.assert_not_called()
