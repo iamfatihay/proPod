@@ -673,7 +673,8 @@ class TestCommentPushNotification:
 
 
 class TestDMPushNotification:
-    """send_direct_message sends a best-effort Expo push to the recipient."""
+    """create_notification() fires a best-effort Expo push for every notification type,
+    including 'dm'. These tests verify the push reaches the recipient via that path."""
 
     def _cleanup(self, db, *user_ids):
         from app import models as _m
@@ -710,7 +711,7 @@ class TestDMPushNotification:
                 json={"recipient_id": recipient.id, "body": "Hello there!"},
                 headers=_auth(sender),
             )
-        assert resp.status_code == 200
+        assert resp.status_code == 201
 
         mock_post.assert_called_once()
         messages = mock_post.call_args.kwargs["json"]
@@ -731,7 +732,7 @@ class TestDMPushNotification:
                 json={"recipient_id": recipient.id, "body": "Silent message"},
                 headers=_auth(sender),
             )
-        assert resp.status_code == 200
+        assert resp.status_code == 201
         mock_post.assert_not_called()
 
     def test_dm_sender_receives_no_push(self, db_session):
@@ -753,5 +754,5 @@ class TestDMPushNotification:
                 json={"recipient_id": recipient.id, "body": "Self-push guard"},
                 headers=_auth(sender),
             )
-        assert resp.status_code == 200
+        assert resp.status_code == 201
         mock_post.assert_not_called()
