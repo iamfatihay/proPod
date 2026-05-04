@@ -27,7 +27,7 @@ import {
     Platform,
     RefreshControl,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import useNotificationStore from "../../src/context/useNotificationStore";
 import useDMStore from "../../src/context/useDMStore";
@@ -210,6 +210,7 @@ export default function NotificationsScreen() {
     const unreadCount = useNotificationStore((state) => state.unreadCount);
     const unreadDMCount = useDMStore((state) => state.unreadDMCount);
     const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
+    const markAllRead = useNotificationStore((state) => state.markAllRead);
     const markAsReadWithSync = useNotificationStore((state) => state.markAsReadWithSync);
     const markAllAsReadWithSync = useNotificationStore((state) => state.markAllAsReadWithSync);
 
@@ -219,6 +220,14 @@ export default function NotificationsScreen() {
     React.useEffect(() => {
         fetchNotifications();
     }, [fetchNotifications]);
+
+    // Stamp lastReadTimestamp whenever the screen comes into focus so the
+    // bell badge resets immediately and stays stable on cold-start.
+    useFocusEffect(
+        useCallback(() => {
+            markAllRead();
+        }, [markAllRead])
+    );
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
@@ -235,11 +244,11 @@ export default function NotificationsScreen() {
         // Type-specific routing runs BEFORE the generic action block so these
         // branches are never shadowed by notification.action being set.
 
-        // dm Ã¢ÂÂ open the conversation (actor_id is the sender); fall back to inbox
+        // ---
         if (notification.type === 'dm') {
             const partnerId = notification.actor_id;
             if (partnerId) {
-                // Coerce to string Ã¢ÂÂ chat-details expects a string route param
+                // ---
                 router.push({ pathname: '/(main)/chat-details', params: { partnerId: String(partnerId) } });
             } else {
                 router.push('/(main)/messages');
@@ -247,7 +256,7 @@ export default function NotificationsScreen() {
             return;
         }
 
-        // new_episode Ã¢ÂÂ open the episode detail; podcast id lives in action.params
+        // ---
         if (notification.type === 'new_episode') {
             const podcastId = notification.action?.params?.id;
             if (podcastId) {

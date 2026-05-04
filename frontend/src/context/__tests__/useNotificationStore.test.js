@@ -2,18 +2,18 @@
  * useNotificationStore Tests
  *
  * Covers the server-sync logic that lives in the store:
- *   - fetchNotifications  — merges server + local notifications
- *   - markAsReadWithSync  — optimistic update, then PATCH to server
- *   - markAllAsReadWithSync — marks all read, then POST to server
+ *   - fetchNotifications  -- merges server + local notifications
+ *   - markAsReadWithSync  -- optimistic update, then PATCH to server
+ *   - markAllAsReadWithSync -- marks all read, then POST to server
  *
- * Local-only operations (addNotification, markAsRead, clearAll …) are
+ * Local-only operations (addNotification, markAsRead, clearAll --) are
  * straightforward state mutations tested at the bottom.
  */
 
 import { renderHook, act } from "@testing-library/react-native";
 import useNotificationStore from "../useNotificationStore";
 
-// ── Mocks ─────────────────────────────────────────────────────────────────────
+// ---
 
 jest.mock("../../services/api/apiService", () => ({
     getNotifications: jest.fn(),
@@ -24,7 +24,7 @@ jest.mock("../../services/api/apiService", () => ({
 import apiService from "../../services/api/apiService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ---
 
 function resetStore() {
     useNotificationStore.setState({
@@ -59,7 +59,7 @@ function makeServerApiNotif(overrides = {}) {
     };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ---
 
 describe("useNotificationStore", () => {
     beforeEach(() => {
@@ -69,7 +69,7 @@ describe("useNotificationStore", () => {
         AsyncStorage.__clearMockStorage();
     });
 
-    // ── fetchNotifications ────────────────────────────────────────────────────
+    // ---
 
     describe("fetchNotifications()", () => {
         it("populates store with server notifications normalised to local schema", async () => {
@@ -183,7 +183,7 @@ describe("useNotificationStore", () => {
             // After fetchNotifications(), the server-backed version should replace it
             // and the local copy must NOT appear in the merged list.
             const legacyLocal = {
-                id: "local_ne_001",            // non-srv_ prefix → treated as local
+                id: "local_ne_001",            // non-srv_ prefix -- treated as local
                 type: "new_episode",
                 title: "New episode from Creator",
                 message: "Creator just published \"Episode 5\"",
@@ -272,7 +272,7 @@ describe("useNotificationStore", () => {
         });
     });
 
-    // ── markAsReadWithSync ────────────────────────────────────────────────────
+    // ---
 
     describe("markAsReadWithSync()", () => {
         it("optimistically marks notification as read and decrements unreadCount", async () => {
@@ -405,7 +405,7 @@ describe("useNotificationStore", () => {
         });
     });
 
-    // ── markAllAsReadWithSync ─────────────────────────────────────────────────
+    // ---
 
     describe("markAllAsReadWithSync()", () => {
         it("marks all notifications as read and resets unreadCount to 0", async () => {
@@ -487,7 +487,7 @@ describe("useNotificationStore", () => {
         });
     });
 
-    // ── Local-only state mutations ────────────────────────────────────────────
+    // ---
 
     describe("addNotification()", () => {
         it("prepends a notification and increments unreadCount", () => {
@@ -661,4 +661,67 @@ describe("useNotificationStore", () => {
             expect(unread.every((n) => !n.read)).toBe(true);
         });
     });
+
+    describe("markAllRead()", () => {
+        it("clears badge, stamps lastReadTimestamp, marks all notifications read", async () => {
+            const { result } = renderHook(() => useNotificationStore());
+            act(() => {
+                useNotificationStore.setState({
+                    notifications: [
+                        { id: "1", read: false, created_at: Date.now() - 5000, type: "like" },
+                        { id: "2", read: false, created_at: Date.now() - 3000, type: "comment" },
+                    ],
+                    unreadCount: 2,
+                    lastReadTimestamp: 0,
+                });
+            });
+            const before = Date.now();
+            await act(async () => { await result.current.markAllRead(); });
+            const after = Date.now();
+            const state = useNotificationStore.getState();
+            expect(state.unreadCount).toBe(0);
+            expect(state.lastReadTimestamp).toBeGreaterThanOrEqual(before);
+            expect(state.lastReadTimestamp).toBeLessThanOrEqual(after);
+            expect(state.notifications.every((n) => n.read)).toBe(true);
+        });
+
+        it("persists lastReadTimestamp to AsyncStorage", async () => {
+            const { result } = renderHook(() => useNotificationStore());
+            await act(async () => { await result.current.markAllRead(); });
+            const raw = await AsyncStorage.getItem("@notifications");
+            const parsed = JSON.parse(raw);
+            expect(parsed.lastReadTimestamp).toBeGreaterThan(0);
+        });
+    });
+
+    describe("lastReadTimestamp badge derivation", () => {
+        it("loadFromStorage uses timestamp to compute unreadCount -- newer items only", async () => {
+            const ts = Date.now() - 1000;
+            const notifications = [
+                { id: "1", read: false, created_at: ts - 5000, type: "like" },
+                { id: "2", read: false, created_at: ts + 500,  type: "comment" },
+            ];
+            await AsyncStorage.setItem("@notifications", JSON.stringify({
+                notifications, unreadCount: 2, lastReadTimestamp: ts,
+            }));
+            const { result } = renderHook(() => useNotificationStore());
+            await act(async () => { await result.current.loadFromStorage(); });
+            expect(result.current.unreadCount).toBe(1);
+            expect(result.current.lastReadTimestamp).toBe(ts);
+        });
+
+        it("loadFromStorage falls back to read-flag count when lastReadTimestamp is 0", async () => {
+            const notifications = [
+                { id: "1", read: false, created_at: Date.now() - 5000, type: "like" },
+                { id: "2", read: true,  created_at: Date.now() - 3000, type: "comment" },
+            ];
+            await AsyncStorage.setItem("@notifications", JSON.stringify({
+                notifications, unreadCount: 1, lastReadTimestamp: 0,
+            }));
+            const { result } = renderHook(() => useNotificationStore());
+            await act(async () => { await result.current.loadFromStorage(); });
+            expect(result.current.unreadCount).toBe(1);
+        });
+    });
+
 });

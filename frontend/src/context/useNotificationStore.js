@@ -26,6 +26,7 @@ const useNotificationStore = create((set, get) => ({
     notifications: [],
     unreadCount: 0,
     isLoaded: false,
+    lastReadTimestamp: 0,   // ms epoch; persisted so badge is stable on cold-start
 
     /**
      * Add new notification
@@ -81,16 +82,33 @@ const useNotificationStore = create((set, get) => ({
      * Mark all notifications as read
      */
     markAllAsRead: () => {
+        const ts = Date.now();
         set((state) => ({
             notifications: state.notifications.map(n => ({ ...n, read: true })),
             unreadCount: 0,
+            lastReadTimestamp: ts,
         }));
 
         get().saveToStorage();
     },
 
     /**
-     * Update an existing notification in-place (e.g. rtc_processing → rtc_ready)
+     * Stamp current time as "read everything", clear badge, and mark all
+     * in-memory notifications as read so list items lose their unread styling.
+     * Lightweight -- no per-item API calls. Call on Notifications screen focus.
+     */
+    markAllRead: async () => {
+        const ts = Date.now();
+        set((state) => ({
+            notifications: state.notifications.map((n) => ({ ...n, read: true })),
+            unreadCount: 0,
+            lastReadTimestamp: ts,
+        }));
+        await get().saveToStorage();
+    },
+
+    /**
+     * Update an existing notification in-place (e.g. rtc_processing - rtc_ready)
      * @param {string} id - Notification ID
      * @param {Object} updates - Fields to merge into the notification
      */
@@ -151,7 +169,10 @@ const useNotificationStore = create((set, get) => ({
 
                 set({
                     notifications: validNotifications,
-                    unreadCount: validNotifications.filter(n => !n.read).length,
+                    lastReadTimestamp: parsed.lastReadTimestamp || 0,
+                    unreadCount: (parsed.lastReadTimestamp || 0) > 0
+                        ? validNotifications.filter((n) => n.created_at > (parsed.lastReadTimestamp || 0)).length
+                        : validNotifications.filter((n) => !n.read).length,
                     isLoaded: true,
                 });
             } else {
@@ -172,6 +193,7 @@ const useNotificationStore = create((set, get) => ({
             const data = {
                 notifications: state.notifications,
                 unreadCount: state.unreadCount,
+                lastReadTimestamp: state.lastReadTimestamp,
             };
             await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         } catch (error) {
@@ -194,7 +216,7 @@ const useNotificationStore = create((set, get) => ({
         return get().notifications.filter(n => !n.read);
     },
 
-    // ─── API-backed methods ────────────────────────────────────────────────
+    // ---
 
     /**
      * Fetch server-side notifications and merge with local (AI/system) ones.
@@ -238,7 +260,7 @@ const useNotificationStore = create((set, get) => ({
 
             // Keep local notifications that are NOT already represented by a
             // server notification (device-only types: ai_complete, system).
-            // 'new_episode' is also server-backed — exclude it from local merging.
+            // 'new_episode' is also server-backed -- exclude it from local merging.
             const serverTypes = new Set(['like', 'comment', 'new_episode', 'dm']);
             const localNotifs = get().notifications.filter(
                 (n) => !serverTypes.has(n.type) && !n.id.startsWith('srv_')
@@ -251,25 +273,30 @@ const useNotificationStore = create((set, get) => ({
 
             set({
                 notifications: merged,
-                unreadCount: merged.filter((n) => !n.read).length,
+                unreadCount: (() => {
+                    const lrt = get().lastReadTimestamp;
+                    return lrt > 0
+                        ? merged.filter((n) => n.created_at > lrt).length
+                        : merged.filter((n) => !n.read).length;
+                })(),
             });
 
             // Persist merged list so the tab badge survives app restarts
             await get().saveToStorage();
         } catch (error) {
-            // Network errors are expected offline — degrade silently
+            // Network errors are expected offline -- degrade silently
             Logger.warn('fetchNotifications: could not reach server, using local cache', error?.message);
         }
     },
 
     /**
-     * Mark a single notification as read — syncs to server for server-backed
+     * Mark a single notification as read -- syncs to server for server-backed
      * notifications; falls back to local-only update for device notifications.
      *
      * @param {string} id - Notification id (may be "srv_<n>" or a local uuid)
      */
     markAsReadWithSync: async (id) => {
-        // Capture existing notification before mutating — needed for API call guard
+        // Capture existing notification before mutating -- needed for API call guard
         const existing = get().notifications.find((n) => n.id === id);
 
         // No-op if notification is already read or not found
@@ -295,7 +322,7 @@ const useNotificationStore = create((set, get) => ({
     },
 
     /**
-     * Mark all notifications as read — syncs to server.
+     * Mark all notifications as read -- syncs to server.
      */
     markAllAsReadWithSync: async () => {
         set((state) => ({
