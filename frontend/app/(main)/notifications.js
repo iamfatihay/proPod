@@ -244,11 +244,11 @@ export default function NotificationsScreen() {
         // Type-specific routing runs BEFORE the generic action block so these
         // branches are never shadowed by notification.action being set.
 
-        // dm ???????????????????????? open the conversation (actor_id is the sender); fall back to inbox
+        // ---
         if (notification.type === 'dm') {
             const partnerId = notification.actor_id;
             if (partnerId) {
-                // Coerce to string ???????????????????????? chat-details expects a string route param
+                // ---
                 router.push({ pathname: '/(main)/chat-details', params: { partnerId: String(partnerId) } });
             } else {
                 router.push('/(main)/messages');
@@ -256,7 +256,7 @@ export default function NotificationsScreen() {
             return;
         }
 
-        // new_episode ???????????????????????? open the episode detail; podcast id lives in action.params
+        // ---
         if (notification.type === 'new_episode') {
             const podcastId = notification.action?.params?.id;
             if (podcastId) {
