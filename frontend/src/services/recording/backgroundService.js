@@ -290,14 +290,9 @@ class BackgroundRecordingService {
 if (TaskManager) {
     try {
         TaskManager.defineTask(BACKGROUND_TASK_NAME, async () => {
-            try {
-                // Keep-alive task to maintain recording state
-                // In production, this could trigger periodic draft saves
-                return { success: true };
-            } catch (error) {
-                Logger.error('Background task error:', error);
-                return { success: false };
-            }
+            // Keep-alive task to maintain recording state
+            // In production, this could trigger periodic draft saves
+            return { success: true };
         });
     } catch (error) {
         Logger.warn('Background task definition failed:', error.message);

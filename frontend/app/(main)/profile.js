@@ -530,7 +530,6 @@ export default function Profile() {
                         Platform.OS === "android"
                             ? StatusBar.currentHeight
                             : 16,
-                    paddingBottom: 32,
                 }}
             >
                 <View className="items-center mb-lg">

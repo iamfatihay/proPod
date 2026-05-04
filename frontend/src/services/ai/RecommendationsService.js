@@ -263,14 +263,9 @@ class RecommendationsService {
      * @private
      */
     async getUserListeningHistory() {
-        try {
-            // This would typically come from a dedicated endpoint
-            // For now, we'll return empty array as fallback
-            return [];
-        } catch (error) {
-            Logger.error("Failed to get listening history:", error);
-            return [];
-        }
+        // This would typically come from a dedicated endpoint
+        // For now, we'll return empty array as fallback
+        return [];
     }
 
     /**
@@ -278,14 +273,9 @@ class RecommendationsService {
      * @private
      */
     async getUserLikedPodcasts() {
-        try {
-            // This would typically come from a dedicated endpoint
-            // For now, we'll return empty array as fallback
-            return [];
-        } catch (error) {
-            Logger.error("Failed to get liked podcasts:", error);
-            return [];
-        }
+        // This would typically come from a dedicated endpoint
+        // For now, we'll return empty array as fallback
+        return [];
     }
 
     /**

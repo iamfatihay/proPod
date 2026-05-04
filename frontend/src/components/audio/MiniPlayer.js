@@ -197,8 +197,8 @@ const MiniPlayer = ({
                 <View
                     style={{
                         position: "absolute",
-                        bottom: -2,
-                        right: -2,
+                        bottom: 0,
+                        right: 0,
                         width: 28,
                         height: 28,
                         borderRadius: 14,
@@ -240,8 +240,8 @@ const MiniPlayer = ({
                     }}
                     style={{
                         position: "absolute",
-                        top: -2,
-                        right: -2,
+                        top: 0,
+                        right: 0,
                         width: 20,
                         height: 20,
                         borderRadius: 10,

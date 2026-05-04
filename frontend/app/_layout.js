@@ -114,7 +114,7 @@ export default function Layout() {
         });
 
         return () => linkSubscription.remove();
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps -- intentional mount-only
+    }, []);
 
     // Flush pending deep link once auth is resolved and user is logged in
     useEffect(() => {
@@ -258,7 +258,7 @@ export default function Layout() {
                 notificationSubscription.remove();
             }
         };
-    }, [startDMPolling, stopDMPolling]); // eslint-disable-line react-hooks/exhaustive-deps -- stable callbacks
+    }, [startDMPolling, stopDMPolling]);
 
     const checkForDrafts = async () => {
         // Skip if modal is already showing to prevent unnecessary state updates
@@ -309,7 +309,7 @@ export default function Layout() {
         if (!isInitializing && userId) {
             registerPushToken();
         }
-    }, [isInitializing, userId]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional
+    }, [isInitializing, userId]);
 
     useEffect(() => {
         // Don't do anything while initializing
