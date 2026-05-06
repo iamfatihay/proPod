@@ -242,6 +242,16 @@ export default function Layout() {
                     } else {
                         router.push('/(main)/messages');
                     }
+                } else if (data?.type === 'follow') {
+                    // Deep-link to the follower’s creator profile so the user can
+                    // view who followed them. Falls back to notifications inbox
+                    // when actorId is absent (shouldn’t happen in practice).
+                    const actorId = data?.actorId;
+                    if (actorId) {
+                        router.push({ pathname: '/(main)/creator-profile', params: { userId: String(actorId) } });
+                    } else {
+                        router.push('/(main)/notifications');
+                    }
                 } else if (data?.type) {
                     // Unknown future type — open notifications as safe fallback
                     router.push('/(main)/notifications');
