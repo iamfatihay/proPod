@@ -1,32 +1,42 @@
 # Improvement Suggestions - TODO List
 
-This documentation contains improvements that can be made after the audio player performance optimizations are completed.
+This list is pruned to items that still appear meaningfully open in the current repository.
 
 ---
 
 ## 🔴 High Priority Improvements
 
-### 1. **Web Sharing & Deep Linking (Phase 2-4 RTC)**
+### 1. **Multi-Host Recording MVP Hardening**
 
--   [ ] **Backend**: Web sharing endpoints already implemented (`/share/podcast/{id}`, `/share/live/{code}`)
--   [ ] **Frontend**: Implement deep link handling for `volo://` scheme
-    -   [ ] Add `Linking.addEventListener()` in `_layout.js`
-    -   [ ] Process `volo://podcast/{id}` URLs
-    -   [ ] Process `volo://join/{invite_code}` URLs
--   [ ] **Domain**: Register production domain (currently placeholder)
-    -   [ ] Replace `https://volo.app/download` with real download page
-    -   [ ] Add `og-image.png` for social media sharing
--   [ ] **Testing**: Test deep links on iOS/Android
--   [ ] **Documentation**: Update sharing.py with implementation guide
+-   [ ] Reduce failure points in podcast/session creation for hosts
+-   [ ] Improve RTC join reliability and reconnection behavior for remote participants
+-   [ ] Improve connection-quality handling for users in different countries and weaker networks
+-   [ ] Verify recording completion flow end-to-end: room -> recording -> webhook -> playable podcast artifact
+-   [ ] Tighten invite/join/session-monitoring UX so creators can run remote sessions confidently
+
+**Priority:** Highest  
+**Estimated Time:** multi-session effort  
+**Benefit:** This is the core MVP value: reliable high-quality remote podcast creation  
+**Current Status:** RTC and recording foundations exist, but the end-to-end creator experience still needs hardening and validation
+
+---
+
+### 2. **Web Sharing Polish**
+
+-   [ ] Replace placeholder web CTA behavior in share pages with real app-open / download destinations
+-   [ ] Register and wire the production download domain
+-   [ ] Add or verify social preview assets such as `og-image.png`
+-   [ ] Manually test podcast, playlist, and live deep links on iOS/Android
+-   [ ] Document the remaining share-flow behavior and edge cases
 
 **Priority:** High (Required for Phase 2-4 completion)  
 **Estimated Time:** 4-6 hours  
 **Benefit:** Users can share podcasts and join live sessions via web links  
-**Current Status:** Backend ready (placeholder links), frontend not implemented
+**Current Status:** Share routes and app deep-link handling exist; remaining work is production polish and QA
 
 ---
 
-### 2. **Production Logging Optimization**
+### 3. **Production Logging Optimization**
 
 -   [ ] Protect all `Logger.log` calls with `__DEV__` check (already done, verify)
 -   [ ] Completely remove console.logs in production build
@@ -39,7 +49,7 @@ This documentation contains improvements that can be made after the audio player
 
 ---
 
-### 2. **Offline Mode Support**
+### 4. **Offline Mode Support**
 
 -   [ ] Add local file support for downloaded podcasts
 -   [ ] Test audio player for `file://` URIs
@@ -52,7 +62,7 @@ This documentation contains improvements that can be made after the audio player
 
 ---
 
-### 3. **Background Playback Enhancement**
+### 5. **Background Playback Enhancement**
 
 -   [ ] Add lock screen controls (iOS/Android)
 -   [ ] Add notification controls (Android)
@@ -67,7 +77,7 @@ This documentation contains improvements that can be made after the audio player
 
 ## 🟡 Medium Priority Improvements
 
-### 4. **Audio Quality Settings**
+### 6. **Audio Quality Settings**
 
 -   [ ] Add audio quality options (Low, Medium, High)
 -   [ ] Streaming quality settings
@@ -80,25 +90,11 @@ This documentation contains improvements that can be made after the audio player
 
 ---
 
-### 5. **Playback History & Resume**
+### 7. **Playback Controls Follow-ups**
 
--   [ ] Save last listened position
--   [ ] Auto resume (continue where you left off)
--   [ ] Playback history page
--   [ ] "Continue Listening" widget
-
-**Priority:** Medium  
-**Estimated Time:** 3-4 hours  
-**Benefit:** Improved user experience
-
----
-
-### 6. **Advanced Playback Controls**
-
--   [ ] Sleep timer (stop after specified time)
 -   [ ] Chapter navigation (jump between chapters)
--   [ ] Bookmark/notes feature
--   [ ] Playback speed presets (0.5x, 0.75x, 1x, 1.25x, 1.5x, 2x)
+-   [ ] Chapter markers on the progress UI
+-   [ ] Notes / bookmark-at-timestamp workflow if product demand appears
 
 **Priority:** Medium  
 **Estimated Time:** 4-5 hours  
@@ -108,25 +104,11 @@ This documentation contains improvements that can be made after the audio player
 
 ## 🟢 Low Priority Improvements
 
-### 7. **Analytics & Insights**
-
--   [ ] Playback analytics (which podcasts are listened to most)
--   [ ] Listening time tracking
--   [ ] Favorite genres/categories analytics
--   [ ] User behavior insights
-
-**Priority:** Low  
-**Estimated Time:** 3-4 hours  
-**Benefit:** Understanding user preferences and content recommendations
-
----
-
 ### 8. **Social Features**
 
--   [ ] Share podcasts (with timestamp)
--   [ ] Create and share playlists
+-   [ ] Share podcasts with timestamp / position context
 -   [ ] Friend activity (what friends are listening to)
--   [ ] Comments on podcasts
+-   [ ] More social discovery around playlists or listening activity
 
 **Priority:** Low  
 **Estimated Time:** 6-8 hours  
@@ -164,7 +146,6 @@ This documentation contains improvements that can be made after the audio player
 
 ### 10. **Code Organization**
 
--   [ ] Move audio player logic to a separate service
 -   [ ] Create custom hooks (usePlayback, useSeek, etc.)
 -   [ ] TypeScript migration (future)
 -   [ ] Increase unit test coverage (70%+)
@@ -261,13 +242,12 @@ This documentation contains improvements that can be made after the audio player
 
 | Improvement         | Priority    | Time | Benefit | ROI        |
 | ------------------- | ----------- | ---- | ------- | ---------- |
+| Multi-host MVP      | Highest     | Multi | Highest | ⭐⭐⭐⭐⭐ |
 | Production Logging  | High        | 2-3h | High    | ⭐⭐⭐⭐⭐ |
 | Offline Mode        | High        | 4-6h | High    | ⭐⭐⭐⭐⭐ |
 | Background Playback | Medium-High | 3-4h | High    | ⭐⭐⭐⭐   |
 | Audio Quality       | Medium      | 2-3h | Medium  | ⭐⭐⭐     |
-| Playback History    | Medium      | 3-4h | Medium  | ⭐⭐⭐     |
-| Advanced Controls   | Medium      | 4-5h | Medium  | ⭐⭐⭐     |
-| Analytics           | Low         | 3-4h | Low     | ⭐⭐       |
+| Playback Follow-ups | Medium      | 4-5h | Medium  | ⭐⭐⭐     |
 | Social Features     | Low         | 6-8h | Low     | ⭐⭐       |
 
 ---
@@ -276,10 +256,10 @@ This documentation contains improvements that can be made after the audio player
 
 These improvements can be done quickly and have a big impact:
 
-1. **Production Logging** (2-3 hours) → Improves production performance
-2. **Error Handling** (2-3 hours) → More robust application
-3. **Accessibility** (2-3 hours) → Wider user base
-4. **Code Organization** (4-6 hours) → More maintainable code
+1. **Multi-Host Recording MVP Hardening** (multi-session) → Protects the product's core value
+2. **Web Sharing Polish** (4-6 hours) → Makes existing share flows feel complete
+3. **Error Handling** (2-3 hours) → More robust application
+4. **Accessibility** (2-3 hours) → Wider user base
 
 ---
 
@@ -292,6 +272,6 @@ These improvements can be done quickly and have a big impact:
 
 ---
 
-_Last updated: 2026-02-22_
+_Last updated: 2026-05-06_
 _Author: AI Assistant + Fatih_
-_Latest: Added Phase 2-4 Web Sharing & Deep Linking requirements_
+_Latest: Pruned completed areas and elevated multi-host podcast creation/RTC reliability as the top MVP priority_

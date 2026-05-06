@@ -1,6 +1,6 @@
 # AGENT STATE -- proPod Autonomous Engineer
 
-> Read at session START, written at session END. Persistent memory across sessions.
+> Read at session start, written at session end. This file is working state, not historical source-of-truth.
 
 ---
 
@@ -10,13 +10,15 @@
 **Last session (5):** Follow notification tap routing -- push notification tap navigates to follower creator profile (PR #116)
 **Test suite baseline:** ~486 backend tests
 
-**Tech stack:** React Native + Expo / FastAPI + SQLAlchemy / PostgreSQL (prod) / Zustand
+**Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
 
-> Full shipped history (PR #1--#65): see `docs/SHIPPED_ARCHIVE.md`
+**MVP priority:** The most important product goal is reliable podcast creation plus multi-host remote recording. The app needs to let users in different countries and network conditions join the same session, talk smoothly, and finish with a high-quality usable recording before broader feature work takes precedence.
+
+> Full shipped history (PR #1--#65) lives in `docs/SHIPPED_ARCHIVE.md`.
 
 ---
 
-## Recently Shipped (PR #66--#114)
+## Recently Shipped
 
 - DM unread badge wired end-to-end (PR #102)
 - DM badge 30s polling interval (PR #103)
@@ -24,14 +26,14 @@
 - Discover Playlists now-playing indicator (PR #105)
 - Fix dm/new_episode notification types (PR #107)
 - Follow notification -- backend + frontend bell badge + tap routing (PR #108)
-- Follow push notification -- _send_expo_push in follow_creator (PR #110)
-- Like/comment push notifications -- _send_expo_push in like_podcast and create_comment (PR #111)
+- Follow push notification -- `_send_expo_push` in `follow_creator` (PR #110)
+- Like/comment push notifications -- `_send_expo_push` in `like_podcast` and `create_comment` (PR #111)
 - New episode push notification -- fan-out background task (PR #112)
-- DM push notification -- _send_expo_push in create_message (PR #113)
-- Notification badge -- lastReadTimestamp + ASCII cleanup (PR #114)
+- DM push notification -- `_send_expo_push` in message creation (PR #113)
+- Notification badge stability via `lastReadTimestamp` (PR #114)
+- Test-run stabilization, JSX lint parsing, and UI defect cleanup (PR #115)
 
-> Note: DM notification tap routing, podcast share button, and haptic feedback settings toggle
-> are all already implemented in master (verified 2026-05-06).
+> Verified on 2026-05-06: DM notification tap routing, playlist share, haptic feedback toggle, and follow notification tap routing are already in `master`.
 
 ---
 
@@ -41,50 +43,49 @@
 |----|--------|--------|
 | #116 | feature/follow-notification-tap-routing | open -- awaiting review |
 
+Priority note:
+- Existing review comments or failing CI still come first, but when that is clear, favor the multi-host recording MVP over secondary product work.
+
 ---
 
 ## Tech Debt
 
-- **DM inbox aggregation:** Python-side aggregation in `crud.get_dm_inbox` -- fine for now, needs SQL GROUP BY at scale.
-- **APScheduler jobstore:** In-memory BackgroundScheduler won't survive worker restarts in multi-worker prod; replace with SQLAlchemy jobstore.
-- **Route ordering:** Literal routes (`/following-feed`, `/search`) MUST be before parameterized (`/{id}`) in `backend/app/routers/podcasts.py`.
-- **Full test suite timeout:** ~486 tests exceeds 45s sandbox limit. Run targeted groups of 3-4 files max.
+- Multi-host recording quality and reliability still need stronger end-to-end validation under real remote conditions.
+- Podcast/session creation, invite, join, reconnect, and recording-completion flows remain the core product path.
+- DM inbox aggregation: Python-side aggregation in `crud.get_dm_inbox` is fine for now, but should become SQL `GROUP BY` at scale.
+- APScheduler jobstore: in-memory scheduler will not survive worker restarts in multi-worker prod; replace with SQLAlchemy jobstore.
+- Route ordering: literal routes (`/following-feed`, `/search`) must stay before parameterized (`/{id}`) in `backend/app/routers/podcasts.py`.
+- `expo-video` flows still need rebuilt dev-client or real-device validation after changes.
+- DM remains text-only; attachments are not implemented.
+- Sleep timer uses `setInterval`; verify timing accuracy on real devices.
+- Frontend unit-test coverage is still thin in several user-facing flows.
+- `search_users` returns `total_likes: 0` by design for performance; UI should not depend on it.
+- Creator sorting is still Python-side; acceptable at current scale.
+- `handlePlayRelated` queue logic in `frontend/app/(main)/details.js` lacks focused Jest coverage.
+- Share web pages still contain placeholder CTA behavior and need production-ready app-open/download handling.
+- Full test suite timeout: ~486 tests exceeds the practical sandbox budget; run targeted groups of 3-4 files max.
+
+---
+
+## Validation Notes
+
+- Frontend ESLint is no longer blocked by JSX parsing; targeted lint is valid again.
+- Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
+- Do not report validation as passing unless it actually ran.
 
 ---
 
 ## Next Session Suggestions
 
-1. **[BACKEND] APScheduler SQLAlchemy jobstore** -- Replace in-memory BackgroundScheduler with
-   SQLAlchemy jobstore so scheduled jobs survive worker restarts in multi-worker prod deployments.
-   File: `backend/app/main.py` (scheduler init). Medium complexity, no frontend needed.
-
-2. **[FRONTEND] Sleep timer UI** -- Add a sleep timer (stop playback after N minutes) to the
-   audio player. Backend not needed -- pure Zustand + setTimeout logic. Listed in
-   `docs/project/TODO_IMPROVEMENTS.md` under Advanced Playback Controls. High user value.
-
-3. **[FRONTEND] Playlist detail share button** -- `/(main)/playlist-detail.js` has no share
-   button. Add one mirroring the existing `handleShare` pattern from `details.js` (deep-link
-   `volo://playlist/{id}`). Pure frontend, ~30 lines.
+1. **RTC MVP** -- improve session creation, join reliability, reconnect behavior, and recording completion for remote multi-user podcast sessions.
+2. **RTC UX** -- tighten invite, live monitoring, and failure recovery so hosts can run remote sessions confidently.
+3. **Frontend AI UX** -- continue AI-result visibility only after the primary recording path is dependable enough.
 
 ---
 
-## Permanent Notes (do not delete)
+## Permanent Notes
 
-**Route ordering:** Literal routes (`/following-feed`, `/search`) MUST be before parameterized (`/{id}`) in `backend/app/routers/podcasts.py`.
-**apiService token cache:** `apiService.clearToken()` in `beforeEach` after 401-retry tests.
-**Duplicate declaration guard:** `node --check frontend/app/(main)/home.js` after merging PRs touching same file.
-**DM inbox:** Python-side aggregation in `crud.get_dm_inbox` — fine for now, needs SQL GROUP BY at scale.
-**Full test suite timeout:** ~486 tests exceeds 45s sandbox limit. Run targeted groups of 3-4 files max.
-**Git API fallback:** If push blocked, use browser JS: blobs → tree → commit → ref → PR.
-
-**UTF-8 ENCODING — CRITICAL:** NEVER use `atob()` alone to decode GitHub API file content. `atob()` returns a binary string; multi-byte UTF-8 characters (→, —, emoji, etc.) become garbled (â??, â€", etc.). Always use TextDecoder:
-```js
-// DECODE (read from GitHub API):
-const bytes = new Uint8Array(atob(b64).split('').map(c => c.charCodeAt(0)));
-const text = new TextDecoder('utf-8').decode(bytes);
-
-// ENCODE (write to GitHub API):
-const raw = new TextEncoder().encode(text);
-const b64 = btoa(String.fromCharCode(...raw));
-```
-This applies to every single file read/write via the GitHub contents API, no exceptions.
+- Route ordering: literal routes (`/following-feed`, `/search`) must be before parameterized (`/{id}`) in `backend/app/routers/podcasts.py`.
+- `apiService.clearToken()` in `beforeEach` after 401-retry tests.
+- Run `node --check frontend/app/(main)/home.js` after merging PRs touching that file.
+- If working from roadmap/TODO docs, verify against code before acting.

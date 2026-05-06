@@ -10,7 +10,10 @@ LOCAL_SETUP_GUIDE.md
 # AI instructions (personal workflow)
 .github/copilot-instructions.md
 .github/copilot-instructions.local.md
-.claude/
+.claude/*
+!.claude/CLAUDE.md
+!.claude/skills/
+!.claude/skills/**
 
 # Node/Frontend
 node_modules/

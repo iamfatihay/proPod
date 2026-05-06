@@ -1,299 +1,167 @@
-# 🎯 proPod Feature Implementation Roadmap
+# proPod Feature Roadmap
 
-## PHASE 1: AI TRANSCRIPTION & CONTENT ANALYSIS 🤖
-**Timeline:** 1-2 days  
-**Priority:** HIGH - Core differentiator
+This roadmap is intentionally pruned to focus on work that is still meaningfully open in the current repository.
 
-### Features:
-1. **Auto Transcription**
-   - Integrate Whisper AI (OpenAI) or AssemblyAI
-   - Backend: `/ai/transcribe` endpoint
-   - Frontend: "Processing..." state during upload
-   - Show transcription in podcast details
+## MVP Priority
 
-2. **AI Content Analysis**
-   - Extract keywords automatically
-   - Generate summary (3-5 sentences)
-   - Detect sentiment (positive/neutral/negative)
-   - Suggest categories
-   - Calculate quality score
+The product's top priority is not generic feature breadth. The MVP must first make this core path feel dependable:
 
-3. **Smart Metadata**
-   - Auto-generate title suggestions
-   - SEO-optimized descriptions
-   - Hashtag recommendations
+1. A creator can start a podcast/session without friction.
+2. Multiple participants in different countries or network conditions can join and talk smoothly.
+3. Audio/video quality and connection stability are good enough for a real podcast workflow.
+4. The session recording completes reliably and becomes a usable podcast artifact.
 
-### Technical Stack:
-```python
-# Backend
-- Whisper AI for transcription
-- OpenAI GPT-4 for analysis
-- Background tasks with Celery/Redis
+Until this flow is strong, other work should usually be treated as secondary.
 
-# Frontend
-- Progress indicator
-- Real-time updates via WebSocket
-```
+## Current Product Baseline
 
-### Implementation Files:
-- ✅ `backend/app/services/transcription_service.py` (exists, needs API integration)
-- ✅ `backend/app/services/content_analyzer.py` (exists, needs implementation)
-- 🆕 `frontend/app/(main)/ai-processing.js` (new UI component)
+Already present in the repo and no longer roadmap-worthy as greenfield work:
 
----
+- AI processing backend and provider architecture in `backend/app/services/` and `backend/app/routers/ai.py`
+- Creator analytics endpoint and screen in `backend/app/routers/analytics.py` and `frontend/app/(main)/analytics.js`
+- Listening history and Continue Listening flows in backend schemas/routes and frontend home/history surfaces
+- Podcast, playlist, and live deep link handling in `frontend/app/_layout.js`
+- Audio playback built on `expo-audio`, including playback speed and sleep timer UI
 
-## PHASE 2: STUDIO MODE 🎬
-**Timeline:** 3-4 days  
-**Priority:** HIGH - Creator experience
+## Phase 1: Multi-Host Recording MVP Completion
 
-### Features:
-1. **Audio Waveform Visualization**
-   - Display audio waveform
-   - Zoomable timeline
-   - Visual feedback
+**Priority:** Highest
 
-2. **Basic Editing Tools**
-   - Trim start/end
-   - Volume adjustment
-   - Fade in/out effects
-   - Noise reduction toggle
+This is the current product-critical phase. ProPod must become excellent at creation, collaboration, and recording reliability before expanding sideways.
 
-3. **Chapter Markers**
-   - Add timestamps
-   - Chapter titles
-   - Skip navigation
+### Remaining opportunities
 
-4. **Draft System**
-   - Auto-save progress
-   - Multiple drafts
-   - Resume editing
+1. Make podcast/session creation clearer and faster for hosts.
+2. Improve RTC join reliability, reconnect behavior, and in-call resilience for geographically distributed participants.
+3. Improve perceived and actual audio/video quality for multi-host sessions.
+4. Tighten recording completion flow so multi-host sessions consistently end as usable podcast records.
+5. Reduce operational gaps around invite flow, session monitoring, and failure recovery.
 
-### Technical Stack:
-```javascript
-// Frontend
-- WaveSurfer.js for waveform
-- React Native Audio Toolkit
-- Expo AV for playback
+### Main surfaces
 
-// Backend
-- FFmpeg for audio processing
-- Pydub for manipulation
-```
-
-### New Components:
-- `frontend/app/(main)/studio.js` (studio mode page)
-- `frontend/src/components/AudioWaveform.js`
-- `frontend/src/components/StudioControls.js`
-- `backend/app/services/audio_editor.py`
+- `backend/app/routers/rtc.py`
+- `backend/app/services/hms_service.py`
+- `backend/app/services/live_session_service.py`
+- `frontend/src/components/rtc/`
+- create / live-session flows in `frontend/app/(main)/create.js`
+- related RTC project docs in `docs/project/RTC_IMPLEMENTATION_SUMMARY.md` and `docs/project/VIDEO_PODCAST_RESEARCH.md`
 
 ---
 
-## PHASE 3: CREATOR ANALYTICS DASHBOARD 📊
-**Timeline:** 2-3 days
-**Priority:** MEDIUM - Value for creators
+## Phase 2: AI User Experience Completion
 
-### Features:
-1. **Play Analytics**
-   - Total plays over time (chart)
-   - Unique listeners
-   - Average listen duration
-   - Completion rate
+**Priority:** High
 
-2. **Engagement Metrics**
-   - Likes/bookmarks trend
-   - Comment sentiment analysis
-   - Share count
-   - Top performing content
+The backend AI foundation exists. The remaining work is making it feel complete and visible in the app.
 
-3. **Audience Insights**
-   - Active listening times
-   - Platform distribution (iOS/Android)
-   - Geographic data (if available)
+### Remaining opportunities
 
-4. **Content Performance**
-   - Best performing categories
-   - Drop-off analysis
-   - Retention heatmap
+1. Surface transcription, summary, and keywords more clearly in creator and listener screens.
+2. Add reliable processing-state UI around AI actions started from the frontend.
+3. Improve retry, status polling, and failure messaging for long-running AI processing.
+4. Expand premium-aware UX around AI limits and provider selection.
 
-### Technical Stack:
-```javascript
-// Frontend
-- Recharts or Victory for charts
-- Real-time updates
-- Export to PDF/CSV
+### Main surfaces
 
-// Backend
-- Aggregated queries (denormalized stats)
-- Time-series data
-- Caching layer (Redis)
-```
+- `backend/app/routers/ai.py`
+- `backend/app/services/ai_service.py`
+- `backend/app/services/transcription_service.py`
+- `backend/app/services/content_analyzer.py`
+- `frontend/src/services/api/apiService.js`
+- podcast create/details flows in `frontend/app/(main)/`
 
-### New Files:
-- `frontend/app/(main)/analytics.js`
-- `frontend/src/components/AnalyticsChart.js`
+---
+
+## Phase 3: Studio And Editing Expansion
+
+**Priority:** High
+
+Draft recovery and core recording flows exist. What remains is richer creator editing.
+
+### Remaining opportunities
+
+1. Waveform-based editing UI for trimming and visual feedback.
+2. Chapter markers with timestamps and skip navigation.
+3. Better in-app editing controls for creator workflows before publish.
+4. Optional audio cleanup tools only if they fit the mobile experience.
+
+### Technical direction
+
+- Keep playback and recording aligned with `expo-audio`.
+- Reuse existing recording and draft-protection services.
+- Add backend processing only when a frontend editing flow truly needs it.
+
+---
+
+## Phase 4: Analytics Expansion
+
+**Priority:** Medium
+
+The creator dashboard already exists. The roadmap item is now expansion, not initial delivery.
+
+### Remaining opportunities
+
+1. Plays-over-time charting and richer trend visualizations.
+2. Audience insights such as active listening windows and retention patterns.
+3. Export options for creators.
+4. Stronger top-content and category comparisons.
+
+### Existing baseline
+
 - `backend/app/routers/analytics.py`
-- `backend/app/services/analytics_service.py`
+- `frontend/app/(main)/analytics.js`
+- analytics backend tests in `backend/tests/test_analytics*.py`
 
 ---
 
-## PHASE 4: AI-POWERED RECOMMENDATIONS ✨
-**Timeline:** 2 days
-**Priority:** MEDIUM - Engagement booster
+## Phase 5: Recommendations And Discovery Quality
 
-### Features:
-1. **For Creators**
-   - "Optimal publishing time"
-   - "Title improvements"
-   - "Content suggestions based on trends"
-   - "Similar successful podcasts"
+**Priority:** Medium
 
-2. **For Listeners**
-   - Personalized feed
-   - "You might also like"
-   - Smart playlists
-   - Topic-based discovery
+Recommendation-related services already exist, but the experience can become more product-visible and useful.
 
-### Technical Stack:
-```python
-# Machine Learning
-- Collaborative filtering
-- Content-based recommendations
-- TF-IDF for similarity
-- Matrix factorization
-```
+### Remaining opportunities
+
+1. Improve user-facing recommendation placement and explanation.
+2. Use AI metadata more effectively in discovery and semantic search flows.
+3. Add creator-side suggestion surfaces only when they directly improve publishing decisions.
 
 ---
 
-## PHASE 5: ADVANCED AUDIO FEATURES 🔊
-**Timeline:** 3-4 days
-**Priority:** LOW - Nice to have
+## Phase 6: Sharing, Offline, And Playback Polish
 
-### Features:
-1. **Audio Enhancement**
-   - Automatic noise reduction
-   - Volume normalization
-   - EQ presets
-   - Compression
+**Priority:** Medium
 
-2. **Effects & Mixing**
-   - Background music library
-   - Intro/outro templates
-   - Voice effects
-   - Multi-track mixing
+The repo already supports share routes and app deep links. The remaining work is polish and completion.
 
-3. **Voice AI**
-   - Voice cloning
-   - Text-to-speech for intros
-   - Language translation
+### Remaining opportunities
+
+1. Replace placeholder web share CTAs and download-page links with production-ready destinations.
+2. Add offline podcast downloads and playback from local files.
+3. Improve background playback and lock-screen controls.
+4. Continue targeted accessibility improvements on player and mini-player surfaces.
 
 ---
 
-## PHASE 6: MONETIZATION & PREMIUM 💰
-**Timeline:** 5 days
-**Priority:** LOW - Business model
+## Phase 7: Monetization And Premium UX
 
-### Features:
-1. **Creator Tiers**
-   - Free: Basic features
-   - Pro: AI features, analytics
-   - Business: Team collaboration
+**Priority:** Low
 
-2. **Listener Support**
-   - Tip creators
-   - Subscriptions
-   - Premium content
+### Remaining opportunities
 
-3. **Ads Integration**
-   - Dynamic ad insertion
-   - Sponsorship management
+1. Clarify premium user journeys around AI and creator value.
+2. Add monetization surfaces only when they fit existing creator/listener flows.
+3. Avoid backend-only subscription work without a user-visible path.
 
 ---
 
-## QUICK WINS (Start Here!) ⚡
+## Near-Term Bets
 
-### Week 1 Priority:
-1. ✅ **AI Transcription** (2 days)
-   - Most impactful
-   - Easy to implement
-   - Visible to users
-
-2. ✅ **Basic Studio Mode** (2 days)
-   - Trim audio
-   - Waveform display
-   - Draft system
-
-3. ✅ **Simple Analytics** (1 day)
-   - Play count chart
-   - Top 5 podcasts
-   - Engagement metrics
-
-### Technical Prerequisites:
-```bash
-# API Keys needed:
-- OpenAI API key (for GPT-4 & Whisper)
-- AssemblyAI API key (alternative)
-
-# Backend packages:
-pip install openai assemblyai pydub ffmpeg-python
-
-# Frontend packages:
-npm install wavesurfer.js recharts
-```
+1. Multi-host recording MVP completion: session creation, stable joins, resilient RTC, and reliable recording output.
+2. AI processing UX that improves created podcast value after the core recording flow is dependable.
+3. Studio editing improvements that creators can use after successful recording.
+4. Sharing/offline polish only after the primary creation and collaboration flow is strong.
 
 ---
 
-## COMPETITIVE ANALYSIS 🎯
-
-### What competitors have:
-- **Anchor:** Basic editing, distribution
-- **Riverside:** High quality recording, transcription
-- **Descript:** Advanced editing, AI voices
-- **Buzzsprout:** Analytics, hosting
-
-### proPod's Unique Value:
-1. 🤖 **AI-First:** Auto transcription, smart metadata
-2. 📱 **Mobile-Native:** Full studio on phone
-3. 🎨 **Creator-Centric:** Focus on content quality
-4. ⚡ **Speed:** Quick publish workflow
-5. 🆓 **Accessible:** Generous free tier
-
----
-
-## SUCCESS METRICS 📈
-
-### Phase 1 Success:
-- ✅ 90%+ transcription accuracy
-- ✅ <30 seconds processing time
-- ✅ 50%+ podcasts using AI features
-
-### Phase 2 Success:
-- ✅ 70%+ creators use studio mode
-- ✅ Average 3+ edits per podcast
-- ✅ <5% abandon rate in studio
-
-### Phase 3 Success:
-- ✅ 80%+ creators check analytics
-- ✅ Daily active creator rate +20%
-
----
-
-## DEVELOPMENT ORDER 🔢
-
-**This Week:**
-1. AI Transcription (Monday-Tuesday)
-2. Content Analysis (Wednesday)
-3. Studio UI Skeleton (Thursday-Friday)
-
-**Next Week:**
-4. Studio Editing Features
-5. Analytics Dashboard
-6. Polish & Testing
-
-**Month 2:**
-7. Advanced AI features
-8. Recommendations
-9. Audio effects
-
----
-
-**Ready to start? Let's begin with AI Transcription!** 🚀
+_Last updated: 2026-05-06_
