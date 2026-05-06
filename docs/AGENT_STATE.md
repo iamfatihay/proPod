@@ -65,3 +65,26 @@
 3. **[FRONTEND] Playlist detail share button** -- `/(main)/playlist-detail.js` has no share
    button. Add one mirroring the existing `handleShare` pattern from `details.js` (deep-link
    `volo://playlist/{id}`). Pure frontend, ~30 lines.
+
+---
+
+## Permanent Notes (do not delete)
+
+**Route ordering:** Literal routes (`/following-feed`, `/search`) MUST be before parameterized (`/{id}`) in `backend/app/routers/podcasts.py`.
+**apiService token cache:** `apiService.clearToken()` in `beforeEach` after 401-retry tests.
+**Duplicate declaration guard:** `node --check frontend/app/(main)/home.js` after merging PRs touching same file.
+**DM inbox:** Python-side aggregation in `crud.get_dm_inbox` — fine for now, needs SQL GROUP BY at scale.
+**Full test suite timeout:** ~486 tests exceeds 45s sandbox limit. Run targeted groups of 3-4 files max.
+**Git API fallback:** If push blocked, use browser JS: blobs → tree → commit → ref → PR.
+
+**UTF-8 ENCODING — CRITICAL:** NEVER use `atob()` alone to decode GitHub API file content. `atob()` returns a binary string; multi-byte UTF-8 characters (→, —, emoji, etc.) become garbled (â??, â€", etc.). Always use TextDecoder:
+```js
+// DECODE (read from GitHub API):
+const bytes = new Uint8Array(atob(b64).split('').map(c => c.charCodeAt(0)));
+const text = new TextDecoder('utf-8').decode(bytes);
+
+// ENCODE (write to GitHub API):
+const raw = new TextEncoder().encode(text);
+const b64 = btoa(String.fromCharCode(...raw));
+```
+This applies to every single file read/write via the GitHub contents API, no exceptions.
