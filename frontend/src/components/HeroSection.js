@@ -130,7 +130,7 @@ const HeroSection = ({ onRecordPress, onContinueListening, onFeaturedPress, user
                             name="microphone-variant"
                             size={48}
                             color="rgba(255, 255, 255, 0.3)"
-                            style={{ position: "absolute", right: 0, top: -10 }}
+                            style={{ position: "absolute", right: 0, top: 0 }}
                         />
                         
                         <Text

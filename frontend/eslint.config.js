@@ -9,6 +9,11 @@ export default [
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: "module",
+            parserOptions: {
+                ecmaFeatures: {
+                    jsx: true,
+                },
+            },
             globals: {
                 // React Native / Expo globals
                 __DEV__: "readonly",

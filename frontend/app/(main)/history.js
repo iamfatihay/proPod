@@ -17,7 +17,7 @@ import apiService from "../../src/services/api/apiService";
 import { normalizePodcast } from "../../src/utils/urlHelper";
 import { COLORS } from "../../src/constants/theme";
 
-// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Helpers Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// Helpers
 
 /** Format a date string relative to now (e.g. "2h ago", "Yesterday", "Apr 10"). */
 function formatRelativeTime(dateString) {
@@ -44,7 +44,7 @@ function formatDuration(seconds) {
     return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ History Row Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// History Row
 
 const HistoryRow = React.memo(
     function HistoryRow({ entry, onPress, onDelete }) {
@@ -59,7 +59,7 @@ const HistoryRow = React.memo(
                 : 0;
         const completed = entry.completed || progressPercent >= 95;
 
-        // FIX #3: accessibilityLabel must reflect completed status Ã¢ÂÂ a row with
+        // FIX #3: accessibilityLabel must reflect completed status -- a row with
         // entry.completed=true but duration=0 would previously read "0% listened"
         // which contradicts the visible "Completed" badge.
         const a11yLabel = completed
@@ -117,11 +117,11 @@ const HistoryRow = React.memo(
                         {podcast.title}
                     </Text>
                     <Text style={styles.meta} numberOfLines={1}>
-                        {podcast.owner?.name || "Unknown"} ÃÂ·{" "}
+                        {podcast.owner?.name || "Unknown"}{" \u00B7 "}
                         {formatDuration(durationSec)}
                     </Text>
 
-                    {/* Progress bar Ã¢ÂÂ only for in-progress episodes */}
+                    {/* Progress bar -- only for in-progress episodes */}
                     {!completed && durationSec > 0 && progressPercent > 0 && (
                         <View style={styles.progressTrack}>
                             <View
@@ -140,13 +140,13 @@ const HistoryRow = React.memo(
                             : progressPercent > 0
                             ? `${progressPercent}% listened`
                             : "Started"}
-                        {"  ÃÂ·  "}
+                        {"  \u00B7  "}
                         {formatRelativeTime(entry.updated_at)}
                     </Text>
                 </View>
                 </TouchableOpacity>
 
-                {/* Delete button — sibling touchable, no propagation to row press */}
+                {/* Delete button -- sibling touchable, no propagation to row press */}
                 <TouchableOpacity
                     onPress={handleDeletePress}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -176,7 +176,7 @@ const HistoryRow = React.memo(
         prev.onDelete === next.onDelete
 );
 
-// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Main Screen Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// Main Screen
 
 const PAGE_SIZE = 20;
 
@@ -205,7 +205,7 @@ export default function HistoryScreen() {
         return normalized;
     }, []);
 
-    /** Full reload Ã¢ÂÂ used on focus and pull-to-refresh. */
+    /** Full reload -- used on focus and pull-to-refresh. */
     const loadFresh = useCallback(
         (opts = {}) => {
             const { isRefresh = false } = opts;
@@ -239,7 +239,7 @@ export default function HistoryScreen() {
         useCallback(() => {
             let active = true;
             loadFresh().then(() => {
-                // no-op Ã¢ÂÂ active guard not needed since loadFresh uses setState
+                // no-op -- active guard not needed since loadFresh uses setState
                 // which React batches; any state update after unmount is a no-op.
             });
             return () => {
@@ -297,7 +297,7 @@ export default function HistoryScreen() {
         try {
             await apiService.deleteListeningHistory(entry.podcast_id);
         } catch (err) {
-            // Silently fail â a full refresh on next focus restores true server state.
+            // Silently fail -- a full refresh on next focus restores true server state.
         }
     }, []);
 
@@ -434,7 +434,7 @@ export default function HistoryScreen() {
     );
 }
 
-// Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ Styles Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// -- Styles --
 
 const styles = StyleSheet.create({
     container: {
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
         paddingTop: 4,
         paddingBottom: 100,
     },
-    // FIX #2 Ã¢ÂÂ load-more footer error
+    // FIX #2 -- load-more footer error
     footerError: {
         alignItems: "center",
         paddingVertical: 12,

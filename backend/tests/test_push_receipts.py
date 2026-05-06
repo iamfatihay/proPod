@@ -83,6 +83,9 @@ def _mock_receipts_response(receipts_data: dict) -> MagicMock:
 class TestCheckPushReceiptsCrud:
 
     def test_no_tickets_returns_fast(self, db_session):
+        db_session.query(models.PushTicket).delete()
+        db_session.commit()
+
         result = crud.check_push_receipts(db_session, min_age_minutes=15)
         assert result["tickets_checked"] == 0
         assert result["tokens_pruned"] == 0

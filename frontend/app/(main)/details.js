@@ -146,7 +146,6 @@ const Details = () => {
                 return prevPodcast;
             });
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         params.updatedTitle,
         params.updatedDescription,
