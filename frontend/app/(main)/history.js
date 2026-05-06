@@ -117,7 +117,7 @@ const HistoryRow = React.memo(
                         {podcast.title}
                     </Text>
                     <Text style={styles.meta} numberOfLines={1}>
-                        {podcast.owner?.name || "Unknown"}{"\u00B7"}{" "}
+                        {podcast.owner?.name || "Unknown"}{" \u00B7 "}
                         {formatDuration(durationSec)}
                     </Text>
 

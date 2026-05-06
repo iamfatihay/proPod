@@ -197,11 +197,11 @@ const MiniPlayer = ({
                 <View
                     style={{
                         position: "absolute",
-                        bottom: 0,
-                        right: 0,
-                        width: 28,
-                        height: 28,
-                        borderRadius: 14,
+                        bottom: 4,
+                        right: 4,
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
                         backgroundColor: "#D32F2F",
                         borderWidth: 2,
                         borderColor: "#1A1A1A",
@@ -220,6 +220,7 @@ const MiniPlayer = ({
                             alignItems: "center",
                             justifyContent: "center",
                         }}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                         accessible={true}
                         accessibilityRole="button"
                         accessibilityLabel={isPlaying ? "Pause" : "Play"}
@@ -238,13 +239,14 @@ const MiniPlayer = ({
                         e.stopPropagation();
                         onClose && onClose();
                     }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     style={{
                         position: "absolute",
-                        top: 0,
-                        right: 0,
-                        width: 20,
-                        height: 20,
-                        borderRadius: 10,
+                        top: 4,
+                        right: 4,
+                        width: 24,
+                        height: 24,
+                        borderRadius: 12,
                         backgroundColor: "#666666",
                         borderWidth: 1,
                         borderColor: "#1A1A1A",
