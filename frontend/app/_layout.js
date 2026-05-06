@@ -17,7 +17,7 @@ import useAudioStore from "../src/context/useAudioStore";
 import useDMStore from "../src/context/useDMStore";
 import hapticFeedback from "../src/services/haptics/hapticFeedback";
 
-// Set once at the root level â controls how push notifications appear while the
+// Set once at the root level — controls how push notifications appear while the
 // app is in the foreground.  Centralised here to avoid import-order conflicts
 // with the background recording notification handler.
 Notifications.setNotificationHandler({
@@ -49,9 +49,9 @@ export default function Layout() {
      * Parse a deep link URL and navigate to the appropriate screen.
      *
      * Supported patterns:
-     *   volo://podcast/{id}   â  /(main)/details?id={id}
-     *   volo://playlist/{id}  â  /(main)/playlist-detail?id={id}
-    *   volo://live/{code}    â  /live?inviteCode={code}
+     *   volo://podcast/{id}   →  /(main)/details?id={id}
+     *   volo://playlist/{id}  →  /(main)/playlist-detail?id={id}
+    *   volo://live/{code}    →  /live?inviteCode={code}
      */
     const handleDeepLink = useCallback((url) => {
         if (!url) return;
@@ -133,7 +133,7 @@ export default function Layout() {
 
     /**
      * Start a 30-second polling interval that refreshes the DM unread badge
-     * while the app is in the foreground.  Safe to call multiple times â the
+     * while the app is in the foreground.  Safe to call multiple times — the
      * guard at the top prevents duplicate intervals.
      */
     const startDMPolling = useCallback(() => {
@@ -205,7 +205,7 @@ export default function Layout() {
                     startDMPolling();
                 }
             } else if (nextAppState === 'background' || nextAppState === 'inactive') {
-                // Pause polling while the app is not visible â saves battery/data.
+                // Pause polling while the app is not visible — saves battery/data.
                 stopDMPolling();
             }
         });
@@ -243,9 +243,9 @@ export default function Layout() {
                         router.push('/(main)/messages');
                     }
                 } else if (data?.type === 'follow') {
-                    // Deep-link to the follower's creator profile so the user can
+                    // Deep-link to the follower’s creator profile so the user can
                     // view who followed them. Falls back to notifications inbox
-                    // when actorId is absent (shouldn't happen in practice).
+                    // when actorId is absent (shouldn’t happen in practice).
                     const actorId = data?.actorId;
                     if (actorId) {
                         router.push({ pathname: '/(main)/creator-profile', params: { userId: String(actorId) } });
