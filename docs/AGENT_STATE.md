@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-07
-**Last session (6):** RTC reconnect handling -- added ON_RECONNECTING/ON_RECONNECTED listeners to HmsRoom.js with amber banner overlay (PR #117)
+**Last session (7):** Guest post-session summary -- branch `feature/guest-session-summary` wires HmsRoom leave details into the guest live invite summary view (PR pending)
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -32,7 +32,7 @@
 
 ## Open / In-Progress
 
-None.
+- `feature/guest-session-summary` -- guest live invite session summary ready for PR.
 
 ---
 
@@ -45,13 +45,13 @@ None.
 - `handlePlayRelated` queue logic in `frontend/app/(main)/details.js` lacks focused Jest coverage.
 - Share web pages still contain placeholder CTA behavior and need production-ready app-open/download handling.
 - Full test suite timeout: ~486 tests exceeds the practical sandbox budget; run targeted groups of 3-4 files max.
-- Guest leave in `live.js` discards duration/participant data from HmsRoom onLeave -- no post-session summary for guests.
 
 ---
 
 ## Validation Notes
 
 - Frontend ESLint is no longer blocked by JSX parsing; targeted lint is valid again.
+- 2026-05-07: `cd frontend && npx eslint app/live.js` passed for guest session summary changes; Node emitted the existing package module-type warning.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -59,9 +59,9 @@ None.
 
 ## Next Session Suggestions
 
-1. **Guest post-session summary** -- wire the `{ durationSeconds, participantCount }` data from HmsRoom `onLeave` into a summary view in `live.js` instead of just calling `router.back()`.
+1. **RTC join timeout UX** -- the 15s join timeout in HmsRoom shows a static error; add a retry button so users can attempt to rejoin without navigating away.
 2. **RTC session list screen** -- expose `listRtcSessions` on the frontend so hosts can review past live sessions and their recording status.
-3. **RTC join timeout UX** -- the 15s join timeout in HmsRoom shows a static error; add a retry button so the user can attempt to rejoin without navigating away.
+3. **Guest summary polish** -- verify the post-session summary on device and consider showing host/session status if backend invite/session status is available.
 
 ---
 
