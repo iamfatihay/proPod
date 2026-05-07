@@ -223,6 +223,7 @@ const LiveInviteScreen = () => {
                     startAudioMuted={audioMuted}
                     startVideoMuted={videoMuted}
                     onJoin={() => setJoinState("live")}
+                    onClose={() => router.back()}
                     onError={(message) => {
                         setError(message);
                         showToast(message, "error");

@@ -71,6 +71,7 @@ const HmsRoom = ({
     startVideoMuted = false,
     onJoin,
     onLeave,
+    onClose,
     onError: onErrorCallback,
 }) => {
     const [loading, setLoading] = useState(true);
@@ -540,12 +541,20 @@ const HmsRoom = ({
         return (
             <View className="flex-1 items-center justify-center">
                 <Text className="text-error text-center mb-4">{error}</Text>
-                <TouchableOpacity
-                    onPress={() => setJoinAttempt((currentAttempt) => currentAttempt + 1)}
-                    className="bg-primary px-4 py-3 rounded-lg"
-                >
-                    <Text className="text-white font-semibold">Retry</Text>
-                </TouchableOpacity>
+                <View className="flex-row items-center justify-center">
+                    <TouchableOpacity
+                        onPress={() => setJoinAttempt((currentAttempt) => currentAttempt + 1)}
+                        className="bg-primary px-4 py-3 rounded-lg mr-3"
+                    >
+                        <Text className="text-white font-semibold">Retry</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={onClose || leaveRoom}
+                        className="border border-border px-4 py-3 rounded-lg"
+                    >
+                        <Text className="text-text-primary font-semibold">Close</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         );
     }

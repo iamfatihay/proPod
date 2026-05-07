@@ -38,6 +38,7 @@ describe("HmsRoom Component", () => {
     const mockUserName = "Test User";
     const mockOnJoin = jest.fn();
     const mockOnLeave = jest.fn();
+    const mockOnClose = jest.fn();
 
     let mockHmsInstance;
 
@@ -364,6 +365,30 @@ describe("HmsRoom Component", () => {
             expect(HMSSDK.build).toHaveBeenCalledTimes(2);
             expect(mockHmsInstance.join).toHaveBeenCalledTimes(2);
         });
+    });
+
+    it("should show a close action and call onClose after an error", async () => {
+        mockHmsInstance.join.mockRejectedValue(new Error("Join failed"));
+
+        const { getByText } = render(
+            <HmsRoom
+                token={mockToken}
+                roomName={mockRoomName}
+                userName={mockUserName}
+                enableVideo={true}
+                onJoin={mockOnJoin}
+                onLeave={mockOnLeave}
+                onClose={mockOnClose}
+            />
+        );
+
+        await waitFor(() => {
+            expect(getByText("Close")).toBeTruthy();
+        });
+
+        fireEvent.press(getByText("Close"));
+
+        expect(mockOnClose).toHaveBeenCalledTimes(1);
     });
 
     it("should display room name in UI", async () => {
