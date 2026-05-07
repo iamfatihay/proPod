@@ -79,6 +79,7 @@ const HmsRoom = ({
     const [isAudioMuted, setIsAudioMuted] = useState(false);
     const [isVideoMuted, setIsVideoMuted] = useState(false);
     const [isReconnecting, setIsReconnecting] = useState(false);
+    const [joinAttempt, setJoinAttempt] = useState(0);
 
     const hmsInstanceRef = useRef(null);
     const localPeerRef = useRef(null);
@@ -318,9 +319,16 @@ const HmsRoom = ({
         const joinRoom = async () => {
             try {
                 setLoading(true);
+                setError(null);
+                setIsReconnecting(false);
+                setPeerNodes([]);
+                localPeerRef.current = null;
+                sessionStartRef.current = null;
+                participantCountRef.current = 1;
                 Logger.info("[RTC] joinRoom started", {
                     ...getLogContext(),
                     tokenPreview: maskToken(token),
+                    joinAttempt,
                 });
                 const permissionsGranted = await requestPermissions();
 
@@ -411,6 +419,7 @@ const HmsRoom = ({
             leaveRoom();
         };
     }, [
+        joinAttempt,
         token,
         userName,
         requestPermissions,
@@ -532,10 +541,10 @@ const HmsRoom = ({
             <View className="flex-1 items-center justify-center">
                 <Text className="text-error text-center mb-4">{error}</Text>
                 <TouchableOpacity
-                    onPress={leaveRoom}
+                    onPress={() => setJoinAttempt((currentAttempt) => currentAttempt + 1)}
                     className="bg-primary px-4 py-3 rounded-lg"
                 >
-                    <Text className="text-white font-semibold">Leave</Text>
+                    <Text className="text-white font-semibold">Retry</Text>
                 </TouchableOpacity>
             </View>
         );
