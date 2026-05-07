@@ -1103,6 +1103,11 @@ const Create = () => {
                                     });
                                 }
                             }}
+                            onClose={() => {
+                                setRtcError(null);
+                                setRtcStatusMessage(null);
+                                setRtcSessionState("lobby");
+                            }}
                             onError={(errorMsg) => {
                                 Logger.error("HMS Room error:", errorMsg);
                                 setRtcError(errorMsg);

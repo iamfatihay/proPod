@@ -2,7 +2,7 @@
  * Tests for HmsRoom component
  */
 import React from "react";
-import { render, waitFor, act } from "@testing-library/react-native";
+import { render, waitFor, act, fireEvent } from "@testing-library/react-native";
 import HmsRoom from "../../../components/rtc/HmsRoom";
 import { HMSSDK } from "@100mslive/react-native-hms";
 
@@ -38,6 +38,7 @@ describe("HmsRoom Component", () => {
     const mockUserName = "Test User";
     const mockOnJoin = jest.fn();
     const mockOnLeave = jest.fn();
+    const mockOnClose = jest.fn();
 
     let mockHmsInstance;
 
@@ -334,7 +335,60 @@ describe("HmsRoom Component", () => {
                 expect.any(Error)
             );
             expect(getByText("Failed to join live session.")).toBeTruthy();
+            expect(getByText("Retry")).toBeTruthy();
         });
+    });
+
+    it("should retry joining after an error", async () => {
+        mockHmsInstance.join
+            .mockRejectedValueOnce(new Error("Join failed"))
+            .mockResolvedValueOnce(undefined);
+
+        const { getByText } = render(
+            <HmsRoom
+                token={mockToken}
+                roomName={mockRoomName}
+                userName={mockUserName}
+                enableVideo={true}
+                onJoin={mockOnJoin}
+                onLeave={mockOnLeave}
+            />
+        );
+
+        await waitFor(() => {
+            expect(getByText("Failed to join live session.")).toBeTruthy();
+        });
+
+        fireEvent.press(getByText("Retry"));
+
+        await waitFor(() => {
+            expect(HMSSDK.build).toHaveBeenCalledTimes(2);
+            expect(mockHmsInstance.join).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    it("should show a close action and call onClose after an error", async () => {
+        mockHmsInstance.join.mockRejectedValue(new Error("Join failed"));
+
+        const { getByText } = render(
+            <HmsRoom
+                token={mockToken}
+                roomName={mockRoomName}
+                userName={mockUserName}
+                enableVideo={true}
+                onJoin={mockOnJoin}
+                onLeave={mockOnLeave}
+                onClose={mockOnClose}
+            />
+        );
+
+        await waitFor(() => {
+            expect(getByText("Close")).toBeTruthy();
+        });
+
+        fireEvent.press(getByText("Close"));
+
+        expect(mockOnClose).toHaveBeenCalledTimes(1);
     });
 
     it("should display room name in UI", async () => {
