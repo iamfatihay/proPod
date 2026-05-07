@@ -363,14 +363,21 @@ const HmsRoom = ({
                     HMSUpdateListenerActions.ON_ERROR,
                     handleError
                 );
-                hmsInstance.addEventListener(
-                    HMSUpdateListenerActions.ON_RECONNECTING,
-                    handleReconnecting
-                );
-                hmsInstance.addEventListener(
-                    HMSUpdateListenerActions.ON_RECONNECTED,
-                    handleReconnected
-                );
+                if (!HMSUpdateListenerActions.ON_RECONNECTING || !HMSUpdateListenerActions.ON_RECONNECTED) {
+                    Logger.warn("[RTC] HMS SDK does not expose reconnect events; reconnect banner will not appear", getLogContext());
+                }
+                if (HMSUpdateListenerActions.ON_RECONNECTING) {
+                    hmsInstance.addEventListener(
+                        HMSUpdateListenerActions.ON_RECONNECTING,
+                        handleReconnecting
+                    );
+                }
+                if (HMSUpdateListenerActions.ON_RECONNECTED) {
+                    hmsInstance.addEventListener(
+                        HMSUpdateListenerActions.ON_RECONNECTED,
+                        handleReconnected
+                    );
+                }
 
                 const config = new HMSConfig({
                     authToken: token,
@@ -539,7 +546,7 @@ const HmsRoom = ({
             {isReconnecting && (
                 <View
                     style={{
-                        backgroundColor: "#f59e0b",
+                        backgroundColor: COLORS.warning,
                         flexDirection: "row",
                         alignItems: "center",
                         justifyContent: "center",
@@ -547,8 +554,8 @@ const HmsRoom = ({
                         paddingHorizontal: 16,
                     }}
                 >
-                    <ActivityIndicator size="small" color="#fff" />
-                    <Text style={{ color: "#fff", fontWeight: "600", marginLeft: 8 }}>
+                    <ActivityIndicator size="small" color={COLORS.text.primary} />
+                    <Text style={{ color: COLORS.text.primary, fontWeight: "600", marginLeft: 8 }}>
                         Reconnecting…
                     </Text>
                 </View>
