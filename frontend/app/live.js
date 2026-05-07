@@ -129,7 +129,12 @@ const LiveInviteScreen = () => {
             return (
                 <SafeAreaView className="flex-1 bg-background px-6 pt-6">
                     <View className="flex-row items-center mb-8">
-                        <TouchableOpacity onPress={() => router.back()}>
+                        <TouchableOpacity
+                            onPress={() => router.back()}
+                            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Close session summary"
+                        >
                             <Ionicons name="close" size={24} color={COLORS.text.primary} />
                         </TouchableOpacity>
                         <Text className="text-text-primary text-xl font-semibold ml-4">
@@ -232,7 +237,12 @@ const LiveInviteScreen = () => {
         <SafeAreaView className="flex-1 bg-background">
             <ScrollView className="flex-1 px-6 pt-6">
                 <View className="flex-row items-center mb-6">
-                    <TouchableOpacity onPress={() => router.back()}>
+                    <TouchableOpacity
+                        onPress={() => router.back()}
+                        hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Go back"
+                    >
                         <Ionicons name="arrow-back" size={24} color={COLORS.text.primary} />
                     </TouchableOpacity>
                     <Text className="text-text-primary text-xl font-semibold ml-4">
