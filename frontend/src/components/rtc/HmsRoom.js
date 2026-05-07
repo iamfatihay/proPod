@@ -78,6 +78,7 @@ const HmsRoom = ({
     const [error, setError] = useState(null);
     const [isAudioMuted, setIsAudioMuted] = useState(false);
     const [isVideoMuted, setIsVideoMuted] = useState(false);
+    const [isReconnecting, setIsReconnecting] = useState(false);
 
     const hmsInstanceRef = useRef(null);
     const localPeerRef = useRef(null);
@@ -250,6 +251,16 @@ const HmsRoom = ({
         onErrorRef.current && onErrorRef.current(errorMsg);
     }, [getLogContext]);
 
+    const handleReconnecting = useCallback(() => {
+        setIsReconnecting(true);
+        Logger.warn("[RTC] Connection lost, attempting to reconnect...", getLogContext());
+    }, [getLogContext]);
+
+    const handleReconnected = useCallback(() => {
+        setIsReconnecting(false);
+        Logger.info("[RTC] Reconnected successfully", getLogContext());
+    }, [getLogContext]);
+
     const leaveRoom = useCallback(async () => {
         if (hasLeftRef.current) {
             Logger.debug("[RTC] leaveRoom ignored: already left", getLogContext());
@@ -352,6 +363,21 @@ const HmsRoom = ({
                     HMSUpdateListenerActions.ON_ERROR,
                     handleError
                 );
+                if (!HMSUpdateListenerActions.ON_RECONNECTING || !HMSUpdateListenerActions.ON_RECONNECTED) {
+                    Logger.warn("[RTC] HMS SDK does not expose reconnect events; reconnect banner will not appear", getLogContext());
+                }
+                if (HMSUpdateListenerActions.ON_RECONNECTING) {
+                    hmsInstance.addEventListener(
+                        HMSUpdateListenerActions.ON_RECONNECTING,
+                        handleReconnecting
+                    );
+                }
+                if (HMSUpdateListenerActions.ON_RECONNECTED) {
+                    hmsInstance.addEventListener(
+                        HMSUpdateListenerActions.ON_RECONNECTED,
+                        handleReconnected
+                    );
+                }
 
                 const config = new HMSConfig({
                     authToken: token,
@@ -392,6 +418,8 @@ const HmsRoom = ({
         handlePeerUpdate,
         handleTrackUpdate,
         handleError,
+        handleReconnecting,
+        handleReconnected,
         leaveRoom,
     ]);
 
@@ -515,6 +543,23 @@ const HmsRoom = ({
 
     return (
         <View className="flex-1">
+            {isReconnecting && (
+                <View
+                    style={{
+                        backgroundColor: COLORS.warning,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        paddingVertical: 8,
+                        paddingHorizontal: 16,
+                    }}
+                >
+                    <ActivityIndicator size="small" color={COLORS.text.primary} />
+                    <Text style={{ color: COLORS.text.primary, fontWeight: "600", marginLeft: 8 }}>
+                        Reconnecting…
+                    </Text>
+                </View>
+            )}
             <View className="mb-4">
                 <Text className="text-text-secondary text-center">
                     Room: {roomName || "Live session"}

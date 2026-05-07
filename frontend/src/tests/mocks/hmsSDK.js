@@ -26,6 +26,8 @@ export const HMSUpdateListenerActions = {
     ON_TRACK_UPDATE: "ON_TRACK_UPDATE",
     ON_ERROR: "ON_ERROR",
     ON_ROOM_UPDATE: "ON_ROOM_UPDATE",
+    ON_RECONNECTING: "ON_RECONNECTING",
+    ON_RECONNECTED: "ON_RECONNECTED",
 };
 
 export const HMSTrackType = {

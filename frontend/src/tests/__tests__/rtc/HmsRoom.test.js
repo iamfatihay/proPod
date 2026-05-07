@@ -377,4 +377,118 @@ describe("HmsRoom Component", () => {
             expect(getByText(/My Awesome Room/)).toBeTruthy();
         });
     });
+    // Helper: simulate a successful join and return the ON_JOIN callback
+    const simulateJoin = (addEventListenerMock) => {
+        const onJoinCallback = addEventListenerMock.mock.calls.find(
+            (call) => call[0] === "ON_JOIN"
+        )?.[1];
+        const mockLocalPeer = {
+            peerID: "local-peer-id",
+            name: "Test User",
+            isLocal: true,
+            videoTrack: { trackId: "video-track-1" },
+            localAudioTrack: () => ({ isMute: () => false, setMute: jest.fn() }),
+            localVideoTrack: () => ({ isMute: () => false, setMute: jest.fn() }),
+        };
+        act(() => {
+            onJoinCallback?.({ room: { localPeer: mockLocalPeer } });
+        });
+        return { onJoinCallback, mockLocalPeer };
+    };
+
+    it("should register ON_RECONNECTING and ON_RECONNECTED listeners", async () => {
+        render(
+            <HmsRoom
+                token={mockToken}
+                roomName={mockRoomName}
+                userName={mockUserName}
+                enableVideo={false}
+                onJoin={mockOnJoin}
+                onLeave={mockOnLeave}
+            />
+        );
+
+        await waitFor(() => {
+            expect(mockHmsInstance.addEventListener).toHaveBeenCalledWith(
+                "ON_RECONNECTING",
+                expect.any(Function)
+            );
+            expect(mockHmsInstance.addEventListener).toHaveBeenCalledWith(
+                "ON_RECONNECTED",
+                expect.any(Function)
+            );
+        });
+    });
+
+    it("should show reconnecting banner when ON_RECONNECTING fires", async () => {
+        const { getByText, queryByText } = render(
+            <HmsRoom
+                token={mockToken}
+                roomName={mockRoomName}
+                userName={mockUserName}
+                enableVideo={false}
+                onJoin={mockOnJoin}
+                onLeave={mockOnLeave}
+            />
+        );
+
+        await waitFor(() => {
+            expect(mockHmsInstance.addEventListener).toHaveBeenCalled();
+        });
+
+        simulateJoin(mockHmsInstance.addEventListener);
+
+        await waitFor(() => {
+            expect(mockOnJoin).toHaveBeenCalled();
+        });
+
+        // Initially no banner
+        expect(queryByText("Reconnecting\u2026")).toBeNull();
+
+        // Fire ON_RECONNECTING
+        const onReconnectingCallback = mockHmsInstance.addEventListener.mock.calls.find(
+            (call) => call[0] === "ON_RECONNECTING"
+        )?.[1];
+        act(() => { onReconnectingCallback?.(); });
+
+        await waitFor(() => {
+            expect(getByText("Reconnecting\u2026")).toBeTruthy();
+        });
+    });
+
+    it("should hide reconnecting banner when ON_RECONNECTED fires", async () => {
+        const { getByText, queryByText } = render(
+            <HmsRoom
+                token={mockToken}
+                roomName={mockRoomName}
+                userName={mockUserName}
+                enableVideo={false}
+                onJoin={mockOnJoin}
+                onLeave={mockOnLeave}
+            />
+        );
+
+        await waitFor(() => {
+            expect(mockHmsInstance.addEventListener).toHaveBeenCalled();
+        });
+
+        simulateJoin(mockHmsInstance.addEventListener);
+
+        await waitFor(() => { expect(mockOnJoin).toHaveBeenCalled(); });
+
+        // Trigger reconnecting then reconnected
+        const onReconnecting = mockHmsInstance.addEventListener.mock.calls.find(
+            (call) => call[0] === "ON_RECONNECTING"
+        )?.[1];
+        const onReconnected = mockHmsInstance.addEventListener.mock.calls.find(
+            (call) => call[0] === "ON_RECONNECTED"
+        )?.[1];
+
+        act(() => { onReconnecting?.(); });
+        await waitFor(() => { expect(getByText("Reconnecting\u2026")).toBeTruthy(); });
+
+        act(() => { onReconnected?.(); });
+        await waitFor(() => { expect(queryByText("Reconnecting\u2026")).toBeNull(); });
+    });
+
 });

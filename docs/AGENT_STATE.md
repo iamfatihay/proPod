@@ -6,8 +6,8 @@
 
 ## Current State
 
-**Last updated:** 2026-05-06
-**Last session (5):** Follow notification tap routing -- push notification tap navigates to follower creator profile (PR #116)
+**Last updated:** 2026-05-07
+**Last session (6):** RTC reconnect handling -- added ON_RECONNECTING/ON_RECONNECTED listeners to HmsRoom.js with amber banner overlay (PR #117)
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -21,42 +21,23 @@
 ## Recently Shipped
 
 - DM unread badge wired end-to-end (PR #102)
-- DM badge 30s polling interval (PR #103)
-- Playlist now-playing indicator in Library (PR #104)
-- Discover Playlists now-playing indicator (PR #105)
-- Fix dm/new_episode notification types (PR #107)
-- Follow notification -- backend + frontend bell badge + tap routing (PR #108)
-- Follow push notification -- `_send_expo_push` in `follow_creator` (PR #110)
-- Like/comment push notifications -- `_send_expo_push` in `like_podcast` and `create_comment` (PR #111)
-- New episode push notification -- fan-out background task (PR #112)
-- DM push notification -- `_send_expo_push` in message creation (PR #113)
-- Notification badge stability via `lastReadTimestamp` (PR #114)
-- Test-run stabilization, JSX lint parsing, and UI defect cleanup (PR #115)
-
-> Verified on 2026-05-06: DM notification tap routing, playlist share, haptic feedback toggle, and follow notification tap routing are already in `master`.
+- DM badge 30s polling with background refresh (PR #103)
+- Notification badge last-read-timestamp, no cold-start flicker (PR #114)
+- Expo push notification on new DM (PR #113)
+- Expo push on like and comment (PR #111)
+- Follow notification tap routes to creator profile (PR #116)
+- RTC reconnect handling: ON_RECONNECTING/ON_RECONNECTED banner in HmsRoom (PR #117)
 
 ---
 
-## Open PRs
+## Open / In-Progress
 
-| PR | Branch | Status |
-|----|--------|--------|
-| #116 | feature/follow-notification-tap-routing | open -- awaiting review |
-
-Priority note:
-- Existing review comments or failing CI still come first, but when that is clear, favor the multi-host recording MVP over secondary product work.
+None.
 
 ---
 
-## Tech Debt
+## Known Tech Debt
 
-- Multi-host recording quality and reliability still need stronger end-to-end validation under real remote conditions.
-- Podcast/session creation, invite, join, reconnect, and recording-completion flows remain the core product path.
-- DM inbox aggregation: Python-side aggregation in `crud.get_dm_inbox` is fine for now, but should become SQL `GROUP BY` at scale.
-- APScheduler jobstore: in-memory scheduler will not survive worker restarts in multi-worker prod; replace with SQLAlchemy jobstore.
-- Route ordering: literal routes (`/following-feed`, `/search`) must stay before parameterized (`/{id}`) in `backend/app/routers/podcasts.py`.
-- `expo-video` flows still need rebuilt dev-client or real-device validation after changes.
-- DM remains text-only; attachments are not implemented.
 - Sleep timer uses `setInterval`; verify timing accuracy on real devices.
 - Frontend unit-test coverage is still thin in several user-facing flows.
 - `search_users` returns `total_likes: 0` by design for performance; UI should not depend on it.
@@ -64,6 +45,7 @@ Priority note:
 - `handlePlayRelated` queue logic in `frontend/app/(main)/details.js` lacks focused Jest coverage.
 - Share web pages still contain placeholder CTA behavior and need production-ready app-open/download handling.
 - Full test suite timeout: ~486 tests exceeds the practical sandbox budget; run targeted groups of 3-4 files max.
+- Guest leave in `live.js` discards duration/participant data from HmsRoom onLeave -- no post-session summary for guests.
 
 ---
 
@@ -77,9 +59,9 @@ Priority note:
 
 ## Next Session Suggestions
 
-1. **RTC MVP** -- improve session creation, join reliability, reconnect behavior, and recording completion for remote multi-user podcast sessions.
-2. **RTC UX** -- tighten invite, live monitoring, and failure recovery so hosts can run remote sessions confidently.
-3. **Frontend AI UX** -- continue AI-result visibility only after the primary recording path is dependable enough.
+1. **Guest post-session summary** -- wire the `{ durationSeconds, participantCount }` data from HmsRoom `onLeave` into a summary view in `live.js` instead of just calling `router.back()`.
+2. **RTC session list screen** -- expose `listRtcSessions` on the frontend so hosts can review past live sessions and their recording status.
+3. **RTC join timeout UX** -- the 15s join timeout in HmsRoom shows a static error; add a retry button so the user can attempt to rejoin without navigating away.
 
 ---
 
