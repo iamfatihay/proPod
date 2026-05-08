@@ -89,13 +89,14 @@ const Create = () => {
     const [discardConfirmVisible, setDiscardConfirmVisible] = useState(false);
 
     const openRtcSessionHistory = useCallback(() => {
-        const params = rtcSessionSummary?.id
-            ? { focusSessionId: String(rtcSessionSummary.id) }
-            : undefined;
+        if (!rtcSessionSummary?.id) {
+            router.push("/(main)/rtc-sessions");
+            return;
+        }
 
         router.push({
             pathname: "/(main)/rtc-sessions",
-            params,
+            params: { focusSessionId: String(rtcSessionSummary.id) },
         });
     }, [router, rtcSessionSummary?.id]);
 

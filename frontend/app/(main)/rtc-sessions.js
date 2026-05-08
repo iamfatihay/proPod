@@ -101,7 +101,10 @@ const getStatusPresentation = (session) => {
 const SessionCard = ({ highlighted, onOpenPodcast, session }) => {
     const status = getStatusPresentation(session);
     const hasPodcast = Boolean(session?.podcast_id);
-    const participantCount = Math.max(session?.participant_count || 0, 1);
+    const participantCount = session?.participant_count ?? 0;
+    const participantLabel = participantCount === 0
+        ? "No participants"
+        : `${participantCount} joined`;
     const mediaModeLabel = session?.media_mode === "video" ? "Video" : "Audio";
 
     return (
@@ -162,7 +165,7 @@ const SessionCard = ({ highlighted, onOpenPodcast, session }) => {
                         size={18}
                         color={COLORS.text.secondary}
                     />
-                    <Text style={styles.metaText}>{participantCount} joined</Text>
+                    <Text style={styles.metaText}>{participantLabel}</Text>
                 </View>
 
                 <View style={styles.metaItem}>
@@ -300,7 +303,7 @@ export default function RtcSessionsScreen() {
                         </Text>
                     </View>
                 }
-                ListEmptyComponent={!loading ? renderEmptyState : null}
+                ListEmptyComponent={!loading && !error ? renderEmptyState : null}
                 ListFooterComponent={
                     error ? (
                         <View style={styles.errorCard}>

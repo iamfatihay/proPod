@@ -121,7 +121,7 @@ describe("RtcSessionsScreen", () => {
                 room_name: "guest-check-in",
                 created_at: "2026-05-07T08:30:00Z",
                 media_mode: "audio",
-                participant_count: 2,
+                participant_count: 0,
                 duration_seconds: 420,
                 podcast_id: null,
                 status: "ended",
@@ -141,6 +141,7 @@ describe("RtcSessionsScreen", () => {
         expect(getByText("Podcast ready")).toBeTruthy();
         expect(getByText("Processing recording")).toBeTruthy();
         expect(getByText("Latest session")).toBeTruthy();
+        expect(getByText("No participants")).toBeTruthy();
 
         fireEvent.press(getByLabelText("Open podcast for Weekly Roundtable"));
 
@@ -165,5 +166,19 @@ describe("RtcSessionsScreen", () => {
                 "Start a multi-host live session from Create to track recording progress here."
             )
         ).toBeTruthy();
+    });
+
+    it("shows only the error state when loading sessions fails", async () => {
+        apiService.listRtcSessions.mockRejectedValue(new Error("Network unavailable"));
+
+        const { getByText, queryByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalled();
+        });
+
+        expect(getByText("Couldn't load live sessions.")).toBeTruthy();
+        expect(getByText("Network unavailable")).toBeTruthy();
+        expect(queryByText("No live sessions yet")).toBeNull();
     });
 });
