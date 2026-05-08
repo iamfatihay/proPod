@@ -88,6 +88,17 @@ const Create = () => {
     const [permissionModalVisible, setPermissionModalVisible] = useState(false);
     const [discardConfirmVisible, setDiscardConfirmVisible] = useState(false);
 
+    const openRtcSessionHistory = useCallback(() => {
+        const params = rtcSessionSummary?.id
+            ? { focusSessionId: String(rtcSessionSummary.id) }
+            : undefined;
+
+        router.push({
+            pathname: "/(main)/rtc-sessions",
+            params,
+        });
+    }, [router, rtcSessionSummary?.id]);
+
     useEffect(() => {
         let isMounted = true;
 
@@ -361,7 +372,7 @@ const Create = () => {
 
     const handleSaveRecording = async () => {
         if (recordingMode === "multi") {
-            showToast("Live sessions are not saved yet.", "info");
+            openRtcSessionHistory();
             return;
         }
 
@@ -922,6 +933,15 @@ const Create = () => {
                                     </TouchableOpacity>
                                 ))}
                             </View>
+
+                            <TouchableOpacity
+                                onPress={openRtcSessionHistory}
+                                className="border border-border py-3 rounded-lg mt-4"
+                            >
+                                <Text className="text-text-secondary text-center font-medium">
+                                    View Previous Live Sessions
+                                </Text>
+                            </TouchableOpacity>
                         </View>
                     )}
                 </View>
@@ -1256,26 +1276,45 @@ const Create = () => {
 
                     <View className="space-y-3 mb-6">
                         {isReady ? (
-                            <TouchableOpacity
-                                onPress={() =>
-                                    router.replace({
-                                        pathname: "/(main)/details",
-                                        params: { id: rtcSessionSummary.podcast_id },
-                                    })
-                                }
-                                className="bg-primary py-4 mb-3 rounded-lg"
-                            >
-                                <Text className="text-white text-center font-semibold text-base">
-                                    Open Podcast
-                                </Text>
-                            </TouchableOpacity>
-                        ) : (
                             <>
                                 <TouchableOpacity
-                                    onPress={() => router.replace("/(main)/home")}
+                                    onPress={() =>
+                                        router.replace({
+                                            pathname: "/(main)/details",
+                                            params: { id: rtcSessionSummary.podcast_id },
+                                        })
+                                    }
                                     className="bg-primary py-4 mb-3 rounded-lg"
                                 >
                                     <Text className="text-white text-center font-semibold text-base">
+                                        Open Podcast
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    onPress={openRtcSessionHistory}
+                                    className="border border-border py-3 mb-3 rounded-lg"
+                                >
+                                    <Text className="text-text-secondary text-center text-sm font-medium">
+                                        View Live Sessions
+                                    </Text>
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <>
+                                <TouchableOpacity
+                                    onPress={openRtcSessionHistory}
+                                    className="bg-primary py-4 mb-3 rounded-lg"
+                                >
+                                    <Text className="text-white text-center font-semibold text-base">
+                                        View Live Sessions
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => router.replace("/(main)/home")}
+                                    className="border border-border py-3 mb-3 rounded-lg"
+                                >
+                                    <Text className="text-text-secondary text-center text-sm font-medium">
                                         Go to Home
                                     </Text>
                                 </TouchableOpacity>
