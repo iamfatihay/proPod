@@ -477,6 +477,9 @@ export default function HomeScreen() {
             case "analytics":
                 router.push("/(main)/analytics");
                 break;
+            case "live-sessions":
+                router.push("/(main)/rtc-sessions");
+                break;
             case "notifications":
                 router.push("/(main)/notifications");
                 break;

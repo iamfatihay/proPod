@@ -445,6 +445,12 @@ export default function TabLayout() {
                         }}
                     />
                     <Tabs.Screen
+                        name="rtc-sessions"
+                        options={{
+                            href: null,
+                        }}
+                    />
+                    <Tabs.Screen
                         name="playlists"
                         options={{
                             href: null,
