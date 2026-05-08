@@ -36,10 +36,12 @@ jest.mock("react-native", () => {
         ListEmptyComponent,
         ListFooterComponent,
         ListHeaderComponent,
+        refreshControl,
         renderItem,
     }) => (
         <actual.View>
             {renderListPart(ListHeaderComponent)}
+            {refreshControl}
             {data.length === 0
                 ? renderListPart(ListEmptyComponent)
                 : data.map((item) => (
@@ -51,7 +53,15 @@ jest.mock("react-native", () => {
         </actual.View>
     );
 
-    const RefreshControl = () => null;
+    const RefreshControl = ({ onRefresh }) => (
+        <actual.TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Refresh live sessions"
+            onPress={onRefresh}
+        >
+            <actual.Text>Refresh live sessions</actual.Text>
+        </actual.TouchableOpacity>
+    );
 
     return {
         ...actual,
@@ -59,6 +69,7 @@ jest.mock("react-native", () => {
         RefreshControl,
     };
 });
+
 
 jest.mock("expo-router", () => {
     const React = require("react");
@@ -133,7 +144,7 @@ describe("RtcSessionsScreen", () => {
         const { getByText, getByLabelText } = render(<RtcSessionsScreen />);
 
         await waitFor(() => {
-            expect(apiService.listRtcSessions).toHaveBeenCalledWith({ limit: 25 });
+            expect(apiService.listRtcSessions).toHaveBeenCalledWith({ limit: 25, offset: 0 });
         });
 
         expect(getByText("Recent Live Sessions")).toBeTruthy();
@@ -180,5 +191,104 @@ describe("RtcSessionsScreen", () => {
         expect(getByText("Couldn't load live sessions.")).toBeTruthy();
         expect(getByText("Network unavailable")).toBeTruthy();
         expect(queryByText("No live sessions yet")).toBeNull();
+    });
+
+    it("loads older sessions when more history is available", async () => {
+        const firstPage = Array.from({ length: 25 }, (_, index) => ({
+            id: 100 - index,
+            title: `Session ${index + 1}`,
+            room_name: `session-${index + 1}`,
+            created_at: "2026-05-08T10:00:00Z",
+            media_mode: "audio",
+            participant_count: 2,
+            duration_seconds: 300,
+            podcast_id: null,
+            status: "ended",
+            is_live: false,
+        }));
+
+        apiService.listRtcSessions
+            .mockResolvedValueOnce(firstPage)
+            .mockResolvedValueOnce([
+                {
+                    id: 50,
+                    title: "Older Planning Session",
+                    room_name: "older-planning-session",
+                    created_at: "2026-05-07T10:00:00Z",
+                    media_mode: "video",
+                    participant_count: 3,
+                    duration_seconds: 1200,
+                    podcast_id: null,
+                    status: "ended",
+                    is_live: false,
+                },
+            ]);
+
+        const { getByLabelText, getByText, queryByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Session 1")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Load more live sessions"));
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenLastCalledWith({
+                limit: 25,
+                offset: 25,
+            });
+        });
+
+        expect(getByText("Older Planning Session")).toBeTruthy();
+        expect(queryByText("Load More Sessions")).toBeNull();
+    });
+
+    it("does not paginate while a refresh request is in flight", async () => {
+        const firstPage = Array.from({ length: 25 }, (_, index) => ({
+            id: 200 - index,
+            title: `Session ${index + 1}`,
+            room_name: `session-${index + 1}`,
+            created_at: "2026-05-08T10:00:00Z",
+            media_mode: "audio",
+            participant_count: 2,
+            duration_seconds: 300,
+            podcast_id: null,
+            status: "ended",
+            is_live: false,
+        }));
+
+        let resolveRefresh;
+        const refreshPromise = new Promise((resolve) => {
+            resolveRefresh = resolve;
+        });
+
+        apiService.listRtcSessions
+            .mockResolvedValueOnce(firstPage)
+            .mockImplementationOnce(() => refreshPromise);
+
+        const { getByLabelText, getByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Session 1")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Refresh live sessions"));
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        });
+
+        fireEvent.press(getByLabelText("Load more live sessions"));
+
+        expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+
+        resolveRefresh(firstPage);
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenLastCalledWith({
+                limit: 25,
+                offset: 0,
+            });
+        });
     });
 });

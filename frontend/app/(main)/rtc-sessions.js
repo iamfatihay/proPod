@@ -18,6 +18,20 @@ import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOpti
 
 const PAGE_SIZE = 25;
 
+const mergeSessionPages = (existingSessions, nextSessions) => {
+    const seenSessionIds = new Set(existingSessions.map((session) => session?.id));
+    const uniqueNextSessions = nextSessions.filter((session) => {
+        if (seenSessionIds.has(session?.id)) {
+            return false;
+        }
+
+        seenSessionIds.add(session?.id);
+        return true;
+    });
+
+    return [...existingSessions, ...uniqueNextSessions];
+};
+
 const formatSessionTimestamp = (value) => {
     if (!value) {
         return "Unknown time";
@@ -204,8 +218,11 @@ export default function RtcSessionsScreen() {
 
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState(null);
+    const [paginationError, setPaginationError] = useState(null);
+    const [hasMore, setHasMore] = useState(false);
 
     const loadSessions = useCallback(async ({ isRefresh = false } = {}) => {
         if (isRefresh) {
@@ -215,9 +232,12 @@ export default function RtcSessionsScreen() {
         }
 
         try {
-            const response = await apiService.listRtcSessions({ limit: PAGE_SIZE });
-            setSessions(Array.isArray(response) ? response : []);
+            const response = await apiService.listRtcSessions({ limit: PAGE_SIZE, offset: 0 });
+            const nextSessions = Array.isArray(response) ? response : [];
+            setSessions(nextSessions);
+            setHasMore(nextSessions.length === PAGE_SIZE);
             setError(null);
+            setPaginationError(null);
         } catch (loadError) {
             setError(loadError?.message || "Could not load live sessions.");
         } finally {
@@ -228,6 +248,30 @@ export default function RtcSessionsScreen() {
             }
         }
     }, []);
+
+    const loadMoreSessions = useCallback(async () => {
+        if (loading || loadingMore || refreshing || !hasMore) {
+            return;
+        }
+
+        setLoadingMore(true);
+        setPaginationError(null);
+
+        try {
+            const response = await apiService.listRtcSessions({
+                limit: PAGE_SIZE,
+                offset: sessions.length,
+            });
+            const nextSessions = Array.isArray(response) ? response : [];
+
+            setSessions((currentSessions) => mergeSessionPages(currentSessions, nextSessions));
+            setHasMore(nextSessions.length === PAGE_SIZE);
+        } catch (loadError) {
+            setPaginationError(loadError?.message || "Could not load more live sessions.");
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [hasMore, loading, loadingMore, refreshing, sessions.length]);
 
     useFocusEffect(
         useCallback(() => {
@@ -262,6 +306,63 @@ export default function RtcSessionsScreen() {
             </Text>
         </View>
     );
+
+    const renderFooter = () => {
+        if (error) {
+            return (
+                <View style={styles.errorCard}>
+                    <Text style={styles.errorTitle}>Couldn&apos;t load live sessions.</Text>
+                    <Text style={styles.errorBody}>{error}</Text>
+                    <TouchableOpacity
+                        onPress={() => loadSessions()}
+                        style={styles.retryButton}
+                    >
+                        <Text style={styles.retryButtonText}>Try Again</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+
+        if (loadingMore) {
+            return (
+                <View style={styles.footerLoading}>
+                    <ActivityIndicator size="small" color={COLORS.primary} />
+                    <Text style={styles.footerLoadingText}>Loading more sessions...</Text>
+                </View>
+            );
+        }
+
+        if (paginationError) {
+            return (
+                <View style={styles.errorCard}>
+                    <Text style={styles.errorTitle}>Couldn&apos;t load more sessions.</Text>
+                    <Text style={styles.errorBody}>{paginationError}</Text>
+                    <TouchableOpacity
+                        onPress={loadMoreSessions}
+                        style={styles.retryButton}
+                    >
+                        <Text style={styles.retryButtonText}>Try Again</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+
+        if (hasMore && sessions.length > 0) {
+            return (
+                <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Load more live sessions"
+                    disabled={refreshing}
+                    onPress={loadMoreSessions}
+                    style={styles.loadMoreButton}
+                >
+                    <Text style={styles.loadMoreButtonText}>Load More Sessions</Text>
+                </TouchableOpacity>
+            );
+        }
+
+        return null;
+    };
 
     return (
         <SafeAreaView style={styles.screen}>
@@ -304,20 +405,7 @@ export default function RtcSessionsScreen() {
                     </View>
                 }
                 ListEmptyComponent={!loading && !error ? renderEmptyState : null}
-                ListFooterComponent={
-                    error ? (
-                        <View style={styles.errorCard}>
-                            <Text style={styles.errorTitle}>Couldn&apos;t load live sessions.</Text>
-                            <Text style={styles.errorBody}>{error}</Text>
-                            <TouchableOpacity
-                                onPress={() => loadSessions()}
-                                style={styles.retryButton}
-                            >
-                                <Text style={styles.retryButtonText}>Try Again</Text>
-                            </TouchableOpacity>
-                        </View>
-                    ) : null
-                }
+                ListFooterComponent={renderFooter}
             />
 
             {loading && (
@@ -500,6 +588,31 @@ const styles = StyleSheet.create({
         color: COLORS.text.primary,
         fontSize: FONT_SIZES.base,
         fontWeight: "600",
+    },
+    loadMoreButton: {
+        marginTop: 6,
+        borderRadius: BORDER_RADIUS.md,
+        borderWidth: 1,
+        borderColor: COLORS.primary,
+        paddingVertical: 12,
+        alignItems: "center",
+    },
+    loadMoreButtonText: {
+        color: COLORS.text.primary,
+        fontSize: FONT_SIZES.base,
+        fontWeight: "600",
+    },
+    footerLoading: {
+        marginTop: 6,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        paddingVertical: 12,
+    },
+    footerLoadingText: {
+        color: COLORS.text.secondary,
+        fontSize: FONT_SIZES.sm,
     },
     loadingOverlay: {
         ...StyleSheet.absoluteFillObject,

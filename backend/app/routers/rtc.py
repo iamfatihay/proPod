@@ -350,6 +350,7 @@ async def hms_webhook(
 def list_rtc_sessions(
     room_id: Optional[str] = None,
     limit: int = 20,
+    offset: int = 0,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[schemas.RTCSessionResponse]:
@@ -362,7 +363,14 @@ def list_rtc_sessions(
         query = query.filter(models.RTCSession.room_id == room_id)
 
     safe_limit = min(max(limit, 1), 50)
-    sessions = query.order_by(desc(models.RTCSession.created_at)).limit(safe_limit).all()
+    safe_offset = max(offset, 0)
+    sessions = (
+        query
+        .order_by(desc(models.RTCSession.created_at), desc(models.RTCSession.id))
+        .offset(safe_offset)
+        .limit(safe_limit)
+        .all()
+    )
     return sessions
 
 
