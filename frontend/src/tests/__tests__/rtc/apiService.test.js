@@ -223,6 +223,21 @@ describe("RTC API Service", () => {
                 expect.any(Object)
             );
         });
+
+        it("should apply pagination offset parameter", async () => {
+            global.fetch.mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                json: async () => [],
+            });
+
+            await apiService.listRtcSessions({ limit: 10, offset: 20 });
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                "http://localhost:8000/rtc/sessions?limit=10&offset=20",
+                expect.any(Object)
+            );
+        });
     });
 
     describe("RTC session state flow", () => {

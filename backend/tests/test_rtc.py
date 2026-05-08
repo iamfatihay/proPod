@@ -1,4 +1,6 @@
 """Tests for RTC (100ms) integration endpoints."""
+import datetime
+
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 from fastapi.testclient import TestClient
@@ -297,6 +299,35 @@ class TestRTCSessions:
         data = response.json()
         assert len(data) == 3
         assert all("room_id" in session for session in data)
+
+    def test_list_sessions_supports_offset_pagination(self, test_user):
+        """Test listing sessions with limit and offset pagination."""
+        db = test_user["db"]
+        base_time = datetime.datetime(2026, 5, 8, tzinfo=datetime.timezone.utc)
+
+        for index in range(4):
+            session = RTCSession(
+                room_id=f"paged-room-{index}",
+                room_name=f"Paged Room {index}",
+                owner_id=test_user["user"].id,
+                title=f"Paged Podcast {index}",
+                status="created",
+                created_at=base_time + datetime.timedelta(minutes=index),
+            )
+            db.add(session)
+        db.commit()
+
+        response = client.get(
+            "/rtc/sessions?limit=2&offset=1",
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert [session["title"] for session in data] == [
+            "Paged Podcast 2",
+            "Paged Podcast 1",
+        ]
 
     def test_get_session_by_id(self, test_user):
         """Test getting a specific session."""

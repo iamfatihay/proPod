@@ -680,6 +680,7 @@ class ApiService {
 
         if (params.room_id) queryParams.append("room_id", params.room_id);
         if (params.limit !== undefined) queryParams.append("limit", params.limit);
+        if (params.offset !== undefined) queryParams.append("offset", params.offset);
 
         const queryString = queryParams.toString();
         const endpoint = queryString ? `/rtc/sessions?${queryString}` : "/rtc/sessions";
