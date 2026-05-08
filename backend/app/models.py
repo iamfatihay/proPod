@@ -160,6 +160,7 @@ class RTCSession(Base):
     media_mode = Column(String, default="video")  # audio | video
 
     status = Column(String, default="created")
+    recording_status = Column(String, default="waiting", nullable=False)
     recording_url = Column(String, nullable=True)
     duration_seconds = Column(Integer, default=0)
     podcast_id = Column(Integer, ForeignKey("podcasts.id"), nullable=True, index=True)

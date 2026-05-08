@@ -210,6 +210,7 @@ class TestRTCWebhook:
         assert session.podcast_id is not None
         assert session.recording_url == "https://example.com/recording.mp4"
         assert session.status == "completed"
+        assert session.recording_status == "completed"
 
     @patch("app.routers.rtc.settings")
     def test_webhook_idempotent(self, mock_settings, test_user):
@@ -412,6 +413,7 @@ class TestRTCSessions:
             title="Invite Processing Session",
             invite_code="PROC1234",
             status="created",
+            recording_status="processing",
             is_live=False,
             ended_at=ended_at,
             duration_seconds=98,
@@ -427,6 +429,7 @@ class TestRTCSessions:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "created"
+        assert data["recording_status"] == "processing"
         assert data["recording_state"] == "processing"
         assert data["duration_seconds"] == 98
         assert data["ended_at"] is not None
@@ -444,6 +447,7 @@ class TestRTCSessions:
             title="Invite Failed Session",
             invite_code="FAIL1234",
             status="created",
+            recording_status="failed",
             is_live=False,
             ended_at=ended_at,
             last_webhook_payload='{"event": "room.end"}',
@@ -458,7 +462,69 @@ class TestRTCSessions:
 
         assert response.status_code == 200
         data = response.json()
+        assert data["recording_status"] == "failed"
         assert data["recording_state"] == "failed"
+
+    def test_end_session_sets_processing_recording_status(self, test_user):
+        """Test ending a session persists processing recording status."""
+        db = test_user["db"]
+
+        session = RTCSession(
+            room_id="invite-ending-room",
+            room_name="Invite Ending Room",
+            owner_id=test_user["user"].id,
+            title="Invite Ending Session",
+            invite_code="PROCEND1",
+            status="created",
+            recording_status="live",
+            is_live=True,
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+
+        response = client.post(
+            f"/rtc/sessions/{session.id}/end",
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["recording_status"] == "processing"
+
+        db.refresh(session)
+        assert session.recording_status == "processing"
+
+    @patch("app.routers.rtc.settings")
+    def test_webhook_marks_failed_recording_status_without_recording_url(self, mock_settings, test_user):
+        """Test failure-like webhooks persist an explicit failed recording status."""
+        db = test_user["db"]
+        mock_settings.HMS_WEBHOOK_SECRET = None
+
+        session = RTCSession(
+            room_id="test-room-failed-status",
+            room_name="Failed Status Room",
+            owner_id=test_user["user"].id,
+            title="Failed Status Session",
+            status="created",
+            recording_status="processing",
+            ended_at=datetime.datetime.now(datetime.timezone.utc),
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+
+        response = client.post(
+            "/rtc/webhooks/100ms",
+            json={
+                "room_id": "test-room-failed-status",
+                "event": "room.end",
+            },
+        )
+
+        assert response.status_code == 200
+        db.refresh(session)
+        assert session.recording_status == "failed"
 
     def test_join_by_invite_rejects_ended_session(self, test_user):
         """Test ended sessions cannot be joined again through invite links."""

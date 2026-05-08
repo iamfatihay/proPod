@@ -67,8 +67,12 @@ const formatDuration = (seconds) => {
     return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
 };
 
+const getRecordingStatus = (session) => session?.recording_status || session?.recording_state || (session?.is_live ? "live" : "waiting");
+
 const getStatusPresentation = (session) => {
-    if (session?.is_live) {
+    const recordingStatus = getRecordingStatus(session);
+
+    if (recordingStatus === "live") {
         return {
             label: "Live now",
             toneColor: COLORS.success,
@@ -77,7 +81,7 @@ const getStatusPresentation = (session) => {
         };
     }
 
-    if (session?.podcast_id) {
+    if (recordingStatus === "completed") {
         return {
             label: "Podcast ready",
             toneColor: COLORS.primary,
@@ -86,7 +90,7 @@ const getStatusPresentation = (session) => {
         };
     }
 
-    if (session?.status === "ended" || session?.status === "completed") {
+    if (recordingStatus === "processing") {
         return {
             label: "Processing recording",
             toneColor: COLORS.warning,
@@ -95,7 +99,7 @@ const getStatusPresentation = (session) => {
         };
     }
 
-    if (session?.status === "failed") {
+    if (recordingStatus === "failed") {
         return {
             label: "Needs attention",
             toneColor: COLORS.error,
@@ -114,7 +118,7 @@ const getStatusPresentation = (session) => {
 
 const SessionCard = ({ highlighted, onOpenPodcast, session }) => {
     const status = getStatusPresentation(session);
-    const hasPodcast = Boolean(session?.podcast_id);
+    const hasPodcast = getRecordingStatus(session) === "completed" && Boolean(session?.podcast_id);
     const participantCount = session?.participant_count ?? 0;
     const participantLabel = participantCount === 0
         ? "No participants"

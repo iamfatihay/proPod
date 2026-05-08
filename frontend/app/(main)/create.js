@@ -624,12 +624,15 @@ const Create = () => {
             Logger.debug("[RTC] Session status received", {
                 sessionId: rtcSession.sessionId,
                 status: session?.status,
+                recordingStatus: session?.recording_status,
                 hasRecordingUrl: Boolean(session?.recording_url),
                 podcastId: session?.podcast_id,
             });
 
-            if (session.recording_url) {
+            if (session.recording_status === "completed" || session.recording_url) {
                 setRtcStatusMessage("Recording ready. Adding to library.");
+            } else if (session.recording_status === "failed") {
+                setRtcStatusMessage("Recording failed. Check the live sessions history for details.");
             }
 
             return session;
@@ -713,7 +716,7 @@ const Create = () => {
                 return;
             }
 
-            if (session?.recording_url || session?.podcast_id) {
+            if (session?.recording_status === "completed" || session?.recording_url || session?.podcast_id) {
                 setRtcSessionState("ready");
                 setRtcStatusMessage("Recording ready");
                 // Upgrade the processing notification to "ready"
@@ -729,6 +732,11 @@ const Create = () => {
                         },
                     });
                 }
+                return;
+            }
+
+            if (session?.recording_status === "failed") {
+                setRtcStatusMessage("Recording failed. Check the live sessions history for details.");
                 return;
             }
 

@@ -124,6 +124,7 @@ describe("RtcSessionsScreen", () => {
                 duration_seconds: 1860,
                 podcast_id: 77,
                 status: "completed",
+                recording_status: "completed",
                 is_live: false,
             },
             {
@@ -136,6 +137,7 @@ describe("RtcSessionsScreen", () => {
                 duration_seconds: 420,
                 podcast_id: null,
                 status: "ended",
+                recording_status: "processing",
                 is_live: false,
                 invite_code: "ABCD1234",
             },
@@ -204,6 +206,7 @@ describe("RtcSessionsScreen", () => {
             duration_seconds: 300,
             podcast_id: null,
             status: "ended",
+            recording_status: "processing",
             is_live: false,
         }));
 
@@ -220,6 +223,7 @@ describe("RtcSessionsScreen", () => {
                     duration_seconds: 1200,
                     podcast_id: null,
                     status: "ended",
+                    recording_status: "processing",
                     is_live: false,
                 },
             ]);
@@ -254,6 +258,7 @@ describe("RtcSessionsScreen", () => {
             duration_seconds: 300,
             podcast_id: null,
             status: "ended",
+            recording_status: "processing",
             is_live: false,
         }));
 
