@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-08
-**Last session (9):** RTC pre-join cancel UX -- branch `fix/rtc-prejoin-cancel` adds cancel/close actions before `ON_JOIN`, reuses HmsRoom teardown for loading and error states, and covers the flow with focused HmsRoom tests
+**Last session (10):** RTC session history -- branch `feature/rtc-session-history` adds a dedicated Live Sessions screen, wires it from the create flow, and covers the new screen with focused Jest validation
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -32,7 +32,7 @@
 
 ## Open / In-Progress
 
-- `fix/rtc-prejoin-cancel` -- HmsRoom pre-join cancel UX validated and ready for PR.
+- `feature/rtc-session-history` -- Live Sessions history screen wired from create flow, validated, and ready for PR.
 
 ---
 
@@ -46,6 +46,7 @@
 - Share web pages still contain placeholder CTA behavior and need production-ready app-open/download handling.
 - Full test suite timeout: ~486 tests exceeds the practical sandbox budget; run targeted groups of 3-4 files max.
 - Frontend RTC Jest runs still emit the upstream `react-test-renderer` deprecation warning; validation passes, but the test stack should be modernized.
+- RTC session history currently shows the most recent sessions only; pagination and a broader app entry point are still missing.
 
 ---
 
@@ -64,9 +65,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC session list screen** -- expose `listRtcSessions` on the frontend so hosts can review past live sessions and their recording status.
-2. **Guest summary polish** -- verify the post-session summary on device and consider showing host/session status if backend invite/session status is available.
-3. **RTC join error detail** -- surface clearer pre-join failure messaging from the live room shell so users can distinguish timeout, permission, and provider-side failures.
+1. **RTC join error detail** -- surface clearer pre-join failure messaging from the live room shell so users can distinguish timeout, permission, and provider-side failures.
+2. **RTC session history follow-through** -- add pagination or a non-create entry point so hosts can revisit older live sessions outside the create flow.
+3. **Guest summary polish** -- verify the post-session summary on device and consider showing host/session status if backend invite/session status is available.
 
 ---
 
