@@ -27,6 +27,20 @@ const formatSessionDuration = (durationSeconds = 0) => {
         .padStart(2, "0")}`;
 };
 
+const formatParticipantSummary = (participantCount = 0) => {
+    const safeCount = Math.max(0, Number(participantCount) || 0);
+
+    if (safeCount === 0) {
+        return "No one else is connected yet";
+    }
+
+    if (safeCount === 1) {
+        return "1 person is connected";
+    }
+
+    return `${safeCount} people are connected`;
+};
+
 const LiveInviteScreen = () => {
     const router = useRouter();
     const params = useLocalSearchParams();
@@ -44,6 +58,13 @@ const LiveInviteScreen = () => {
     const [joinState, setJoinState] = useState("lobby");
     const [sessionSummary, setSessionSummary] = useState(null);
     const [error, setError] = useState(null);
+
+    const hostName = preview?.owner_name || "Host";
+    const lobbyStatusLabel = preview?.is_live ? "Live now" : "Waiting for host";
+    const lobbyStatusClasses = preview?.is_live
+        ? "bg-success/15 border-success/30"
+        : "bg-warning/15 border-warning/30";
+    const lobbyStatusTextClasses = preview?.is_live ? "text-success" : "text-warning";
 
     const loadPreview = useCallback(async () => {
         if (!inviteCode) {
@@ -125,6 +146,13 @@ const LiveInviteScreen = () => {
     if (joinPayload && joinState !== "lobby") {
         if (joinState === "ended") {
             const participantCount = sessionSummary?.participantCount || 1;
+            const hasSessionSummary = typeof sessionSummary?.durationSeconds === "number";
+            const recordingStatus = hasSessionSummary
+                ? "Recording processing"
+                : "Session ended";
+            const sessionStatusDetail = hasSessionSummary
+                ? `${hostName} will receive the finished recording after processing.`
+                : `${hostName} ended the live session before a recording summary was available.`;
 
             return (
                 <SafeAreaView className="flex-1 bg-background px-6 pt-6">
@@ -154,8 +182,11 @@ const LiveInviteScreen = () => {
                             Thanks for joining
                         </Text>
                         <Text className="text-text-secondary text-center mt-2">
-                            {joinPayload.title}
+                            {`You joined ${hostName}'s ${joinPayload.media_mode === "video" ? "video" : "audio"} session.`}
                         </Text>
+                        <View className="mt-4 px-3 py-2 rounded-full border border-success/30 bg-success/15">
+                            <Text className="text-success font-semibold">Session ended</Text>
+                        </View>
                     </View>
 
                     <View className="bg-panel rounded-lg p-4 mb-6 border border-border">
@@ -163,9 +194,21 @@ const LiveInviteScreen = () => {
                             Live Session Details
                         </Text>
                         <View className="flex-row items-center justify-between py-2 border-b border-border">
+                            <Text className="text-text-secondary">Host</Text>
+                            <Text className="text-text-primary font-medium flex-1 text-right ml-4">
+                                {hostName}
+                            </Text>
+                        </View>
+                        <View className="flex-row items-center justify-between py-2 border-b border-border">
                             <Text className="text-text-secondary">Room</Text>
                             <Text className="text-text-primary font-medium flex-1 text-right ml-4">
                                 {joinPayload.room_name || "Live session"}
+                            </Text>
+                        </View>
+                        <View className="flex-row items-center justify-between py-2 border-b border-border">
+                            <Text className="text-text-secondary">Recording status</Text>
+                            <Text className="text-text-primary font-medium">
+                                {recordingStatus}
                             </Text>
                         </View>
                         <View className="flex-row items-center justify-between py-2 border-b border-border">
@@ -189,8 +232,11 @@ const LiveInviteScreen = () => {
                     </View>
 
                     <View className="rounded-lg p-4 mb-6 bg-primary/10 border border-primary/20">
-                        <Text className="text-primary text-center font-semibold">
-                            The host will receive the finished recording after processing.
+                        <Text className="text-primary text-center font-semibold mb-2">
+                            {sessionStatusDetail}
+                        </Text>
+                        <Text className="text-text-secondary text-center">
+                            Invite code: {joinPayload.invite_code || preview?.invite_code || inviteCode}
                         </Text>
                     </View>
 
@@ -255,11 +301,19 @@ const LiveInviteScreen = () => {
                     <Text className="text-text-primary text-lg font-semibold mb-2">
                         {preview?.title}
                     </Text>
+                    <View className={`self-start px-3 py-1 rounded-full border mb-3 ${lobbyStatusClasses}`}>
+                        <Text className={`font-semibold ${lobbyStatusTextClasses}`}>
+                            {lobbyStatusLabel}
+                        </Text>
+                    </View>
                     <Text className="text-text-secondary mb-1">
-                        Host: {preview?.owner_name}
+                        Host: {hostName}
                     </Text>
                     <Text className="text-text-secondary mb-1">
                         Format: {preview?.media_mode === "video" ? "Video" : "Audio"}
+                    </Text>
+                    <Text className="text-text-secondary mb-1">
+                        {formatParticipantSummary(preview?.participant_count)}
                     </Text>
                     <Text className="text-text-secondary">
                         Invite code: {preview?.invite_code}
