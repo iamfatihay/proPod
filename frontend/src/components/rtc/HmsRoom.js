@@ -85,6 +85,8 @@ const HmsRoom = ({
     const hmsInstanceRef = useRef(null);
     const localPeerRef = useRef(null);
     const hasLeftRef = useRef(false);
+    const cancelJoinRef = useRef(false);
+    const isClosingRef = useRef(false);
     const sessionStartRef = useRef(null);
     const participantCountRef = useRef(1);
     const joinTimeoutRef = useRef(null);
@@ -136,6 +138,11 @@ const HmsRoom = ({
     }, [enableVideo, getLogContext]);
 
     const handleJoinSuccess = useCallback((data) => {
+        if (cancelJoinRef.current || isClosingRef.current || hasLeftRef.current) {
+            Logger.warn("[RTC] Join success ignored after close request", getLogContext());
+            return;
+        }
+
         if (joinTimeoutRef.current) {
             clearTimeout(joinTimeoutRef.current);
             joinTimeoutRef.current = null;
@@ -241,6 +248,14 @@ const HmsRoom = ({
             joinTimeoutRef.current = null;
         }
 
+        if (cancelJoinRef.current || isClosingRef.current || hasLeftRef.current) {
+            Logger.warn("[RTC] HMS error ignored after close request", {
+                ...getLogContext(),
+                rawError: hmsError,
+            });
+            return;
+        }
+
         Logger.error("HMS error:", hmsError);
         const errorMsg = hmsError?.description || "Live session error";
         setError(errorMsg);
@@ -261,6 +276,28 @@ const HmsRoom = ({
     const handleReconnected = useCallback(() => {
         setIsReconnecting(false);
         Logger.info("[RTC] Reconnected successfully", getLogContext());
+    }, [getLogContext]);
+
+    const teardownHmsInstance = useCallback(async (hmsInstance, reason) => {
+        if (!hmsInstance) {
+            return;
+        }
+
+        try {
+            hmsInstance.removeAllListeners();
+            await hmsInstance.leave();
+            await hmsInstance.destroy();
+            Logger.info("[RTC] HMS instance torn down", {
+                ...getLogContext(),
+                reason,
+            });
+        } catch (teardownError) {
+            Logger.error("[RTC] HMS teardown failed:", teardownError);
+        } finally {
+            if (hmsInstanceRef.current === hmsInstance) {
+                hmsInstanceRef.current = null;
+            }
+        }
     }, [getLogContext]);
 
     const leaveRoom = useCallback(async () => {
@@ -288,10 +325,7 @@ const HmsRoom = ({
                 return;
             }
 
-            hmsInstance.removeAllListeners();
-            await hmsInstance.leave();
-            await hmsInstance.destroy();
-            hmsInstanceRef.current = null;
+            await teardownHmsInstance(hmsInstance, "leave-room");
             Logger.info("[RTC] leaveRoom completed", getLogContext());
         } catch (leaveError) {
             Logger.error("Leave room failed:", leaveError);
@@ -312,10 +346,65 @@ const HmsRoom = ({
                 Logger.warn("Session ended before joining completed");
             }
         }
-    }, [getLogContext]);
+    }, [getLogContext, teardownHmsInstance]);
+
+    const handleClose = useCallback(async () => {
+        if (isClosingRef.current) {
+            Logger.debug("[RTC] close ignored: already closing", getLogContext());
+            return;
+        }
+
+        cancelJoinRef.current = true;
+        isClosingRef.current = true;
+
+        Logger.info("[RTC] close requested", {
+            ...getLogContext(),
+            hasSessionStart: Boolean(sessionStartRef.current),
+        });
+
+        await leaveRoom();
+
+        if (onClose) {
+            onClose();
+            return;
+        }
+
+        setIsReconnecting(false);
+        setPeerNodes([]);
+        setLoading(false);
+        setError("Live session closed.");
+        isClosingRef.current = false;
+    }, [getLogContext, leaveRoom, onClose]);
 
     useEffect(() => {
         let isMounted = true;
+        cancelJoinRef.current = false;
+        isClosingRef.current = false;
+        hasLeftRef.current = false;
+
+        const shouldAbortJoin = () => (
+            !isMounted ||
+            cancelJoinRef.current ||
+            isClosingRef.current ||
+            hasLeftRef.current
+        );
+
+        const abortJoinIfNeeded = async (reason, hmsInstance) => {
+            if (!shouldAbortJoin()) {
+                return false;
+            }
+
+            Logger.info("[RTC] joinRoom aborted", {
+                ...getLogContext(),
+                reason,
+            });
+
+            if (hmsInstance) {
+                await teardownHmsInstance(hmsInstance, reason);
+            }
+
+            return true;
+        };
 
         const joinRoom = async () => {
             try {
@@ -333,6 +422,10 @@ const HmsRoom = ({
                 });
                 const permissionsGranted = await requestPermissions();
 
+                if (await abortJoinIfNeeded("after-permissions")) {
+                    return;
+                }
+
                 if (!permissionsGranted) {
                     setError("Camera and microphone permissions are required.");
                     setLoading(false);
@@ -341,8 +434,12 @@ const HmsRoom = ({
                 }
 
                 const hmsInstance = await HMSSDK.build();
+
+                if (await abortJoinIfNeeded("after-build", hmsInstance)) {
+                    return;
+                }
+
                 hmsInstanceRef.current = hmsInstance;
-                hasLeftRef.current = false;
 
                 Logger.debug("[RTC] HMSSDK instance built", {
                     ...getLogContext(),
@@ -350,6 +447,10 @@ const HmsRoom = ({
                 });
 
                 joinTimeoutRef.current = setTimeout(() => {
+                    if (shouldAbortJoin()) {
+                        return;
+                    }
+
                     setError("Joining timed out. Please leave and try again.");
                     setLoading(false);
                     onErrorRef.current && onErrorRef.current("Joining timed out. Please try again.");
@@ -396,11 +497,27 @@ const HmsRoom = ({
                 Logger.debug("[RTC] HMS listeners registered, attempting join", getLogContext());
 
                 await hmsInstance.join(config);
+
+                if (await abortJoinIfNeeded(
+                    "after-join-resolved",
+                    hmsInstanceRef.current === hmsInstance ? hmsInstance : null
+                )) {
+                    return;
+                }
+
                 Logger.debug("[RTC] hmsInstance.join promise resolved", getLogContext());
             } catch (joinError) {
                 if (joinTimeoutRef.current) {
                     clearTimeout(joinTimeoutRef.current);
                     joinTimeoutRef.current = null;
+                }
+
+                if (shouldAbortJoin()) {
+                    Logger.warn("[RTC] joinRoom error ignored after close request", {
+                        ...getLogContext(),
+                        rawError: joinError,
+                    });
+                    return;
                 }
 
                 Logger.error("Join room failed:", joinError);
@@ -431,6 +548,7 @@ const HmsRoom = ({
         handleReconnecting,
         handleReconnected,
         leaveRoom,
+        teardownHmsInstance,
     ]);
 
     const toggleAudio = () => {
@@ -533,6 +651,14 @@ const HmsRoom = ({
                 <Text className="text-text-secondary mt-4">
                     Joining live session...
                 </Text>
+                <TouchableOpacity
+                    onPress={handleClose}
+                    className="mt-5 border border-border px-4 py-3 rounded-lg"
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel joining live session"
+                >
+                    <Text className="text-text-primary font-semibold">Cancel</Text>
+                </TouchableOpacity>
             </View>
         );
     }
@@ -549,7 +675,7 @@ const HmsRoom = ({
                         <Text className="text-white font-semibold">Retry</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                        onPress={onClose || leaveRoom}
+                        onPress={handleClose}
                         className="border border-border px-4 py-3 rounded-lg"
                     >
                         <Text className="text-text-primary font-semibold">Close</Text>
