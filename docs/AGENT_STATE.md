@@ -6,8 +6,8 @@
 
 ## Current State
 
-**Last updated:** 2026-05-07
-**Last session (8):** RTC join retry -- branch `feature/rtc-join-timeout-retry` adds an in-room retry action after join failures/timeouts and covers it with focused HmsRoom tests
+**Last updated:** 2026-05-08
+**Last session (9):** RTC pre-join cancel UX -- branch `fix/rtc-prejoin-cancel` adds cancel/close actions before `ON_JOIN`, reuses HmsRoom teardown for loading and error states, and covers the flow with focused HmsRoom tests
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -32,7 +32,7 @@
 
 ## Open / In-Progress
 
-- `feature/rtc-join-timeout-retry` -- HmsRoom retry UX validated and ready for PR.
+- `fix/rtc-prejoin-cancel` -- HmsRoom pre-join cancel UX validated and ready for PR.
 
 ---
 
@@ -45,7 +45,7 @@
 - `handlePlayRelated` queue logic in `frontend/app/(main)/details.js` lacks focused Jest coverage.
 - Share web pages still contain placeholder CTA behavior and need production-ready app-open/download handling.
 - Full test suite timeout: ~486 tests exceeds the practical sandbox budget; run targeted groups of 3-4 files max.
-- RTC pre-join failures still do not expose an explicit cancel/close action inside the live room shell.
+- Frontend RTC Jest runs still emit the upstream `react-test-renderer` deprecation warning; validation passes, but the test stack should be modernized.
 
 ---
 
@@ -55,6 +55,8 @@
 - 2026-05-07: `cd frontend && npx eslint app/live.js` passed for guest session summary changes; Node emitted the existing package module-type warning.
 - 2026-05-07: `cd frontend && npx jest src/tests/__tests__/rtc/HmsRoom.test.js --runInBand` passed (15 tests).
 - 2026-05-07: `cd frontend && npx eslint src/components/rtc/HmsRoom.js src/tests/__tests__/rtc/HmsRoom.test.js` passed; Node emitted the existing package module-type warning.
+- 2026-05-08: `cd frontend && npx jest src/tests/__tests__/rtc/HmsRoom.test.js --runInBand` passed (17 tests); Jest emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-08: `cd frontend && npx eslint src/components/rtc/HmsRoom.js src/tests/__tests__/rtc/HmsRoom.test.js` passed; Node emitted the existing package module-type warning.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -62,9 +64,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC join cancel UX** -- add an explicit close/cancel action for host and guest flows when join fails before `ON_JOIN`, so users are not trapped in the live room shell.
-2. **RTC session list screen** -- expose `listRtcSessions` on the frontend so hosts can review past live sessions and their recording status.
-3. **Guest summary polish** -- verify the post-session summary on device and consider showing host/session status if backend invite/session status is available.
+1. **RTC session list screen** -- expose `listRtcSessions` on the frontend so hosts can review past live sessions and their recording status.
+2. **Guest summary polish** -- verify the post-session summary on device and consider showing host/session status if backend invite/session status is available.
+3. **RTC join error detail** -- surface clearer pre-join failure messaging from the live room shell so users can distinguish timeout, permission, and provider-side failures.
 
 ---
 

@@ -314,6 +314,19 @@ const HmsRoom = ({
         }
     }, [getLogContext]);
 
+    const handleClose = useCallback(async () => {
+        Logger.info("[RTC] close requested", {
+            ...getLogContext(),
+            hasSessionStart: Boolean(sessionStartRef.current),
+        });
+
+        await leaveRoom();
+
+        if (onClose) {
+            onClose();
+        }
+    }, [getLogContext, leaveRoom, onClose]);
+
     useEffect(() => {
         let isMounted = true;
 
@@ -533,6 +546,14 @@ const HmsRoom = ({
                 <Text className="text-text-secondary mt-4">
                     Joining live session...
                 </Text>
+                <TouchableOpacity
+                    onPress={handleClose}
+                    className="mt-5 border border-border px-4 py-3 rounded-lg"
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel joining live session"
+                >
+                    <Text className="text-text-primary font-semibold">Cancel</Text>
+                </TouchableOpacity>
             </View>
         );
     }
@@ -549,7 +570,7 @@ const HmsRoom = ({
                         <Text className="text-white font-semibold">Retry</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                        onPress={onClose || leaveRoom}
+                        onPress={handleClose}
                         className="border border-border px-4 py-3 rounded-lg"
                     >
                         <Text className="text-text-primary font-semibold">Close</Text>

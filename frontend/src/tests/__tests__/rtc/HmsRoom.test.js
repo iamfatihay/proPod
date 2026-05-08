@@ -80,6 +80,38 @@ describe("HmsRoom Component", () => {
         );
 
         expect(getByText("Joining live session...")).toBeTruthy();
+        expect(getByText("Cancel")).toBeTruthy();
+    });
+
+    it("should allow cancelling before join completes", async () => {
+        const { getByLabelText } = render(
+            <HmsRoom
+                token={mockToken}
+                roomName={mockRoomName}
+                userName={mockUserName}
+                enableVideo={true}
+                onJoin={mockOnJoin}
+                onLeave={mockOnLeave}
+                onClose={mockOnClose}
+            />
+        );
+
+        await waitFor(() => {
+            expect(mockHmsInstance.join).toHaveBeenCalled();
+        });
+
+        await act(async () => {
+            fireEvent.press(getByLabelText("Cancel joining live session"));
+        });
+
+        await waitFor(() => {
+            expect(mockHmsInstance.removeAllListeners).toHaveBeenCalled();
+            expect(mockHmsInstance.leave).toHaveBeenCalled();
+            expect(mockHmsInstance.destroy).toHaveBeenCalled();
+            expect(mockOnClose).toHaveBeenCalled();
+        });
+
+        expect(mockOnLeave).not.toHaveBeenCalled();
     });
 
     it("should request permissions on mount", async () => {
@@ -386,9 +418,13 @@ describe("HmsRoom Component", () => {
             expect(getByText("Close")).toBeTruthy();
         });
 
-        fireEvent.press(getByText("Close"));
+        await act(async () => {
+            fireEvent.press(getByText("Close"));
+        });
 
-        expect(mockOnClose).toHaveBeenCalledTimes(1);
+        await waitFor(() => {
+            expect(mockOnClose).toHaveBeenCalledTimes(1);
+        });
     });
 
     it("should display room name in UI", async () => {
