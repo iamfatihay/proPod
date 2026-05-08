@@ -250,7 +250,7 @@ export default function RtcSessionsScreen() {
     }, []);
 
     const loadMoreSessions = useCallback(async () => {
-        if (loading || loadingMore || !hasMore) {
+        if (loading || loadingMore || refreshing || !hasMore) {
             return;
         }
 
@@ -271,7 +271,7 @@ export default function RtcSessionsScreen() {
         } finally {
             setLoadingMore(false);
         }
-    }, [hasMore, loading, loadingMore, sessions.length]);
+    }, [hasMore, loading, loadingMore, refreshing, sessions.length]);
 
     useFocusEffect(
         useCallback(() => {
@@ -352,6 +352,7 @@ export default function RtcSessionsScreen() {
                 <TouchableOpacity
                     accessibilityRole="button"
                     accessibilityLabel="Load more live sessions"
+                    disabled={refreshing}
                     onPress={loadMoreSessions}
                     style={styles.loadMoreButton}
                 >
