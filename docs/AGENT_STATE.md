@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-08
-**Last session (10):** RTC session history -- branch `feature/rtc-session-history` adds a dedicated Live Sessions screen, wires it from the create flow, and covers the new screen with focused Jest validation
+**Last session (11):** RTC join error detail -- branch `feature/rtc-join-error-detail` surfaces permission, timeout, network, expired-invite, and provider join failures in the live room shell with focused Jest coverage
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -27,12 +27,13 @@
 - Expo push on like and comment (PR #111)
 - Follow notification tap routes to creator profile (PR #116)
 - RTC reconnect handling: ON_RECONNECTING/ON_RECONNECTED banner in HmsRoom (PR #117)
+- RTC session history screen wired from create flow
 
 ---
 
 ## Open / In-Progress
 
-- `feature/rtc-session-history` -- Live Sessions history screen wired from create flow, validated, and ready for PR.
+- `feature/rtc-join-error-detail` -- Clear pre-join RTC failure messaging, validated, and ready for PR.
 
 ---
 
@@ -47,6 +48,7 @@
 - Full test suite timeout: ~486 tests exceeds the practical sandbox budget; run targeted groups of 3-4 files max.
 - Frontend RTC Jest runs still emit the upstream `react-test-renderer` deprecation warning; validation passes, but the test stack should be modernized.
 - RTC session history currently shows the most recent sessions only; pagination and a broader app entry point are still missing.
+- RTC join provider errors are classified from SDK message text; SDK error codes would make invite/auth/provider cases more precise if exposed reliably.
 
 ---
 
@@ -58,6 +60,8 @@
 - 2026-05-07: `cd frontend && npx eslint src/components/rtc/HmsRoom.js src/tests/__tests__/rtc/HmsRoom.test.js` passed; Node emitted the existing package module-type warning.
 - 2026-05-08: `cd frontend && npx jest src/tests/__tests__/rtc/HmsRoom.test.js --runInBand` passed (17 tests); Jest emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-08: `cd frontend && npx eslint src/components/rtc/HmsRoom.js src/tests/__tests__/rtc/HmsRoom.test.js` passed; Node emitted the existing package module-type warning.
+- 2026-05-08: `cd frontend && npx jest src/tests/__tests__/rtc/HmsRoom.test.js --runInBand` passed (24 tests); Jest emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-08: `cd frontend && npx eslint src/components/rtc/HmsRoom.js src/tests/__tests__/rtc/HmsRoom.test.js` passed; Node emitted the existing package module-type warning.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -65,9 +69,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC join error detail** -- surface clearer pre-join failure messaging from the live room shell so users can distinguish timeout, permission, and provider-side failures.
-2. **RTC session history follow-through** -- add pagination or a non-create entry point so hosts can revisit older live sessions outside the create flow.
-3. **Guest summary polish** -- verify the post-session summary on device and consider showing host/session status if backend invite/session status is available.
+1. **RTC session history follow-through** -- add pagination or a non-create entry point so hosts can revisit older live sessions outside the create flow.
+2. **Guest summary polish** -- verify the post-session summary on device and consider showing host/session status if backend invite/session status is available.
+3. **RTC join recovery actions** -- add platform-specific guidance or settings shortcuts after permission denial if Expo/device APIs support it cleanly.
 
 ---
 
