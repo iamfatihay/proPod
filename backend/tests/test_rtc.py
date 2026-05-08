@@ -399,3 +399,92 @@ class TestRTCSessions:
         db.delete(session)
         db.delete(other_user)
         db.commit()
+
+    def test_invite_preview_includes_processing_state_for_ended_session(self, test_user):
+        """Test invite preview exposes backend-confirmed processing state."""
+        db = test_user["db"]
+        ended_at = datetime.datetime.now(datetime.timezone.utc)
+
+        session = RTCSession(
+            room_id="invite-processing-room",
+            room_name="Invite Processing Room",
+            owner_id=test_user["user"].id,
+            title="Invite Processing Session",
+            invite_code="PROC1234",
+            status="created",
+            is_live=False,
+            ended_at=ended_at,
+            duration_seconds=98,
+        )
+        db.add(session)
+        db.commit()
+
+        response = client.get(
+            "/rtc/invite/PROC1234",
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "created"
+        assert data["recording_state"] == "processing"
+        assert data["duration_seconds"] == 98
+        assert data["ended_at"] is not None
+
+    def test_invite_preview_includes_failed_state_after_non_recording_webhook(self, test_user):
+        """Test invite preview marks ended sessions as failed once backend saw a non-recording webhook."""
+        db = test_user["db"]
+        ended_at = datetime.datetime.now(datetime.timezone.utc)
+
+        session = RTCSession(
+            room_id="invite-failed-room",
+            room_name="Invite Failed Room",
+            owner_id=test_user["user"].id,
+            title="Invite Failed Session",
+            invite_code="FAIL1234",
+            status="created",
+            is_live=False,
+            ended_at=ended_at,
+            last_webhook_payload='{"event": "room.end"}',
+        )
+        db.add(session)
+        db.commit()
+
+        response = client.get(
+            "/rtc/invite/FAIL1234",
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["recording_state"] == "failed"
+
+    def test_join_by_invite_rejects_ended_session(self, test_user):
+        """Test ended sessions cannot be joined again through invite links."""
+        db = test_user["db"]
+
+        session = RTCSession(
+            room_id="invite-ended-room",
+            room_name="Invite Ended Room",
+            owner_id=test_user["user"].id,
+            title="Invite Ended Session",
+            invite_code="ENDED123",
+            status="created",
+            is_live=False,
+            ended_at=datetime.datetime.now(datetime.timezone.utc),
+        )
+        db.add(session)
+        db.commit()
+
+        response = client.post(
+            "/rtc/join-by-invite",
+            json={
+                "invite_code": "ENDED123",
+                "display_name": "Guest User",
+                "role": "guest",
+            },
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+
+        assert response.status_code == 410
+        assert response.json()["detail"] == "This live session has already ended"

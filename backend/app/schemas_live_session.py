@@ -92,6 +92,13 @@ class LiveSessionPreview(BaseModel):
     is_public: bool
     participant_count: int = 0
     viewer_count: int = 0
+    status: str = "created"
+    recording_state: str = "waiting"
+    recording_url: Optional[str] = None
+    duration_seconds: int = 0
+    podcast_id: Optional[int] = None
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
 
 
 class JoinSessionTokenResponse(BaseModel):

@@ -41,6 +41,96 @@ const formatParticipantSummary = (participantCount = 0) => {
     return `${safeCount} people are connected`;
 };
 
+const getLobbyStatusMeta = (preview) => {
+    const recordingState = preview?.recording_state || (preview?.is_live ? "live" : "waiting");
+
+    switch (recordingState) {
+    case "completed":
+        return {
+            label: "Recording complete",
+            containerClasses: "bg-success/15 border-success/30",
+            textClasses: "text-success",
+        };
+    case "failed":
+        return {
+            label: "Recording unavailable",
+            containerClasses: "bg-error/10 border-error/30",
+            textClasses: "text-error",
+        };
+    case "processing":
+        return {
+            label: "Recording processing",
+            containerClasses: "bg-primary/10 border-primary/20",
+            textClasses: "text-primary",
+        };
+    case "live":
+        return {
+            label: "Live now",
+            containerClasses: "bg-success/15 border-success/30",
+            textClasses: "text-success",
+        };
+    default:
+        return {
+            label: "Waiting for host",
+            containerClasses: "bg-warning/15 border-warning/30",
+            textClasses: "text-warning",
+        };
+    }
+};
+
+const getSessionOutcome = ({ preview, sessionSummary, hostName, summaryStatusState }) => {
+    const fallbackHasSessionSummary = typeof sessionSummary?.durationSeconds === "number";
+    const durationSeconds = preview?.duration_seconds > 0
+        ? preview.duration_seconds
+        : sessionSummary?.durationSeconds;
+    const shouldUseBackendOutcome = summaryStatusState === "loaded";
+
+    if (!shouldUseBackendOutcome) {
+        return {
+            recordingStatus: fallbackHasSessionSummary ? "Recording processing" : "Session ended",
+            sessionStatusDetail: fallbackHasSessionSummary
+                ? `${hostName} will receive the finished recording after processing.`
+                : `${hostName} ended the live session before a recording summary was available.`,
+            durationSeconds,
+        };
+    }
+
+    switch (preview?.recording_state) {
+    case "completed":
+        return {
+            recordingStatus: "Recording complete",
+            sessionStatusDetail: `${hostName}'s recording has finished processing.`,
+            durationSeconds,
+        };
+    case "failed":
+        return {
+            recordingStatus: "Recording failed",
+            sessionStatusDetail: `${hostName}'s recording could not be finalized.`,
+            durationSeconds,
+        };
+    case "processing":
+        return {
+            recordingStatus: "Recording processing",
+            sessionStatusDetail: `${hostName} will receive the finished recording after processing.`,
+            durationSeconds,
+        };
+    case "live":
+        return {
+            recordingStatus: "Session still live",
+            sessionStatusDetail: `${hostName}'s session is still live. You can rejoin with the same invite code.`,
+            durationSeconds,
+        };
+    default:
+        return {
+            recordingStatus: fallbackHasSessionSummary ? "Recording processing" : "Session ended",
+            sessionStatusDetail: fallbackHasSessionSummary
+                ? `${hostName} will receive the finished recording after processing.`
+                : `${hostName} ended the live session before a recording summary was available.`,
+            durationSeconds,
+        };
+    }
+};
+
 const LiveInviteScreen = () => {
     const router = useRouter();
     const params = useLocalSearchParams();
@@ -57,14 +147,33 @@ const LiveInviteScreen = () => {
     const [joinPayload, setJoinPayload] = useState(null);
     const [joinState, setJoinState] = useState("lobby");
     const [sessionSummary, setSessionSummary] = useState(null);
+    const [summaryStatusState, setSummaryStatusState] = useState("idle");
+    const [summaryStatusError, setSummaryStatusError] = useState(null);
     const [error, setError] = useState(null);
 
     const hostName = preview?.owner_name || "Host";
-    const lobbyStatusLabel = preview?.is_live ? "Live now" : "Waiting for host";
-    const lobbyStatusClasses = preview?.is_live
-        ? "bg-success/15 border-success/30"
-        : "bg-warning/15 border-warning/30";
-    const lobbyStatusTextClasses = preview?.is_live ? "text-success" : "text-warning";
+    const lobbyStatus = getLobbyStatusMeta(preview);
+    const inviteJoinClosed = Boolean(preview?.ended_at) || ["processing", "completed", "failed"].includes(preview?.recording_state);
+
+    const refreshSummaryStatus = useCallback(async () => {
+        if (!inviteCode) {
+            return;
+        }
+
+        try {
+            setSummaryStatusState("loading");
+            setSummaryStatusError(null);
+            const response = await apiService.getRtcInviteSession(inviteCode);
+            setPreview(response);
+            setSummaryStatusState("loaded");
+        } catch (refreshError) {
+            Logger.error("Failed to refresh guest session status:", refreshError);
+            setSummaryStatusState("error");
+            setSummaryStatusError(
+                refreshError?.message || "Could not confirm the final recording status"
+            );
+        }
+    }, [inviteCode]);
 
     const loadPreview = useCallback(async () => {
         if (!inviteCode) {
@@ -100,6 +209,8 @@ const LiveInviteScreen = () => {
             });
             setJoinPayload(response);
             setSessionSummary(null);
+            setSummaryStatusState("idle");
+            setSummaryStatusError(null);
             setJoinState("joining");
         } catch (joinError) {
             Logger.error("Failed to join live invite:", joinError);
@@ -110,7 +221,7 @@ const LiveInviteScreen = () => {
         }
     };
 
-    const handleRoomLeave = (summary = {}) => {
+    const handleRoomLeave = useCallback((summary = {}) => {
         Logger.info("[RTC] Guest HmsRoom onLeave received", {
             summary,
             inviteCode,
@@ -118,7 +229,8 @@ const LiveInviteScreen = () => {
         });
         setSessionSummary(summary);
         setJoinState("ended");
-    };
+        refreshSummaryStatus();
+    }, [inviteCode, joinPayload?.room_name, refreshSummaryStatus]);
 
     if (loading) {
         return (
@@ -145,14 +257,17 @@ const LiveInviteScreen = () => {
 
     if (joinPayload && joinState !== "lobby") {
         if (joinState === "ended") {
-            const participantCount = sessionSummary?.participantCount || 1;
-            const hasSessionSummary = typeof sessionSummary?.durationSeconds === "number";
-            const recordingStatus = hasSessionSummary
-                ? "Recording processing"
-                : "Session ended";
-            const sessionStatusDetail = hasSessionSummary
-                ? `${hostName} will receive the finished recording after processing.`
-                : `${hostName} ended the live session before a recording summary was available.`;
+            const participantCount = sessionSummary?.participantCount || preview?.participant_count || 1;
+            const {
+                recordingStatus,
+                sessionStatusDetail,
+                durationSeconds,
+            } = getSessionOutcome({
+                preview,
+                sessionSummary,
+                hostName,
+                summaryStatusState,
+            });
 
             return (
                 <SafeAreaView className="flex-1 bg-background px-6 pt-6">
@@ -189,6 +304,15 @@ const LiveInviteScreen = () => {
                         </View>
                     </View>
 
+                    {summaryStatusState === "loading" && (
+                        <View className="flex-row items-center justify-center mb-4">
+                            <ActivityIndicator size="small" color={COLORS.primary} />
+                            <Text className="text-text-secondary ml-3">
+                                Confirming final recording status...
+                            </Text>
+                        </View>
+                    )}
+
                     <View className="bg-panel rounded-lg p-4 mb-6 border border-border">
                         <Text className="text-text-primary font-semibold mb-3">
                             Live Session Details
@@ -214,7 +338,7 @@ const LiveInviteScreen = () => {
                         <View className="flex-row items-center justify-between py-2 border-b border-border">
                             <Text className="text-text-secondary">Duration</Text>
                             <Text className="text-text-primary font-medium">
-                                {formatSessionDuration(sessionSummary?.durationSeconds)}
+                                {formatSessionDuration(durationSeconds)}
                             </Text>
                         </View>
                         <View className="flex-row items-center justify-between py-2 border-b border-border">
@@ -235,6 +359,11 @@ const LiveInviteScreen = () => {
                         <Text className="text-primary text-center font-semibold mb-2">
                             {sessionStatusDetail}
                         </Text>
+                        {summaryStatusError && (
+                            <Text className="text-text-secondary text-center mb-2">
+                                {summaryStatusError}
+                            </Text>
+                        )}
                         <Text className="text-text-secondary text-center">
                             Invite code: {joinPayload.invite_code || preview?.invite_code || inviteCode}
                         </Text>
@@ -301,9 +430,9 @@ const LiveInviteScreen = () => {
                     <Text className="text-text-primary text-lg font-semibold mb-2">
                         {preview?.title}
                     </Text>
-                    <View className={`self-start px-3 py-1 rounded-full border mb-3 ${lobbyStatusClasses}`}>
-                        <Text className={`font-semibold ${lobbyStatusTextClasses}`}>
-                            {lobbyStatusLabel}
+                    <View className={`self-start px-3 py-1 rounded-full border mb-3 ${lobbyStatus.containerClasses}`}>
+                        <Text className={`font-semibold ${lobbyStatus.textClasses}`}>
+                            {lobbyStatus.label}
                         </Text>
                     </View>
                     <Text className="text-text-secondary mb-1">
@@ -370,17 +499,27 @@ const LiveInviteScreen = () => {
 
                 <TouchableOpacity
                     onPress={handleJoin}
-                    disabled={joining}
-                    className="bg-primary py-4 rounded-lg mb-8"
+                    disabled={joining || inviteJoinClosed}
+                    className={`py-4 rounded-lg mb-3 ${inviteJoinClosed ? "bg-gray-400" : "bg-primary"}`}
                 >
                     {joining ? (
                         <ActivityIndicator size="small" color="#fff" />
                     ) : (
                         <Text className="text-white text-center font-semibold text-base">
-                            Join as Guest
+                            {inviteJoinClosed ? "Session ended" : "Join as Guest"}
                         </Text>
                     )}
                 </TouchableOpacity>
+
+                {inviteJoinClosed && (
+                    <Text className="text-text-secondary text-center mb-8">
+                        {preview?.recording_state === "completed"
+                            ? `${hostName}'s recording is ready and this invite is no longer joinable.`
+                            : preview?.recording_state === "failed"
+                                ? `${hostName}'s session has ended and the recording was not finalized.`
+                                : `${hostName}'s session has ended and the recording is still processing.`}
+                    </Text>
+                )}
             </ScrollView>
         </SafeAreaView>
     );

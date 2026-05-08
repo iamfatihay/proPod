@@ -27,6 +27,21 @@ def _rtc_log(action: str, **context: Any) -> None:
     print(f"[RTC] {action}: {safe_context}")
 
 
+def _derive_recording_state(session: models.RTCSession) -> str:
+    if session.recording_url or session.podcast_id or session.status == "completed":
+        return "completed"
+
+    if session.is_live:
+        return "live"
+
+    if session.ended_at:
+        if session.last_webhook_payload:
+            return "failed"
+        return "processing"
+
+    return "waiting"
+
+
 @router.post("/token", response_model=schemas.RTCTokenResponse)
 async def create_rtc_token(
     request: schemas.RTCTokenRequest,
@@ -508,6 +523,13 @@ def get_rtc_invite_preview(
         is_public=session.is_public,
         participant_count=session.participant_count,
         viewer_count=session.viewer_count,
+        status=session.status or "created",
+        recording_state=_derive_recording_state(session),
+        recording_url=session.recording_url,
+        duration_seconds=session.duration_seconds or 0,
+        podcast_id=session.podcast_id,
+        started_at=session.started_at,
+        ended_at=session.ended_at,
     )
 
 
@@ -535,7 +557,7 @@ async def join_rtc_by_invite(
             detail="RTC invite not found",
         )
 
-    if session.status == "completed" or session.recording_url:
+    if session.ended_at or session.status == "completed" or session.recording_url:
         raise HTTPException(
             status_code=status.HTTP_410_GONE,
             detail="This live session has already ended",
