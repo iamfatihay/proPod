@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-08
-**Last session (13):** RTC session history pagination -- branch `feature/rtc-history-pagination` adds offset-backed load-more support for older live sessions with focused frontend and backend coverage
+**Last session (14):** RTC guest session summary polish -- branch `feature/guest-session-summary-status` / PR #125 adds richer host and session-status context before join and after leave
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -28,12 +28,13 @@
 - Follow notification tap routes to creator profile (PR #116)
 - RTC reconnect handling: ON_RECONNECTING/ON_RECONNECTED banner in HmsRoom (PR #117)
 - RTC session history screen wired from create flow
+- RTC session history pagination (PR #124)
 
 ---
 
 ## Open / In-Progress
 
-- `feature/rtc-history-pagination` -- RTC session history load-more support is implemented and validated; ready for PR.
+- `feature/guest-session-summary-status` / PR #125 -- guest live-session lobby and post-session summary now show host attribution, live/waiting state, participant snapshot, and recording-processing guidance.
 
 ---
 
@@ -49,6 +50,7 @@
 - Frontend RTC Jest runs still emit the upstream `react-test-renderer` deprecation warning; validation passes, but the test stack should be modernized.
 - RTC session history pagination infers more pages from page-size responses; the backend still does not expose total counts or explicit `has_more` metadata.
 - RTC join provider errors are classified from SDK message text; SDK error codes would make invite/auth/provider cases more precise if exposed reliably.
+- Guest post-session recording state is still inferred locally after leave; the guest flow does not yet refresh a backend-confirmed final session status.
 
 ---
 
@@ -67,6 +69,8 @@
 - 2026-05-08: `cd frontend && npx jest src/tests/__tests__/rtc/RtcSessionsScreen.test.js src/tests/__tests__/rtc/apiService.test.js --runInBand` passed (17 tests); Jest emitted existing logger and `react-test-renderer` warnings.
 - 2026-05-08: `cd backend && DATABASE_URL=sqlite:///./precommit_test.db venv/bin/python -m pytest tests/test_rtc.py -q` passed (13 tests); pytest emitted existing dependency deprecation warnings.
 - 2026-05-08: `cd frontend && npx eslint 'app/(main)/rtc-sessions.js' src/services/api/apiService.js src/tests/__tests__/rtc/RtcSessionsScreen.test.js src/tests/__tests__/rtc/apiService.test.js` passed; Node emitted the existing package module-type warning.
+- 2026-05-08: `cd frontend && npx jest src/tests/__tests__/rtc/LiveInviteScreen.test.js --runInBand` passed (2 tests); Jest emitted the existing `react-test-renderer` deprecation warnings and existing logger output from the mocked leave flow.
+- 2026-05-08: `cd frontend && npx eslint app/live.js src/tests/__tests__/rtc/LiveInviteScreen.test.js` passed; Node emitted the existing package module-type warning.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -74,9 +78,9 @@
 
 ## Next Session Suggestions
 
-1. **Guest summary polish** -- verify the post-session summary on device and consider showing host/session status if backend invite/session status is available.
-2. **RTC join recovery actions** -- add platform-specific guidance or settings shortcuts after permission denial if Expo/device APIs support it cleanly.
-3. **RTC history pagination device QA** -- verify load-more, pull-to-refresh reset, and long-list performance on iOS/Android with real session data.
+1. **RTC guest summary device QA** -- verify the updated live/waiting lobby badge, host attribution, and post-session summary layout on iOS and Android with real session data.
+2. **RTC guest final-status refresh** -- fetch backend-confirmed session state after leave so guests can distinguish processing, completed, and failed recordings instead of relying on local inference.
+3. **RTC join recovery actions** -- add platform-specific guidance or settings shortcuts after permission denial if Expo/device APIs support it cleanly.
 
 ---
 
