@@ -62,6 +62,78 @@ const upsertNode = (nodes, peer, track) => {
 
 const removeNode = (nodes, peerId) => nodes.filter((node) => node.id !== peerId);
 
+const buildPermissionError = ({ microphoneGranted, cameraGranted, enableVideo }) => {
+    if (!microphoneGranted && enableVideo && !cameraGranted) {
+        return {
+            title: "Camera and microphone permissions needed",
+            message: "Allow camera and microphone access, then retry joining the live session.",
+        };
+    }
+
+    if (!microphoneGranted) {
+        return {
+            title: "Microphone permission needed",
+            message: "Allow microphone access, then retry joining the live session.",
+        };
+    }
+
+    return {
+        title: "Camera permission needed",
+        message: "Allow camera access, then retry joining the video session.",
+    };
+};
+
+const getErrorDescription = (sourceError) => (
+    sourceError?.description ||
+    sourceError?.message ||
+    sourceError?.reason ||
+    sourceError?.error ||
+    ""
+);
+
+const buildProviderError = (sourceError) => {
+    const description = getErrorDescription(sourceError);
+    const lowerDescription = description.toLowerCase();
+
+    if (
+        lowerDescription.includes("network") ||
+        lowerDescription.includes("connection") ||
+        lowerDescription.includes("offline") ||
+        lowerDescription.includes("timed out") ||
+        lowerDescription.includes("timeout")
+    ) {
+        return {
+            title: "Connection problem",
+            message: "The live room could not be reached. Check your connection or switch networks, then retry.",
+        };
+    }
+
+    if (
+        lowerDescription.includes("token") ||
+        lowerDescription.includes("auth") ||
+        lowerDescription.includes("unauthorized") ||
+        lowerDescription.includes("expired")
+    ) {
+        return {
+            title: "Session invite expired",
+            message: "This live session invite is no longer valid. Ask the host for a fresh invite and try again.",
+        };
+    }
+
+    return {
+        title: "Live provider could not join",
+        message: description || "The live session provider rejected the join request. Retry, or ask the host to restart the room if it keeps happening.",
+    };
+};
+
+const buildTimeoutError = () => ({
+    title: "Connection timed out",
+    message: "The room did not answer in time. Check your connection or switch networks, then retry.",
+});
+
+const getErrorTitle = (error) => (typeof error === "string" ? null : error?.title);
+const getErrorMessage = (error) => (typeof error === "string" ? error : error?.message);
+
 const HmsRoom = ({
     token,
     userName,
@@ -127,14 +199,20 @@ const HmsRoom = ({
             ? await requestCameraPermissionsAsync()
             : { status: "granted" };
 
+        const microphoneGranted = micStatus?.status === "granted";
+        const cameraGranted = cameraStatus?.status === "granted";
+
         Logger.info("[RTC] Permission check completed", {
             ...getLogContext(),
             microphone: micStatus?.status || "unknown",
             camera: cameraStatus?.status || "unknown",
         });
 
-        return micStatus?.status === "granted" &&
-            cameraStatus?.status === "granted";
+        return {
+            granted: microphoneGranted && cameraGranted,
+            microphoneGranted,
+            cameraGranted,
+        };
     }, [enableVideo, getLogContext]);
 
     const handleJoinSuccess = useCallback((data) => {
@@ -257,15 +335,20 @@ const HmsRoom = ({
         }
 
         Logger.error("HMS error:", hmsError);
-        const errorMsg = hmsError?.description || "Live session error";
-        setError(errorMsg);
+        const nextError = sessionStartRef.current
+            ? {
+                  title: "Live session issue",
+                  message: getErrorDescription(hmsError) || "The live session hit a provider error.",
+              }
+            : buildProviderError(hmsError);
+        setError(nextError);
         setLoading(false);
         Logger.error("[RTC] HMS runtime error", {
             ...getLogContext(),
-            errorMsg,
+            errorMsg: nextError.message,
             rawError: hmsError,
         });
-        onErrorRef.current && onErrorRef.current(errorMsg);
+        onErrorRef.current && onErrorRef.current(nextError.message);
     }, [getLogContext]);
 
     const handleReconnecting = useCallback(() => {
@@ -420,16 +503,25 @@ const HmsRoom = ({
                     tokenPreview: maskToken(token),
                     joinAttempt,
                 });
-                const permissionsGranted = await requestPermissions();
+                const permissionState = await requestPermissions();
 
                 if (await abortJoinIfNeeded("after-permissions")) {
                     return;
                 }
 
-                if (!permissionsGranted) {
-                    setError("Camera and microphone permissions are required.");
+                if (!permissionState.granted) {
+                    const permissionError = buildPermissionError({
+                        ...permissionState,
+                        enableVideo,
+                    });
+                    setError(permissionError);
                     setLoading(false);
-                    Logger.warn("[RTC] joinRoom blocked: permissions not granted", getLogContext());
+                    onErrorRef.current && onErrorRef.current(permissionError.message);
+                    Logger.warn("[RTC] joinRoom blocked: permissions not granted", {
+                        ...getLogContext(),
+                        microphoneGranted: permissionState.microphoneGranted,
+                        cameraGranted: permissionState.cameraGranted,
+                    });
                     return;
                 }
 
@@ -451,9 +543,11 @@ const HmsRoom = ({
                         return;
                     }
 
-                    setError("Joining timed out. Please leave and try again.");
+                    const timeoutError = buildTimeoutError();
+                    joinTimeoutRef.current = null;
+                    setError(timeoutError);
                     setLoading(false);
-                    onErrorRef.current && onErrorRef.current("Joining timed out. Please try again.");
+                    onErrorRef.current && onErrorRef.current(timeoutError.message);
                     Logger.warn("[RTC] joinRoom timeout", getLogContext());
                 }, 15000);
 
@@ -522,9 +616,10 @@ const HmsRoom = ({
 
                 Logger.error("Join room failed:", joinError);
                 if (isMounted) {
-                    setError("Failed to join live session.");
+                    const nextError = buildProviderError(joinError);
+                    setError(nextError);
                     setLoading(false);
-                    onErrorRef.current && onErrorRef.current("Failed to join live session.");
+                    onErrorRef.current && onErrorRef.current(nextError.message);
                 }
             }
         };
@@ -547,6 +642,7 @@ const HmsRoom = ({
         handleError,
         handleReconnecting,
         handleReconnected,
+        enableVideo,
         leaveRoom,
         teardownHmsInstance,
     ]);
@@ -664,9 +760,19 @@ const HmsRoom = ({
     }
 
     if (error) {
+        const errorTitle = getErrorTitle(error);
+        const errorMessage = getErrorMessage(error);
+
         return (
             <View className="flex-1 items-center justify-center">
-                <Text className="text-error text-center mb-4">{error}</Text>
+                {errorTitle && (
+                    <Text className="text-error text-center text-lg font-semibold mb-2">
+                        {errorTitle}
+                    </Text>
+                )}
+                <Text className="text-text-secondary text-center mb-4 px-4">
+                    {errorMessage}
+                </Text>
                 <View className="flex-row items-center justify-center">
                     <TouchableOpacity
                         onPress={() => setJoinAttempt((currentAttempt) => currentAttempt + 1)}
