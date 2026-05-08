@@ -146,10 +146,11 @@ const LiveInviteScreen = () => {
     if (joinPayload && joinState !== "lobby") {
         if (joinState === "ended") {
             const participantCount = sessionSummary?.participantCount || 1;
-            const recordingStatus = sessionSummary?.durationSeconds > 0
+            const hasSessionSummary = typeof sessionSummary?.durationSeconds === "number";
+            const recordingStatus = hasSessionSummary
                 ? "Recording processing"
                 : "Session ended";
-            const sessionStatusDetail = sessionSummary?.durationSeconds > 0
+            const sessionStatusDetail = hasSessionSummary
                 ? `${hostName} will receive the finished recording after processing.`
                 : `${hostName} ended the live session before a recording summary was available.`;
 
