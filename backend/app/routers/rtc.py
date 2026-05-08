@@ -525,7 +525,6 @@ def get_rtc_invite_preview(
         viewer_count=session.viewer_count,
         status=session.status or "created",
         recording_state=_derive_recording_state(session),
-        recording_url=session.recording_url,
         duration_seconds=session.duration_seconds or 0,
         podcast_id=session.podcast_id,
         started_at=session.started_at,

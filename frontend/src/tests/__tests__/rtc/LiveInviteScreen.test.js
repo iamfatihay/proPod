@@ -174,7 +174,7 @@ describe("LiveInviteScreen", () => {
             role: "guest",
         });
 
-        const { getByText, getByLabelText } = render(<LiveInviteScreen />);
+        const { getByText, getByLabelText, getAllByText } = render(<LiveInviteScreen />);
 
         await waitFor(() => {
             expect(getByText("Join as Guest")).toBeTruthy();
@@ -199,7 +199,7 @@ describe("LiveInviteScreen", () => {
 
         expect(getByText("You joined Host Maya's video session.")).toBeTruthy();
         expect(getByText("Recording status")).toBeTruthy();
-        expect(getByText("Recording complete")).toBeTruthy();
+        expect(getAllByText("Recording complete")).toHaveLength(2);
         expect(getByText("Host")).toBeTruthy();
         expect(getByText("Host Maya")).toBeTruthy();
         expect(getByText("Host Maya's recording has finished processing.")).toBeTruthy();
@@ -249,7 +249,7 @@ describe("LiveInviteScreen", () => {
             role: "guest",
         });
 
-        const { getByText, getByLabelText } = render(<LiveInviteScreen />);
+        const { getByText, getByLabelText, getAllByText } = render(<LiveInviteScreen />);
 
         await waitFor(() => {
             expect(getByText("Join as Guest")).toBeTruthy();
@@ -268,7 +268,7 @@ describe("LiveInviteScreen", () => {
             expect(getByText("Session Summary")).toBeTruthy();
         });
 
-        expect(getByText("Recording failed")).toBeTruthy();
+        expect(getAllByText("Recording failed")).toHaveLength(2);
         expect(getByText("Host Maya's recording could not be finalized.")).toBeTruthy();
         expect(getByText("00:00")).toBeTruthy();
     });
@@ -320,5 +320,63 @@ describe("LiveInviteScreen", () => {
         expect(getByText("Recording processing")).toBeTruthy();
         expect(getByText("Host Maya will receive the finished recording after processing.")).toBeTruthy();
         expect(getByText("Network unavailable")).toBeTruthy();
+    });
+
+    it("shows a live badge if the refreshed backend state still reports the session as live", async () => {
+        apiService.getRtcInviteSession
+            .mockResolvedValueOnce({
+                session_id: 11,
+                room_id: "room-11",
+                title: "Remote Roundtable",
+                owner_name: "Host Maya",
+                media_mode: "audio",
+                invite_code: "JOIN1234",
+                is_live: true,
+                participant_count: 1,
+                recording_state: "live",
+            })
+            .mockResolvedValueOnce({
+                session_id: 11,
+                room_id: "room-11",
+                title: "Remote Roundtable",
+                owner_name: "Host Maya",
+                media_mode: "audio",
+                invite_code: "JOIN1234",
+                is_live: true,
+                participant_count: 1,
+                recording_state: "live",
+            });
+        apiService.joinRtcByInvite.mockResolvedValue({
+            token: "token-123",
+            room_id: "room-11",
+            room_name: "remote-roundtable",
+            session_id: 11,
+            media_mode: "audio",
+            title: "Remote Roundtable",
+            invite_code: "JOIN1234",
+            role: "guest",
+        });
+
+        const { getByText, getByLabelText } = render(<LiveInviteScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Join as Guest")).toBeTruthy();
+        });
+
+        fireEvent.press(getByText("Join as Guest"));
+
+        await waitFor(() => {
+            expect(apiService.joinRtcByInvite).toHaveBeenCalled();
+        });
+
+        fireEvent.press(getByLabelText("Mock join live room"));
+        fireEvent.press(getByLabelText("Mock leave live room"));
+
+        await waitFor(() => {
+            expect(getByText("Still live")).toBeTruthy();
+        });
+
+        expect(getByText("Session still live")).toBeTruthy();
+        expect(getByText("Host Maya's session is still live. You can rejoin with the same invite code.")).toBeTruthy();
     });
 });

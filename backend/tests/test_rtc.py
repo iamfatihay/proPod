@@ -430,6 +430,7 @@ class TestRTCSessions:
         assert data["recording_state"] == "processing"
         assert data["duration_seconds"] == 98
         assert data["ended_at"] is not None
+        assert "recording_url" not in data
 
     def test_invite_preview_includes_failed_state_after_non_recording_webhook(self, test_user):
         """Test invite preview marks ended sessions as failed once backend saw a non-recording webhook."""

@@ -131,6 +131,49 @@ const getSessionOutcome = ({ preview, sessionSummary, hostName, summaryStatusSta
     }
 };
 
+const getSessionBadgeMeta = ({ preview, summaryStatusState }) => {
+    if (summaryStatusState !== "loaded") {
+        return {
+            label: "Session ended",
+            containerClasses: "border-success/30 bg-success/15",
+            textClasses: "text-success",
+        };
+    }
+
+    switch (preview?.recording_state) {
+    case "completed":
+        return {
+            label: "Recording complete",
+            containerClasses: "border-success/30 bg-success/15",
+            textClasses: "text-success",
+        };
+    case "failed":
+        return {
+            label: "Recording failed",
+            containerClasses: "border-error/30 bg-error/10",
+            textClasses: "text-error",
+        };
+    case "processing":
+        return {
+            label: "Recording processing",
+            containerClasses: "border-primary/20 bg-primary/10",
+            textClasses: "text-primary",
+        };
+    case "live":
+        return {
+            label: "Still live",
+            containerClasses: "border-warning/30 bg-warning/15",
+            textClasses: "text-warning",
+        };
+    default:
+        return {
+            label: "Session ended",
+            containerClasses: "border-success/30 bg-success/15",
+            textClasses: "text-success",
+        };
+    }
+};
+
 const LiveInviteScreen = () => {
     const router = useRouter();
     const params = useLocalSearchParams();
@@ -268,6 +311,10 @@ const LiveInviteScreen = () => {
                 hostName,
                 summaryStatusState,
             });
+            const summaryBadge = getSessionBadgeMeta({
+                preview,
+                summaryStatusState,
+            });
 
             return (
                 <SafeAreaView className="flex-1 bg-background px-6 pt-6">
@@ -299,8 +346,10 @@ const LiveInviteScreen = () => {
                         <Text className="text-text-secondary text-center mt-2">
                             {`You joined ${hostName}'s ${joinPayload.media_mode === "video" ? "video" : "audio"} session.`}
                         </Text>
-                        <View className="mt-4 px-3 py-2 rounded-full border border-success/30 bg-success/15">
-                            <Text className="text-success font-semibold">Session ended</Text>
+                        <View className={`mt-4 px-3 py-2 rounded-full border ${summaryBadge.containerClasses}`}>
+                            <Text className={`${summaryBadge.textClasses} font-semibold`}>
+                                {summaryBadge.label}
+                            </Text>
                         </View>
                     </View>
 
