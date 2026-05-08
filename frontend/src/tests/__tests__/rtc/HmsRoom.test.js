@@ -564,7 +564,29 @@ describe("HmsRoom Component", () => {
         });
     });
 
-    it("should show timeout detail when HMS does not finish joining", async () => {
+    it("should show expired invite detail when provider rejects the token", async () => {
+        mockHmsInstance.join.mockRejectedValue(new Error("auth token expired"));
+
+        const { getByText } = render(
+            <HmsRoom
+                token={mockToken}
+                roomName={mockRoomName}
+                userName={mockUserName}
+                enableVideo={true}
+                onJoin={mockOnJoin}
+                onLeave={mockOnLeave}
+            />
+        );
+
+        await waitFor(() => {
+            expect(getByText("Session invite expired")).toBeTruthy();
+            expect(
+                getByText("This live session invite is no longer valid. Ask the host for a fresh invite and try again.")
+            ).toBeTruthy();
+        });
+    });
+
+    it("should cancel and tear down the HMS instance when joining times out", async () => {
         jest.useFakeTimers();
         mockHmsInstance.join.mockReturnValue(new Promise(() => {}));
 
@@ -583,6 +605,10 @@ describe("HmsRoom Component", () => {
             expect(mockHmsInstance.join).toHaveBeenCalled();
         });
 
+        const onJoinCallback = mockHmsInstance.addEventListener.mock.calls.find(
+            (call) => call[0] === "ON_JOIN"
+        )?.[1];
+
         act(() => {
             jest.advanceTimersByTime(15000);
         });
@@ -593,6 +619,19 @@ describe("HmsRoom Component", () => {
                 getByText("The room did not answer in time. Check your connection or switch networks, then retry.")
             ).toBeTruthy();
         });
+
+        await waitFor(() => {
+            expect(mockHmsInstance.removeAllListeners).toHaveBeenCalled();
+            expect(mockHmsInstance.leave).toHaveBeenCalled();
+            expect(mockHmsInstance.destroy).toHaveBeenCalled();
+        });
+
+        act(() => {
+            onJoinCallback?.({ room: { localPeer: { peerID: "late-peer" } } });
+        });
+
+        expect(mockOnJoin).not.toHaveBeenCalled();
+        expect(getByText("Connection timed out")).toBeTruthy();
 
         unmount();
         jest.useRealTimers();

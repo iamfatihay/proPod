@@ -544,11 +544,15 @@ const HmsRoom = ({
                     }
 
                     const timeoutError = buildTimeoutError();
+                    const timedOutHmsInstance = hmsInstanceRef.current;
+                    cancelJoinRef.current = true;
                     joinTimeoutRef.current = null;
                     setError(timeoutError);
                     setLoading(false);
                     onErrorRef.current && onErrorRef.current(timeoutError.message);
                     Logger.warn("[RTC] joinRoom timeout", getLogContext());
+
+                    teardownHmsInstance(timedOutHmsInstance, "join-timeout");
                 }, 15000);
 
                 hmsInstance.addEventListener(
