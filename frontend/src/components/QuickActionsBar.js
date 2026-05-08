@@ -49,6 +49,12 @@ const ACTION_SETS = {
             color: "#D32F2F",
         },
         {
+            id: "live-sessions",
+            icon: "broadcast",
+            label: "Sessions",
+            color: "#06B6D4",
+        },
+        {
             id: "analytics",
             icon: "chart-line",
             label: "Analytics",
