@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-08
-**Last session (14):** RTC guest session summary polish -- branch `feature/guest-session-summary-status` / PR #125 adds richer host and session-status context before join and after leave
+**Last session (15):** RTC guest final-status refresh -- branch `feature/rtc-guest-final-status` / PR #126 fetches backend-confirmed invite status after leave so guests see processing, completed, or failed recording outcomes
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -29,12 +29,13 @@
 - RTC reconnect handling: ON_RECONNECTING/ON_RECONNECTED banner in HmsRoom (PR #117)
 - RTC session history screen wired from create flow
 - RTC session history pagination (PR #124)
+- RTC guest session summary polish with host/session context (PR #125)
 
 ---
 
 ## Open / In-Progress
 
-- `feature/guest-session-summary-status` / PR #125 -- guest live-session lobby and post-session summary now show host attribution, live/waiting state, participant snapshot, and recording-processing guidance.
+- `feature/rtc-guest-final-status` / PR #126 -- guest live-session summary now refreshes backend-confirmed invite status after leave and blocks stale invite rejoins for ended sessions.
 
 ---
 
@@ -50,7 +51,7 @@
 - Frontend RTC Jest runs still emit the upstream `react-test-renderer` deprecation warning; validation passes, but the test stack should be modernized.
 - RTC session history pagination infers more pages from page-size responses; the backend still does not expose total counts or explicit `has_more` metadata.
 - RTC join provider errors are classified from SDK message text; SDK error codes would make invite/auth/provider cases more precise if exposed reliably.
-- Guest post-session recording state is still inferred locally after leave; the guest flow does not yet refresh a backend-confirmed final session status.
+- RTC guest recording outcomes are still derived from existing session fields plus webhook presence; an explicit backend recording lifecycle field would remove the remaining processing-vs-failed inference.
 
 ---
 
@@ -71,6 +72,10 @@
 - 2026-05-08: `cd frontend && npx eslint 'app/(main)/rtc-sessions.js' src/services/api/apiService.js src/tests/__tests__/rtc/RtcSessionsScreen.test.js src/tests/__tests__/rtc/apiService.test.js` passed; Node emitted the existing package module-type warning.
 - 2026-05-08: `cd frontend && npx jest src/tests/__tests__/rtc/LiveInviteScreen.test.js --runInBand` passed (2 tests); Jest emitted the existing `react-test-renderer` deprecation warnings and existing logger output from the mocked leave flow.
 - 2026-05-08: `cd frontend && npx eslint app/live.js src/tests/__tests__/rtc/LiveInviteScreen.test.js` passed; Node emitted the existing package module-type warning.
+- 2026-05-08: `cd backend && DATABASE_URL=sqlite:///./precommit_test.db venv/bin/python -m pytest tests/test_rtc.py -q` passed (16 tests); pytest emitted existing dependency deprecation warnings.
+- 2026-05-08: `cd frontend && npx jest src/tests/__tests__/rtc/LiveInviteScreen.test.js --runInBand` passed (5 tests); Jest emitted existing `react-test-renderer` deprecation warnings and expected logger output from the mocked refresh failure case.
+- 2026-05-08: `cd frontend && npx eslint app/live.js src/tests/__tests__/rtc/LiveInviteScreen.test.js` passed; Node emitted the existing package module-type warning.
+- 2026-05-08: pre-commit hook on `git commit` passed the repository backend/frontend validation suite (509 backend tests plus frontend checks); existing dependency and deprecation warnings remained.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -78,8 +83,8 @@
 
 ## Next Session Suggestions
 
-1. **RTC guest summary device QA** -- verify the updated live/waiting lobby badge, host attribution, and post-session summary layout on iOS and Android with real session data.
-2. **RTC guest final-status refresh** -- fetch backend-confirmed session state after leave so guests can distinguish processing, completed, and failed recordings instead of relying on local inference.
+1. **RTC guest summary device QA** -- verify completed, processing, and failed guest summary states on iOS and Android with real webhook timing and ended invite links.
+2. **RTC recording lifecycle field** -- add an explicit backend recording-status field for RTC sessions so guest and host summaries stop inferring failed vs processing from current metadata.
 3. **RTC join recovery actions** -- add platform-specific guidance or settings shortcuts after permission denial if Expo/device APIs support it cleanly.
 
 ---
