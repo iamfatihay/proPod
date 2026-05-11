@@ -50,17 +50,15 @@ def _event_marks_recording_failed(event_name: Optional[str]) -> bool:
     if not normalized_event:
         return False
 
-    if "fail" in normalized_event or "error" in normalized_event:
+    if (
+        "fail" in normalized_event
+        or "error" in normalized_event
+        or "abort" in normalized_event
+        or "terminat" in normalized_event
+    ):
         return True
 
-    return normalized_event in {
-        "room.end",
-        "room.ended",
-        "session.end",
-        "session.ended",
-        "recording.stopped",
-        "recording.terminated",
-    }
+    return False
 
 
 @router.post("/token", response_model=schemas.RTCTokenResponse)

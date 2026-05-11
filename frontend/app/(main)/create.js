@@ -1227,8 +1227,12 @@ const Create = () => {
                 0;
             const minutes = Math.floor(durationSeconds / 60);
             const seconds = durationSeconds % 60;
-            const isReady = Boolean(rtcSessionSummary?.podcast_id);
-            const isProcessing = !isReady && rtcSessionState === "ended";
+            const recordingStatus =
+                rtcSessionSummary?.recording_status ||
+                (rtcSessionSummary?.podcast_id ? "completed" : null);
+            const isReady = recordingStatus === "completed" || Boolean(rtcSessionSummary?.podcast_id);
+            const isFailed = recordingStatus === "failed";
+            const isProcessing = !isReady && !isFailed && rtcSessionState === "ended";
 
             return (
                 <ScrollView className="flex-1 px-6 pt-6">
@@ -1265,6 +1269,21 @@ const Create = () => {
                             <Text className="text-success font-semibold ml-3 flex-1">
                                 Podcast is ready!
                             </Text>
+                        </View>
+                    ) : isFailed ? (
+                        <View
+                            className="rounded-lg p-4 mb-6 flex-row items-center"
+                            style={{ backgroundColor: "rgba(239,68,68,0.15)" }}
+                        >
+                            <Ionicons name="alert-circle" size={24} color={COLORS.error} />
+                            <View className="ml-3 flex-1">
+                                <Text className="text-error font-semibold">
+                                    Recording failed
+                                </Text>
+                                <Text className="text-text-secondary text-sm mt-1">
+                                    Check the live sessions history for details and retry if needed.
+                                </Text>
+                            </View>
                         </View>
                     ) : (
                         <View
@@ -1306,6 +1325,25 @@ const Create = () => {
                                 >
                                     <Text className="text-text-secondary text-center text-sm font-medium">
                                         View Live Sessions
+                                    </Text>
+                                </TouchableOpacity>
+                            </>
+                        ) : isFailed ? (
+                            <>
+                                <TouchableOpacity
+                                    onPress={openRtcSessionHistory}
+                                    className="bg-primary py-4 mb-3 rounded-lg"
+                                >
+                                    <Text className="text-white text-center font-semibold text-base">
+                                        View Live Sessions
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => router.replace("/(main)/home")}
+                                    className="border border-border py-3 mb-3 rounded-lg"
+                                >
+                                    <Text className="text-text-secondary text-center text-sm font-medium">
+                                        Go to Home
                                     </Text>
                                 </TouchableOpacity>
                             </>

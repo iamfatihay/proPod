@@ -496,8 +496,8 @@ class TestRTCSessions:
         assert session.recording_status == "processing"
 
     @patch("app.routers.rtc.settings")
-    def test_webhook_marks_failed_recording_status_without_recording_url(self, mock_settings, test_user):
-        """Test failure-like webhooks persist an explicit failed recording status."""
+    def test_webhook_keeps_processing_status_for_room_end_without_recording_url(self, mock_settings, test_user):
+        """Test generic room-end webhooks do not overwrite processing status."""
         db = test_user["db"]
         mock_settings.HMS_WEBHOOK_SECRET = None
 
@@ -519,6 +519,37 @@ class TestRTCSessions:
             json={
                 "room_id": "test-room-failed-status",
                 "event": "room.end",
+            },
+        )
+
+        assert response.status_code == 200
+        db.refresh(session)
+        assert session.recording_status == "processing"
+
+    @patch("app.routers.rtc.settings")
+    def test_webhook_marks_failed_recording_status_for_explicit_failure_event(self, mock_settings, test_user):
+        """Test explicit failure-like webhooks persist a failed recording status."""
+        db = test_user["db"]
+        mock_settings.HMS_WEBHOOK_SECRET = None
+
+        session = RTCSession(
+            room_id="test-room-failure-event",
+            room_name="Failed Status Room",
+            owner_id=test_user["user"].id,
+            title="Failed Status Session",
+            status="created",
+            recording_status="processing",
+            ended_at=datetime.datetime.now(datetime.timezone.utc),
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+
+        response = client.post(
+            "/rtc/webhooks/100ms",
+            json={
+                "room_id": "test-room-failure-event",
+                "event": "recording.failed",
             },
         )
 
