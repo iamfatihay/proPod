@@ -6,8 +6,8 @@
 
 ## Current State
 
-**Last updated:** 2026-05-08
-**Last session (16):** RTC recording lifecycle field -- branch `feature/rtc-recording-status` / PR #127 persists explicit recording status on RTC sessions and wires guest/host RTC UI to backend-confirmed completed, processing, and failed states
+**Last updated:** 2026-05-11
+**Last session (17):** RTC failed-status host notification -- branch `feature/rtc-failed-host-notification` surfaces recording failures in the Notifications tab via a new `rtc_failed` notification type; the processing notification upgrades to failed when polling confirms failure; Android back-button no longer blocks navigation away from failed sessions
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -35,7 +35,7 @@
 
 ## Open / In-Progress
 
-- `feature/rtc-recording-status` / PR #127 -- RTC sessions now persist explicit recording lifecycle state and expose it to guest summaries, host session history, and host post-session polling.
+- `feature/rtc-failed-host-notification` / PR pending -- adds `rtc_failed` notification type; processing notification upgrades to failed when polling confirms failure; Android back-button no longer blocks navigation away from failed sessions.
 
 ---
 
@@ -88,8 +88,8 @@
 ## Next Session Suggestions
 
 1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing for both guest summary and host history flows.
-2. **RTC failed-status host UX** -- surface explicit failed recording outcomes in the host create flow and notifications so hosts do not rely on session history to notice failure.
-3. **RTC schema deprecation cleanup** -- replace class-based Pydantic config in `schemas_live_session.py` with `ConfigDict` to remove the recurring backend warning before more RTC schema work lands.
+2. **RTC schema deprecation cleanup** -- replace class-based Pydantic config in `schemas_live_session.py` with `ConfigDict` to remove the recurring backend warning before more RTC schema work lands.
+3. **RTC session retry UX** -- when a recording fails, surface a clear retry-or-re-record CTA in the host post-session review screen rather than just pointing to session history.
 
 ---
 

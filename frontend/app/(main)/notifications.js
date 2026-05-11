@@ -65,6 +65,10 @@ const NOTIFICATION_TYPES = {
         icon: "mic-circle",
         ...getNotificationColors('rtc_ready'),
     },
+    rtc_failed: {
+        icon: "alert-circle",
+        ...getNotificationColors('rtc_failed'),
+    },
     new_episode: {
         icon: "radio",
         ...getNotificationColors('new_episode'),

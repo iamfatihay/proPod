@@ -70,6 +70,7 @@ export const COLORS = {
         system: "#6B7280",
         rtc_processing: "#F59E0B",
         rtc_ready: "#10B981",
+        rtc_failed: "#EF4444",
         new_episode: "#F97316",  // orange — new content from followed creator
         dm: "#0EA5E9",           // sky blue — direct message
     },
@@ -137,6 +138,7 @@ export const getNotificationColors = (type) => {
         system: { color: COLORS.notification.system, bgColor: addAlpha(COLORS.notification.system, 0.12) },
         rtc_processing: { color: COLORS.notification.rtc_processing, bgColor: addAlpha(COLORS.notification.rtc_processing, 0.12) },
         rtc_ready: { color: COLORS.notification.rtc_ready, bgColor: addAlpha(COLORS.notification.rtc_ready, 0.12) },
+        rtc_failed: { color: COLORS.notification.rtc_failed, bgColor: addAlpha(COLORS.notification.rtc_failed, 0.12) },
         new_episode: { color: COLORS.notification.new_episode, bgColor: addAlpha(COLORS.notification.new_episode, 0.12) },
         dm: { color: COLORS.notification.dm, bgColor: addAlpha(COLORS.notification.dm, 0.12) },
     };

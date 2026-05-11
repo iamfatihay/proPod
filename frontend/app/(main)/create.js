@@ -737,6 +737,17 @@ const Create = () => {
 
             if (session?.recording_status === "failed") {
                 setRtcStatusMessage("Recording failed. Check the live sessions history for details.");
+                if (rtcProcessingNotifId) {
+                    useNotificationStore.getState().updateNotification(rtcProcessingNotifId, {
+                        type: "rtc_failed",
+                        title: "Recording Failed",
+                        message: `"${title || "Your session"}" did not finish processing. Tap to view session history.`,
+                        action: {
+                            type: "navigate",
+                            screen: "rtc-sessions",
+                        },
+                    });
+                }
                 return;
             }
 
@@ -758,12 +769,15 @@ const Create = () => {
         };
     }, [fetchRtcSessionStatus, recordingMode, rtcProcessingNotifId, rtcSessionState, title]);
 
-    // Intercept Android back button while recording is processing
+    // Intercept Android back button while recording is processing (not when failed or ready)
     useEffect(() => {
+        const recordingStatus = rtcSessionSummary?.recording_status;
         if (
             recordingMode !== "multi" ||
             rtcSessionState !== "ended" ||
-            rtcSessionSummary?.podcast_id
+            rtcSessionSummary?.podcast_id ||
+            recordingStatus === "failed" ||
+            recordingStatus === "completed"
         ) {
             return;
         }
