@@ -18,7 +18,7 @@ import {
 } from "react-native";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS, FONT_SIZES, BORDER_RADIUS } from "../../src/constants/theme";
+import { COLORS, FONT_SIZES, BORDER_RADIUS, TAB_SCREEN_BOTTOM_PADDING } from "../../src/constants/theme";
 import apiService from "../../src/services/api/apiService";
 import useDMStore from "../../src/context/useDMStore";
 import { formatTimeAgo } from "../../src/utils/formatTimeAgo";
@@ -200,7 +200,7 @@ export default function MessagesScreen() {
                 <FlatList
                     data={threads}
                     keyExtractor={(item) => String(item.partner_id)}
-                    contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
+                    contentContainerStyle={{ padding: 20, paddingBottom: TAB_SCREEN_BOTTOM_PADDING }}
                     refreshControl={
                         <RefreshControl
                             refreshing={refreshing}

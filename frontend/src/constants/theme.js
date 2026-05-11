@@ -101,6 +101,8 @@ export const SPACING = {
     xxl: 48,
 };
 
+export const TAB_SCREEN_BOTTOM_PADDING = 100;
+
 export const BORDER_RADIUS = {
     xs: 5,
     sm: 6,
