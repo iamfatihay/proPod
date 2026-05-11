@@ -785,7 +785,7 @@ const Create = () => {
         const backAction = () => {
             Alert.alert(
                 "Recording is Processing",
-                "Your recording is still being processed. A notification will appear in the Notifications tab when it's ready.\n\nLeave anyway?",
+                "Your recording is still being processed. A notification will appear in the Notifications tab when it's ready or if it fails.\n\nLeave anyway?",
                 [
                     { text: "Stay", style: "cancel" },
                     { text: "Leave", style: "destructive", onPress: () => router.back() },
@@ -796,7 +796,7 @@ const Create = () => {
 
         const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
         return () => backHandler.remove();
-    }, [recordingMode, rtcSessionState, rtcSessionSummary?.podcast_id]);
+    }, [recordingMode, rtcSessionState, rtcSessionSummary?.podcast_id, rtcSessionSummary?.recording_status]);
 
     const renderSetupStep = () => (
         <ScrollView className="flex-1 px-6 pt-6">
