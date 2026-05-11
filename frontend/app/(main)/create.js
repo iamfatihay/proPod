@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     View,
     Text,
@@ -29,11 +29,44 @@ import protectionService from "../../src/services/recording/protectionService";
 import useNotificationStore from "../../src/context/useNotificationStore";
 import backgroundService from "../../src/services/recording/backgroundService";
 
+export const RtcFailedReviewActions = ({ isLoading, onGoHome, onRetry, onViewSessions }) => (
+    <>
+        <TouchableOpacity
+            onPress={isLoading ? undefined : onRetry}
+            className="bg-primary py-4 mb-3 rounded-lg"
+            disabled={isLoading}
+        >
+            <Text className="text-white text-center font-semibold text-base">
+                {isLoading ? "Preparing new lobby..." : "Start New Live Session"}
+            </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+            onPress={isLoading ? undefined : onViewSessions}
+            className="border border-border py-3 mb-3 rounded-lg"
+            disabled={isLoading}
+        >
+            <Text className="text-text-secondary text-center text-sm font-medium">
+                View Live Sessions
+            </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+            onPress={isLoading ? undefined : onGoHome}
+            className="border border-border py-3 mb-3 rounded-lg"
+            disabled={isLoading}
+        >
+            <Text className="text-text-secondary text-center text-sm font-medium">
+                Go to Home
+            </Text>
+        </TouchableOpacity>
+    </>
+);
+
 const Create = () => {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
     const { showToast } = useToast();
+    const isMountedRef = useRef(true);
 
     // Mode: 'quick-record', 'full-create', 'resume-draft', or 'save-draft'
     const mode = params.mode || "full-create";
@@ -65,6 +98,10 @@ const Create = () => {
     const [isPublic, setIsPublic] = useState(false);
 
     // Update draft metadata when title/description changes (only if draft loaded or recording active)
+    useEffect(() => () => {
+        isMountedRef.current = false;
+    }, []);
+
     useEffect(() => {
         // Only update metadata if we have a loaded draft or active recording session
         // Prevents overwriting draft metadata with empty values on initial mount
@@ -519,6 +556,10 @@ const Create = () => {
     };
 
     const startRtcSession = async () => {
+        if (rtcLoading) {
+            return;
+        }
+
         if (!title || title.trim() === "") {
             showToast("Please enter a podcast title", "error");
             return;
@@ -526,6 +567,7 @@ const Create = () => {
 
         try {
             setRtcLoading(true);
+            setRtcSessionState("idle");
             setRtcError(null);
             Logger.info("[RTC] Starting live session from create screen", {
                 recordingMode,
@@ -567,6 +609,10 @@ const Create = () => {
                 tokenLength: tokenResponse?.token?.length || 0,
             });
 
+            if (!isMountedRef.current) {
+                return;
+            }
+
             setRtcSession({
                 roomId: room.id,
                 roomName: room.name,
@@ -597,10 +643,15 @@ const Create = () => {
             });
         } catch (error) {
             Logger.error("RTC session start failed:", error);
+            if (!isMountedRef.current) {
+                return;
+            }
             setRtcError(error?.message || "Failed to start live session");
             showToast("Failed to start live session", "error");
         } finally {
-            setRtcLoading(false);
+            if (isMountedRef.current) {
+                setRtcLoading(false);
+            }
         }
     };
 
@@ -632,7 +683,7 @@ const Create = () => {
             if (session.recording_status === "completed" || session.recording_url) {
                 setRtcStatusMessage("Recording ready. Adding to library.");
             } else if (session.recording_status === "failed") {
-                setRtcStatusMessage("Recording failed. Check the live sessions history for details.");
+                setRtcStatusMessage("Recording failed. Start a new live session or review session history for details.");
             }
 
             return session;
@@ -736,7 +787,7 @@ const Create = () => {
             }
 
             if (session?.recording_status === "failed") {
-                setRtcStatusMessage("Recording failed. Check the live sessions history for details.");
+                setRtcStatusMessage("Recording failed. Start a new live session or review session history for details.");
                 if (rtcProcessingNotifId) {
                     useNotificationStore.getState().updateNotification(rtcProcessingNotifId, {
                         type: "rtc_failed",
@@ -1295,7 +1346,7 @@ const Create = () => {
                                     Recording failed
                                 </Text>
                                 <Text className="text-text-secondary text-sm mt-1">
-                                    Check the live sessions history for details and retry if needed.
+                                    Start a new live session with the same setup, or review session history for failure details.
                                 </Text>
                             </View>
                         </View>
@@ -1344,22 +1395,12 @@ const Create = () => {
                             </>
                         ) : isFailed ? (
                             <>
-                                <TouchableOpacity
-                                    onPress={openRtcSessionHistory}
-                                    className="bg-primary py-4 mb-3 rounded-lg"
-                                >
-                                    <Text className="text-white text-center font-semibold text-base">
-                                        View Live Sessions
-                                    </Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={() => router.replace("/(main)/home")}
-                                    className="border border-border py-3 mb-3 rounded-lg"
-                                >
-                                    <Text className="text-text-secondary text-center text-sm font-medium">
-                                        Go to Home
-                                    </Text>
-                                </TouchableOpacity>
+                                <RtcFailedReviewActions
+                                    isLoading={rtcLoading}
+                                    onGoHome={() => router.replace("/(main)/home")}
+                                    onRetry={startRtcSession}
+                                    onViewSessions={openRtcSessionHistory}
+                                />
                             </>
                         ) : (
                             <>
