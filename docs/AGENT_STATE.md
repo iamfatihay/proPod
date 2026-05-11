@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-11
-**Last session (17):** RTC failed-status host notification -- branch `feature/rtc-failed-host-notification` surfaces recording failures in the Notifications tab via a new `rtc_failed` notification type; the processing notification upgrades to failed when polling confirms failure; Android back-button no longer blocks navigation away from failed sessions
+**Last session (18):** Host failed-session retry CTA -- branch `feature/rtc-recording-retry-cta` / PR #129 adds a direct `Start New Live Session` action to the RTC failed review screen, keeps session history available, and covers the new action group with focused frontend tests
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -36,6 +36,7 @@
 ## Open / In-Progress
 
 - `feature/rtc-failed-host-notification` / PR pending -- adds `rtc_failed` notification type; processing notification upgrades to failed when polling confirms failure; Android back-button no longer blocks navigation away from failed sessions.
+- `feature/rtc-recording-retry-cta` / PR #129 -- adds a direct re-record CTA to the host RTC failed review screen so creators can launch a fresh live session without detouring through history.
 
 ---
 
@@ -52,6 +53,7 @@
 - RTC session history pagination infers more pages from page-size responses; the backend still does not expose total counts or explicit `has_more` metadata.
 - RTC join provider errors are classified from SDK message text; SDK error codes would make invite/auth/provider cases more precise if exposed reliably.
 - RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
+- Host failed-session coverage is still action-level; the create-screen RTC lifecycle remains hard to test end-to-end without more screen decomposition.
 
 ---
 
@@ -80,6 +82,9 @@
 - 2026-05-08: `cd frontend && npx jest src/tests/__tests__/rtc/LiveInviteScreen.test.js src/tests/__tests__/rtc/RtcSessionsScreen.test.js --runInBand` passed (11 tests); Jest emitted existing `react-test-renderer` deprecation warnings and expected mocked logger output.
 - 2026-05-08: `cd frontend && npx eslint app/live.js 'app/(main)/rtc-sessions.js' 'app/(main)/create.js' src/tests/__tests__/rtc/LiveInviteScreen.test.js src/tests/__tests__/rtc/RtcSessionsScreen.test.js` passed; Node emitted the existing package module-type warning.
 - 2026-05-08: pre-commit hook on `git commit` passed the repository backend/frontend validation suite (511 backend tests plus frontend checks); existing dependency and deprecation warnings remained.
+- 2026-05-11: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/rtc/CreateRtcRetryFlow.test.js --runInBand` passed (2 tests); Jest emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-11: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/create.js' src/tests/__tests__/rtc/CreateRtcRetryFlow.test.js` passed; Node emitted the existing package module-type warning.
+- 2026-05-11: pre-commit hook on `git commit` passed frontend validation for the host RTC retry CTA change.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -87,9 +92,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing for both guest summary and host history flows.
-2. **RTC schema deprecation cleanup** -- replace class-based Pydantic config in `schemas_live_session.py` with `ConfigDict` to remove the recurring backend warning before more RTC schema work lands.
-3. **RTC session retry UX** -- when a recording fails, surface a clear retry-or-re-record CTA in the host post-session review screen rather than just pointing to session history.
+1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing for host review, notifications, and guest summary flows.
+2. **RTC failed notification deep link** -- route failed RTC notifications into the host retry path with preserved title, description, and media-mode context instead of sending hosts only to history.
+3. **RTC schema deprecation cleanup** -- replace class-based Pydantic config in `schemas_live_session.py` with `ConfigDict` to remove the recurring backend warning before more RTC schema work lands.
 
 ---
 
