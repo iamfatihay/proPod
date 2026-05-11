@@ -31,7 +31,6 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import useNotificationStore from "../../src/context/useNotificationStore";
 import useDMStore from "../../src/context/useDMStore";
-import Logger from "../../src/utils/logger";
 import {
     COLORS,
     FONT_SIZES,

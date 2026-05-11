@@ -2,7 +2,7 @@
 import datetime
 
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 from sqlalchemy import desc
 from sqlalchemy.exc import ProgrammingError

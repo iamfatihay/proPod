@@ -242,7 +242,7 @@ async def create_rtc_room(
         )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"100ms API error: {exc}",
+            detail="100ms API error",
         ) from exc
 
     return schemas.RTCRoomCreateResponse(
