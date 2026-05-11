@@ -9,9 +9,14 @@ Tests cover:
 - Status tracking
 """
 
+from pathlib import Path
+
 import pytest
+from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch, AsyncMock
 
+from app.main import app
+from app import crud, schemas
 from app.services.transcription_service import (
     TranscriptionService,
     TranscriptionResult,
@@ -30,6 +35,9 @@ from app.services.ai_service import (
     ProcessingStage,
     ProcessingResult
 )
+
+
+client = TestClient(app)
 
 
 # Mock audio file path for testing
@@ -283,6 +291,53 @@ class TestContentAnalyzer:
         assert result.sentiment == SentimentType.POSITIVE
         assert len(result.categories) > 0
         assert 0 <= result.quality_score <= 10
+
+
+class TestAIRouter:
+    @patch("app.routers.ai._download_remote_audio_to_temp_file", new_callable=AsyncMock)
+    @patch("app.routers.ai.get_ai_service")
+    def test_process_podcast_accepts_remote_recording_url(
+        self,
+        mock_get_ai_service,
+        mock_download_remote_audio,
+        db_session,
+        test_user,
+    ):
+        """Remote recording URLs should be downloaded instead of rejected as missing local files."""
+        user, token = test_user
+        podcast = crud.create_podcast(
+            db_session,
+            schemas.PodcastCreate(
+                title="Remote Recording",
+                description="Signed recording URL",
+                category="Technology",
+                is_public=False,
+                duration=120,
+                audio_url="https://example.com/recordings/test-session.mp4",
+            ),
+            owner_id=user.id,
+        )
+
+        mock_download_remote_audio.return_value = Path("/tmp/remote-recording.mp4")
+        mock_service = Mock()
+        mock_service.process_podcast_full = AsyncMock(
+            return_value=ProcessingResult(
+                podcast_id=podcast.id,
+                status=ProcessingStage.COMPLETED,
+                stage=ProcessingStage.COMPLETED,
+            )
+        )
+        mock_get_ai_service.return_value = mock_service
+
+        response = client.post(
+            f"/ai/process-podcast/{podcast.id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "processing"
+        mock_download_remote_audio.assert_awaited_once_with(podcast.audio_url)
+        mock_service.process_podcast_full.assert_awaited_once()
 
 
 class TestAIService:

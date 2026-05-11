@@ -17,7 +17,6 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import ModernAudioPlayer from "../../src/components/audio/ModernAudioPlayer";
 import PodcastVideoPlayer from "../../src/components/video/PodcastVideoPlayer";
 import useAudioStore from "../../src/context/useAudioStore";
-import useNotificationStore from "../../src/context/useNotificationStore";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
 import { Stack } from "expo-router";
@@ -49,9 +48,6 @@ const Details = () => {
     const isAudioLoading = useAudioStore((state) => state.isLoading);
     const showMiniPlayer = useAudioStore((state) => state.showMiniPlayer);
     const audioError = useAudioStore((state) => state.error);
-
-    // Notification store
-    const addNotification = useNotificationStore((state) => state.addNotification);
 
     // CRITICAL: DON'T subscribe to position/duration/playbackRate/volume here!
     // They change frequently (position: 10x/second) and cause unnecessary re-renders
@@ -193,14 +189,16 @@ const Details = () => {
                 Logger.error("Download state check failed:", dlErr);
             }
 
-            // Load AI data if podcast is AI enhanced
-            if (podcastData.ai_enhanced) {
+            // Only fetch AI detail payload when processing has actually completed.
+            if (podcastData.ai_processing_status === "completed") {
                 try {
                     const aiDataResponse = await apiService.getPodcastAIData(params.id);
                     setAiData(aiDataResponse);
                 } catch (error) {
                     // AI data is optional, fail silently
                 }
+            } else {
+                setAiData(null);
             }
         } catch (error) {
             Logger.error("Failed to load podcast details:", error);
@@ -542,39 +540,25 @@ const Details = () => {
     };
 
     const handleProcessAI = async () => {
+        if (!podcast?.audio_url) {
+            showToast("AI processing requires an audio source", "error");
+            return;
+        }
+
         try {
             setIsProcessingAI(true);
             showToast("🤖 AI processing started...", "info");
 
             const result = await apiService.processAudio(podcast.id);
             
-            // Update podcast with AI data
-            setPodcast((prev) => ({
+            setPodcast((prev) => prev ? ({
                 ...prev,
-                ai_enhanced: true,
-                ai_processing_status: result.status,
-            }));
+                ai_processing_status: result.status || "processing",
+            }) : prev);
 
             void hapticFeedback.vibrate([0, 200, 100, 200]);
-            showToast("✨ AI processing completed! Check AI Insights below.", "success");
+            showToast("AI processing started. Insights will appear when analysis finishes.", "success");
             
-            // Add notification for visibility (works even if user navigates away)
-            addNotification({
-                type: 'ai_complete',
-                title: '🎉 AI Processing Complete!',
-                message: `"${podcast.title}" has been analyzed. Check AI Insights for transcription, keywords, summary, and quality score.`,
-                action: {
-                    type: 'navigate',
-                    screen: 'details',
-                    params: { id: podcast.id },
-                },
-                data: {
-                    podcast_id: podcast.id,
-                    podcast_title: podcast.title,
-                },
-            });
-            
-            // Reload details to get full AI data
             await loadPodcastDetails();
         } catch (error) {
             Logger.error("AI processing failed:", error);
@@ -875,6 +859,14 @@ const Details = () => {
                                 </Text>
                             </View>
                         )}
+
+                        {podcast.ai_processing_status === "processing" && (
+                            <View className="bg-warning/20 px-2 py-1 rounded-full border border-warning/30">
+                                <Text className="text-warning text-xs">
+                                    AI Processing
+                                </Text>
+                            </View>
+                        )}
                     </View>
 
                     {/* Action Buttons - Horizontal Scrollable with AI Process as primary CTA */}
@@ -885,7 +877,19 @@ const Details = () => {
                         contentContainerStyle={{ gap: 12, paddingRight: 24 }}
                     >
                         {/* AI Process Button - PRIMARY CTA (only show if owner and not already processed) */}
-                        {isOwner && !podcast.ai_enhanced && (
+                        {isOwner && podcast.ai_processing_status === "processing" && (
+                            <View className="flex-row items-center px-5 py-1 rounded-xl bg-panel border border-warning/30">
+                                <ActivityIndicator
+                                    size="small"
+                                    color={COLORS.warning}
+                                />
+                                <Text className="text-warning ml-2 font-bold text-sm">
+                                    AI Processing...
+                                </Text>
+                            </View>
+                        )}
+
+                        {isOwner && !podcast.ai_enhanced && podcast.ai_processing_status !== "processing" && podcast.audio_url && (
                             <TouchableOpacity
                                 onPress={handleProcessAI}
                                 className="flex-row items-center px-5 py-1 rounded-xl bg-success border-2 border-success shadow-lg"
