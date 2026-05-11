@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import json
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
@@ -122,10 +122,11 @@ async def create_rtc_room(
 ) -> schemas.RTCRoomCreateResponse:
     """Create a 100ms room via REST API."""
     template_id = request.template_id or settings.HMS_TEMPLATE_ID
+    owner_id = current_user.id
 
     _rtc_log(
         "room.request",
-        owner_id=current_user.id,
+        owner_id=owner_id,
         title=request.title,
         media_mode=request.media_mode,
         category=request.category,
@@ -134,7 +135,7 @@ async def create_rtc_room(
     )
 
     if not template_id:
-        _rtc_log("room.rejected", owner_id=current_user.id, reason="missing_template_id")
+        _rtc_log("room.rejected", owner_id=owner_id, reason="missing_template_id")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="template_id is required",
@@ -159,7 +160,7 @@ async def create_rtc_room(
         if not room_id:
             _rtc_log(
                 "room.error",
-                owner_id=current_user.id,
+                owner_id=owner_id,
                 error_type="missing_room_id",
                 error="100ms response missing room ID",
             )
@@ -173,7 +174,7 @@ async def create_rtc_room(
             session = models.RTCSession(
                 room_id=room_id,
                 room_name=room.get("name") or request.name,
-                owner_id=current_user.id,
+                owner_id=owner_id,
                 title=request.title or request.name,
                 description=request.description,
                 category=request.category or "General",
@@ -198,16 +199,20 @@ async def create_rtc_room(
 
         _rtc_log(
             "room.success",
-            owner_id=current_user.id,
+            owner_id=owner_id,
             room_id=room.get("id"),
             room_name=room.get("name"),
             session_id=session.id,
             media_mode=session.media_mode,
         )
+    except HTTPException:
+        db.rollback()
+        raise
     except ValueError as exc:
+        db.rollback()
         _rtc_log(
             "room.error",
-            owner_id=current_user.id,
+            owner_id=owner_id,
             error_type="value_error",
             error=str(exc),
         )
@@ -215,10 +220,23 @@ async def create_rtc_room(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         ) from exc
-    except Exception as exc:
+    except SQLAlchemyError as exc:
+        db.rollback()
         _rtc_log(
             "room.error",
-            owner_id=current_user.id,
+            owner_id=owner_id,
+            error_type="database_error",
+            error=str(exc),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error while creating RTC room",
+        ) from exc
+    except Exception as exc:
+        db.rollback()
+        _rtc_log(
+            "room.error",
+            owner_id=owner_id,
             error_type="upstream_error",
             error=str(exc),
         )

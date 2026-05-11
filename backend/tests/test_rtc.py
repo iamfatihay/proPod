@@ -5,6 +5,7 @@ import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 from sqlalchemy import desc
+from sqlalchemy.exc import ProgrammingError
 
 from app.main import app
 from app.database import SessionLocal
@@ -150,6 +151,44 @@ class TestRTCRoom:
 
             assert response.status_code == 400
             assert "template_id is required" in response.json()["detail"]
+
+    def test_create_room_returns_clean_500_when_db_commit_fails(self, test_user):
+        """Database commit failures should rollback cleanly and return a 500."""
+
+        async def mock_async_create(*args, **kwargs):
+            return {
+                "id": "mock-room-id-123",
+                "name": "test-room",
+                "enabled": True,
+                "template_id": "test-template",
+            }
+
+        db_error = ProgrammingError(
+            "INSERT INTO rtc_sessions (...) VALUES (...) RETURNING rtc_sessions.id",
+            {},
+            Exception("column recording_status does not exist"),
+        )
+
+        with patch("app.routers.rtc.create_room", side_effect=mock_async_create), patch(
+            "sqlalchemy.orm.session.Session.commit",
+            side_effect=db_error,
+        ):
+            response = client.post(
+                "/rtc/rooms",
+                json={
+                    "name": "test-room",
+                    "title": "Test Podcast",
+                    "description": "Test Description",
+                    "category": "Tech",
+                    "is_public": True,
+                    "media_mode": "video",
+                    "template_id": "test-template",
+                },
+                headers={"Authorization": f"Bearer {test_user['token']}"},
+            )
+
+        assert response.status_code == 500
+        assert response.json()["detail"] == "Database error while creating RTC room"
 
 
 class TestRTCWebhook:
