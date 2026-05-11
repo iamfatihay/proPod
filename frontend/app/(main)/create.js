@@ -737,6 +737,17 @@ const Create = () => {
 
             if (session?.recording_status === "failed") {
                 setRtcStatusMessage("Recording failed. Check the live sessions history for details.");
+                if (rtcProcessingNotifId) {
+                    useNotificationStore.getState().updateNotification(rtcProcessingNotifId, {
+                        type: "rtc_failed",
+                        title: "Recording Failed",
+                        message: `"${title || "Your session"}" did not finish processing. Tap to view session history.`,
+                        action: {
+                            type: "navigate",
+                            screen: "rtc-sessions",
+                        },
+                    });
+                }
                 return;
             }
 
@@ -758,12 +769,15 @@ const Create = () => {
         };
     }, [fetchRtcSessionStatus, recordingMode, rtcProcessingNotifId, rtcSessionState, title]);
 
-    // Intercept Android back button while recording is processing
+    // Intercept Android back button while recording is processing (not when failed or ready)
     useEffect(() => {
+        const recordingStatus = rtcSessionSummary?.recording_status;
         if (
             recordingMode !== "multi" ||
             rtcSessionState !== "ended" ||
-            rtcSessionSummary?.podcast_id
+            rtcSessionSummary?.podcast_id ||
+            recordingStatus === "failed" ||
+            recordingStatus === "completed"
         ) {
             return;
         }
@@ -771,7 +785,7 @@ const Create = () => {
         const backAction = () => {
             Alert.alert(
                 "Recording is Processing",
-                "Your recording is still being processed. A notification will appear in the Notifications tab when it's ready.\n\nLeave anyway?",
+                "Your recording is still being processed. A notification will appear in the Notifications tab when it's ready or if it fails.\n\nLeave anyway?",
                 [
                     { text: "Stay", style: "cancel" },
                     { text: "Leave", style: "destructive", onPress: () => router.back() },
@@ -782,7 +796,7 @@ const Create = () => {
 
         const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
         return () => backHandler.remove();
-    }, [recordingMode, rtcSessionState, rtcSessionSummary?.podcast_id]);
+    }, [recordingMode, rtcSessionState, rtcSessionSummary?.podcast_id, rtcSessionSummary?.recording_status]);
 
     const renderSetupStep = () => (
         <ScrollView className="flex-1 px-6 pt-6">
