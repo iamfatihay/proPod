@@ -32,7 +32,14 @@ import { Ionicons } from "@expo/vector-icons";
 import useNotificationStore from "../../src/context/useNotificationStore";
 import useDMStore from "../../src/context/useDMStore";
 import Logger from "../../src/utils/logger";
-import { COLORS, FONT_SIZES, BORDER_RADIUS, addAlpha, getNotificationColors } from "../../src/constants/theme";
+import {
+    COLORS,
+    FONT_SIZES,
+    BORDER_RADIUS,
+    TAB_SCREEN_BOTTOM_PADDING,
+    addAlpha,
+    getNotificationColors,
+} from "../../src/constants/theme";
 
 
 // Notification type configuration
@@ -511,7 +518,7 @@ export default function NotificationsScreen() {
                     }
                     contentContainerStyle={{
                         paddingTop: 8,
-                        paddingBottom: 24,
+                        paddingBottom: TAB_SCREEN_BOTTOM_PADDING,
                     }}
                 />
             )}
