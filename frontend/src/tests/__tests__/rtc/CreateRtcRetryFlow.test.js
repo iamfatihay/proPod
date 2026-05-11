@@ -114,16 +114,26 @@ describe("RtcFailedReviewActions", () => {
     });
 
     it("shows a loading label while the new lobby is being prepared", () => {
+        const onRetry = jest.fn();
+        const onViewSessions = jest.fn();
+        const onGoHome = jest.fn();
         const { getByText, queryByText } = render(
             <RtcFailedReviewActions
                 isLoading={true}
-                onGoHome={jest.fn()}
-                onRetry={jest.fn()}
-                onViewSessions={jest.fn()}
+                onGoHome={onGoHome}
+                onRetry={onRetry}
+                onViewSessions={onViewSessions}
             />
         );
 
         expect(getByText("Preparing new lobby...")).toBeTruthy();
         expect(queryByText("Start New Live Session")).toBeNull();
+
+        fireEvent.press(getByText("View Live Sessions"));
+        fireEvent.press(getByText("Go to Home"));
+
+        expect(onRetry).not.toHaveBeenCalled();
+        expect(onViewSessions).not.toHaveBeenCalled();
+        expect(onGoHome).not.toHaveBeenCalled();
     });
 });

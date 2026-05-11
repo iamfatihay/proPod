@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     View,
     Text,
@@ -32,7 +32,7 @@ import backgroundService from "../../src/services/recording/backgroundService";
 export const RtcFailedReviewActions = ({ isLoading, onGoHome, onRetry, onViewSessions }) => (
     <>
         <TouchableOpacity
-            onPress={onRetry}
+            onPress={isLoading ? undefined : onRetry}
             className="bg-primary py-4 mb-3 rounded-lg"
             disabled={isLoading}
         >
@@ -41,16 +41,18 @@ export const RtcFailedReviewActions = ({ isLoading, onGoHome, onRetry, onViewSes
             </Text>
         </TouchableOpacity>
         <TouchableOpacity
-            onPress={onViewSessions}
+            onPress={isLoading ? undefined : onViewSessions}
             className="border border-border py-3 mb-3 rounded-lg"
+            disabled={isLoading}
         >
             <Text className="text-text-secondary text-center text-sm font-medium">
                 View Live Sessions
             </Text>
         </TouchableOpacity>
         <TouchableOpacity
-            onPress={onGoHome}
+            onPress={isLoading ? undefined : onGoHome}
             className="border border-border py-3 mb-3 rounded-lg"
+            disabled={isLoading}
         >
             <Text className="text-text-secondary text-center text-sm font-medium">
                 Go to Home
@@ -64,6 +66,7 @@ const Create = () => {
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
     const { showToast } = useToast();
+    const isMountedRef = useRef(true);
 
     // Mode: 'quick-record', 'full-create', 'resume-draft', or 'save-draft'
     const mode = params.mode || "full-create";
@@ -95,6 +98,10 @@ const Create = () => {
     const [isPublic, setIsPublic] = useState(false);
 
     // Update draft metadata when title/description changes (only if draft loaded or recording active)
+    useEffect(() => () => {
+        isMountedRef.current = false;
+    }, []);
+
     useEffect(() => {
         // Only update metadata if we have a loaded draft or active recording session
         // Prevents overwriting draft metadata with empty values on initial mount
@@ -602,6 +609,10 @@ const Create = () => {
                 tokenLength: tokenResponse?.token?.length || 0,
             });
 
+            if (!isMountedRef.current) {
+                return;
+            }
+
             setRtcSession({
                 roomId: room.id,
                 roomName: room.name,
@@ -632,10 +643,15 @@ const Create = () => {
             });
         } catch (error) {
             Logger.error("RTC session start failed:", error);
+            if (!isMountedRef.current) {
+                return;
+            }
             setRtcError(error?.message || "Failed to start live session");
             showToast("Failed to start live session", "error");
         } finally {
-            setRtcLoading(false);
+            if (isMountedRef.current) {
+                setRtcLoading(false);
+            }
         }
     };
 
