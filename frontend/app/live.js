@@ -41,8 +41,10 @@ const formatParticipantSummary = (participantCount = 0) => {
     return `${safeCount} people are connected`;
 };
 
+const getRecordingStatus = (preview) => preview?.recording_status || preview?.recording_state || (preview?.is_live ? "live" : "waiting");
+
 const getLobbyStatusMeta = (preview) => {
-    const recordingState = preview?.recording_state || (preview?.is_live ? "live" : "waiting");
+    const recordingState = getRecordingStatus(preview);
 
     switch (recordingState) {
     case "completed":
@@ -95,7 +97,7 @@ const getSessionOutcome = ({ preview, sessionSummary, hostName, summaryStatusSta
         };
     }
 
-    switch (preview?.recording_state) {
+    switch (getRecordingStatus(preview)) {
     case "completed":
         return {
             recordingStatus: "Recording complete",
@@ -140,7 +142,7 @@ const getSessionBadgeMeta = ({ preview, summaryStatusState }) => {
         };
     }
 
-    switch (preview?.recording_state) {
+    switch (getRecordingStatus(preview)) {
     case "completed":
         return {
             label: "Recording complete",
@@ -196,7 +198,7 @@ const LiveInviteScreen = () => {
 
     const hostName = preview?.owner_name || "Host";
     const lobbyStatus = getLobbyStatusMeta(preview);
-    const inviteJoinClosed = Boolean(preview?.ended_at) || ["processing", "completed", "failed"].includes(preview?.recording_state);
+    const inviteJoinClosed = Boolean(preview?.ended_at) || ["processing", "completed", "failed"].includes(getRecordingStatus(preview));
 
     const refreshSummaryStatus = useCallback(async () => {
         if (!inviteCode) {
@@ -562,9 +564,9 @@ const LiveInviteScreen = () => {
 
                 {inviteJoinClosed && (
                     <Text className="text-text-secondary text-center mb-8">
-                        {preview?.recording_state === "completed"
+                        {getRecordingStatus(preview) === "completed"
                             ? `${hostName}'s recording is ready and this invite is no longer joinable.`
-                            : preview?.recording_state === "failed"
+                            : getRecordingStatus(preview) === "failed"
                                 ? `${hostName}'s session has ended and the recording was not finalized.`
                                 : `${hostName}'s session has ended and the recording is still processing.`}
                     </Text>

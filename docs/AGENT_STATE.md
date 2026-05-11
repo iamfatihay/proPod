@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-08
-**Last session (15):** RTC guest final-status refresh -- branch `feature/rtc-guest-final-status` / PR #126 fetches backend-confirmed invite status after leave so guests see processing, completed, or failed recording outcomes
+**Last session (16):** RTC recording lifecycle field -- branch `feature/rtc-recording-status` / PR #127 persists explicit recording status on RTC sessions and wires guest/host RTC UI to backend-confirmed completed, processing, and failed states
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -35,7 +35,7 @@
 
 ## Open / In-Progress
 
-- `feature/rtc-guest-final-status` / PR #126 -- guest live-session summary now refreshes backend-confirmed invite status after leave and blocks stale invite rejoins for ended sessions.
+- `feature/rtc-recording-status` / PR #127 -- RTC sessions now persist explicit recording lifecycle state and expose it to guest summaries, host session history, and host post-session polling.
 
 ---
 
@@ -51,7 +51,7 @@
 - Frontend RTC Jest runs still emit the upstream `react-test-renderer` deprecation warning; validation passes, but the test stack should be modernized.
 - RTC session history pagination infers more pages from page-size responses; the backend still does not expose total counts or explicit `has_more` metadata.
 - RTC join provider errors are classified from SDK message text; SDK error codes would make invite/auth/provider cases more precise if exposed reliably.
-- RTC guest recording outcomes are still derived from existing session fields plus webhook presence; an explicit backend recording lifecycle field would remove the remaining processing-vs-failed inference.
+- RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
 
 ---
 
@@ -76,6 +76,10 @@
 - 2026-05-08: `cd frontend && npx jest src/tests/__tests__/rtc/LiveInviteScreen.test.js --runInBand` passed (5 tests); Jest emitted existing `react-test-renderer` deprecation warnings and expected logger output from the mocked refresh failure case.
 - 2026-05-08: `cd frontend && npx eslint app/live.js src/tests/__tests__/rtc/LiveInviteScreen.test.js` passed; Node emitted the existing package module-type warning.
 - 2026-05-08: pre-commit hook on `git commit` passed the repository backend/frontend validation suite (509 backend tests plus frontend checks); existing dependency and deprecation warnings remained.
+- 2026-05-08: `cd backend && DATABASE_URL=sqlite:///./precommit_test.db venv/bin/python -m pytest tests/test_rtc.py -q` passed (18 tests); pytest emitted existing dependency and Pydantic deprecation warnings.
+- 2026-05-08: `cd frontend && npx jest src/tests/__tests__/rtc/LiveInviteScreen.test.js src/tests/__tests__/rtc/RtcSessionsScreen.test.js --runInBand` passed (11 tests); Jest emitted existing `react-test-renderer` deprecation warnings and expected mocked logger output.
+- 2026-05-08: `cd frontend && npx eslint app/live.js 'app/(main)/rtc-sessions.js' 'app/(main)/create.js' src/tests/__tests__/rtc/LiveInviteScreen.test.js src/tests/__tests__/rtc/RtcSessionsScreen.test.js` passed; Node emitted the existing package module-type warning.
+- 2026-05-08: pre-commit hook on `git commit` passed the repository backend/frontend validation suite (511 backend tests plus frontend checks); existing dependency and deprecation warnings remained.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -83,9 +87,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC guest summary device QA** -- verify completed, processing, and failed guest summary states on iOS and Android with real webhook timing and ended invite links.
-2. **RTC recording lifecycle field** -- add an explicit backend recording-status field for RTC sessions so guest and host summaries stop inferring failed vs processing from current metadata.
-3. **RTC join recovery actions** -- add platform-specific guidance or settings shortcuts after permission denial if Expo/device APIs support it cleanly.
+1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing for both guest summary and host history flows.
+2. **RTC failed-status host UX** -- surface explicit failed recording outcomes in the host create flow and notifications so hosts do not rely on session history to notice failure.
+3. **RTC schema deprecation cleanup** -- replace class-based Pydantic config in `schemas_live_session.py` with `ConfigDict` to remove the recurring backend warning before more RTC schema work lands.
 
 ---
 

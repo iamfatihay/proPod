@@ -27,7 +27,10 @@ def _rtc_log(action: str, **context: Any) -> None:
     print(f"[RTC] {action}: {safe_context}")
 
 
-def _derive_recording_state(session: models.RTCSession) -> str:
+def _normalize_recording_status(session: models.RTCSession) -> str:
+    if session.recording_status:
+        return session.recording_status
+
     if session.recording_url or session.podcast_id or session.status == "completed":
         return "completed"
 
@@ -40,6 +43,22 @@ def _derive_recording_state(session: models.RTCSession) -> str:
         return "processing"
 
     return "waiting"
+
+
+def _event_marks_recording_failed(event_name: Optional[str]) -> bool:
+    normalized_event = (event_name or "").strip().lower()
+    if not normalized_event:
+        return False
+
+    if (
+        "fail" in normalized_event
+        or "error" in normalized_event
+        or "abort" in normalized_event
+        or "terminat" in normalized_event
+    ):
+        return True
+
+    return False
 
 
 @router.post("/token", response_model=schemas.RTCTokenResponse)
@@ -161,6 +180,7 @@ async def create_rtc_room(
                 is_public=bool(request.is_public) if request.is_public is not None else False,
                 media_mode=request.media_mode or "video",
                 status="created",
+                recording_status="waiting",
                 invite_code=generate_invite_code(),
             )
             db.add(session)
@@ -340,6 +360,7 @@ async def hms_webhook(
         session.recording_url = recording_url
         session.duration_seconds = duration_seconds
         session.status = "completed"
+        session.recording_status = "completed"
         db.commit()
         _rtc_log(
             "webhook.podcast_created",
@@ -351,12 +372,17 @@ async def hms_webhook(
         return {"status": "ok", "podcast_id": podcast.id}
 
     session.status = session.status or "created"
+    if _event_marks_recording_failed(event_name):
+        session.recording_status = "failed"
+    else:
+        session.recording_status = _normalize_recording_status(session)
     db.commit()
     _rtc_log(
         "webhook.updated_without_recording",
         session_id=session.id,
         room_id=room_id,
         status=session.status,
+        recording_status=session.recording_status,
     )
     return {"status": "ok"}
 
@@ -524,7 +550,8 @@ def get_rtc_invite_preview(
         participant_count=session.participant_count,
         viewer_count=session.viewer_count,
         status=session.status or "created",
-        recording_state=_derive_recording_state(session),
+        recording_status=_normalize_recording_status(session),
+        recording_state=_normalize_recording_status(session),
         duration_seconds=session.duration_seconds or 0,
         podcast_id=session.podcast_id,
         started_at=session.started_at,
@@ -556,7 +583,8 @@ async def join_rtc_by_invite(
             detail="RTC invite not found",
         )
 
-    if session.ended_at or session.status == "completed" or session.recording_url:
+    recording_status = _normalize_recording_status(session)
+    if session.ended_at or recording_status in {"processing", "completed", "failed"}:
         raise HTTPException(
             status_code=status.HTTP_410_GONE,
             detail="This live session has already ended",

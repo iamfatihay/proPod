@@ -93,6 +93,7 @@ class LiveSessionPreview(BaseModel):
     participant_count: int = 0
     viewer_count: int = 0
     status: str = "created"
+    recording_status: str = "waiting"
     recording_state: str = "waiting"
     duration_seconds: int = 0
     podcast_id: Optional[int] = None

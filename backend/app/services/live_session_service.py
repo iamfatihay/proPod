@@ -62,6 +62,7 @@ def start_session(db: Session, session_id: int) -> models.RTCSession:
     session = db.query(models.RTCSession).filter(models.RTCSession.id == session_id).first()
     if session:
         session.is_live = True
+        session.recording_status = "live"
         session.started_at = datetime.datetime.now(datetime.timezone.utc)
         if not session.invite_code:
             session.invite_code = generate_invite_code()
@@ -76,6 +77,8 @@ def end_session(db: Session, session_id: int) -> models.RTCSession:
     if session:
         session.is_live = False
         session.ended_at = datetime.datetime.now(datetime.timezone.utc)
+        if session.recording_status not in {"completed", "failed"}:
+            session.recording_status = "processing"
         db.commit()
         db.refresh(session)
     return session

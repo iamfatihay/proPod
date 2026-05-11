@@ -295,6 +295,7 @@ class RTCSessionResponse(BaseModel):
     is_public: bool
     media_mode: str
     status: str
+    recording_status: str = "waiting"
     recording_url: Optional[str] = None
     duration_seconds: int
     podcast_id: Optional[int] = None

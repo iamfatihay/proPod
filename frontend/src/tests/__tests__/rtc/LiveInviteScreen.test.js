@@ -99,6 +99,7 @@ describe("LiveInviteScreen", () => {
             media_mode: "video",
             invite_code: "JOIN1234",
             is_live: true,
+            recording_status: "live",
             participant_count: 3,
         });
 
@@ -122,6 +123,7 @@ describe("LiveInviteScreen", () => {
             media_mode: "audio",
             invite_code: "JOIN1234",
             is_live: false,
+            recording_status: "waiting",
             participant_count: 0,
         });
 
@@ -147,6 +149,7 @@ describe("LiveInviteScreen", () => {
                 invite_code: "JOIN1234",
                 is_live: true,
                 participant_count: 2,
+                recording_status: "live",
                 recording_state: "live",
             })
             .mockResolvedValueOnce({
@@ -158,6 +161,7 @@ describe("LiveInviteScreen", () => {
                 invite_code: "JOIN1234",
                 is_live: false,
                 participant_count: 0,
+                recording_status: "completed",
                 recording_state: "completed",
                 duration_seconds: 188,
                 podcast_id: 42,
@@ -224,6 +228,7 @@ describe("LiveInviteScreen", () => {
                 invite_code: "JOIN1234",
                 is_live: true,
                 participant_count: 1,
+                recording_status: "live",
                 recording_state: "live",
             })
             .mockResolvedValueOnce({
@@ -235,6 +240,7 @@ describe("LiveInviteScreen", () => {
                 invite_code: "JOIN1234",
                 is_live: false,
                 participant_count: 0,
+                recording_status: "failed",
                 recording_state: "failed",
                 ended_at: "2026-05-08T10:00:00Z",
             });
@@ -284,6 +290,7 @@ describe("LiveInviteScreen", () => {
                 invite_code: "JOIN1234",
                 is_live: true,
                 participant_count: 1,
+                recording_status: "live",
                 recording_state: "live",
             })
             .mockRejectedValueOnce(new Error("Network unavailable"));
