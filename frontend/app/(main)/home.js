@@ -32,7 +32,7 @@ import { PodcastCardSkeleton } from "../../src/components/SkeletonLoader";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
 import Logger from "../../src/utils/logger";
-import { COLORS, BORDER_RADIUS } from "../../src/constants/theme";
+import { COLORS, BORDER_RADIUS, withTabScreenBottomPadding } from "../../src/constants/theme";
 import protectionService from "../../src/services/recording/protectionService";
 
 // Removed mock episodes; will fetch from API
@@ -537,7 +537,7 @@ export default function HomeScreen() {
                 ref={scrollViewRef}
                 className="flex-1"
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 100 }}
+                contentContainerStyle={withTabScreenBottomPadding()}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}

@@ -27,7 +27,7 @@ const toTrack = (p) => ({
     duration: (p.duration || 0) * 1000, // convert seconds → ms (backend returns seconds)
     category: p.category,
 });
-import { COLORS } from "../../src/constants/theme";
+import { COLORS, withTabScreenBottomPadding } from "../../src/constants/theme";
 import Logger from "../../src/utils/logger";
 import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOptions";
 
@@ -472,7 +472,7 @@ export default function CreatorProfile() {
                 ListHeaderComponent={<ListHeader />}
                 ListFooterComponent={<ListFooter />}
                 ListEmptyComponent={<ListEmpty />}
-                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
+                contentContainerStyle={withTabScreenBottomPadding({ paddingHorizontal: 16 }, 20)}
                 onEndReached={loadMore}
                 onEndReachedThreshold={0.3}
                 showsVerticalScrollIndicator={false}

@@ -15,7 +15,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import apiService from "../../src/services/api/apiService";
 import { normalizePodcast } from "../../src/utils/urlHelper";
-import { COLORS } from "../../src/constants/theme";
+import { COLORS, withTabScreenBottomPadding } from "../../src/constants/theme";
 
 // Helpers
 
@@ -498,11 +498,10 @@ const styles = StyleSheet.create({
         marginTop: 6,
         textAlign: "center",
     },
-    listContent: {
+    listContent: withTabScreenBottomPadding({
         paddingHorizontal: 16,
         paddingTop: 4,
-        paddingBottom: 100,
-    },
+    }),
     // FIX #2 -- load-more footer error
     footerError: {
         alignItems: "center",

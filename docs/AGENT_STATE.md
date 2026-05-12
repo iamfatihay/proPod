@@ -6,8 +6,8 @@
 
 ## Current State
 
-**Last updated:** 2026-05-11
-**Last session (19):** RTC room DB safety + tab-screen spacing -- branch `fix/rtc-room-db-safety-and-screen-spacing` hardens RTC room creation rollback behavior, adds an Alembic merge migration so `alembic upgrade head` works again, and standardizes bottom spacing on create plus similar tabbed screens
+**Last updated:** 2026-05-12
+**Last session (20):** Shared tab-screen spacing helper -- branch `feature/shared-tab-screen-spacing` / PR #132 adds a shared tab-stack content padding helper and replaces fixed bottom-spacing values across home, search, library, create, profile, and related secondary screens
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -38,6 +38,7 @@
 - `feature/rtc-failed-host-notification` / PR pending -- adds `rtc_failed` notification type; processing notification upgrades to failed when polling confirms failure; Android back-button no longer blocks navigation away from failed sessions.
 - `feature/rtc-recording-retry-cta` / PR #129 -- adds a direct re-record CTA to the host RTC failed review screen so creators can launch a fresh live session without detouring through history.
 - `fix/rtc-room-db-safety-and-screen-spacing` / PR pending -- rolls back cleanly on RTC room DB errors, merges current Alembic heads, and adds consistent bottom spacing to create/details/messages/activity/notifications tab screens.
+- `feature/shared-tab-screen-spacing` / PR #132 -- adds a shared tab-stack content padding helper and replaces remaining fixed-value bottom spacing across the main tab-stack screens.
 
 ---
 
@@ -55,7 +56,7 @@
 - RTC join provider errors are classified from SDK message text; SDK error codes would make invite/auth/provider cases more precise if exposed reliably.
 - RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
 - Host failed-session coverage is still action-level; the create-screen RTC lifecycle remains hard to test end-to-end without more screen decomposition.
-- Several tabbed screens still use ad hoc bottom spacing values; if more screens get adjusted, move the padding rule into a shared screen wrapper instead of more per-screen edits.
+- Analytics and RTC session screens still use bespoke inset-derived bottom spacing instead of the shared tab-screen helper.
 
 ---
 
@@ -92,6 +93,8 @@
 - 2026-05-11: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/create.js' 'app/(main)/notifications.js' 'app/(main)/messages.js' 'app/(main)/activity.js' 'app/(main)/details.js' src/constants/theme.js` passed; Node emitted the existing package module-type warning.
 - 2026-05-11: repository pre-commit hook on `git commit` passed frontend validation for `fix(frontend): add tab screen bottom spacing`.
 - 2026-05-11: `cd /home/fatih/proPod/backend && venv/bin/alembic heads && venv/bin/alembic upgrade head && venv/bin/alembic current` passed after adding merge revision `a7b8c9d0e1f2`; the DB now resolves to a single Alembic head.
+- 2026-05-12: `cd /home/fatih/proPod/frontend && npx eslint src/constants/theme.js 'app/(main)/create.js' 'app/(main)/details.js' 'app/(main)/messages.js' 'app/(main)/activity.js' 'app/(main)/notifications.js' 'app/(main)/search.js' 'app/(main)/library.js' 'app/(main)/profile.js' 'app/(main)/playlists.js' 'app/(main)/playlist-detail.js' 'app/(main)/public-playlists.js' 'app/(main)/creator-profile.js' 'app/(main)/history.js' 'app/(main)/home.js'` passed; Node emitted the existing package module-type warning.
+- 2026-05-12: repository pre-commit hook on `git commit` passed frontend validation for `fix(frontend): share tab screen bottom padding`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -100,8 +103,8 @@
 ## Next Session Suggestions
 
 1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the DB-safety and migration fixes.
-2. **Shared tab-screen spacing wrapper** -- replace remaining ad hoc tabbed-screen bottom padding values with a reusable screen wrapper or helper so future screens do not regress under the floating tab bar.
-3. **RTC schema deprecation cleanup** -- replace class-based Pydantic config in `schemas_live_session.py` with `ConfigDict` to remove the recurring backend warning before more RTC schema work lands.
+2. **RTC schema deprecation cleanup** -- replace class-based Pydantic config in `schemas_live_session.py` with `ConfigDict` to remove the recurring backend warning before more RTC schema work lands.
+3. **Shared padding follow-through for inset screens** -- decide whether analytics and RTC session screens should adopt the shared tab-screen helper or intentionally keep their bespoke inset-derived spacing.
 
 ---
 

@@ -20,7 +20,7 @@ import CustomModal, { ModalActions } from "../../src/components/CustomModal";
 import ConfirmationModal from "../../src/components/ConfirmationModal";
 import PlaylistMosaic from "../../src/components/PlaylistMosaic";
 import { useToast } from "../../src/components/Toast";
-import { COLORS } from "../../src/constants/theme";
+import { COLORS, withTabScreenBottomPadding } from "../../src/constants/theme";
 import useAudioStore from "../../src/context/useAudioStore";
 
 // ─── Playlist Card ─────────────────────────────────────────────────────────────
@@ -356,7 +356,7 @@ const Playlists = () => {
                             />
                         )}
                         showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
+                        contentContainerStyle={withTabScreenBottomPadding({ flexGrow: 1 })}
                         refreshControl={
                             <RefreshControl
                                 refreshing={refreshing}

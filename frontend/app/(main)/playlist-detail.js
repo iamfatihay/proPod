@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import apiService from "../../src/services/api/apiService";
 import ConfirmationModal from "../../src/components/ConfirmationModal";
 import { useToast } from "../../src/components/Toast";
-import { COLORS, addAlpha } from "../../src/constants/theme";
+import { COLORS, addAlpha, withTabScreenBottomPadding } from "../../src/constants/theme";
 import useAudioStore from "../../src/context/useAudioStore";
 import Logger from "../../src/utils/logger";
 
@@ -415,7 +415,7 @@ const PlaylistDetail = () => {
                             />
                         )}
                         showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
+                        contentContainerStyle={withTabScreenBottomPadding({ flexGrow: 1 })}
                         refreshControl={
                             <RefreshControl
                                 refreshing={refreshing}
