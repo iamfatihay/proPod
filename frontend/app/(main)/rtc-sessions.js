@@ -11,9 +11,13 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import apiService from "../../src/services/api/apiService";
-import { BORDER_RADIUS, COLORS, FONT_SIZES } from "../../src/constants/theme";
+import {
+    BORDER_RADIUS,
+    COLORS,
+    FONT_SIZES,
+    withTabScreenBottomPadding,
+} from "../../src/constants/theme";
 import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOptions";
 
 const PAGE_SIZE = 25;
@@ -216,7 +220,6 @@ const SessionCard = ({ highlighted, onOpenPodcast, session }) => {
 
 export default function RtcSessionsScreen() {
     const router = useRouter();
-    const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
     const focusSessionId = Number.parseInt(params?.focusSessionId, 10);
 
@@ -388,11 +391,10 @@ export default function RtcSessionsScreen() {
                         session={item}
                     />
                 )}
-                contentContainerStyle={[
+                contentContainerStyle={withTabScreenBottomPadding([
                     styles.content,
                     sessions.length === 0 && !loading && styles.contentEmpty,
-                    { paddingBottom: Math.max(insets.bottom, 16) + 24 },
-                ]}
+                ])}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
