@@ -28,10 +28,23 @@ from app.services.ai_service import (
     get_ai_service,
     ProcessingOptions
 )
+from app.services.transcription_service import TranscriptionService
 
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai", tags=["AI Processing"])
+
+REMOTE_AUDIO_CONTENT_TYPE_SUFFIXES = {
+    "audio/mpeg": ".mp3",
+    "audio/mp3": ".mp3",
+    "audio/mp4": ".mp4",
+    "video/mp4": ".mp4",
+    "audio/m4a": ".m4a",
+    "audio/x-m4a": ".m4a",
+    "audio/wav": ".wav",
+    "audio/x-wav": ".wav",
+    "audio/webm": ".webm",
+}
 
 
 # Rate limiting cache (in-memory, per-user request tracking)
@@ -100,6 +113,46 @@ def _is_remote_audio_url(audio_url: str) -> bool:
     )
 
 
+def _get_allowed_remote_audio_hosts() -> set[str]:
+    """Allow only the backend host and Google Cloud Storage recording hosts."""
+    allowed_hosts = {"storage.googleapis.com"}
+    base_host = urlparse(settings.BASE_URL).hostname
+    if base_host:
+        allowed_hosts.add(base_host.lower())
+    return allowed_hosts
+
+
+def _is_allowed_remote_audio_host(hostname: Optional[str]) -> bool:
+    """Restrict remote downloads to explicitly trusted media hosts."""
+    if not hostname:
+        return False
+
+    normalized_host = hostname.lower()
+    allowed_hosts = _get_allowed_remote_audio_hosts()
+    return any(
+        normalized_host == allowed_host
+        or normalized_host.endswith(f".{allowed_host}")
+        for allowed_host in allowed_hosts
+    )
+
+
+def _get_remote_audio_suffix(audio_url: str, content_type: Optional[str]) -> str:
+    """Choose a supported local suffix for a downloaded remote audio asset."""
+    suffix = Path(urlparse(audio_url).path).suffix.lower()
+    if suffix in TranscriptionService.SUPPORTED_FORMATS:
+        return suffix
+
+    normalized_content_type = (content_type or "").split(";", 1)[0].strip().lower()
+    mapped_suffix = REMOTE_AUDIO_CONTENT_TYPE_SUFFIXES.get(normalized_content_type)
+    if mapped_suffix in TranscriptionService.SUPPORTED_FORMATS:
+        return mapped_suffix
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Unsupported remote audio format"
+    )
+
+
 def _resolve_local_audio_path(audio_url: str) -> Path:
     """Resolve a local media URL/path into a validated backend file path."""
     local_audio_url = audio_url
@@ -133,26 +186,57 @@ def _resolve_local_audio_path(audio_url: str) -> Path:
 
 async def _download_remote_audio_to_temp_file(audio_url: str) -> Path:
     """Download a remote recording to a temporary local file for AI processing."""
-    suffix = Path(urlparse(audio_url).path).suffix or ".tmp"
-    with tempfile.NamedTemporaryFile(
-        delete=False,
-        prefix="propod_ai_",
-        suffix=suffix,
-    ) as temp_file:
-        temp_path = Path(temp_file.name)
-
     try:
         async with httpx.AsyncClient(timeout=settings.AI_TIMEOUT_SECONDS) as client:
             async with client.stream("GET", audio_url) as response:
+                if not _is_allowed_remote_audio_host(response.request.url.host):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Remote audio host is not allowed"
+                    )
+
                 response.raise_for_status()
+
+                max_size_bytes = settings.AI_MAX_AUDIO_SIZE_MB * 1024 * 1024
+                content_length = response.headers.get("Content-Length")
+                if content_length:
+                    try:
+                        declared_size = int(content_length)
+                    except ValueError:
+                        declared_size = None
+                    if declared_size and declared_size > max_size_bytes:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Remote audio file is too large for AI processing"
+                        )
+
+                suffix = _get_remote_audio_suffix(
+                    audio_url,
+                    response.headers.get("Content-Type"),
+                )
+                with tempfile.NamedTemporaryFile(
+                    delete=False,
+                    prefix="propod_ai_",
+                    suffix=suffix,
+                ) as temp_file:
+                    temp_path = Path(temp_file.name)
+
+                downloaded_bytes = 0
                 with temp_path.open("wb") as file_handle:
                     async for chunk in response.aiter_bytes():
                         if chunk:
+                            downloaded_bytes += len(chunk)
+                            if downloaded_bytes > max_size_bytes:
+                                raise HTTPException(
+                                    status_code=status.HTTP_400_BAD_REQUEST,
+                                    detail="Remote audio file is too large for AI processing"
+                                )
                             file_handle.write(chunk)
 
         return temp_path
     except Exception:
-        temp_path.unlink(missing_ok=True)
+        if 'temp_path' in locals():
+            temp_path.unlink(missing_ok=True)
         raise
 
 
@@ -290,6 +374,12 @@ async def process_podcast(
     remote_audio_url: Optional[str] = None
     local_audio_path: Optional[Path] = None
     if _is_remote_audio_url(podcast.audio_url):
+        remote_host = urlparse(podcast.audio_url).hostname
+        if not _is_allowed_remote_audio_host(remote_host):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Remote audio host is not allowed"
+            )
         remote_audio_url = podcast.audio_url
     else:
         local_audio_path = _resolve_local_audio_path(podcast.audio_url)

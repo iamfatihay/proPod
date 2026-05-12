@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch, AsyncMock
+from fastapi import HTTPException
 
 from app.main import app
 from app import crud, schemas
@@ -294,6 +295,30 @@ class TestContentAnalyzer:
 
 
 class TestAIRouter:
+    def test_remote_audio_host_allowlist_blocks_untrusted_hosts(self):
+        from app.routers.ai import _is_allowed_remote_audio_host
+
+        assert _is_allowed_remote_audio_host("storage.googleapis.com") is True
+        assert _is_allowed_remote_audio_host("gcp-asia-south1-prod-in2-recording.storage.googleapis.com") is True
+        assert _is_allowed_remote_audio_host("example.com") is False
+
+    def test_remote_audio_suffix_uses_content_type_for_extensionless_urls(self):
+        from app.routers.ai import _get_remote_audio_suffix
+
+        assert _get_remote_audio_suffix(
+            "https://storage.googleapis.com/recordings/session",
+            "video/mp4",
+        ) == ".mp4"
+
+    def test_remote_audio_suffix_rejects_unsupported_formats(self):
+        from app.routers.ai import _get_remote_audio_suffix
+
+        with pytest.raises(HTTPException, match="Unsupported remote audio format"):
+            _get_remote_audio_suffix(
+                "https://storage.googleapis.com/recordings/session",
+                "application/octet-stream",
+            )
+
     @patch("app.routers.ai._download_remote_audio_to_temp_file", new_callable=AsyncMock)
     @patch("app.routers.ai.get_ai_service")
     def test_process_podcast_accepts_remote_recording_url(
@@ -313,7 +338,7 @@ class TestAIRouter:
                 category="Technology",
                 is_public=False,
                 duration=120,
-                audio_url="https://example.com/recordings/test-session.mp4",
+                audio_url="https://storage.googleapis.com/recordings/test-session.mp4",
             ),
             owner_id=user.id,
         )
@@ -338,6 +363,35 @@ class TestAIRouter:
         assert response.json()["status"] == "processing"
         mock_download_remote_audio.assert_awaited_once_with(podcast.audio_url)
         mock_service.process_podcast_full.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    @patch("app.routers.ai.httpx.AsyncClient")
+    async def test_remote_audio_download_rejects_oversized_content_length(self, mock_client_class):
+        from app.routers.ai import _download_remote_audio_to_temp_file
+
+        mock_response = AsyncMock()
+        mock_response.request.url.host = "storage.googleapis.com"
+        mock_response.headers = {
+            "Content-Length": str((201) * 1024 * 1024),
+            "Content-Type": "video/mp4",
+        }
+        mock_response.raise_for_status = Mock()
+        mock_response.aiter_bytes = Mock(return_value=iter(()))
+
+        mock_stream_context = AsyncMock()
+        mock_stream_context.__aenter__.return_value = mock_response
+        mock_stream_context.__aexit__.return_value = None
+
+        mock_client = AsyncMock()
+        mock_client.stream = Mock(return_value=mock_stream_context)
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client_class.return_value = mock_client
+
+        with pytest.raises(HTTPException, match="too large"):
+            await _download_remote_audio_to_temp_file(
+                "https://storage.googleapis.com/recordings/session.mp4"
+            )
 
 
 class TestAIService:
