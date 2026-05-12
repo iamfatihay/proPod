@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-12
-**Last session (21):** Shared padding follow-through for analytics and RTC sessions -- branch `fix/shared-padding-analytics-rtc-session-screens` / PR pending moves analytics and live-session history onto the shared tab-stack bottom padding helper instead of bespoke inset-derived spacing
+**Last session (22):** RTC schema deprecation cleanup -- branch `fix/rtc-schema-configdict` / PR pending replaces the live-session participant schema's class-based Pydantic config with `ConfigDict` so RTC validation stops emitting that recurring deprecation warning
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -58,6 +58,7 @@
 - RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
 - Host failed-session coverage is still action-level; the create-screen RTC lifecycle remains hard to test end-to-end without more screen decomposition.
 - Analytics screen still lacks focused frontend test coverage for its shared-padding layout path.
+- Focused backend RTC validation still emits unrelated dependency deprecations from `passlib`/`crypt` and `pydub`/`audioop`, which makes warning output noisier than it should be.
 
 ---
 
@@ -96,6 +97,8 @@
 - 2026-05-11: `cd /home/fatih/proPod/backend && venv/bin/alembic heads && venv/bin/alembic upgrade head && venv/bin/alembic current` passed after adding merge revision `a7b8c9d0e1f2`; the DB now resolves to a single Alembic head.
 - 2026-05-12: `cd /home/fatih/proPod/frontend && npx eslint src/constants/theme.js 'app/(main)/create.js' 'app/(main)/details.js' 'app/(main)/messages.js' 'app/(main)/activity.js' 'app/(main)/notifications.js' 'app/(main)/search.js' 'app/(main)/library.js' 'app/(main)/profile.js' 'app/(main)/playlists.js' 'app/(main)/playlist-detail.js' 'app/(main)/public-playlists.js' 'app/(main)/creator-profile.js' 'app/(main)/history.js' 'app/(main)/home.js'` passed; Node emitted the existing package module-type warning.
 - 2026-05-12: repository pre-commit hook on `git commit` passed frontend validation for `fix(frontend): share tab screen bottom padding`.
+- 2026-05-12: `cd /home/fatih/proPod/backend && venv/bin/python -c "from pydantic.warnings import PydanticDeprecatedSince20; import warnings; warnings.simplefilter('error', PydanticDeprecatedSince20); from app.schemas_live_session import RTCParticipant; print('ok')"` passed; the RTC live-session schemas imported cleanly with Pydantic deprecations promoted to errors.
+- 2026-05-12: `cd /home/fatih/proPod/backend && DATABASE_URL=sqlite:///./precommit_test.db venv/bin/python -m pytest tests/test_rtc.py -q` passed (20 tests); remaining warnings were limited to the existing `passlib`/`crypt` and `pydub`/`audioop` dependency deprecations.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -104,8 +107,8 @@
 ## Next Session Suggestions
 
 1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the DB-safety and migration fixes.
-2. **RTC schema deprecation cleanup** -- replace class-based Pydantic config in `schemas_live_session.py` with `ConfigDict` to remove the recurring backend warning before more RTC schema work lands.
-3. **Analytics screen Jest coverage** -- add focused coverage for the analytics screen layout and refresh path so shared spacing regressions are caught without relying on manual UI checks.
+2. **Analytics screen Jest coverage** -- add focused coverage for the analytics screen layout and refresh path so shared spacing regressions are caught without relying on manual UI checks.
+3. **Backend dependency warning cleanup** -- reduce the recurring `passlib`/`crypt` and `pydub`/`audioop` deprecation noise in focused backend validation so real RTC warnings stand out.
 
 ---
 
