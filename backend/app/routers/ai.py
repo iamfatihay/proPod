@@ -14,9 +14,11 @@ from typing import Optional, Dict, Any
 from urllib.parse import urlparse
 import json
 import logging
+import tempfile
 from pathlib import Path
 from datetime import datetime, timedelta
 from collections import defaultdict
+import httpx
 
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
@@ -26,10 +28,23 @@ from app.services.ai_service import (
     get_ai_service,
     ProcessingOptions
 )
+from app.services.transcription_service import TranscriptionService
 
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai", tags=["AI Processing"])
+
+REMOTE_AUDIO_CONTENT_TYPE_SUFFIXES = {
+    "audio/mpeg": ".mp3",
+    "audio/mp3": ".mp3",
+    "audio/mp4": ".mp4",
+    "video/mp4": ".mp4",
+    "audio/m4a": ".m4a",
+    "audio/x-m4a": ".m4a",
+    "audio/wav": ".wav",
+    "audio/x-wav": ".wav",
+    "audio/webm": ".webm",
+}
 
 
 # Rate limiting cache (in-memory, per-user request tracking)
@@ -86,6 +101,143 @@ def check_rate_limit(user: models.User):
         f"Rate limit check passed for user {user.id}: "
         f"{len(_rate_limit_cache[user.id])}/{limit} requests"
     )
+
+
+def _is_remote_audio_url(audio_url: str) -> bool:
+    """Treat non-/media HTTP(S) URLs as remote sources that must be downloaded."""
+    parsed_url = urlparse(audio_url)
+    return (
+        parsed_url.scheme in {"http", "https"}
+        and bool(parsed_url.netloc)
+        and not parsed_url.path.startswith("/media/")
+    )
+
+
+def _get_allowed_remote_audio_hosts() -> set[str]:
+    """Allow only the backend host and Google Cloud Storage recording hosts."""
+    allowed_hosts = {"storage.googleapis.com"}
+    base_host = urlparse(settings.BASE_URL).hostname
+    if base_host:
+        allowed_hosts.add(base_host.lower())
+    return allowed_hosts
+
+
+def _is_allowed_remote_audio_host(hostname: Optional[str]) -> bool:
+    """Restrict remote downloads to explicitly trusted media hosts."""
+    if not hostname:
+        return False
+
+    normalized_host = hostname.lower()
+    allowed_hosts = _get_allowed_remote_audio_hosts()
+    return any(
+        normalized_host == allowed_host
+        or normalized_host.endswith(f".{allowed_host}")
+        for allowed_host in allowed_hosts
+    )
+
+
+def _get_remote_audio_suffix(audio_url: str, content_type: Optional[str]) -> str:
+    """Choose a supported local suffix for a downloaded remote audio asset."""
+    suffix = Path(urlparse(audio_url).path).suffix.lower()
+    if suffix in TranscriptionService.SUPPORTED_FORMATS:
+        return suffix
+
+    normalized_content_type = (content_type or "").split(";", 1)[0].strip().lower()
+    mapped_suffix = REMOTE_AUDIO_CONTENT_TYPE_SUFFIXES.get(normalized_content_type)
+    if mapped_suffix in TranscriptionService.SUPPORTED_FORMATS:
+        return mapped_suffix
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Unsupported remote audio format"
+    )
+
+
+def _resolve_local_audio_path(audio_url: str) -> Path:
+    """Resolve a local media URL/path into a validated backend file path."""
+    local_audio_url = audio_url
+    if local_audio_url.startswith("http://") or local_audio_url.startswith("https://"):
+        local_audio_url = urlparse(local_audio_url).path.lstrip("/")
+
+    try:
+        audio_path = settings.BACKEND_ROOT / local_audio_url.lstrip("/")
+        audio_path = audio_path.resolve()
+
+        if not str(audio_path).startswith(str(settings.BACKEND_ROOT.resolve())):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid audio file path"
+            )
+    except (ValueError, OSError) as e:
+        logger.error(f"Path resolution error for {audio_url}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid audio file path"
+        )
+
+    if not audio_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Audio file not found: {audio_url}"
+        )
+
+    return audio_path
+
+
+async def _download_remote_audio_to_temp_file(audio_url: str) -> Path:
+    """Download a remote recording to a temporary local file for AI processing."""
+    try:
+        async with httpx.AsyncClient(timeout=settings.AI_TIMEOUT_SECONDS) as client:
+            async with client.stream("GET", audio_url) as response:
+                if not _is_allowed_remote_audio_host(response.request.url.host):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Remote audio host is not allowed"
+                    )
+
+                response.raise_for_status()
+
+                max_size_bytes = settings.AI_MAX_AUDIO_SIZE_MB * 1024 * 1024
+                content_length = response.headers.get("Content-Length")
+                if content_length:
+                    try:
+                        declared_size = int(content_length)
+                    except ValueError:
+                        declared_size = None
+                    if declared_size and declared_size > max_size_bytes:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Remote audio file is too large for AI processing"
+                        )
+
+                suffix = _get_remote_audio_suffix(
+                    audio_url,
+                    response.headers.get("Content-Type"),
+                )
+                with tempfile.NamedTemporaryFile(
+                    delete=False,
+                    prefix="propod_ai_",
+                    suffix=suffix,
+                ) as temp_file:
+                    temp_path = Path(temp_file.name)
+
+                downloaded_bytes = 0
+                with temp_path.open("wb") as file_handle:
+                    async for chunk in response.aiter_bytes():
+                        if chunk:
+                            downloaded_bytes += len(chunk)
+                            if downloaded_bytes > max_size_bytes:
+                                raise HTTPException(
+                                    status_code=status.HTTP_400_BAD_REQUEST,
+                                    detail="Remote audio file is too large for AI processing"
+                                )
+                            file_handle.write(chunk)
+
+        return temp_path
+    except Exception:
+        if 'temp_path' in locals():
+            temp_path.unlink(missing_ok=True)
+        raise
 
 
 def estimate_processing_time(
@@ -219,37 +371,18 @@ async def process_podcast(
             detail="Podcast has no audio file"
         )
     
-    # Extract path from audio_url (handle both full URL and relative path)
-    audio_url = podcast.audio_url
-    if audio_url.startswith("http://") or audio_url.startswith("https://"):
-        # Extract path from full URL (e.g., "http://192.168.178.44:8000/media/audio/file.m4a" -> "media/audio/file.m4a")
-        parsed_url = urlparse(audio_url)
-        audio_url = parsed_url.path.lstrip("/")
-    
-    # Construct audio file path with security validation
-    # Prevent path traversal attacks by ensuring resolved path stays within BACKEND_ROOT
-    try:
-        audio_path = settings.BACKEND_ROOT / audio_url.lstrip("/")
-        audio_path = audio_path.resolve()
-        
-        # Security check: ensure path stays within allowed directory
-        if not str(audio_path).startswith(str(settings.BACKEND_ROOT.resolve())):
+    remote_audio_url: Optional[str] = None
+    local_audio_path: Optional[Path] = None
+    if _is_remote_audio_url(podcast.audio_url):
+        remote_host = urlparse(podcast.audio_url).hostname
+        if not _is_allowed_remote_audio_host(remote_host):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid audio file path"
+                detail="Remote audio host is not allowed"
             )
-    except (ValueError, OSError) as e:
-        logger.error(f"Path resolution error for {podcast.audio_url}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid audio file path"
-        )
-    
-    if not audio_path.exists():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Audio file not found: {podcast.audio_url}"
-        )
+        remote_audio_url = podcast.audio_url
+    else:
+        local_audio_path = _resolve_local_audio_path(podcast.audio_url)
     
     # Check if already processing
     if podcast.ai_data and podcast.ai_data.processing_status == "processing":
@@ -286,11 +419,20 @@ async def process_podcast(
         """Background task for AI processing."""
         # Create new session for background task (request session will be closed)
         task_db = SessionLocal()
+        temp_audio_path: Optional[Path] = None
         try:
+            processing_audio_path = str(local_audio_path) if local_audio_path else None
+            if remote_audio_url:
+                logger.info(
+                    f"Downloading remote audio for podcast #{podcast_id} before AI processing"
+                )
+                temp_audio_path = await _download_remote_audio_to_temp_file(remote_audio_url)
+                processing_audio_path = str(temp_audio_path)
+
             logger.info(f"Background processing started for podcast #{podcast_id}")
             result = await ai_service.process_podcast_full(
                 podcast_id=podcast_id,
-                audio_path=str(audio_path),  # Convert Path to string
+                audio_path=processing_audio_path,
                 db=task_db,
                 options=options
             )
@@ -304,7 +446,16 @@ async def process_podcast(
                 exc_info=True
             )
             task_db.rollback()
+
+            ai_data = task_db.query(models.PodcastAIData).filter(
+                models.PodcastAIData.podcast_id == podcast_id
+            ).first()
+            if ai_data:
+                ai_data.processing_status = "failed"
+                task_db.commit()
         finally:
+            if temp_audio_path:
+                temp_audio_path.unlink(missing_ok=True)
             task_db.close()
     
     # Add to background tasks
