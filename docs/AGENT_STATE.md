@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-12
-**Last session (20):** Shared tab-screen spacing helper -- branch `feature/shared-tab-screen-spacing` / PR #132 adds a shared tab-stack content padding helper and replaces fixed bottom-spacing values across home, search, library, create, profile, and related secondary screens
+**Last session (21):** Shared padding follow-through for analytics and RTC sessions -- branch `fix/shared-padding-analytics-rtc-session-screens` / PR pending moves analytics and live-session history onto the shared tab-stack bottom padding helper instead of bespoke inset-derived spacing
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -39,6 +39,7 @@
 - `feature/rtc-recording-retry-cta` / PR #129 -- adds a direct re-record CTA to the host RTC failed review screen so creators can launch a fresh live session without detouring through history.
 - `fix/rtc-room-db-safety-and-screen-spacing` / PR pending -- rolls back cleanly on RTC room DB errors, merges current Alembic heads, and adds consistent bottom spacing to create/details/messages/activity/notifications tab screens.
 - `feature/shared-tab-screen-spacing` / PR #132 -- adds a shared tab-stack content padding helper and replaces remaining fixed-value bottom spacing across the main tab-stack screens.
+- `fix/shared-padding-analytics-rtc-session-screens` / PR pending -- moves analytics and RTC session history to the shared tab-screen bottom padding helper for consistent spacing above the tab bar.
 
 ---
 
@@ -56,7 +57,7 @@
 - RTC join provider errors are classified from SDK message text; SDK error codes would make invite/auth/provider cases more precise if exposed reliably.
 - RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
 - Host failed-session coverage is still action-level; the create-screen RTC lifecycle remains hard to test end-to-end without more screen decomposition.
-- Analytics and RTC session screens still use bespoke inset-derived bottom spacing instead of the shared tab-screen helper.
+- Analytics screen still lacks focused frontend test coverage for its shared-padding layout path.
 
 ---
 
@@ -104,7 +105,7 @@
 
 1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the DB-safety and migration fixes.
 2. **RTC schema deprecation cleanup** -- replace class-based Pydantic config in `schemas_live_session.py` with `ConfigDict` to remove the recurring backend warning before more RTC schema work lands.
-3. **Shared padding follow-through for inset screens** -- decide whether analytics and RTC session screens should adopt the shared tab-screen helper or intentionally keep their bespoke inset-derived spacing.
+3. **Analytics screen Jest coverage** -- add focused coverage for the analytics screen layout and refresh path so shared spacing regressions are caught without relying on manual UI checks.
 
 ---
 

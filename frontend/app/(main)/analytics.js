@@ -21,10 +21,9 @@ import {
     RefreshControl,
 } from "react-native";
 import { Stack, useRouter, useFocusEffect } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import apiService from "../../src/services/api/apiService";
-import { COLORS } from "../../src/constants/theme";
+import { COLORS, withTabScreenBottomPadding } from "../../src/constants/theme";
 import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOptions";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -524,7 +523,6 @@ const DAY_OPTIONS = [
 
 const AnalyticsScreen = () => {
     const router = useRouter();
-    const insets = useSafeAreaInsets();
 
     const [days, setDays] = useState(30);
     const [data, setData] = useState(null);
@@ -762,10 +760,9 @@ const AnalyticsScreen = () => {
                 </View>
             ) : (
                 <ScrollView
-                    contentContainerStyle={{
+                    contentContainerStyle={withTabScreenBottomPadding({
                         padding: 16,
-                        paddingBottom: insets.bottom + 24,
-                    }}
+                    })}
                     showsVerticalScrollIndicator={false}
                     refreshControl={
                         <RefreshControl
