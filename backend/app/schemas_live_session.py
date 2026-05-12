@@ -1,6 +1,6 @@
 """API schemas for live session discovery and sharing."""
-from typing import Optional, List
-from pydantic import BaseModel, Field, field_validator
+from typing import Optional
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from datetime import datetime
 
 
@@ -21,8 +21,7 @@ class RTCParticipant(RTCParticipantBase):
     is_active: bool
     connection_quality: Optional[str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LiveSessionSummary(BaseModel):
