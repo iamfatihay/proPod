@@ -35,7 +35,7 @@ import {
     COLORS,
     FONT_SIZES,
     BORDER_RADIUS,
-    TAB_SCREEN_BOTTOM_PADDING,
+    withTabScreenBottomPadding,
     addAlpha,
     getNotificationColors,
 } from "../../src/constants/theme";
@@ -515,10 +515,9 @@ export default function NotificationsScreen() {
                             tintColor={COLORS.primary}
                         />
                     }
-                    contentContainerStyle={{
+                    contentContainerStyle={withTabScreenBottomPadding({
                         paddingTop: 8,
-                        paddingBottom: TAB_SCREEN_BOTTOM_PADDING,
-                    }}
+                    })}
                 />
             )}
         </SafeAreaView>

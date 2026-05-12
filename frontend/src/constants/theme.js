@@ -103,6 +103,11 @@ export const SPACING = {
 
 export const TAB_SCREEN_BOTTOM_PADDING = 100;
 
+export const withTabScreenBottomPadding = (style = {}, extraBottomPadding = 0) => ({
+    ...style,
+    paddingBottom: TAB_SCREEN_BOTTOM_PADDING + extraBottomPadding,
+});
+
 export const BORDER_RADIUS = {
     xs: 5,
     sm: 6,

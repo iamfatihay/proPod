@@ -14,7 +14,7 @@ import PodcastCard from "../../src/components/PodcastCard";
 import PlaylistMosaic from "../../src/components/PlaylistMosaic";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { COLORS } from "../../src/constants/theme";
+import { COLORS, withTabScreenBottomPadding } from "../../src/constants/theme";
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 
@@ -485,10 +485,9 @@ const Library = () => {
                         keyExtractor={(item) => String(item.id)}
                         renderItem={renderPlaylist}
                         showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{
-                            paddingBottom: 100,
+                        contentContainerStyle={withTabScreenBottomPadding({
                             flexGrow: 1,
-                        }}
+                        })}
                         refreshControl={
                             <RefreshControl
                                 refreshing={refreshing}
@@ -516,7 +515,7 @@ const Library = () => {
                                 colors={[COLORS.primary]}
                             />
                         }
-                        contentContainerStyle={{ paddingBottom: 100 }}
+                        contentContainerStyle={withTabScreenBottomPadding()}
                     />
                 )}
             </View>

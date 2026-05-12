@@ -14,7 +14,7 @@ import {
     StatusBar,
 } from "react-native";
 import React, { useCallback } from "react";
-import { COLORS } from "../../src/constants/theme";
+import { COLORS, withTabScreenBottomPadding } from "../../src/constants/theme";
 import useAuthStore from "../../src/context/useAuthStore";
 import { useRouter, useFocusEffect } from "expo-router";
 import Avatar from "../../src/components/Avatar";
@@ -523,14 +523,13 @@ export default function Profile() {
             />
 
             <ScrollView
-                contentContainerStyle={{
+                contentContainerStyle={withTabScreenBottomPadding({
                     flexGrow: 1,
-                    paddingBottom: 100,
                     paddingTop:
                         Platform.OS === "android"
                             ? StatusBar.currentHeight
                             : 16,
-                }}
+                })}
             >
                 <View className="items-center mb-lg">
                     {/* User Avatar and Name */}

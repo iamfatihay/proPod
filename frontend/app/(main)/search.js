@@ -21,7 +21,7 @@ import apiService from "../../src/services/api/apiService";
 import useAudioStore from "../../src/context/useAudioStore";
 import Logger from "../../src/utils/logger";
 import { normalizePodcasts } from "../../src/utils/urlHelper";
-import { COLORS } from "../../src/constants/theme";
+import { COLORS, withTabScreenBottomPadding } from "../../src/constants/theme";
 
 // ─── Category constants ───────────────────────────────────────────────────────
 
@@ -647,14 +647,14 @@ const Search = () => {
                             }
                         />
                     )}
-                    contentContainerStyle={{ paddingBottom: 100 }}
+                    contentContainerStyle={withTabScreenBottomPadding()}
                 />
             ) : searchResults.length > 0 ? (
                 <FlatList
                     data={searchResults}
                     renderItem={renderSearchResult}
                     keyExtractor={(item) => item.id.toString()}
-                    contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+                    contentContainerStyle={withTabScreenBottomPadding({ padding: 16 })}
                 />
             ) : suggestions.length > 0 && searchQuery.length >= 0 ? (
                 <View className="flex-1">
@@ -669,7 +669,7 @@ const Search = () => {
                 </View>
             ) : searchMode === "all" && searchQuery.trim().length < 2 && selectedCategory === "all" && categories.length > 1 ? (
                 /* ── Category browse grid — idle discovery surface ── */
-                <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+                <ScrollView contentContainerStyle={withTabScreenBottomPadding({ padding: 16 })}>
                     <Text
                         style={{
                             color: "#888",

@@ -10,7 +10,7 @@ import {
 import { Stack, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import useNotificationStore from "../../src/context/useNotificationStore";
-import { COLORS, FONT_SIZES, BORDER_RADIUS, TAB_SCREEN_BOTTOM_PADDING } from "../../src/constants/theme";
+import { COLORS, FONT_SIZES, BORDER_RADIUS, withTabScreenBottomPadding } from "../../src/constants/theme";
 import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOptions";
 import { formatTimeAgo } from "../../src/utils/formatTimeAgo";
 
@@ -140,7 +140,7 @@ export default function ActivityScreen() {
             <FlatList
                 data={items}
                 keyExtractor={(item) => String(item.id)}
-                contentContainerStyle={{ padding: 20, paddingBottom: TAB_SCREEN_BOTTOM_PADDING }}
+                contentContainerStyle={withTabScreenBottomPadding({ padding: 20 })}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}

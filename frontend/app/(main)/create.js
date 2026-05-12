@@ -24,7 +24,7 @@ import { useToast } from "../../src/components/Toast";
 import Logger from "../../src/utils/logger";
 import PermissionModal from "../../src/components/PermissionModal";
 import ConfirmationModal from "../../src/components/ConfirmationModal";
-import { COLORS, TAB_SCREEN_BOTTOM_PADDING } from "../../src/constants/theme";
+import { COLORS, withTabScreenBottomPadding } from "../../src/constants/theme";
 import protectionService from "../../src/services/recording/protectionService";
 import useNotificationStore from "../../src/context/useNotificationStore";
 import backgroundService from "../../src/services/recording/backgroundService";
@@ -852,7 +852,7 @@ const Create = () => {
     const renderSetupStep = () => (
         <ScrollView
             className="flex-1 px-6 pt-6"
-            contentContainerStyle={{ paddingBottom: TAB_SCREEN_BOTTOM_PADDING }}
+            contentContainerStyle={withTabScreenBottomPadding()}
         >
             <Text className="text-2xl font-bold text-text-primary mb-6">
                 Create New Podcast
@@ -1050,7 +1050,7 @@ const Create = () => {
                 return (
                     <ScrollView
                         className="flex-1 px-6 pt-6"
-                        contentContainerStyle={{ paddingBottom: TAB_SCREEN_BOTTOM_PADDING }}
+                        contentContainerStyle={withTabScreenBottomPadding()}
                     >
                         <Text className="text-2xl font-bold text-text-primary text-center mb-3">
                             Ready Check
@@ -1308,7 +1308,7 @@ const Create = () => {
             return (
                 <ScrollView
                     className="flex-1 px-6 pt-6"
-                    contentContainerStyle={{ paddingBottom: TAB_SCREEN_BOTTOM_PADDING }}
+                    contentContainerStyle={withTabScreenBottomPadding()}
                 >
                     <Text className="text-2xl font-bold text-text-primary mb-6">
                         Session Summary
@@ -1456,7 +1456,7 @@ const Create = () => {
         return (
             <ScrollView
                 className="flex-1 px-6 pt-6"
-                contentContainerStyle={{ paddingBottom: TAB_SCREEN_BOTTOM_PADDING }}
+                contentContainerStyle={withTabScreenBottomPadding()}
             >
                 <Text className="text-2xl font-bold text-text-primary mb-6">
                     Review Recording

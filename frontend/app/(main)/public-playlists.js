@@ -14,7 +14,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import apiService from "../../src/services/api/apiService";
 import PlaylistMosaic from "../../src/components/PlaylistMosaic";
-import { COLORS } from "../../src/constants/theme";
+import { COLORS, withTabScreenBottomPadding } from "../../src/constants/theme";
 import useAudioStore from "../../src/context/useAudioStore";
 
 const PAGE_SIZE = 20;
@@ -422,7 +422,7 @@ const PublicPlaylists = () => {
                         ListFooterComponent={<ListFooter />}
                         ListEmptyComponent={<ListEmpty />}
                         showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
+                        contentContainerStyle={withTabScreenBottomPadding({ flexGrow: 1 })}
                     />
                 )}
             </View>

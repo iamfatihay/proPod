@@ -26,7 +26,7 @@ import InfoModal from "../../src/components/InfoModal";
 import CustomModal from "../../src/components/CustomModal";
 import { normalizePodcast, normalizePodcasts } from "../../src/utils/urlHelper";
 import { getQualityMessage } from "../../src/utils/qualityHelpers";
-import { COLORS, TAB_SCREEN_BOTTOM_PADDING } from "../../src/constants/theme";
+import { COLORS, withTabScreenBottomPadding } from "../../src/constants/theme";
 import hapticFeedback from "../../src/services/haptics/hapticFeedback";
 import GradientCard from "../../src/components/GradientCard";
 import downloadService from "../../src/services/downloads/downloadService";
@@ -766,11 +766,10 @@ const Details = () => {
             <ScrollView
                 className="flex-1"
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{
+                contentContainerStyle={withTabScreenBottomPadding({
                     paddingTop:
                         Platform.OS === "android" ? StatusBar.currentHeight : 0,
-                    paddingBottom: TAB_SCREEN_BOTTOM_PADDING,
-                }}
+                })}
             >
                 {/* Podcast Header */}
                 <View className="px-6 py-6">
