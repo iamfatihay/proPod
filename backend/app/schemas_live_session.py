@@ -1,5 +1,5 @@
 """API schemas for live session discovery and sharing."""
-from typing import Optional, List
+from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from datetime import datetime
 
