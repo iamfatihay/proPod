@@ -28,6 +28,7 @@ import HeroSection from "../../src/components/HeroSection";
 import QuickActionsBar from "../../src/components/QuickActionsBar";
 import ContinueListeningRow from "../../src/components/ContinueListeningRow";
 import { normalizePodcast, toAbsoluteUrl } from "../../src/utils/urlHelper";
+import { buildPodcastAudioTrack } from "../../src/utils/audioTracks";
 import { PodcastCardSkeleton } from "../../src/components/SkeletonLoader";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
@@ -371,18 +372,7 @@ export default function HomeScreen() {
                 return;
             }
 
-            // Create track object
-            const track = {
-                id: podcast.id,
-                uri: podcast.audio_url,
-                title: podcast.title,
-                artist: podcast.owner?.name || "Unknown Artist",
-                ownerId: podcast.owner?.id ?? podcast.owner_id,
-                duration: (podcast.duration || 0) * 1000, // Convert to milliseconds
-                artwork: podcast.thumbnail_url,
-                category: podcast.category,
-                description: podcast.description,
-            };
+            const track = buildPodcastAudioTrack(podcast);
 
             // Non-blocking audio operations - errors handled via audioError state
             // Same track - toggle play/pause

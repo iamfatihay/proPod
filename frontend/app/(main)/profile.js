@@ -29,18 +29,8 @@ import PermissionModal from "../../src/components/PermissionModal";
 import InfoModal from "../../src/components/InfoModal";
 import { useToast } from "../../src/components/Toast";
 import useAudioStore from "../../src/context/useAudioStore";
-import { normalizePodcasts, toAbsoluteUrl } from "../../src/utils/urlHelper";
-
-// Maps a normalised podcast object to the track shape expected by useAudioStore
-const toTrack = (p) => ({
-    id: p.id,
-    uri: p.audio_url, // already absolute after normalizePodcasts
-    title: p.title,
-    artist: p.owner?.name || "Unknown Artist",
-    artwork: p.thumbnail_url, // already absolute after normalizePodcasts
-    duration: (p.duration || 0) * 1000, // backend returns seconds → store expects ms
-    category: p.category,
-});
+import { normalizePodcasts } from "../../src/utils/urlHelper";
+import { buildPodcastAudioTrack } from "../../src/utils/audioTracks";
 
 export default function Profile() {
     const user = useAuthStore((state) => state.user);
@@ -133,7 +123,9 @@ export default function Profile() {
                 isPlaying ? pause() : play();
             } else {
                 // Load the whole list as a queue so Next/Prev works
-                const tracks = myPodcasts.map(toTrack);
+                const tracks = myPodcasts
+                    .map((item) => buildPodcastAudioTrack(item))
+                    .filter(Boolean);
                 const startIdx = tracks.findIndex((t) => t.id === podcast.id);
                 setQueue(tracks, startIdx >= 0 ? startIdx : 0);
                 play(tracks[startIdx >= 0 ? startIdx : 0]);

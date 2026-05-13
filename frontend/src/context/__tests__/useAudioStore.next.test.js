@@ -116,6 +116,8 @@ describe("next() fallback fetch when queue is exhausted", () => {
             owner: { id: 10, name: "Artist" },
             duration: 30,
             thumbnail_url: null,
+            category: "Technology",
+            description: "Fetched description",
         };
         apiService.getPodcasts.mockResolvedValueOnce([FETCHED]);
 
@@ -133,9 +135,23 @@ describe("next() fallback fetch when queue is exhausted", () => {
         expect(apiService.getPodcasts).toHaveBeenCalled();
         const { queue, currentIndex } = useAudioStore.getState();
         expect(queue).toHaveLength(2);
-        expect(queue[1].id).toBe(99);
+        expect(queue[1]).toMatchObject({
+            id: 99,
+            ownerId: 10,
+            duration: 30000,
+            category: "Technology",
+            description: "Fetched description",
+        });
         expect(currentIndex).toBe(1);
-        expect(mockPlay).toHaveBeenCalledWith(expect.objectContaining({ id: 99 }));
+        expect(mockPlay).toHaveBeenCalledWith(
+            expect.objectContaining({
+                id: 99,
+                ownerId: 10,
+                duration: 30000,
+                category: "Technology",
+                description: "Fetched description",
+            })
+        );
     });
 
     it("falls back to generic getPodcasts when creator lookup yields nothing", async () => {

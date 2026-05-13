@@ -4,6 +4,7 @@ import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Logger from "../utils/logger";
 import apiService from "../services/api/apiService";
+import { buildPodcastAudioTrack } from "../utils/audioTracks";
 // import AudioService from "../services/audio"; // Temporarily disabled
 
 // AsyncStorage key for persisted sleep-on-episode-end preference
@@ -708,15 +709,12 @@ const useAudioStore = create(
                 }
 
                 const pick = pool[0];
-                const nextTrack = {
-                    id: pick.id,
-                    uri: pick.audio_url,
-                    title: pick.title,
-                    artist: pick.owner?.name || "Unknown Artist",
-                    ownerId: pick.owner?.id || pick.owner_id,
-                    duration: (pick.duration || 0) * 1000,
-                    artwork: pick.thumbnail_url,
-                };
+                const nextTrack = buildPodcastAudioTrack(pick);
+
+                if (!nextTrack) {
+                    Logger.warn("next(): picked podcast was missing audio");
+                    return;
+                }
 
                 // Append to the existing queue (seed one if it was empty) and
                 // advance the cursor so repeat presses keep discovering new
