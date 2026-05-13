@@ -28,7 +28,10 @@ import HeroSection from "../../src/components/HeroSection";
 import QuickActionsBar from "../../src/components/QuickActionsBar";
 import ContinueListeningRow from "../../src/components/ContinueListeningRow";
 import { normalizePodcast, toAbsoluteUrl } from "../../src/utils/urlHelper";
-import { buildPodcastAudioTrack } from "../../src/utils/audioTracks";
+import {
+    buildContinueListeningAudioTrack,
+    buildPodcastAudioTrack,
+} from "../../src/utils/audioTracks";
 import { PodcastCardSkeleton } from "../../src/components/SkeletonLoader";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
@@ -403,9 +406,6 @@ export default function HomeScreen() {
         ]
     );
 
-    // Resume a podcast from a ContinueListeningItem.
-    // The item has `podcast_id`, `audio_url`, `title`, etc. but not the
-    // same shape as a full Podcast object, so we build the track manually.
     const handleResumePodcast = useCallback(
         (item) => {
             if (!item.audio_url) {
@@ -413,16 +413,12 @@ export default function HomeScreen() {
                 return;
             }
 
-            const track = {
-                id: item.podcast_id,
-                uri: item.audio_url,
-                title: item.title,
-                artist: item.owner_name || "Unknown Artist",
-                duration: (item.duration || 0) * 1000, // ms
-                artwork: item.thumbnail_url,
-                category: item.category,
-                description: item.description,
-            };
+            const track = buildContinueListeningAudioTrack(item);
+
+            if (!track) {
+                showToast("Audio not available", "error");
+                return;
+            }
 
             if (currentTrack?.id === item.podcast_id) {
                 if (isPlaying) {
