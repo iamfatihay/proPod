@@ -17,3 +17,27 @@ export const buildPodcastAudioTrack = (podcast, options = {}) => {
         ownerId: podcast.owner?.id ?? podcast.owner_id,
     };
 };
+
+export const buildContinueListeningAudioTrack = (item, options = {}) => {
+    if (!item) {
+        return null;
+    }
+
+    return buildPodcastAudioTrack(
+        {
+            id: item.podcast_id,
+            audio_url: item.audio_url,
+            title: item.title,
+            duration: item.duration,
+            thumbnail_url: item.thumbnail_url,
+            category: item.category,
+            description: item.description,
+            owner_id: item.owner_id,
+            owner: {
+                id: item.owner_id,
+                name: item.owner_name,
+            },
+        },
+        options
+    );
+};

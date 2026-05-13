@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-13
-**Last session (26):** shared queue-track normalization -- branch `fix/shared-queue-track-normalization` / PR pending centralizes podcast-to-track shaping across home/profile/creator/search/playlist playback plus the audio-store fallback so metadata and duration stay consistent outside details
+**Last session (27):** continue-listening track adapter convergence -- branch `fix/continue-listening-track-adapter` routes home-screen resume playback through the shared audio-track helper so continue-listening keeps the same owner/category/description metadata contract as the rest of the queue surfaces
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -30,6 +30,7 @@
 - RTC session history screen wired from create flow
 - RTC session history pagination (PR #124)
 - RTC guest session summary polish with host/session context (PR #125)
+- Shared queue-track normalization across playback surfaces
 
 ---
 
@@ -43,7 +44,7 @@
 - `test/analytics-screen-coverage` / PR pending -- adds focused Jest coverage for the analytics screen shared bottom padding and pull-to-refresh reload path.
 - `fix/backend-validation-warning-noise` / PR pending -- corrects the backend `pytest.ini` section header so targeted RTC pytest runs apply the repo config and suppress the known third-party Python 3.13 deprecation noise.
 - `fix/details-playback-queue-metadata` / PR pending -- centralizes details-screen queue track shaping so queued related episodes keep owner/category/description metadata and downloaded current episodes can stay on the local URI when added to playback.
-- `fix/shared-queue-track-normalization` / PR pending -- centralizes podcast-to-track shaping across the main playback surfaces so profile/creator/search/home/playlist flows and `next()` fallback keep the same duration and metadata fields as details playback.
+- `fix/continue-listening-track-adapter` / PR pending -- routes continue-listening resume playback through the shared track helper so resume metadata stays aligned with details/home/profile/search queue shaping.
 
 ---
 
@@ -62,7 +63,7 @@
 - RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
 - Host failed-session coverage is still action-level; the create-screen RTC lifecycle remains hard to test end-to-end without more screen decomposition.
 - Analytics screen tests currently rely on a lightweight Jest-side `RefreshControl` mock because the React Native test renderer environment does not provide that path cleanly.
-- Continue-listening resume still adapts a non-podcast payload into a track separately, so future metadata-dependent playback UI should either reuse the shared helper through an adapter or add focused coverage for that path.
+- Continue-listening still lacks screen-level coverage for the home resume interaction; the shared adapter is covered, but the `startPosition` handoff in `home.js` is still only indirectly exercised.
 
 ---
 
@@ -111,6 +112,8 @@
 - 2026-05-13: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/details.js' 'src/utils/detailsPlayback.js' 'src/tests/__tests__/details/DetailsPlayback.test.js'` passed; Node emitted the existing package module-type warning.
 - 2026-05-13: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/details/DetailsPlayback.test.js src/context/__tests__/useAudioStore.next.test.js --runInBand` passed (9 tests); the shared track helper preserved details queue behavior and the exhausted-queue fallback now keeps owner/category/description metadata with millisecond durations.
 - 2026-05-13: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/profile.js' 'app/(main)/creator-profile.js' 'app/(main)/playlist-detail.js' 'app/(main)/search.js' 'app/(main)/home.js' 'src/context/useAudioStore.js' 'src/utils/detailsPlayback.js' 'src/utils/audioTracks.js' 'src/context/__tests__/useAudioStore.next.test.js'` passed; Node emitted the existing package module-type warning.
+- 2026-05-13: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/utils/audioTracks.test.js --runInBand` passed (3 tests); the continue-listening adapter now reuses the shared track helper and preserves owner/category/description metadata.
+- 2026-05-13: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/home.js' 'src/utils/audioTracks.js' 'src/tests/__tests__/utils/audioTracks.test.js'` passed; Node emitted the existing package module-type warning.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -120,7 +123,7 @@
 
 1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the DB-safety and migration fixes.
 2. **Analytics test environment cleanup** -- replace the lightweight `RefreshControl` Jest mock with a more durable test setup so analytics screen coverage is less tied to renderer internals.
-3. **Continue-listening track adapter convergence** -- decide whether the resume payload should reuse the shared audio-track helper through an adapter and add focused coverage so metadata-dependent playback UI stays consistent there too.
+3. **Continue-listening home interaction coverage** -- add a focused home-screen test for the resume action so `play(track, { startPosition })` stays pinned alongside the shared adapter coverage.
 
 ---
 
