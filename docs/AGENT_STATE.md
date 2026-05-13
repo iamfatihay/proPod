@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-13
-**Last session (27):** continue-listening track adapter convergence -- branch `fix/continue-listening-track-adapter` routes home-screen resume playback through the shared audio-track helper so continue-listening keeps the same owner/category/description metadata contract as the rest of the queue surfaces
+**Last session (28):** continue-listening home interaction coverage -- branch `test/continue-listening-home-coverage` adds focused HomeScreen resume coverage so `play(track, { startPosition })` is exercised where the user taps it
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -45,6 +45,7 @@
 - `fix/backend-validation-warning-noise` / PR pending -- corrects the backend `pytest.ini` section header so targeted RTC pytest runs apply the repo config and suppress the known third-party Python 3.13 deprecation noise.
 - `fix/details-playback-queue-metadata` / PR pending -- centralizes details-screen queue track shaping so queued related episodes keep owner/category/description metadata and downloaded current episodes can stay on the local URI when added to playback.
 - `fix/continue-listening-track-adapter` / PR pending -- routes continue-listening resume playback through the shared track helper so resume metadata stays aligned with details/home/profile/search queue shaping.
+- `test/continue-listening-home-coverage` / PR pending -- adds focused HomeScreen coverage for the continue-listening resume CTA so the persisted `startPosition` handoff is pinned at the user interaction layer.
 
 ---
 
@@ -63,7 +64,7 @@
 - RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
 - Host failed-session coverage is still action-level; the create-screen RTC lifecycle remains hard to test end-to-end without more screen decomposition.
 - Analytics screen tests currently rely on a lightweight Jest-side `RefreshControl` mock because the React Native test renderer environment does not provide that path cleanly.
-- Continue-listening still lacks screen-level coverage for the home resume interaction; the shared adapter is covered, but the `startPosition` handoff in `home.js` is still only indirectly exercised.
+- Home screen Jest coverage still relies on local `DeviceEventEmitter` and `RefreshControl` stubs because the React Native test renderer environment does not expose those primitives cleanly.
 
 ---
 
@@ -114,6 +115,8 @@
 - 2026-05-13: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/profile.js' 'app/(main)/creator-profile.js' 'app/(main)/playlist-detail.js' 'app/(main)/search.js' 'app/(main)/home.js' 'src/context/useAudioStore.js' 'src/utils/detailsPlayback.js' 'src/utils/audioTracks.js' 'src/context/__tests__/useAudioStore.next.test.js'` passed; Node emitted the existing package module-type warning.
 - 2026-05-13: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/utils/audioTracks.test.js --runInBand` passed (3 tests); the continue-listening adapter now reuses the shared track helper and preserves owner/category/description metadata.
 - 2026-05-13: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/home.js' 'src/utils/audioTracks.js' 'src/tests/__tests__/utils/audioTracks.test.js'` passed; Node emitted the existing package module-type warning.
+- 2026-05-13: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/home/HomeScreen.test.js --runInBand` passed (1 test); Jest emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-13: `cd /home/fatih/proPod/frontend && npx eslint 'src/tests/__tests__/home/HomeScreen.test.js'` passed; Node emitted the existing package module-type warning.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -122,8 +125,8 @@
 ## Next Session Suggestions
 
 1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the DB-safety and migration fixes.
-2. **Analytics test environment cleanup** -- replace the lightweight `RefreshControl` Jest mock with a more durable test setup so analytics screen coverage is less tied to renderer internals.
-3. **Continue-listening home interaction coverage** -- add a focused home-screen test for the resume action so `play(track, { startPosition })` stays pinned alongside the shared adapter coverage.
+2. **Frontend screen-test harness cleanup** -- replace the per-file `RefreshControl` and `DeviceEventEmitter` Jest stubs with a reusable RN test helper so screen coverage is less renderer-coupled.
+3. **Continue-listening active-track coverage** -- add a focused home-screen test for the already-loaded resume case so the row keeps the expected pause/resume toggle behavior alongside the new `startPosition` coverage.
 
 ---
 
