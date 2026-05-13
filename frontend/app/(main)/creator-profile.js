@@ -15,21 +15,11 @@ import PodcastCard from "../../src/components/PodcastCard";
 import apiService from "../../src/services/api/apiService";
 import useAudioStore from "../../src/context/useAudioStore";
 import useAuthStore from "../../src/context/useAuthStore";
-import { normalizePodcasts, toAbsoluteUrl } from "../../src/utils/urlHelper";
-
-// Maps a normalised podcast API object to the track shape required by useAudioStore
-const toTrack = (p) => ({
-    id: p.id,
-    uri: toAbsoluteUrl(p.audio_url),
-    title: p.title,
-    artist: p.owner?.name || "Unknown Artist",
-    artwork: toAbsoluteUrl(p.thumbnail_url),
-    duration: (p.duration || 0) * 1000, // convert seconds → ms (backend returns seconds)
-    category: p.category,
-});
+import { normalizePodcasts } from "../../src/utils/urlHelper";
 import { COLORS, withTabScreenBottomPadding } from "../../src/constants/theme";
 import Logger from "../../src/utils/logger";
 import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOptions";
+import { buildPodcastAudioTrack } from "../../src/utils/audioTracks";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -174,7 +164,9 @@ export default function CreatorProfile() {
             } else {
                 // Build proper track objects (audio_url → uri) for useAudioStore.
                 // setQueue expects (tracks[], startIndex: number) — pass a numeric index.
-                const tracks = podcasts.map(toTrack);
+                const tracks = podcasts
+                    .map((item) => buildPodcastAudioTrack(item))
+                    .filter(Boolean);
                 const startIdx = tracks.findIndex((t) => t.id === podcast.id);
                 setQueue(tracks, startIdx >= 0 ? startIdx : 0);
                 play(tracks[startIdx >= 0 ? startIdx : 0]);

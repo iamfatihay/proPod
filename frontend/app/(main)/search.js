@@ -20,6 +20,7 @@ import SemanticSearchService from "../../src/services/ai/SemanticSearchService";
 import apiService from "../../src/services/api/apiService";
 import useAudioStore from "../../src/context/useAudioStore";
 import Logger from "../../src/utils/logger";
+import { buildPodcastAudioTrack } from "../../src/utils/audioTracks";
 import { normalizePodcasts } from "../../src/utils/urlHelper";
 import { COLORS, withTabScreenBottomPadding } from "../../src/constants/theme";
 
@@ -376,15 +377,11 @@ const Search = () => {
 
     const handlePlayPress = async (podcast) => {
         try {
-            const track = {
-                id: podcast.id,
-                uri: podcast.audio_url,
-                title: podcast.title,
-                artist: podcast.owner?.name || "Unknown Artist",
-                ownerId: podcast.owner?.id ?? podcast.owner_id,
-                duration: podcast.duration || 0,
-                artwork: podcast.thumbnail_url,
-            };
+            const track = buildPodcastAudioTrack(podcast);
+
+            if (!track) {
+                return;
+            }
 
             if (currentTrack?.id === podcast.id) {
                 if (isPlaying) {

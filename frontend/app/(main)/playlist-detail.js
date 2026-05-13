@@ -21,6 +21,7 @@ import ConfirmationModal from "../../src/components/ConfirmationModal";
 import { useToast } from "../../src/components/Toast";
 import { COLORS, addAlpha, withTabScreenBottomPadding } from "../../src/constants/theme";
 import useAudioStore from "../../src/context/useAudioStore";
+import { buildPodcastAudioTrack } from "../../src/utils/audioTracks";
 import Logger from "../../src/utils/logger";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -253,14 +254,9 @@ const PlaylistDetail = () => {
         const playableItems = (playlist?.items || []).filter(
             (item) => item.podcast?.audio_url
         );
-        return playableItems.map((item) => ({
-            id: item.podcast.id,
-            uri: item.podcast.audio_url,
-            title: item.podcast.title,
-            artist: item.podcast.owner?.name || "Unknown Artist",
-            duration: (item.podcast.duration || 0) * 1000,
-            artwork: item.podcast.thumbnail_url,
-        }));
+        return playableItems
+            .map((item) => buildPodcastAudioTrack(item.podcast))
+            .filter(Boolean);
     }, [playlist]);
 
     // Play all episodes in the playlist as an ordered queue
