@@ -26,6 +26,11 @@ import InfoModal from "../../src/components/InfoModal";
 import CustomModal from "../../src/components/CustomModal";
 import { normalizePodcast, normalizePodcasts } from "../../src/utils/urlHelper";
 import { getQualityMessage } from "../../src/utils/qualityHelpers";
+import {
+    buildDetailsQueueTrack,
+    buildPodcastPlaybackQueue,
+    buildRelatedPlaybackQueue,
+} from "../../src/utils/detailsPlayback";
 import { COLORS, withTabScreenBottomPadding } from "../../src/constants/theme";
 import hapticFeedback from "../../src/services/haptics/hapticFeedback";
 import GradientCard from "../../src/components/GradientCard";
@@ -217,17 +222,9 @@ const Details = () => {
         // Prevent multiple clicks - use audio store's isLoading
         if (isAudioLoading) return;
 
-        const track = {
-            id: podcast.id,
-            uri: localUri || podcast.audio_url,
-            title: podcast.title,
-            artist: podcast.owner?.name || "Unknown Artist",
-            duration: (podcast.duration || 0) * 1000, // Convert to milliseconds
-            artwork: podcast.thumbnail_url,
-            category: podcast.category,
-            description: podcast.description,
-            ownerId: podcast.owner?.id ?? podcast.owner_id,
-        };
+        const track = buildDetailsQueueTrack(podcast, {
+            uriOverride: localUri || podcast.audio_url,
+        });
 
         // Non-blocking audio operations - errors handled via audioError state
         if (currentTrack?.id === podcast.id) {
@@ -247,19 +244,13 @@ const Details = () => {
                 try {
                     // Only build queue if we have related podcasts
                     if (relatedPodcasts.length > 0) {
-                        const queue = [
-                            track,
-                            ...relatedPodcasts
-                                .filter((p) => p.audio_url)
-                                .map((p) => ({
-                                    id: p.id,
-                                    uri: p.audio_url,
-                                    title: p.title,
-                                    artist: p.owner?.name || "Unknown Artist",
-                                    duration: (p.duration || 0) * 1000,
-                                    artwork: p.thumbnail_url,
-                                })),
-                        ];
+                        const queue = buildPodcastPlaybackQueue(
+                            podcast,
+                            relatedPodcasts,
+                            {
+                                uriOverride: localUri || podcast.audio_url,
+                            }
+                        );
                         setQueue(queue, 0);
                     } else {
                         // Just current track in queue
@@ -305,17 +296,7 @@ const Details = () => {
                 return;
             }
 
-            const track = {
-                id: relatedPodcast.id,
-                uri: relatedPodcast.audio_url,
-                title: relatedPodcast.title,
-                artist: relatedPodcast.owner?.name || "Unknown Artist",
-                duration: (relatedPodcast.duration || 0) * 1000,
-                artwork: relatedPodcast.thumbnail_url,
-                category: relatedPodcast.category,
-                description: relatedPodcast.description,
-                ownerId: relatedPodcast.owner?.id ?? relatedPodcast.owner_id,
-            };
+            const track = buildDetailsQueueTrack(relatedPodcast);
 
             if (currentTrack?.id === relatedPodcast.id) {
                 if (isPlaying) {
@@ -327,17 +308,13 @@ const Details = () => {
                 play(track);
                 requestAnimationFrame(() => {
                     try {
-                        const others = relatedPodcasts
-                            .filter((p) => p.audio_url && p.id !== relatedPodcast.id)
-                            .map((p) => ({
-                                id: p.id,
-                                uri: p.audio_url,
-                                title: p.title,
-                                artist: p.owner?.name || "Unknown Artist",
-                                duration: (p.duration || 0) * 1000,
-                                artwork: p.thumbnail_url,
-                            }));
-                        setQueue([track, ...others], 0);
+                        setQueue(
+                            buildRelatedPlaybackQueue(
+                                relatedPodcast,
+                                relatedPodcasts
+                            ),
+                            0
+                        );
                     } catch (err) {
                         Logger.error("Failed to build queue from related podcast", err);
                         setQueue([track], 0);
@@ -526,14 +503,9 @@ const Details = () => {
     const handleAddToQueue = async () => {
         if (!podcast?.audio_url) return;
 
-        const track = {
-            id: podcast.id,
-            uri: podcast.audio_url,
-            title: podcast.title,
-            artist: podcast.owner?.name || "Unknown Artist",
-            duration: podcast.duration || 0,
-            artwork: podcast.thumbnail_url,
-        };
+        const track = buildDetailsQueueTrack(podcast, {
+            uriOverride: localUri || podcast.audio_url,
+        });
 
         addToQueue(track);
         showToast("Added to queue", "success");
