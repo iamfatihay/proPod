@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-13
-**Last session (23):** analytics screen Jest coverage -- branch `test/analytics-screen-coverage` / PR pending adds focused coverage for shared bottom padding and pull-to-refresh reloads on Creator Analytics
+**Last session (24):** backend validation warning cleanup -- branch `fix/backend-validation-warning-noise` / PR pending fixes the backend pytest config so focused RTC validation no longer drowns real issues in passlib/pydub deprecation noise
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -41,6 +41,7 @@
 - `feature/shared-tab-screen-spacing` / PR #132 -- adds a shared tab-stack content padding helper and replaces remaining fixed-value bottom spacing across the main tab-stack screens.
 - `fix/shared-padding-analytics-rtc-session-screens` / PR pending -- moves analytics and RTC session history to the shared tab-screen bottom padding helper for consistent spacing above the tab bar.
 - `test/analytics-screen-coverage` / PR pending -- adds focused Jest coverage for the analytics screen shared bottom padding and pull-to-refresh reload path.
+- `fix/backend-validation-warning-noise` / PR pending -- corrects the backend `pytest.ini` section header so targeted RTC pytest runs apply the repo config and suppress the known third-party Python 3.13 deprecation noise.
 
 ---
 
@@ -58,7 +59,6 @@
 - RTC join provider errors are classified from SDK message text; SDK error codes would make invite/auth/provider cases more precise if exposed reliably.
 - RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
 - Host failed-session coverage is still action-level; the create-screen RTC lifecycle remains hard to test end-to-end without more screen decomposition.
-- Focused backend RTC validation still emits unrelated dependency deprecations from `passlib`/`crypt` and `pydub`/`audioop`, which makes warning output noisier than it should be.
 - Analytics screen tests currently rely on a lightweight Jest-side `RefreshControl` mock because the React Native test renderer environment does not provide that path cleanly.
 
 ---
@@ -100,6 +100,7 @@
 - 2026-05-12: repository pre-commit hook on `git commit` passed frontend validation for `fix(frontend): share tab screen bottom padding`.
 - 2026-05-12: `cd /home/fatih/proPod/backend && venv/bin/python -c "from pydantic.warnings import PydanticDeprecatedSince20; import warnings; warnings.simplefilter('error', PydanticDeprecatedSince20); from app.schemas_live_session import RTCParticipant; print('ok')"` passed; the RTC live-session schemas imported cleanly with Pydantic deprecations promoted to errors.
 - 2026-05-12: `cd /home/fatih/proPod/backend && DATABASE_URL=sqlite:///./precommit_test.db venv/bin/python -m pytest tests/test_rtc.py -q` passed (20 tests); remaining warnings were limited to the existing `passlib`/`crypt` and `pydub`/`audioop` dependency deprecations.
+- 2026-05-13: `cd /home/fatih/proPod/backend && DATABASE_URL=sqlite:///./precommit_test.db venv/bin/python -m pytest tests/test_rtc.py -q` passed (20 tests) after fixing `backend/pytest.ini`; the known `passlib`/`crypt` and `pydub`/`audioop` warning summary no longer appeared.
 - 2026-05-13: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/analytics/AnalyticsScreen.test.js --runInBand` passed (2 tests); Jest still emitted the existing `react-test-renderer` deprecation warning.
 - 2026-05-13: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/analytics.js' 'src/tests/__tests__/analytics/AnalyticsScreen.test.js'` passed; Node emitted the existing package module-type warning.
 - 2026-05-13: `cd /home/fatih/proPod/frontend && npm run test:ci` passed (27 suites / 322 tests); existing `react-test-renderer` deprecation warnings remained.
@@ -111,8 +112,8 @@
 ## Next Session Suggestions
 
 1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the DB-safety and migration fixes.
-2. **Backend dependency warning cleanup** -- reduce the recurring `passlib`/`crypt` and `pydub`/`audioop` deprecation noise in focused backend validation so real RTC warnings stand out.
-3. **Details playback coverage** -- add focused Jest coverage for `handlePlayRelated` queue behavior in the details screen so playback regressions stop relying on manual checks.
+2. **Details playback coverage** -- add focused Jest coverage for `handlePlayRelated` queue behavior in the details screen so playback regressions stop relying on manual checks.
+3. **Analytics test environment cleanup** -- replace the lightweight `RefreshControl` Jest mock with a more durable test setup so analytics screen coverage is less tied to renderer internals.
 
 ---
 
