@@ -1,6 +1,5 @@
 import React from "react";
 import { act, render, waitFor } from "@testing-library/react-native";
-import { Text } from "react-native";
 import AnalyticsScreen from "../../../../app/(main)/analytics";
 import { withTabScreenBottomPadding } from "../../../constants/theme";
 import apiService from "../../../services/api/apiService";
@@ -18,82 +17,36 @@ jest.mock("../../../services/api/apiService", () => ({
 
 jest.mock("react-native", () => {
     const React = require("react");
+    const actual = jest.requireActual("react-native");
 
     const ScrollView = ({
         children,
         refreshControl,
         testID = "analytics-scroll-view",
         ...props
-    }) => React.createElement("ScrollView", { ...props, refreshControl, testID }, refreshControl, children);
+    }) =>
+        React.createElement(
+            actual.ScrollView || "ScrollView",
+            { ...props, refreshControl, testID },
+            refreshControl,
+            children
+        );
 
-    const RefreshControl = (props) => React.createElement("RefreshControl", props);
+    const RefreshControl = (props) =>
+        React.createElement(actual.View || "View", props);
 
     return {
-        Platform: {
-            OS: "ios",
-            select: (options) => options.ios || options.default,
-        },
-        Dimensions: {
-            get: () => ({ width: 375, height: 812 }),
-            addEventListener: jest.fn(),
-            removeEventListener: jest.fn(),
-        },
-        StyleSheet: {
-            create: (styles) => styles,
-            flatten: (style) => style,
-        },
-        Text: "Text",
-        View: "View",
-        TouchableOpacity: "TouchableOpacity",
-        TextInput: "TextInput",
+        ...actual,
         ScrollView,
-        Image: "Image",
-        FlatList: "FlatList",
-        ActivityIndicator: "ActivityIndicator",
-        Switch: "Switch",
-        Modal: "Modal",
-        Pressable: "Pressable",
-        SafeAreaView: "SafeAreaView",
-        TouchableHighlight: "TouchableHighlight",
-        TouchableWithoutFeedback: "TouchableWithoutFeedback",
-        Alert: {
-            alert: jest.fn(),
-        },
-        Vibration: {
-            vibrate: jest.fn(),
-            cancel: jest.fn(),
-        },
         RefreshControl,
         Animated: {
-            Value: jest.fn(() => ({
-                setValue: jest.fn(),
-                addListener: jest.fn(),
-                removeListener: jest.fn(),
-                interpolate: jest.fn(),
-            })),
-            timing: jest.fn(() => ({
-                start: jest.fn(),
-            })),
-            View: "AnimatedView",
+            ...actual.Animated,
             spring: jest.fn(() => ({
                 start: jest.fn(),
             })),
             stagger: jest.fn(() => ({
                 start: jest.fn(),
             })),
-        },
-        Keyboard: {
-            dismiss: jest.fn(),
-            addListener: jest.fn(),
-            removeListener: jest.fn(),
-        },
-        Linking: {
-            openURL: jest.fn(),
-            canOpenURL: jest.fn(() => Promise.resolve(true)),
-        },
-        BackHandler: {
-            addEventListener: jest.fn(),
-            removeEventListener: jest.fn(),
         },
     };
 });
