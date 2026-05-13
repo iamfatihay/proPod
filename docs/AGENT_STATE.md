@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-13
-**Last session (24):** backend validation warning cleanup -- branch `fix/backend-validation-warning-noise` / PR pending fixes the backend pytest config so focused RTC validation no longer drowns real issues in passlib/pydub deprecation noise
+**Last session (25):** details playback queue metadata reliability -- branch `fix/details-playback-queue-metadata` / PR pending centralizes details-screen track shaping so related playback keeps owner/category metadata and downloaded episodes can stay on the local file path when queued
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -42,6 +42,7 @@
 - `fix/shared-padding-analytics-rtc-session-screens` / PR pending -- moves analytics and RTC session history to the shared tab-screen bottom padding helper for consistent spacing above the tab bar.
 - `test/analytics-screen-coverage` / PR pending -- adds focused Jest coverage for the analytics screen shared bottom padding and pull-to-refresh reload path.
 - `fix/backend-validation-warning-noise` / PR pending -- corrects the backend `pytest.ini` section header so targeted RTC pytest runs apply the repo config and suppress the known third-party Python 3.13 deprecation noise.
+- `fix/details-playback-queue-metadata` / PR pending -- centralizes details-screen queue track shaping so queued related episodes keep owner/category/description metadata and downloaded current episodes can stay on the local URI when added to playback.
 
 ---
 
@@ -60,6 +61,7 @@
 - RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
 - Host failed-session coverage is still action-level; the create-screen RTC lifecycle remains hard to test end-to-end without more screen decomposition.
 - Analytics screen tests currently rely on a lightweight Jest-side `RefreshControl` mock because the React Native test renderer environment does not provide that path cleanly.
+- Track-to-audio-queue mapping is still duplicated across several non-details screens, so metadata drift remains possible outside this newly centralized details helper.
 
 ---
 
@@ -104,6 +106,8 @@
 - 2026-05-13: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/analytics/AnalyticsScreen.test.js --runInBand` passed (2 tests); Jest still emitted the existing `react-test-renderer` deprecation warning.
 - 2026-05-13: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/analytics.js' 'src/tests/__tests__/analytics/AnalyticsScreen.test.js'` passed; Node emitted the existing package module-type warning.
 - 2026-05-13: `cd /home/fatih/proPod/frontend && npm run test:ci` passed (27 suites / 322 tests); existing `react-test-renderer` deprecation warnings remained.
+- 2026-05-13: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/details/DetailsPlayback.test.js --runInBand` passed (3 tests); the queue-builder coverage now verifies related-playback ordering plus owner/category/description retention.
+- 2026-05-13: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/details.js' 'src/utils/detailsPlayback.js' 'src/tests/__tests__/details/DetailsPlayback.test.js'` passed; Node emitted the existing package module-type warning.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -112,8 +116,8 @@
 ## Next Session Suggestions
 
 1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the DB-safety and migration fixes.
-2. **Details playback coverage** -- add focused Jest coverage for `handlePlayRelated` queue behavior in the details screen so playback regressions stop relying on manual checks.
-3. **Analytics test environment cleanup** -- replace the lightweight `RefreshControl` Jest mock with a more durable test setup so analytics screen coverage is less tied to renderer internals.
+2. **Analytics test environment cleanup** -- replace the lightweight `RefreshControl` Jest mock with a more durable test setup so analytics screen coverage is less tied to renderer internals.
+3. **Shared queue-track normalization** -- audit the other queue-building screens and converge them on one metadata-complete track shape so playback fallback behavior stays consistent outside details.
 
 ---
 
