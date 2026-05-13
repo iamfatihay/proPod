@@ -67,4 +67,22 @@ describe("audioTracks helpers", () => {
             })
         ).toBeNull();
     });
+
+    it("falls back to the shared unknown artist label when owner_name is missing", () => {
+        expect(
+            buildContinueListeningAudioTrack({
+                podcast_id: 24,
+                audio_url: "https://cdn.example.com/resume-2.mp3",
+                title: "Resume Episode Without Owner Name",
+                duration: 60,
+                owner_id: 45,
+            })
+        ).toEqual(
+            expect.objectContaining({
+                id: 24,
+                artist: "Unknown Artist",
+                ownerId: 45,
+            })
+        );
+    });
 });

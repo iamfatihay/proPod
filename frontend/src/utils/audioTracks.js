@@ -33,13 +33,10 @@ export const buildContinueListeningAudioTrack = (item, options = {}) => {
             category: item.category,
             description: item.description,
             owner_id: item.owner_id,
-            owner:
-                item.owner_name || item.owner_id
-                    ? {
-                          id: item.owner_id,
-                          name: item.owner_name,
-                      }
-                    : undefined,
+            owner: {
+                id: item.owner_id,
+                name: item.owner_name,
+            },
         },
         options
     );

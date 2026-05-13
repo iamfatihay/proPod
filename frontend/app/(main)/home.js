@@ -408,11 +408,6 @@ export default function HomeScreen() {
 
     const handleResumePodcast = useCallback(
         (item) => {
-            if (!item.audio_url) {
-                showToast("Audio not available", "error");
-                return;
-            }
-
             const track = buildContinueListeningAudioTrack(item);
 
             if (!track) {
