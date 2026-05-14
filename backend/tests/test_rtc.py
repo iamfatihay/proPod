@@ -311,8 +311,13 @@ class TestRTCSessions:
 
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, list)
-        assert len(data) == 0
+        assert data == {
+            "sessions": [],
+            "total": 0,
+            "limit": 20,
+            "offset": 0,
+            "has_more": False,
+        }
 
     def test_list_sessions_with_data(self, test_user):
         """Test listing sessions with existing data."""
@@ -337,8 +342,12 @@ class TestRTCSessions:
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 3
-        assert all("room_id" in session for session in data)
+        assert data["total"] == 3
+        assert data["limit"] == 20
+        assert data["offset"] == 0
+        assert data["has_more"] is False
+        assert len(data["sessions"]) == 3
+        assert all("room_id" in session for session in data["sessions"])
 
     def test_list_sessions_supports_offset_pagination(self, test_user):
         """Test listing sessions with limit and offset pagination."""
@@ -364,7 +373,11 @@ class TestRTCSessions:
 
         assert response.status_code == 200
         data = response.json()
-        assert [session["title"] for session in data] == [
+        assert data["total"] == 4
+        assert data["limit"] == 2
+        assert data["offset"] == 1
+        assert data["has_more"] is True
+        assert [session["title"] for session in data["sessions"]] == [
             "Paged Podcast 2",
             "Paged Podcast 1",
         ]

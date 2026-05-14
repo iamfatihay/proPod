@@ -22,6 +22,20 @@ import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOpti
 
 const PAGE_SIZE = 25;
 
+const normalizeSessionListResponse = (response) => {
+    if (Array.isArray(response)) {
+        return {
+            sessions: response,
+            hasMore: response.length === PAGE_SIZE,
+        };
+    }
+
+    return {
+        sessions: Array.isArray(response?.sessions) ? response.sessions : [],
+        hasMore: Boolean(response?.has_more),
+    };
+};
+
 const mergeSessionPages = (existingSessions, nextSessions) => {
     const seenSessionIds = new Set(existingSessions.map((session) => session?.id));
     const uniqueNextSessions = nextSessions.filter((session) => {
@@ -240,9 +254,9 @@ export default function RtcSessionsScreen() {
 
         try {
             const response = await apiService.listRtcSessions({ limit: PAGE_SIZE, offset: 0 });
-            const nextSessions = Array.isArray(response) ? response : [];
+            const { hasMore: nextHasMore, sessions: nextSessions } = normalizeSessionListResponse(response);
             setSessions(nextSessions);
-            setHasMore(nextSessions.length === PAGE_SIZE);
+            setHasMore(nextHasMore);
             setError(null);
             setPaginationError(null);
         } catch (loadError) {
@@ -269,10 +283,10 @@ export default function RtcSessionsScreen() {
                 limit: PAGE_SIZE,
                 offset: sessions.length,
             });
-            const nextSessions = Array.isArray(response) ? response : [];
+            const { hasMore: nextHasMore, sessions: nextSessions } = normalizeSessionListResponse(response);
 
             setSessions((currentSessions) => mergeSessionPages(currentSessions, nextSessions));
-            setHasMore(nextSessions.length === PAGE_SIZE);
+            setHasMore(nextHasMore);
         } catch (loadError) {
             setPaginationError(loadError?.message || "Could not load more live sessions.");
         } finally {

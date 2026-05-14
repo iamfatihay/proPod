@@ -314,6 +314,15 @@ class RTCSessionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class RTCSessionListResponse(BaseModel):
+    """Paginated RTC session list response."""
+    sessions: List[RTCSessionResponse]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+
 class RTCParticipantResponse(BaseModel):
     """Response schema for a single RTC session participant.
 
