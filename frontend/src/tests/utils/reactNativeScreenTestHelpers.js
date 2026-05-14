@@ -1,10 +1,31 @@
 import React from "react";
 
-export const createRefreshControlMock = (reactNative) => {
-    const MockView = reactNative.View || "View";
+const renderListPart = (part) => {
+    if (!part) {
+        return null;
+    }
 
-    return function RefreshControl(props) {
-        return React.createElement(MockView, props);
+    if (typeof part === "function") {
+        return React.createElement(part);
+    }
+
+    return part;
+};
+
+export const createRefreshControlMock = (
+    reactNative,
+    defaultAccessibilityLabel = null
+) => {
+    const MockView = reactNative.View || "View";
+    const MockTouchableOpacity = reactNative.TouchableOpacity || MockView;
+
+    return function RefreshControl({ onRefresh, ...props }) {
+        return React.createElement(MockTouchableOpacity, {
+            accessibilityRole: "button",
+            accessibilityLabel: props.accessibilityLabel || defaultAccessibilityLabel,
+            ...props,
+            onPress: onRefresh,
+        });
     };
 };
 
@@ -25,6 +46,39 @@ export const createScrollViewWithRefreshControl = (
             { ...props, refreshControl, testID },
             refreshControl,
             children
+        );
+    };
+};
+
+export const createFlatListMock = (reactNative) => {
+    const MockView = reactNative.View || "View";
+
+    return function FlatList({
+        data = [],
+        ListEmptyComponent,
+        ListFooterComponent,
+        ListHeaderComponent,
+        refreshControl,
+        renderItem,
+        keyExtractor,
+    }) {
+        const items = Array.isArray(data) ? data : [];
+
+        return React.createElement(
+            MockView,
+            null,
+            renderListPart(ListHeaderComponent),
+            refreshControl,
+            items.length === 0
+                ? renderListPart(ListEmptyComponent)
+                : items.map((item, index) => React.createElement(
+                    MockView,
+                    {
+                        key: keyExtractor?.(item, index) ?? String(item?.id ?? index),
+                    },
+                    renderItem?.({ item, index }) ?? null
+                )),
+            renderListPart(ListFooterComponent)
         );
     };
 };

@@ -15,61 +15,18 @@ jest.mock("../../../services/api/apiService", () => ({
 }));
 
 jest.mock("react-native", () => {
-    const React = require("react");
     const actual = jest.requireActual("react-native");
-
-    const renderListPart = (part) => {
-        if (!part) {
-            return null;
-        }
-
-        if (typeof part === "function") {
-            const Part = part;
-            return <Part />;
-        }
-
-        return part;
-    };
-
-    const FlatList = ({
-        data = [],
-        ListEmptyComponent,
-        ListFooterComponent,
-        ListHeaderComponent,
-        refreshControl,
-        renderItem,
-    }) => (
-        <actual.View>
-            {renderListPart(ListHeaderComponent)}
-            {refreshControl}
-            {data.length === 0
-                ? renderListPart(ListEmptyComponent)
-                : data.map((item) => (
-                    <actual.View key={String(item.id)}>
-                        {renderItem({ item })}
-                    </actual.View>
-                ))}
-            {renderListPart(ListFooterComponent)}
-        </actual.View>
-    );
-
-    const RefreshControl = ({ onRefresh }) => (
-        <actual.TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Refresh live sessions"
-            onPress={onRefresh}
-        >
-            <actual.Text>Refresh live sessions</actual.Text>
-        </actual.TouchableOpacity>
-    );
+    const {
+        createFlatListMock,
+        createRefreshControlMock,
+    } = require("../../utils/reactNativeScreenTestHelpers");
 
     return {
         ...actual,
-        FlatList,
-        RefreshControl,
+        FlatList: createFlatListMock(actual),
+        RefreshControl: createRefreshControlMock(actual, "Refresh live sessions"),
     };
 });
-
 
 jest.mock("expo-router", () => {
     const React = require("react");
