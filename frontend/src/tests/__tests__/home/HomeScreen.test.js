@@ -11,28 +11,20 @@ const mockLoadFromStorage = jest.fn();
 const mockGetDraft = jest.fn().mockResolvedValue(null);
 
 jest.mock("react-native", () => {
-    const React = require("react");
     const actual = jest.requireActual("react-native");
-
-    const RefreshControl = (props) =>
-        React.createElement(actual.View || "View", props);
+    const {
+        createDeviceEventEmitterMock,
+        createImmediateInteractionManager,
+        createRefreshControlMock,
+    } = require("../../utils/reactNativeScreenTestHelpers");
 
     return {
         ...actual,
-        RefreshControl,
-        DeviceEventEmitter: {
-            addListener: jest.fn(() => ({
-                remove: jest.fn(),
-            })),
-        },
-        InteractionManager: {
-            ...actual.InteractionManager,
-            runAfterInteractions: jest.fn((callback) => {
-                if (callback) {
-                    callback();
-                }
-            }),
-        },
+        RefreshControl: createRefreshControlMock(actual),
+        DeviceEventEmitter: createDeviceEventEmitterMock(),
+        InteractionManager: createImmediateInteractionManager(
+            actual.InteractionManager
+        ),
     };
 });
 

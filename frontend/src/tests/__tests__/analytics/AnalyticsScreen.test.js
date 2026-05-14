@@ -16,38 +16,21 @@ jest.mock("../../../services/api/apiService", () => ({
 }));
 
 jest.mock("react-native", () => {
-    const React = require("react");
     const actual = jest.requireActual("react-native");
-
-    const ScrollView = ({
-        children,
-        refreshControl,
-        testID = "analytics-scroll-view",
-        ...props
-    }) =>
-        React.createElement(
-            actual.ScrollView || "ScrollView",
-            { ...props, refreshControl, testID },
-            refreshControl,
-            children
-        );
-
-    const RefreshControl = (props) =>
-        React.createElement(actual.View || "View", props);
+    const {
+        createAnimatedSpringAndStaggerMocks,
+        createRefreshControlMock,
+        createScrollViewWithRefreshControl,
+    } = require("../../utils/reactNativeScreenTestHelpers");
 
     return {
         ...actual,
-        ScrollView,
-        RefreshControl,
-        Animated: {
-            ...actual.Animated,
-            spring: jest.fn(() => ({
-                start: jest.fn(),
-            })),
-            stagger: jest.fn(() => ({
-                start: jest.fn(),
-            })),
-        },
+        ScrollView: createScrollViewWithRefreshControl(
+            actual,
+            "analytics-scroll-view"
+        ),
+        RefreshControl: createRefreshControlMock(actual),
+        Animated: createAnimatedSpringAndStaggerMocks(actual.Animated),
     };
 });
 
