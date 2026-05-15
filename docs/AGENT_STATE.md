@@ -6,8 +6,8 @@
 
 ## Current State
 
-**Last updated:** 2026-05-14
-**Last session (31):** RTC session history pagination metadata -- branch `feature/rtc-session-history-metadata` adds backend `has_more`/`total` metadata for `/rtc/sessions` and updates the screen to stop inferring more pages from page size; PR pending
+**Last updated:** 2026-05-15
+**Last session (32):** RTC session history end-of-list UX -- branch `feature/rtc-session-history-end-state` adds total-count context plus an explicit end-of-history state to the RTC session history screen; PR #144
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -48,6 +48,7 @@
 - `test/continue-listening-home-coverage` / PR pending -- adds focused HomeScreen coverage for the continue-listening resume CTA so the persisted `startPosition` handoff is pinned at the user interaction layer.
 - `test/rtc-screen-helper-migration` / PR pending -- migrates `RtcSessionsScreen.test.js` onto the shared React Native screen-test helper and extends the helper with shared FlatList plus refresh accessibility-label support.
 - `feature/rtc-session-history-metadata` / PR pending -- adds explicit `total` and `has_more` metadata to `/rtc/sessions` and consumes it in the RTC session history screen so pagination no longer guesses from page size.
+- `feature/rtc-session-history-end-state` / PR #144 -- uses `/rtc/sessions` metadata to show total session count context and an explicit end-of-history state in the RTC session history screen.
 
 ---
 
@@ -64,7 +65,7 @@
 - RTC join provider errors are classified from SDK message text; SDK error codes would make invite/auth/provider cases more precise if exposed reliably.
 - RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
 - Host failed-session coverage is still action-level; the create-screen RTC lifecycle remains hard to test end-to-end without more screen decomposition.
-- `app/(main)/rtc-sessions.js` still carries a temporary bare-array fallback for mixed frontend/backend rollout safety; remove it once the paginated response shape is universal.
+- `app/(main)/rtc-sessions.js` still carries a temporary bare-array fallback for mixed frontend/backend rollout safety, so total-count and end-of-history copy are only exact once the paginated response shape is universal.
 
 ---
 
@@ -123,6 +124,8 @@
 - 2026-05-14: `cd /home/fatih/proPod/frontend && npx jest --runInBand src/tests/__tests__/analytics/AnalyticsScreen.test.js` passed (2 tests); Jest emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-14: `cd /home/fatih/proPod/frontend && npx jest --runInBand src/tests/__tests__/home/HomeScreen.test.js` passed (1 test); Jest emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-14: `cd /home/fatih/proPod/frontend && node --check src/tests/__tests__/rtc/RtcSessionsScreen.test.js && node --check src/tests/utils/reactNativeScreenTestHelpers.js` passed.
+- 2026-05-15: `cd /home/fatih/proPod/frontend && npx jest --runInBand src/tests/__tests__/rtc/RtcSessionsScreen.test.js` passed (5 tests); Jest emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-15: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed; Node emitted the existing package module-type warning.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -130,9 +133,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the recent DB-safety and pagination fixes.
-2. **Continue-listening active-track coverage** -- add a focused home-screen test for the already-loaded resume case so the row keeps the expected pause/resume toggle behavior alongside the new `startPosition` coverage.
-3. **RTC session history end-of-list UX** -- use the new `/rtc/sessions` metadata to show a clearer end-of-history state or total context instead of simply hiding the load-more affordance.
+1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the recent DB-safety, pagination, and end-of-list UX fixes.
+2. **RTC session history fallback cleanup** -- remove the temporary bare-array fallback in `app/(main)/rtc-sessions.js` once the paginated `/rtc/sessions` response shape is guaranteed everywhere.
+3. **Continue-listening active-track coverage** -- add a focused home-screen test for the already-loaded resume case so the row keeps the expected pause/resume toggle behavior alongside the new `startPosition` coverage.
 
 ---
 
