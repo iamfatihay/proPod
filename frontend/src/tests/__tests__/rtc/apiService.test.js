@@ -156,20 +156,26 @@ describe("RTC API Service", () => {
 
     describe("listRtcSessions", () => {
         it("should list all sessions", async () => {
-            const mockSessions = [
-                {
-                    id: 1,
-                    room_id: "room-1",
-                    title: "Session 1",
-                    status: "completed",
-                },
-                {
-                    id: 2,
-                    room_id: "room-2",
-                    title: "Session 2",
-                    status: "created",
-                },
-            ];
+            const mockSessions = {
+                sessions: [
+                    {
+                        id: 1,
+                        room_id: "room-1",
+                        title: "Session 1",
+                        status: "completed",
+                    },
+                    {
+                        id: 2,
+                        room_id: "room-2",
+                        title: "Session 2",
+                        status: "created",
+                    },
+                ],
+                total: 2,
+                limit: 20,
+                offset: 0,
+                has_more: false,
+            };
 
             global.fetch.mockResolvedValueOnce({
                 ok: true,
@@ -185,7 +191,7 @@ describe("RTC API Service", () => {
             );
 
             expect(result).toEqual(mockSessions);
-            expect(result).toHaveLength(2);
+            expect(result.sessions).toHaveLength(2);
         });
 
         it("should filter sessions by room_id", async () => {

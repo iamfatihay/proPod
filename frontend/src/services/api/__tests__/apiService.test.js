@@ -599,10 +599,16 @@ describe("ApiService", () => {
         });
 
         test("listRtcSessions() should send GET request with optional filters", async () => {
-            const mockResponse = [
-                { id: 1, room_id: "room-1", status: "created" },
-                { id: 2, room_id: "room-2", status: "completed" },
-            ];
+            const mockResponse = {
+                sessions: [
+                    { id: 1, room_id: "room-1", status: "created" },
+                    { id: 2, room_id: "room-2", status: "completed" },
+                ],
+                total: 2,
+                limit: 10,
+                offset: 0,
+                has_more: false,
+            };
 
             global.mockApiResponse(mockResponse);
 
@@ -616,7 +622,13 @@ describe("ApiService", () => {
         });
 
         test("listRtcSessions() should handle empty query params", async () => {
-            const mockResponse = [];
+            const mockResponse = {
+                sessions: [],
+                total: 0,
+                limit: 20,
+                offset: 0,
+                has_more: false,
+            };
 
             global.mockApiResponse(mockResponse);
 

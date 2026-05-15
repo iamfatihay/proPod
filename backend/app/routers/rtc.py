@@ -405,14 +405,14 @@ async def hms_webhook(
     return {"status": "ok"}
 
 
-@router.get("/sessions", response_model=list[schemas.RTCSessionResponse])
+@router.get("/sessions", response_model=schemas.RTCSessionListResponse)
 def list_rtc_sessions(
     room_id: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> list[schemas.RTCSessionResponse]:
+) -> schemas.RTCSessionListResponse:
     """List RTC sessions for the current user."""
     query = db.query(models.RTCSession).filter(
         models.RTCSession.owner_id == current_user.id
@@ -423,6 +423,7 @@ def list_rtc_sessions(
 
     safe_limit = min(max(limit, 1), 50)
     safe_offset = max(offset, 0)
+    total = query.count()
     sessions = (
         query
         .order_by(desc(models.RTCSession.created_at), desc(models.RTCSession.id))
@@ -430,7 +431,13 @@ def list_rtc_sessions(
         .limit(safe_limit)
         .all()
     )
-    return sessions
+    return schemas.RTCSessionListResponse(
+        sessions=sessions,
+        total=total,
+        limit=safe_limit,
+        offset=safe_offset,
+        has_more=(safe_offset + len(sessions)) < total,
+    )
 
 
 @router.get("/sessions/{session_id}", response_model=schemas.RTCSessionResponse)

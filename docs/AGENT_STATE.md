@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-14
-**Last session (30):** RTC screen helper migration -- branch `test/rtc-screen-helper-migration` moves `RtcSessionsScreen.test.js` onto the shared React Native screen-test helper; PR pending
+**Last session (31):** RTC session history pagination metadata -- branch `feature/rtc-session-history-metadata` adds backend `has_more`/`total` metadata for `/rtc/sessions` and updates the screen to stop inferring more pages from page size; PR pending
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -47,6 +47,7 @@
 - `fix/continue-listening-track-adapter` / PR pending -- routes continue-listening resume playback through the shared track helper so resume metadata stays aligned with details/home/profile/search queue shaping.
 - `test/continue-listening-home-coverage` / PR pending -- adds focused HomeScreen coverage for the continue-listening resume CTA so the persisted `startPosition` handoff is pinned at the user interaction layer.
 - `test/rtc-screen-helper-migration` / PR pending -- migrates `RtcSessionsScreen.test.js` onto the shared React Native screen-test helper and extends the helper with shared FlatList plus refresh accessibility-label support.
+- `feature/rtc-session-history-metadata` / PR pending -- adds explicit `total` and `has_more` metadata to `/rtc/sessions` and consumes it in the RTC session history screen so pagination no longer guesses from page size.
 
 ---
 
@@ -60,10 +61,10 @@
 - Share web pages still contain placeholder CTA behavior and need production-ready app-open/download handling.
 - Full test suite timeout: ~486 tests exceeds the practical sandbox budget; run targeted groups of 3-4 files max.
 - Frontend RTC Jest runs still emit the upstream `react-test-renderer` deprecation warning; validation passes, but the test stack should be modernized.
-- RTC session history pagination infers more pages from page-size responses; the backend still does not expose total counts or explicit `has_more` metadata.
 - RTC join provider errors are classified from SDK message text; SDK error codes would make invite/auth/provider cases more precise if exposed reliably.
 - RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
 - Host failed-session coverage is still action-level; the create-screen RTC lifecycle remains hard to test end-to-end without more screen decomposition.
+- `app/(main)/rtc-sessions.js` still carries a temporary bare-array fallback for mixed frontend/backend rollout safety; remove it once the paginated response shape is universal.
 
 ---
 
@@ -129,9 +130,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the DB-safety and migration fixes.
+1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the recent DB-safety and pagination fixes.
 2. **Continue-listening active-track coverage** -- add a focused home-screen test for the already-loaded resume case so the row keeps the expected pause/resume toggle behavior alongside the new `startPosition` coverage.
-3. **RTC session history pagination metadata** -- add explicit `has_more` or total-count metadata to the backend session-history endpoint and consume it in the screen so pagination stops inferring more pages from page size.
+3. **RTC session history end-of-list UX** -- use the new `/rtc/sessions` metadata to show a clearer end-of-history state or total context instead of simply hiding the load-more affordance.
 
 ---
 

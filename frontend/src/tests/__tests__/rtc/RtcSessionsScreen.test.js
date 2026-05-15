@@ -70,35 +70,41 @@ describe("RtcSessionsScreen", () => {
 
     it("renders recent sessions and opens ready podcasts", async () => {
         mockParams = { focusSessionId: "42" };
-        apiService.listRtcSessions.mockResolvedValue([
-            {
-                id: 42,
-                title: "Weekly Roundtable",
-                room_name: "weekly-roundtable",
-                created_at: "2026-05-08T10:00:00Z",
-                media_mode: "video",
-                participant_count: 3,
-                duration_seconds: 1860,
-                podcast_id: 77,
-                status: "completed",
-                recording_status: "completed",
-                is_live: false,
-            },
-            {
-                id: 18,
-                title: "Guest Check-In",
-                room_name: "guest-check-in",
-                created_at: "2026-05-07T08:30:00Z",
-                media_mode: "audio",
-                participant_count: 0,
-                duration_seconds: 420,
-                podcast_id: null,
-                status: "ended",
-                recording_status: "processing",
-                is_live: false,
-                invite_code: "ABCD1234",
-            },
-        ]);
+        apiService.listRtcSessions.mockResolvedValue({
+            sessions: [
+                {
+                    id: 42,
+                    title: "Weekly Roundtable",
+                    room_name: "weekly-roundtable",
+                    created_at: "2026-05-08T10:00:00Z",
+                    media_mode: "video",
+                    participant_count: 3,
+                    duration_seconds: 1860,
+                    podcast_id: 77,
+                    status: "completed",
+                    recording_status: "completed",
+                    is_live: false,
+                },
+                {
+                    id: 18,
+                    title: "Guest Check-In",
+                    room_name: "guest-check-in",
+                    created_at: "2026-05-07T08:30:00Z",
+                    media_mode: "audio",
+                    participant_count: 0,
+                    duration_seconds: 420,
+                    podcast_id: null,
+                    status: "ended",
+                    recording_status: "processing",
+                    is_live: false,
+                    invite_code: "ABCD1234",
+                },
+            ],
+            total: 2,
+            limit: 25,
+            offset: 0,
+            has_more: false,
+        });
 
         const { getByText, getByLabelText } = render(<RtcSessionsScreen />);
 
@@ -122,7 +128,13 @@ describe("RtcSessionsScreen", () => {
     });
 
     it("shows the empty state when there are no live sessions", async () => {
-        apiService.listRtcSessions.mockResolvedValue([]);
+        apiService.listRtcSessions.mockResolvedValue({
+            sessions: [],
+            total: 0,
+            limit: 25,
+            offset: 0,
+            has_more: false,
+        });
 
         const { getByText } = render(<RtcSessionsScreen />);
 
@@ -168,22 +180,34 @@ describe("RtcSessionsScreen", () => {
         }));
 
         apiService.listRtcSessions
-            .mockResolvedValueOnce(firstPage)
-            .mockResolvedValueOnce([
-                {
-                    id: 50,
-                    title: "Older Planning Session",
-                    room_name: "older-planning-session",
-                    created_at: "2026-05-07T10:00:00Z",
-                    media_mode: "video",
-                    participant_count: 3,
-                    duration_seconds: 1200,
-                    podcast_id: null,
-                    status: "ended",
-                    recording_status: "processing",
-                    is_live: false,
-                },
-            ]);
+            .mockResolvedValueOnce({
+                sessions: firstPage,
+                total: 26,
+                limit: 25,
+                offset: 0,
+                has_more: true,
+            })
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 50,
+                        title: "Older Planning Session",
+                        room_name: "older-planning-session",
+                        created_at: "2026-05-07T10:00:00Z",
+                        media_mode: "video",
+                        participant_count: 3,
+                        duration_seconds: 1200,
+                        podcast_id: null,
+                        status: "ended",
+                        recording_status: "processing",
+                        is_live: false,
+                    },
+                ],
+                total: 26,
+                limit: 25,
+                offset: 25,
+                has_more: false,
+            });
 
         const { getByLabelText, getByText, queryByText } = render(<RtcSessionsScreen />);
 
@@ -225,7 +249,13 @@ describe("RtcSessionsScreen", () => {
         });
 
         apiService.listRtcSessions
-            .mockResolvedValueOnce(firstPage)
+            .mockResolvedValueOnce({
+                sessions: firstPage,
+                total: 26,
+                limit: 25,
+                offset: 0,
+                has_more: true,
+            })
             .mockImplementationOnce(() => refreshPromise);
 
         const { getByLabelText, getByText } = render(<RtcSessionsScreen />);
@@ -244,7 +274,13 @@ describe("RtcSessionsScreen", () => {
 
         expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
 
-        resolveRefresh(firstPage);
+        resolveRefresh({
+            sessions: firstPage,
+            total: 26,
+            limit: 25,
+            offset: 0,
+            has_more: true,
+        });
 
         await waitFor(() => {
             expect(apiService.listRtcSessions).toHaveBeenLastCalledWith({
