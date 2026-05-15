@@ -113,11 +113,16 @@ describe("RtcSessionsScreen", () => {
         });
 
         expect(getByText("Recent Live Sessions")).toBeTruthy();
+        expect(
+            getByText("2 sessions total. Review recent live sessions and whether each recording is ready.")
+        ).toBeTruthy();
         expect(getByText("Weekly Roundtable")).toBeTruthy();
         expect(getByText("Podcast ready")).toBeTruthy();
         expect(getByText("Processing recording")).toBeTruthy();
         expect(getByText("Latest session")).toBeTruthy();
         expect(getByText("No participants")).toBeTruthy();
+        expect(getByText("You're all caught up")).toBeTruthy();
+        expect(getByText("Showing all 2 sessions in your live recording history.")).toBeTruthy();
 
         fireEvent.press(getByLabelText("Open podcast for Weekly Roundtable"));
 
@@ -226,6 +231,8 @@ describe("RtcSessionsScreen", () => {
 
         expect(getByText("Older Planning Session")).toBeTruthy();
         expect(queryByText("Load More Sessions")).toBeNull();
+        expect(getByText("You're all caught up")).toBeTruthy();
+        expect(getByText("Showing all 26 sessions in your live recording history.")).toBeTruthy();
     });
 
     it("does not paginate while a refresh request is in flight", async () => {
