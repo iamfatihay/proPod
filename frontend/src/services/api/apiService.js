@@ -49,6 +49,9 @@ const RETRY_CONFIG = {
     checkNetwork: false, // Disabled - no default external dependency
 };
 
+const INVALID_RTC_SESSION_LIST_RESPONSE_MESSAGE =
+    "Live session history is temporarily unavailable. Please try again.";
+
 /**
  * ApiService Class
  *
@@ -111,6 +114,26 @@ class ApiService {
     normalizePodcasts(podcasts) {
         if (!Array.isArray(podcasts)) return podcasts;
         return podcasts.map((p) => this.normalizePodcast(p));
+    }
+
+    validateRtcSessionListResponse(response) {
+        const hasValidShape =
+            response &&
+            !Array.isArray(response) &&
+            Array.isArray(response.sessions) &&
+            Number.isInteger(response.total) &&
+            response.total >= 0 &&
+            Number.isInteger(response.limit) &&
+            response.limit >= 0 &&
+            Number.isInteger(response.offset) &&
+            response.offset >= 0 &&
+            typeof response.has_more === "boolean";
+
+        if (!hasValidShape) {
+            throw new Error(INVALID_RTC_SESSION_LIST_RESPONSE_MESSAGE);
+        }
+
+        return response;
     }
 
     /**
@@ -684,7 +707,8 @@ class ApiService {
 
         const queryString = queryParams.toString();
         const endpoint = queryString ? `/rtc/sessions?${queryString}` : "/rtc/sessions";
-        return this.request(endpoint);
+        const response = await this.request(endpoint);
+        return this.validateRtcSessionListResponse(response);
     }
 
     /**

@@ -198,13 +198,19 @@ describe("RTC API Service", () => {
             global.fetch.mockResolvedValueOnce({
                 ok: true,
                 status: 200,
-                json: async () => [
-                    {
-                        id: 1,
-                        room_id: "specific-room",
-                        title: "Filtered Session",
-                    },
-                ],
+                json: async () => ({
+                    sessions: [
+                        {
+                            id: 1,
+                            room_id: "specific-room",
+                            title: "Filtered Session",
+                        },
+                    ],
+                    total: 1,
+                    limit: 20,
+                    offset: 0,
+                    has_more: false,
+                }),
             });
 
             await apiService.listRtcSessions({ room_id: "specific-room" });
@@ -219,7 +225,13 @@ describe("RTC API Service", () => {
             global.fetch.mockResolvedValueOnce({
                 ok: true,
                 status: 200,
-                json: async () => [],
+                json: async () => ({
+                    sessions: [],
+                    total: 0,
+                    limit: 10,
+                    offset: 0,
+                    has_more: false,
+                }),
             });
 
             await apiService.listRtcSessions({ limit: 10 });
@@ -234,7 +246,13 @@ describe("RTC API Service", () => {
             global.fetch.mockResolvedValueOnce({
                 ok: true,
                 status: 200,
-                json: async () => [],
+                json: async () => ({
+                    sessions: [],
+                    total: 0,
+                    limit: 10,
+                    offset: 20,
+                    has_more: false,
+                }),
             });
 
             await apiService.listRtcSessions({ limit: 10, offset: 20 });
@@ -242,6 +260,24 @@ describe("RTC API Service", () => {
             expect(global.fetch).toHaveBeenCalledWith(
                 "http://localhost:8000/rtc/sessions?limit=10&offset=20",
                 expect.any(Object)
+            );
+        });
+
+        it("should reject malformed paginated RTC session responses", async () => {
+            global.fetch.mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                json: async () => [
+                    {
+                        id: 1,
+                        room_id: "room-1",
+                        title: "Legacy Session",
+                    },
+                ],
+            });
+
+            await expect(apiService.listRtcSessions()).rejects.toThrow(
+                "Live session history is temporarily unavailable. Please try again."
             );
         });
     });
