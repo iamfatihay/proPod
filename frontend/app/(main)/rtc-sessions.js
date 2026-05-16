@@ -23,16 +23,10 @@ import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOpti
 const PAGE_SIZE = 25;
 
 const normalizeSessionListResponse = (response) => {
-    if (Array.isArray(response)) {
-        return {
-            sessions: response,
-            hasMore: response.length === PAGE_SIZE,
-            total: null,
-        };
-    }
-
     const sessions = Array.isArray(response?.sessions) ? response.sessions : [];
-    const total = Number.isFinite(response?.total) ? Math.max(response.total, 0) : null;
+    const total = Number.isFinite(response?.total)
+        ? Math.max(response.total, 0)
+        : sessions.length;
 
     return {
         sessions,
