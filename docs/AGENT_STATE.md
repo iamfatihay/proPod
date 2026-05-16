@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-16
-**Last session (34):** RTC session response contract hardening -- branch `fix/rtc-session-response-contract` validates paginated `/rtc/sessions` metadata in frontend `apiService` so malformed history payloads surface an explicit error instead of silently falling back; PR pending
+**Last session (34):** RTC session response contract hardening -- branch `fix/rtc-session-response-contract` validates paginated `/rtc/sessions` metadata in frontend `apiService` so malformed history payloads surface an explicit error instead of silently falling back; PR #146
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -50,7 +50,7 @@
 - `feature/rtc-session-history-metadata` / PR pending -- adds explicit `total` and `has_more` metadata to `/rtc/sessions` and consumes it in the RTC session history screen so pagination no longer guesses from page size.
 - `feature/rtc-session-history-end-state` / PR #144 -- uses `/rtc/sessions` metadata to show total session count context and an explicit end-of-history state in the RTC session history screen.
 - `fix/rtc-session-history-fallback-cleanup` / PR #145 -- removes the temporary bare-array fallback in the RTC session history screen so count/end-of-history messaging always follows the paginated `/rtc/sessions` contract.
-- `fix/rtc-session-response-contract` / PR pending -- validates `/rtc/sessions` paginated metadata in frontend `apiService` so malformed responses fail fast and the RTC history screen shows an explicit retryable error state.
+- `fix/rtc-session-response-contract` / PR #146 -- validates `/rtc/sessions` paginated metadata in frontend `apiService` so malformed responses fail fast and the RTC history screen shows an explicit retryable error state.
 
 ---
 
