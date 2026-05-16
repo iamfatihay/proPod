@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-16
-**Last session (34):** RTC session response contract hardening -- branch `fix/rtc-session-response-contract` validates paginated `/rtc/sessions` metadata in frontend `apiService` so malformed history payloads surface an explicit error instead of silently falling back; PR #146
+**Last session (35):** Continue-listening active-track coverage -- branch `test/continue-listening-active-track-coverage` adds HomeScreen coverage for the loaded-track pause/resume toggle so resume taps do not silently regress into restart behavior; PR #148
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -51,6 +51,7 @@
 - `feature/rtc-session-history-end-state` / PR #144 -- uses `/rtc/sessions` metadata to show total session count context and an explicit end-of-history state in the RTC session history screen.
 - `fix/rtc-session-history-fallback-cleanup` / PR #145 -- removes the temporary bare-array fallback in the RTC session history screen so count/end-of-history messaging always follows the paginated `/rtc/sessions` contract.
 - `fix/rtc-session-response-contract` / PR #146 -- validates `/rtc/sessions` paginated metadata in frontend `apiService` so malformed responses fail fast and the RTC history screen shows an explicit retryable error state.
+- `test/continue-listening-active-track-coverage` / PR #148 -- adds focused HomeScreen coverage for the continue-listening loaded-track pause/resume toggle so active playback does not regress into an unintended restart path.
 
 ---
 
@@ -68,6 +69,7 @@
 - RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
 - Host failed-session coverage is still action-level; the create-screen RTC lifecycle remains hard to test end-to-end without more screen decomposition.
 - `/rtc/sessions` is now validated at the frontend API boundary, but other paginated endpoints still accept raw response shapes without shared contract helpers.
+- Continue-listening playback behavior is now covered at the HomeScreen handler layer, but it still lacks device QA for the loaded-track toggle and resume-position paths.
 
 ---
 
@@ -133,6 +135,8 @@
 - 2026-05-16: `cd /home/fatih/proPod/frontend && npx jest --runInBand src/tests/__tests__/rtc/apiService.test.js src/tests/__tests__/rtc/RtcSessionsScreen.test.js` passed (21 tests); Jest emitted the existing `react-test-renderer` deprecation warnings plus the expected mocked API logger warnings/errors from the apiService error-handling tests.
 - 2026-05-16: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/services/api/apiService.js' 'src/tests/__tests__/rtc/apiService.test.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-16: repository pre-commit hook on `git commit` passed for `fix(rtc): remove legacy session history fallback`.
+- 2026-05-16: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/home/HomeScreen.test.js --runInBand` passed (3 tests); Jest emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-16: `cd /home/fatih/proPod/frontend && npx eslint 'src/tests/__tests__/home/HomeScreen.test.js'` passed; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -142,7 +146,7 @@
 
 1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the recent DB-safety and session-history contract fixes.
 2. **RTC failed-session recovery QA** -- exercise the host failed-session notification plus re-record CTA flow end-to-end so creators can recover cleanly from recording failures.
-3. **Continue-listening active-track coverage** -- add a focused home-screen test for the already-loaded resume case so the row keeps the expected pause/resume toggle behavior alongside the new `startPosition` coverage.
+3. **Continue-listening device QA** -- verify on iOS and Android that the row resumes from saved position for new loads and toggles pause/resume correctly when the episode is already loaded.
 
 ---
 
