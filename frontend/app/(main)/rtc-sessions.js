@@ -27,13 +27,38 @@ const normalizeSessionListResponse = (response) => {
         return {
             sessions: response,
             hasMore: response.length === PAGE_SIZE,
+            total: null,
         };
     }
 
+    const sessions = Array.isArray(response?.sessions) ? response.sessions : [];
+    const total = Number.isFinite(response?.total) ? Math.max(response.total, 0) : null;
+
     return {
-        sessions: Array.isArray(response?.sessions) ? response.sessions : [],
+        sessions,
         hasMore: Boolean(response?.has_more),
+        total,
     };
+};
+
+const getSessionCountLabel = (count) => (count === 1 ? "1 session" : `${count} sessions`);
+
+const getHeaderSubtitle = (totalSessions) => {
+    const baseCopy = "Review recent live sessions and whether each recording is ready.";
+
+    if (!Number.isFinite(totalSessions) || totalSessions <= 0) {
+        return baseCopy;
+    }
+
+    return `${getSessionCountLabel(totalSessions)} total. ${baseCopy}`;
+};
+
+const getHistoryEndCopy = (totalSessions) => {
+    if (Number.isFinite(totalSessions) && totalSessions > 0) {
+        return `Showing all ${getSessionCountLabel(totalSessions)} in your live recording history.`;
+    }
+
+    return "You've reached the end of your live recording history.";
 };
 
 const mergeSessionPages = (existingSessions, nextSessions) => {
@@ -244,6 +269,7 @@ export default function RtcSessionsScreen() {
     const [error, setError] = useState(null);
     const [paginationError, setPaginationError] = useState(null);
     const [hasMore, setHasMore] = useState(false);
+    const [totalSessions, setTotalSessions] = useState(null);
 
     const loadSessions = useCallback(async ({ isRefresh = false } = {}) => {
         if (isRefresh) {
@@ -254,9 +280,14 @@ export default function RtcSessionsScreen() {
 
         try {
             const response = await apiService.listRtcSessions({ limit: PAGE_SIZE, offset: 0 });
-            const { hasMore: nextHasMore, sessions: nextSessions } = normalizeSessionListResponse(response);
+            const {
+                hasMore: nextHasMore,
+                sessions: nextSessions,
+                total: nextTotalSessions,
+            } = normalizeSessionListResponse(response);
             setSessions(nextSessions);
             setHasMore(nextHasMore);
+            setTotalSessions(nextTotalSessions);
             setError(null);
             setPaginationError(null);
         } catch (loadError) {
@@ -283,10 +314,15 @@ export default function RtcSessionsScreen() {
                 limit: PAGE_SIZE,
                 offset: sessions.length,
             });
-            const { hasMore: nextHasMore, sessions: nextSessions } = normalizeSessionListResponse(response);
+            const {
+                hasMore: nextHasMore,
+                sessions: nextSessions,
+                total: nextTotalSessions,
+            } = normalizeSessionListResponse(response);
 
             setSessions((currentSessions) => mergeSessionPages(currentSessions, nextSessions));
             setHasMore(nextHasMore);
+            setTotalSessions((currentTotalSessions) => nextTotalSessions ?? currentTotalSessions);
         } catch (loadError) {
             setPaginationError(loadError?.message || "Could not load more live sessions.");
         } finally {
@@ -382,6 +418,15 @@ export default function RtcSessionsScreen() {
             );
         }
 
+        if (sessions.length > 0) {
+            return (
+                <View style={styles.footerSummary}>
+                    <Text style={styles.footerSummaryTitle}>You&apos;re all caught up</Text>
+                    <Text style={styles.footerSummaryBody}>{getHistoryEndCopy(totalSessions)}</Text>
+                </View>
+            );
+        }
+
         return null;
     };
 
@@ -420,7 +465,7 @@ export default function RtcSessionsScreen() {
                     <View style={styles.headerBlock}>
                         <Text style={styles.headerTitle}>Recent Live Sessions</Text>
                         <Text style={styles.headerSubtitle}>
-                            Review recent live sessions and whether each recording is ready.
+                            {getHeaderSubtitle(totalSessions)}
                         </Text>
                     </View>
                 }
@@ -633,6 +678,25 @@ const styles = StyleSheet.create({
     footerLoadingText: {
         color: COLORS.text.secondary,
         fontSize: FONT_SIZES.sm,
+    },
+    footerSummary: {
+        marginTop: 6,
+        borderRadius: BORDER_RADIUS.lg,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        backgroundColor: COLORS.card,
+        padding: 16,
+        gap: 6,
+    },
+    footerSummaryTitle: {
+        color: COLORS.text.primary,
+        fontSize: FONT_SIZES.base,
+        fontWeight: "600",
+    },
+    footerSummaryBody: {
+        color: COLORS.text.secondary,
+        fontSize: FONT_SIZES.sm,
+        lineHeight: 20,
     },
     loadingOverlay: {
         ...StyleSheet.absoluteFillObject,

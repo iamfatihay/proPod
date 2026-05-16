@@ -113,11 +113,16 @@ describe("RtcSessionsScreen", () => {
         });
 
         expect(getByText("Recent Live Sessions")).toBeTruthy();
+        expect(
+            getByText("2 sessions total. Review recent live sessions and whether each recording is ready.")
+        ).toBeTruthy();
         expect(getByText("Weekly Roundtable")).toBeTruthy();
         expect(getByText("Podcast ready")).toBeTruthy();
         expect(getByText("Processing recording")).toBeTruthy();
         expect(getByText("Latest session")).toBeTruthy();
         expect(getByText("No participants")).toBeTruthy();
+        expect(getByText("You're all caught up")).toBeTruthy();
+        expect(getByText("Showing all 2 sessions in your live recording history.")).toBeTruthy();
 
         fireEvent.press(getByLabelText("Open podcast for Weekly Roundtable"));
 
@@ -148,6 +153,51 @@ describe("RtcSessionsScreen", () => {
                 "Start a multi-host live session from Create to track recording progress here."
             )
         ).toBeTruthy();
+    });
+
+    it("keeps total history copy generic for legacy bare-array responses", async () => {
+        apiService.listRtcSessions.mockResolvedValue([
+            {
+                id: 12,
+                title: "Legacy Session One",
+                room_name: "legacy-session-one",
+                created_at: "2026-05-08T10:00:00Z",
+                media_mode: "audio",
+                participant_count: 2,
+                duration_seconds: 300,
+                podcast_id: null,
+                status: "ended",
+                recording_status: "processing",
+                is_live: false,
+            },
+            {
+                id: 11,
+                title: "Legacy Session Two",
+                room_name: "legacy-session-two",
+                created_at: "2026-05-07T10:00:00Z",
+                media_mode: "video",
+                participant_count: 3,
+                duration_seconds: 1200,
+                podcast_id: null,
+                status: "ended",
+                recording_status: "processing",
+                is_live: false,
+            },
+        ]);
+
+        const { getByText, queryByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledWith({ limit: 25, offset: 0 });
+        });
+
+        expect(
+            getByText("Review recent live sessions and whether each recording is ready.")
+        ).toBeTruthy();
+        expect(queryByText("2 sessions total. Review recent live sessions and whether each recording is ready.")).toBeNull();
+        expect(getByText("You're all caught up")).toBeTruthy();
+        expect(getByText("You've reached the end of your live recording history.")).toBeTruthy();
+        expect(queryByText("Showing all 2 sessions in your live recording history.")).toBeNull();
     });
 
     it("shows only the error state when loading sessions fails", async () => {
@@ -226,6 +276,8 @@ describe("RtcSessionsScreen", () => {
 
         expect(getByText("Older Planning Session")).toBeTruthy();
         expect(queryByText("Load More Sessions")).toBeNull();
+        expect(getByText("You're all caught up")).toBeTruthy();
+        expect(getByText("Showing all 26 sessions in your live recording history.")).toBeTruthy();
     });
 
     it("does not paginate while a refresh request is in flight", async () => {
