@@ -60,6 +60,20 @@ Project planning, roadmaps, and development tracking.
 
 ---
 
+### [Repository Explainer](./REPOSITORY_EXPLAINER.md)
+**Bilingual, teaching-oriented deep dive into the repository**
+
+**Topics:**
+- Frontend and backend architecture
+- NativeWind and Zustand examples
+- AI and RTC design decisions
+- Performance and reliability patterns
+- Common risks and learning order
+
+**Status:** New reference guide
+
+---
+
 ### [RTC Session Memory](./RTC_SESSION_MEMORY.md)
 **Multi-host recording implementation session documentation**
 

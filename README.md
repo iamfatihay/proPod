@@ -13,6 +13,7 @@ Recommended entry points:
 - [Manual Regression Re-Entry Guide](./docs/testing/MANUAL_REGRESSION_REENTRY_GUIDE.md)
 - [API Documentation](./docs/api/API_DOCUMENTATION.md)
 - [Implementation Summary](./docs/project/IMPLEMENTATION_SUMMARY.md)
+- [Repository Explainer](./docs/project/REPOSITORY_EXPLAINER.md)
 
 ## Testing
 
