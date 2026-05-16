@@ -61,6 +61,23 @@ export const RtcFailedReviewActions = ({ isLoading, onGoHome, onRetry, onViewSes
     </>
 );
 
+export const buildRtcSessionHistoryRoute = (sessionId) => {
+    if (!sessionId) {
+        return "/(main)/rtc-sessions";
+    }
+
+    return {
+        pathname: "/(main)/rtc-sessions",
+        params: { focusSessionId: String(sessionId) },
+    };
+};
+
+export const buildRtcSessionHistoryNotificationAction = (sessionId) => ({
+    type: "navigate",
+    screen: "rtc-sessions",
+    params: sessionId ? { focusSessionId: String(sessionId) } : {},
+});
+
 const Create = () => {
     const router = useRouter();
     const insets = useSafeAreaInsets();
@@ -126,15 +143,7 @@ const Create = () => {
     const [discardConfirmVisible, setDiscardConfirmVisible] = useState(false);
 
     const openRtcSessionHistory = useCallback(() => {
-        if (!rtcSessionSummary?.id) {
-            router.push("/(main)/rtc-sessions");
-            return;
-        }
-
-        router.push({
-            pathname: "/(main)/rtc-sessions",
-            params: { focusSessionId: String(rtcSessionSummary.id) },
-        });
+        router.push(buildRtcSessionHistoryRoute(rtcSessionSummary?.id));
     }, [router, rtcSessionSummary?.id]);
 
     useEffect(() => {
@@ -793,10 +802,9 @@ const Create = () => {
                         type: "rtc_failed",
                         title: "Recording Failed",
                         message: `"${title || "Your session"}" did not finish processing. Tap to view session history.`,
-                        action: {
-                            type: "navigate",
-                            screen: "rtc-sessions",
-                        },
+                        action: buildRtcSessionHistoryNotificationAction(
+                            session?.id || rtcSessionSummary?.id || rtcSession?.sessionId
+                        ),
                     });
                 }
                 return;
@@ -818,7 +826,7 @@ const Create = () => {
                 clearTimeout(timeoutId);
             }
         };
-    }, [fetchRtcSessionStatus, recordingMode, rtcProcessingNotifId, rtcSessionState, title]);
+    }, [fetchRtcSessionStatus, recordingMode, rtcProcessingNotifId, rtcSession?.sessionId, rtcSessionState, rtcSessionSummary?.id, title]);
 
     // Intercept Android back button while recording is processing (not when failed or ready)
     useEffect(() => {
