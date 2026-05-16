@@ -27,7 +27,7 @@ const normalizeSessionListResponse = (response) => {
         return {
             sessions: response,
             hasMore: response.length === PAGE_SIZE,
-            total: response.length,
+            total: null,
         };
     }
 
