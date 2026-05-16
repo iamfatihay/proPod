@@ -22,19 +22,6 @@ import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOpti
 
 const PAGE_SIZE = 25;
 
-const normalizeSessionListResponse = (response) => {
-    const sessions = Array.isArray(response?.sessions) ? response.sessions : [];
-    const total = Number.isFinite(response?.total)
-        ? Math.max(response.total, 0)
-        : sessions.length;
-
-    return {
-        sessions,
-        hasMore: Boolean(response?.has_more),
-        total,
-    };
-};
-
 const getSessionCountLabel = (count) => (count === 1 ? "1 session" : `${count} sessions`);
 
 const getHeaderSubtitle = (totalSessions) => {
@@ -274,14 +261,9 @@ export default function RtcSessionsScreen() {
 
         try {
             const response = await apiService.listRtcSessions({ limit: PAGE_SIZE, offset: 0 });
-            const {
-                hasMore: nextHasMore,
-                sessions: nextSessions,
-                total: nextTotalSessions,
-            } = normalizeSessionListResponse(response);
-            setSessions(nextSessions);
-            setHasMore(nextHasMore);
-            setTotalSessions(nextTotalSessions);
+            setSessions(response.sessions);
+            setHasMore(response.has_more);
+            setTotalSessions(response.total);
             setError(null);
             setPaginationError(null);
         } catch (loadError) {
@@ -308,15 +290,10 @@ export default function RtcSessionsScreen() {
                 limit: PAGE_SIZE,
                 offset: sessions.length,
             });
-            const {
-                hasMore: nextHasMore,
-                sessions: nextSessions,
-                total: nextTotalSessions,
-            } = normalizeSessionListResponse(response);
 
-            setSessions((currentSessions) => mergeSessionPages(currentSessions, nextSessions));
-            setHasMore(nextHasMore);
-            setTotalSessions((currentTotalSessions) => nextTotalSessions ?? currentTotalSessions);
+            setSessions((currentSessions) => mergeSessionPages(currentSessions, response.sessions));
+            setHasMore(response.has_more);
+            setTotalSessions(response.total);
         } catch (loadError) {
             setPaginationError(loadError?.message || "Could not load more live sessions.");
         } finally {

@@ -220,6 +220,23 @@ describe("RtcSessionsScreen", () => {
         expect(queryByText("No live sessions yet")).toBeNull();
     });
 
+    it("surfaces the paginated response contract error", async () => {
+        apiService.listRtcSessions.mockRejectedValue(
+            new Error("Live session history is temporarily unavailable. Please try again.")
+        );
+
+        const { getByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalled();
+        });
+
+        expect(getByText("Couldn't load live sessions.")).toBeTruthy();
+        expect(
+            getByText("Live session history is temporarily unavailable. Please try again.")
+        ).toBeTruthy();
+    });
+
     it("loads older sessions when more history is available", async () => {
         const firstPage = Array.from({ length: 25 }, (_, index) => ({
             id: 100 - index,

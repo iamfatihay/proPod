@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-16
-**Last session (33):** RTC session history fallback cleanup -- branch `fix/rtc-session-history-fallback-cleanup` removes the temporary bare-array fallback from the RTC session history screen so total-count and end-of-history copy always use paginated `/rtc/sessions` metadata; PR #145
+**Last session (34):** RTC session response contract hardening -- branch `fix/rtc-session-response-contract` validates paginated `/rtc/sessions` metadata in frontend `apiService` so malformed history payloads surface an explicit error instead of silently falling back; PR #146
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -50,6 +50,7 @@
 - `feature/rtc-session-history-metadata` / PR pending -- adds explicit `total` and `has_more` metadata to `/rtc/sessions` and consumes it in the RTC session history screen so pagination no longer guesses from page size.
 - `feature/rtc-session-history-end-state` / PR #144 -- uses `/rtc/sessions` metadata to show total session count context and an explicit end-of-history state in the RTC session history screen.
 - `fix/rtc-session-history-fallback-cleanup` / PR #145 -- removes the temporary bare-array fallback in the RTC session history screen so count/end-of-history messaging always follows the paginated `/rtc/sessions` contract.
+- `fix/rtc-session-response-contract` / PR #146 -- validates `/rtc/sessions` paginated metadata in frontend `apiService` so malformed responses fail fast and the RTC history screen shows an explicit retryable error state.
 
 ---
 
@@ -66,7 +67,7 @@
 - RTC join provider errors are classified from SDK message text; SDK error codes would make invite/auth/provider cases more precise if exposed reliably.
 - RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
 - Host failed-session coverage is still action-level; the create-screen RTC lifecycle remains hard to test end-to-end without more screen decomposition.
-- The frontend RTC session history path still relies on an implicit paginated response contract in plain JS; a shared API-level response validator/helper would make future shape regressions easier to catch.
+- `/rtc/sessions` is now validated at the frontend API boundary, but other paginated endpoints still accept raw response shapes without shared contract helpers.
 
 ---
 
@@ -129,6 +130,8 @@
 - 2026-05-15: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed; Node emitted the existing package module-type warning.
 - 2026-05-16: `cd /home/fatih/proPod/frontend && npx jest --runInBand src/tests/__tests__/rtc/RtcSessionsScreen.test.js` passed (6 tests); Jest emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-16: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/services/api/apiService.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-16: `cd /home/fatih/proPod/frontend && npx jest --runInBand src/tests/__tests__/rtc/apiService.test.js src/tests/__tests__/rtc/RtcSessionsScreen.test.js` passed (21 tests); Jest emitted the existing `react-test-renderer` deprecation warnings plus the expected mocked API logger warnings/errors from the apiService error-handling tests.
+- 2026-05-16: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/services/api/apiService.js' 'src/tests/__tests__/rtc/apiService.test.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-16: repository pre-commit hook on `git commit` passed for `fix(rtc): remove legacy session history fallback`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
@@ -137,9 +140,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the recent DB-safety and session-history follow-up fixes.
-2. **Continue-listening active-track coverage** -- add a focused home-screen test for the already-loaded resume case so the row keeps the expected pause/resume toggle behavior alongside the new `startPosition` coverage.
-3. **RTC session response contract hardening** -- add a small API-level RTC session response helper or test coverage so future frontend changes fail fast if `/rtc/sessions` stops returning paginated metadata.
+1. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the recent DB-safety and session-history contract fixes.
+2. **RTC failed-session recovery QA** -- exercise the host failed-session notification plus re-record CTA flow end-to-end so creators can recover cleanly from recording failures.
+3. **Continue-listening active-track coverage** -- add a focused home-screen test for the already-loaded resume case so the row keeps the expected pause/resume toggle behavior alongside the new `startPosition` coverage.
 
 ---
 
