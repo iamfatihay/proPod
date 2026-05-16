@@ -673,7 +673,7 @@ class ApiService {
      * List RTC sessions for the current user
      *
      * @param {Object} params - Query params
-     * @returns {Promise<Array>} RTC session list
+     * @returns {Promise<Object>} Paginated RTC session response
      */
     async listRtcSessions(params = {}) {
         const queryParams = new URLSearchParams();

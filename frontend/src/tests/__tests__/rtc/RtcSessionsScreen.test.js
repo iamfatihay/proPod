@@ -155,35 +155,41 @@ describe("RtcSessionsScreen", () => {
         ).toBeTruthy();
     });
 
-    it("keeps total history copy generic for legacy bare-array responses", async () => {
-        apiService.listRtcSessions.mockResolvedValue([
-            {
-                id: 12,
-                title: "Legacy Session One",
-                room_name: "legacy-session-one",
-                created_at: "2026-05-08T10:00:00Z",
-                media_mode: "audio",
-                participant_count: 2,
-                duration_seconds: 300,
-                podcast_id: null,
-                status: "ended",
-                recording_status: "processing",
-                is_live: false,
-            },
-            {
-                id: 11,
-                title: "Legacy Session Two",
-                room_name: "legacy-session-two",
-                created_at: "2026-05-07T10:00:00Z",
-                media_mode: "video",
-                participant_count: 3,
-                duration_seconds: 1200,
-                podcast_id: null,
-                status: "ended",
-                recording_status: "processing",
-                is_live: false,
-            },
-        ]);
+    it("keeps exact history count copy for paginated responses", async () => {
+        apiService.listRtcSessions.mockResolvedValue({
+            sessions: [
+                {
+                    id: 12,
+                    title: "History Session One",
+                    room_name: "history-session-one",
+                    created_at: "2026-05-08T10:00:00Z",
+                    media_mode: "audio",
+                    participant_count: 2,
+                    duration_seconds: 300,
+                    podcast_id: null,
+                    status: "ended",
+                    recording_status: "processing",
+                    is_live: false,
+                },
+                {
+                    id: 11,
+                    title: "History Session Two",
+                    room_name: "history-session-two",
+                    created_at: "2026-05-07T10:00:00Z",
+                    media_mode: "video",
+                    participant_count: 3,
+                    duration_seconds: 1200,
+                    podcast_id: null,
+                    status: "ended",
+                    recording_status: "processing",
+                    is_live: false,
+                },
+            ],
+            total: 2,
+            limit: 25,
+            offset: 0,
+            has_more: false,
+        });
 
         const { getByText, queryByText } = render(<RtcSessionsScreen />);
 
@@ -192,12 +198,12 @@ describe("RtcSessionsScreen", () => {
         });
 
         expect(
-            getByText("Review recent live sessions and whether each recording is ready.")
+            getByText("2 sessions total. Review recent live sessions and whether each recording is ready.")
         ).toBeTruthy();
-        expect(queryByText("2 sessions total. Review recent live sessions and whether each recording is ready.")).toBeNull();
+        expect(queryByText("Review recent live sessions and whether each recording is ready.")).toBeNull();
         expect(getByText("You're all caught up")).toBeTruthy();
-        expect(getByText("You've reached the end of your live recording history.")).toBeTruthy();
-        expect(queryByText("Showing all 2 sessions in your live recording history.")).toBeNull();
+        expect(getByText("Showing all 2 sessions in your live recording history.")).toBeTruthy();
+        expect(queryByText("You've reached the end of your live recording history.")).toBeNull();
     });
 
     it("shows only the error state when loading sessions fails", async () => {
