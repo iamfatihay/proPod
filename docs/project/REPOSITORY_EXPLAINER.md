@@ -120,7 +120,7 @@ The app shell lives in `frontend/app/_layout.js`. This file is important because
 - registers push notification behavior
 - starts and stops DM unread polling depending on app state
 
-One concrete example is deep linking. The layout parses URLs like `volo://live/{code}` and redirects users to `/live` with `inviteCode`. That means the root layout is acting as a coordinator for navigation and app lifecycle, not only as a visual wrapper.
+One concrete example is deep linking. The layout currently parses URLs like `volo://live/{code}` and redirects users to `/live` with `inviteCode`. That means the root layout is acting as a coordinator for navigation and app lifecycle, not only as a visual wrapper.
 
 ```js
 // frontend/app/_layout.js
@@ -139,7 +139,7 @@ Uygulamanın kabuğu `frontend/app/_layout.js` içinde yaşıyor. Bu dosya sadec
 - push notification davranışını kaydediyor
 - uygulama durumuna göre DM unread polling başlatıp durduruyor
 
-Somut bir örnek deep linking. Layout, `volo://live/{code}` gibi URL'leri parse edip kullanıcıyı `inviteCode` parametresi ile `/live` ekranına yönlendiriyor. Yani root layout burada sadece görsel bir sarmalayıcı değil, aynı zamanda navigation ve app lifecycle koordinatörü gibi davranıyor.
+Somut bir örnek deep linking. Layout şu anda `volo://live/{code}` gibi URL'leri parse edip kullanıcıyı `inviteCode` parametresi ile `/live` ekranına yönlendiriyor. Yani root layout burada sadece görsel bir sarmalayıcı değil, aynı zamanda navigation ve app lifecycle koordinatörü gibi davranıyor.
 
 ```js
 // frontend/app/_layout.js
@@ -428,7 +428,7 @@ There is also a cost/quality strategy. `local_analyzer_service.py` explains a fr
 
 **Türkçe**
 
-AI akışı tek dev endpoint şeklinde değil, bir pipeline olarak kurulmuş. `backend/app/services/ai_service.py` şu aşamaları koordine ediyor:
+AI akışı tek devasa endpoint şeklinde değil, bir pipeline olarak kurulmuş. `backend/app/services/ai_service.py` şu aşamaları koordine ediyor:
 
 1. podcast'i yükle
 2. sesi transcribe et
