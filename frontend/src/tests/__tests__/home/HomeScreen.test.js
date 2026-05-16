@@ -217,4 +217,43 @@ describe("HomeScreen continue listening", () => {
         expect(mockToggleMiniPlayer).toHaveBeenCalledWith(true);
         expect(mockShowToast).not.toHaveBeenCalled();
     });
+
+    it("pauses the active continue-listening track instead of restarting it", async () => {
+        mockAudioStoreState.currentTrack = { id: 23 };
+        mockAudioStoreState.isPlaying = true;
+
+        const { getByTestId, findByText } = render(<HomeScreen />);
+
+        expect(await findByText("Continue Listening")).toBeTruthy();
+
+        fireEvent.press(getByTestId("continue-listening-resume"));
+
+        await waitFor(() => {
+            expect(mockPause).toHaveBeenCalledTimes(1);
+        });
+
+        expect(mockPlay).not.toHaveBeenCalled();
+        expect(mockToggleMiniPlayer).not.toHaveBeenCalled();
+        expect(mockShowToast).not.toHaveBeenCalled();
+    });
+
+    it("resumes the active continue-listening track without reloading it", async () => {
+        mockAudioStoreState.currentTrack = { id: 23 };
+        mockAudioStoreState.isPlaying = false;
+        mockAudioStoreState.showMiniPlayer = true;
+
+        const { getByTestId, findByText } = render(<HomeScreen />);
+
+        expect(await findByText("Continue Listening")).toBeTruthy();
+
+        fireEvent.press(getByTestId("continue-listening-resume"));
+
+        await waitFor(() => {
+            expect(mockPlay).toHaveBeenCalledWith();
+        });
+
+        expect(mockPause).not.toHaveBeenCalled();
+        expect(mockToggleMiniPlayer).not.toHaveBeenCalled();
+        expect(mockShowToast).not.toHaveBeenCalled();
+    });
 });
