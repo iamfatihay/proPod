@@ -6,8 +6,8 @@
 
 ## Current State
 
-**Last updated:** 2026-05-16
-**Last session (36):** RTC failed notification focus -- branch `feature/rtc-failed-notification-focus` makes failed live-session notifications reopen history with `focusSessionId` so hosts land on the affected session instead of the generic list; PR #149
+**Last updated:** 2026-05-18
+**Last session (37):** RTC session history recovery actions -- branch `feature/rtc-session-history-recovery-actions` adds a failed-session `Use Same Setup` CTA in live-session history and pre-fills Create with the prior RTC setup; PR pending
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -53,6 +53,7 @@
 - `fix/rtc-session-response-contract` / PR #146 -- validates `/rtc/sessions` paginated metadata in frontend `apiService` so malformed responses fail fast and the RTC history screen shows an explicit retryable error state.
 - `test/continue-listening-active-track-coverage` / PR #148 -- adds focused HomeScreen coverage for the continue-listening loaded-track pause/resume toggle so active playback does not regress into an unintended restart path.
 - `feature/rtc-failed-notification-focus` / PR #149 -- threads `focusSessionId` through failed RTC processing notifications so tapping the alert opens the relevant live-session history entry instead of the generic history list.
+- `feature/rtc-session-history-recovery-actions` / PR pending -- adds a failed-session recovery CTA in RTC session history and reopens Create with the previous multi-host title/category/visibility/media-mode prefilled.
 
 ---
 
@@ -69,6 +70,7 @@
 - RTC join provider errors are classified from SDK message text; SDK error codes would make invite/auth/provider cases more precise if exposed reliably.
 - RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
 - Host failed-session notification routing is now covered, but the create-screen RTC lifecycle still lacks end-to-end screen coverage without more screen decomposition.
+- RTC session recovery prefill now depends on Expo Router params reaching Create reliably; device QA should confirm the values survive tab navigation and back-stack hops on iOS and Android.
 - `/rtc/sessions` is now validated at the frontend API boundary, but other paginated endpoints still accept raw response shapes without shared contract helpers.
 - Continue-listening playback behavior is now covered at the HomeScreen handler layer, but it still lacks device QA for the loaded-track toggle and resume-position paths.
 
@@ -140,6 +142,8 @@
 - 2026-05-16: `cd /home/fatih/proPod/frontend && npx eslint 'src/tests/__tests__/home/HomeScreen.test.js'` passed; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-16: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/rtc/CreateRtcRetryFlow.test.js src/tests/__tests__/notifications/NotificationsScreen.test.js --runInBand` passed (6 tests); Jest emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-16: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/create.js' 'app/(main)/notifications.js' 'src/tests/__tests__/rtc/CreateRtcRetryFlow.test.js' 'src/tests/__tests__/notifications/NotificationsScreen.test.js'` passed; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-18: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/rtc/RtcSessionsScreen.test.js src/tests/__tests__/rtc/CreateRtcRetryFlow.test.js --runInBand` passed (15 tests); Jest emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-18: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/create.js' 'app/(main)/rtc-sessions.js' 'src/utils/rtcSessionRoutes.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js' 'src/tests/__tests__/rtc/CreateRtcRetryFlow.test.js'` passed; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -147,9 +151,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC failed-session recovery device QA** -- verify on iOS and Android that failed processing notifications open the focused live-session entry and the re-record CTA still launches a fresh lobby cleanly.
-2. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the recent DB-safety and session-history contract fixes.
-3. **Continue-listening device QA** -- verify on iOS and Android that the row resumes from saved position for new loads and toggles pause/resume correctly when the episode is already loaded.
+1. **RTC history recovery device QA** -- verify on iOS and Android that `Use Same Setup` from a failed live session opens Create with the expected title, category, visibility, and media mode before launching a replacement lobby.
+2. **RTC recording lifecycle device QA** -- verify completed, processing, and failed RTC states on iOS and Android with real webhook timing after the recent session-history recovery changes.
+3. **RTC session history processing actions** -- add and validate an inline `Check Status` action for processing sessions if device QA shows pull-to-refresh is too hidden during recording recovery.
 
 ---
 

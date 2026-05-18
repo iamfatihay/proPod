@@ -155,6 +155,55 @@ describe("RtcSessionsScreen", () => {
         ).toBeTruthy();
     });
 
+    it("offers a failed-session recovery action with the prior setup", async () => {
+        apiService.listRtcSessions.mockResolvedValue({
+            sessions: [
+                {
+                    id: 44,
+                    title: "Retry Roundtable",
+                    description: "Re-run after processing failed",
+                    room_name: "retry-roundtable",
+                    created_at: "2026-05-08T10:00:00Z",
+                    media_mode: "audio",
+                    category: "Business",
+                    is_public: true,
+                    participant_count: 2,
+                    duration_seconds: 300,
+                    podcast_id: null,
+                    status: "ended",
+                    recording_status: "failed",
+                    is_live: false,
+                },
+            ],
+            total: 1,
+            limit: 25,
+            offset: 0,
+            has_more: false,
+        });
+
+        const { getByLabelText, getByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Use Same Setup")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Start a similar session for Retry Roundtable"));
+
+        expect(mockPush).toHaveBeenCalledWith({
+            pathname: "/(main)/create",
+            params: {
+                mode: "full-create",
+                recordingMode: "multi",
+                rtcMediaMode: "audio",
+                prefillTitle: "Retry Roundtable",
+                prefillDescription: "Re-run after processing failed",
+                prefillCategory: "Business",
+                prefillIsPublic: "true",
+                sourceSessionId: "44",
+            },
+        });
+    });
+
     it("keeps exact history count copy for paginated responses", async () => {
         apiService.listRtcSessions.mockResolvedValue({
             sessions: [

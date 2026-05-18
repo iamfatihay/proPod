@@ -28,6 +28,10 @@ import { COLORS, withTabScreenBottomPadding } from "../../src/constants/theme";
 import protectionService from "../../src/services/recording/protectionService";
 import useNotificationStore from "../../src/context/useNotificationStore";
 import backgroundService from "../../src/services/recording/backgroundService";
+import {
+    buildRtcSessionHistoryNotificationAction,
+    buildRtcSessionHistoryRoute,
+} from "../../src/utils/rtcSessionRoutes";
 
 export const RtcFailedReviewActions = ({ isLoading, onGoHome, onRetry, onViewSessions }) => (
     <>
@@ -61,22 +65,27 @@ export const RtcFailedReviewActions = ({ isLoading, onGoHome, onRetry, onViewSes
     </>
 );
 
-export const buildRtcSessionHistoryRoute = (sessionId) => {
-    if (!sessionId) {
-        return "/(main)/rtc-sessions";
+const normalizeRouteParam = (value) => {
+    if (Array.isArray(value)) {
+        return value[0];
     }
 
-    return {
-        pathname: "/(main)/rtc-sessions",
-        params: { focusSessionId: String(sessionId) },
-    };
+    return typeof value === "string" ? value : null;
 };
 
-export const buildRtcSessionHistoryNotificationAction = (sessionId) => ({
-    type: "navigate",
-    screen: "rtc-sessions",
-    params: sessionId ? { focusSessionId: String(sessionId) } : {},
-});
+const normalizeBooleanRouteParam = (value, fallback = false) => {
+    const normalizedValue = normalizeRouteParam(value);
+
+    if (normalizedValue === "true") {
+        return true;
+    }
+
+    if (normalizedValue === "false") {
+        return false;
+    }
+
+    return fallback;
+};
 
 const Create = () => {
     const router = useRouter();
@@ -86,7 +95,18 @@ const Create = () => {
     const isMountedRef = useRef(true);
 
     // Mode: 'quick-record', 'full-create', 'resume-draft', or 'save-draft'
-    const mode = params.mode || "full-create";
+    const mode = normalizeRouteParam(params.mode) || "full-create";
+    const recoverySourceSessionId = normalizeRouteParam(params.sourceSessionId);
+    const prefillTitle = normalizeRouteParam(params.prefillTitle) || "";
+    const prefillDescription = normalizeRouteParam(params.prefillDescription) || "";
+    const prefillCategory = normalizeRouteParam(params.prefillCategory) || "General";
+    const prefillIsPublic = normalizeBooleanRouteParam(params.prefillIsPublic, false);
+    const defaultRecordingMode =
+        mode === "full-create" && normalizeRouteParam(params.recordingMode) === "multi"
+            ? "multi"
+            : "solo";
+    const defaultRtcMediaMode =
+        normalizeRouteParam(params.rtcMediaMode) === "audio" ? "audio" : "video";
 
     // Recording state
     const [isRecording, setIsRecording] = useState(false);
@@ -95,8 +115,8 @@ const Create = () => {
     const [isAIEnabled, setIsAIEnabled] = useState(false);
     const [audioInitialized, setAudioInitialized] = useState(false);
     const [draftLoaded, setDraftLoaded] = useState(false);
-    const [recordingMode, setRecordingMode] = useState("solo");
-    const [rtcMediaMode, setRtcMediaMode] = useState("video");
+    const [recordingMode, setRecordingMode] = useState(defaultRecordingMode);
+    const [rtcMediaMode, setRtcMediaMode] = useState(defaultRtcMediaMode);
     const [rtcSession, setRtcSession] = useState(null);
     const [rtcSessionState, setRtcSessionState] = useState("idle");
     const [rtcSessionSummary, setRtcSessionSummary] = useState(null);
@@ -109,10 +129,10 @@ const Create = () => {
     const [rtcLobbyVideoMuted, setRtcLobbyVideoMuted] = useState(false);
 
     // Podcast metadata
-    const [title, setTitle] = useState("");
-    const [description, setDescription] = useState("");
-    const [category, setCategory] = useState("General");
-    const [isPublic, setIsPublic] = useState(false);
+    const [title, setTitle] = useState(prefillTitle);
+    const [description, setDescription] = useState(prefillDescription);
+    const [category, setCategory] = useState(prefillCategory);
+    const [isPublic, setIsPublic] = useState(prefillIsPublic);
 
     // Update draft metadata when title/description changes (only if draft loaded or recording active)
     useEffect(() => () => {
@@ -145,6 +165,41 @@ const Create = () => {
     const openRtcSessionHistory = useCallback(() => {
         router.push(buildRtcSessionHistoryRoute(rtcSessionSummary?.id));
     }, [router, rtcSessionSummary?.id]);
+
+    const resetCreateDraftState = useCallback(() => {
+        setIsRecording(false);
+        setRecordedUri(null);
+        setRecordedDuration(0);
+        setIsAIEnabled(false);
+        setTitle(prefillTitle);
+        setDescription(prefillDescription);
+        setCategory(prefillCategory);
+        setIsPublic(prefillIsPublic);
+        setIsUploading(false);
+        setCurrentStep(mode === "quick-record" ? "recording" : "setup");
+        setPermissionModalVisible(false);
+        setDiscardConfirmVisible(false);
+        setDraftLoaded(false);
+        setRecordingMode(defaultRecordingMode);
+        setRtcMediaMode(defaultRtcMediaMode);
+        setRtcSession(null);
+        setRtcSessionState("idle");
+        setRtcSessionSummary(null);
+        setRtcLoading(false);
+        setRtcError(null);
+        setRtcStatusMessage(null);
+        setRtcProcessingNotifId(null);
+        setRtcLobbyAudioMuted(false);
+        setRtcLobbyVideoMuted(false);
+    }, [
+        defaultRecordingMode,
+        defaultRtcMediaMode,
+        mode,
+        prefillCategory,
+        prefillDescription,
+        prefillIsPublic,
+        prefillTitle,
+    ]);
 
     useEffect(() => {
         let isMounted = true;
@@ -212,30 +267,7 @@ const Create = () => {
                 }
                 
                 // Only reset if no active session exists
-                setIsRecording(false);
-                setRecordedUri(null);
-                setRecordedDuration(0);
-                setIsAIEnabled(false);
-                setTitle("");
-                setDescription("");
-                setCategory("General");
-                setIsPublic(false);
-                setIsUploading(false);
-                setCurrentStep(mode === "quick-record" ? "recording" : "setup");
-                setPermissionModalVisible(false);
-                setDiscardConfirmVisible(false);
-                setDraftLoaded(false);
-                setRecordingMode("solo");
-                setRtcMediaMode("video");
-                setRtcSession(null);
-                setRtcSessionState("idle");
-                setRtcSessionSummary(null);
-                setRtcLoading(false);
-                setRtcError(null);
-                setRtcStatusMessage(null);
-                setRtcProcessingNotifId(null);
-                setRtcLobbyAudioMuted(false);
-                setRtcLobbyVideoMuted(false);
+                resetCreateDraftState();
             };
             
             checkActiveSession();
@@ -256,7 +288,7 @@ const Create = () => {
                 // DON'T stop recording here - it should continue in background
                 // User can stop it manually or it will stop on app unmount
             };
-        }, [mode, draftLoaded])
+        }, [audioInitialized, draftLoaded, mode, resetCreateDraftState])
     );
 
     const loadDraftData = async () => {
@@ -867,6 +899,17 @@ const Create = () => {
             </Text>
 
             <View className="space-y-4">
+                {recoverySourceSessionId && recordingMode === "multi" && (
+                    <View className="bg-success/10 rounded-2xl p-4 mb-2 border border-success/20">
+                        <Text className="text-success font-semibold mb-2">
+                            Using Previous Live Session Setup
+                        </Text>
+                        <Text className="text-text-secondary leading-6">
+                            We filled in the title, visibility, category, and format from your earlier live session so you can launch a replacement room faster.
+                        </Text>
+                    </View>
+                )}
+
                 <View>
                     <Text className="text-text-primary font-semibold mb-2">
                         Title
