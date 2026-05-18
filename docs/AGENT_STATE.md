@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-16
-**Last session (36):** RTC failed notification focus -- branch `feature/rtc-failed-notification-focus` makes failed live-session notifications reopen history with `focusSessionId` so hosts land on the affected session instead of the generic list; PR pending
+**Last session (36):** RTC failed notification focus -- branch `feature/rtc-failed-notification-focus` makes failed live-session notifications reopen history with `focusSessionId` so hosts land on the affected session instead of the generic list; PR #149
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -52,7 +52,7 @@
 - `fix/rtc-session-history-fallback-cleanup` / PR #145 -- removes the temporary bare-array fallback in the RTC session history screen so count/end-of-history messaging always follows the paginated `/rtc/sessions` contract.
 - `fix/rtc-session-response-contract` / PR #146 -- validates `/rtc/sessions` paginated metadata in frontend `apiService` so malformed responses fail fast and the RTC history screen shows an explicit retryable error state.
 - `test/continue-listening-active-track-coverage` / PR #148 -- adds focused HomeScreen coverage for the continue-listening loaded-track pause/resume toggle so active playback does not regress into an unintended restart path.
-- `feature/rtc-failed-notification-focus` / PR pending -- threads `focusSessionId` through failed RTC processing notifications so tapping the alert opens the relevant live-session history entry instead of the generic history list.
+- `feature/rtc-failed-notification-focus` / PR #149 -- threads `focusSessionId` through failed RTC processing notifications so tapping the alert opens the relevant live-session history entry instead of the generic history list.
 
 ---
 
