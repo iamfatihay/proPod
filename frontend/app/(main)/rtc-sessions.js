@@ -19,6 +19,7 @@ import {
     withTabScreenBottomPadding,
 } from "../../src/constants/theme";
 import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOptions";
+import { buildRtcSessionRecoveryRoute } from "../../src/utils/rtcSessionRoutes";
 
 const PAGE_SIZE = 25;
 
@@ -140,9 +141,11 @@ const getStatusPresentation = (session) => {
     };
 };
 
-const SessionCard = ({ highlighted, onOpenPodcast, session }) => {
+const SessionCard = ({ highlighted, onOpenPodcast, onRestartSession, session }) => {
     const status = getStatusPresentation(session);
-    const hasPodcast = getRecordingStatus(session) === "completed" && Boolean(session?.podcast_id);
+    const recordingStatus = getRecordingStatus(session);
+    const hasPodcast = recordingStatus === "completed" && Boolean(session?.podcast_id);
+    const canRestartSession = recordingStatus === "failed";
     const participantCount = session?.participant_count ?? 0;
     const participantLabel = participantCount === 0
         ? "No participants"
@@ -234,6 +237,17 @@ const SessionCard = ({ highlighted, onOpenPodcast, session }) => {
                     <Text style={styles.openButtonText}>Open Podcast</Text>
                 </TouchableOpacity>
             )}
+
+            {canRestartSession && (
+                <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={`Start a similar session for ${session?.title || session?.room_name || "live session"}`}
+                    onPress={() => onRestartSession(session)}
+                    style={styles.secondaryButton}
+                >
+                    <Text style={styles.secondaryButtonText}>Use Same Setup</Text>
+                </TouchableOpacity>
+            )}
         </View>
     );
 };
@@ -317,6 +331,13 @@ export default function RtcSessionsScreen() {
                 pathname: "/(main)/details",
                 params: { id: String(session.podcast_id) },
             });
+        },
+        [router]
+    );
+
+    const handleRestartSession = useCallback(
+        (session) => {
+            router.push(buildRtcSessionRecoveryRoute(session));
         },
         [router]
     );
@@ -418,6 +439,7 @@ export default function RtcSessionsScreen() {
                     <SessionCard
                         highlighted={Number.isInteger(focusSessionId) && item.id === focusSessionId}
                         onOpenPodcast={handleOpenPodcast}
+                        onRestartSession={handleRestartSession}
                         session={item}
                     />
                 )}
@@ -579,6 +601,19 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         paddingHorizontal: 32,
         paddingBottom: 40,
+    },
+    secondaryButton: {
+        marginTop: 14,
+        borderRadius: BORDER_RADIUS.md,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        paddingVertical: 12,
+        alignItems: "center",
+    },
+    secondaryButtonText: {
+        color: COLORS.text.secondary,
+        fontSize: FONT_SIZES.base,
+        fontWeight: "600",
     },
     emptyTitle: {
         color: COLORS.text.primary,

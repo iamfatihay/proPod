@@ -2,14 +2,19 @@ import React from "react";
 import { fireEvent, render } from "@testing-library/react-native";
 import {
     RtcFailedReviewActions,
+    default as Create,
+} from "../../../../app/(main)/create";
+import {
     buildRtcSessionHistoryNotificationAction,
     buildRtcSessionHistoryRoute,
-} from "../../../../app/(main)/create";
+    buildRtcSessionRecoveryRoute,
+} from "../../../utils/rtcSessionRoutes";
 
 const mockBack = jest.fn();
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
 const mockShowToast = jest.fn();
+let mockParams = {};
 
 jest.mock("../../../services/api/apiService", () => ({
     __esModule: true,
@@ -30,7 +35,7 @@ jest.mock("expo-router", () => ({
         push: mockPush,
         replace: mockReplace,
     }),
-    useLocalSearchParams: () => ({}),
+    useLocalSearchParams: () => mockParams,
     useFocusEffect: () => {},
 }));
 
@@ -94,6 +99,12 @@ jest.mock("../../../components/recording/RecordingControls", () => () => null);
 jest.mock("../../../components/rtc/HmsRoom", () => () => null);
 
 describe("RTC session history helpers", () => {
+    beforeEach(() => {
+        mockParams = {};
+        const { default: mockedApiService } = require("../../../services/api/apiService");
+        mockedApiService.getUserProfile.mockResolvedValue({ name: "Host" });
+    });
+
     it("builds a focused history route when a session id is available", () => {
         expect(buildRtcSessionHistoryRoute(42)).toEqual({
             pathname: "/(main)/rtc-sessions",
@@ -111,6 +122,50 @@ describe("RTC session history helpers", () => {
             screen: "rtc-sessions",
             params: { focusSessionId: "42" },
         });
+    });
+
+    it("builds a create route with the previous live session setup", () => {
+        expect(buildRtcSessionRecoveryRoute({
+            id: 8,
+            title: "Weekly Sync",
+            description: "Retry after a failed export",
+            category: "Tech",
+            is_public: true,
+            media_mode: "audio",
+        })).toEqual({
+            pathname: "/(main)/create",
+            params: {
+                mode: "full-create",
+                recordingMode: "multi",
+                rtcMediaMode: "audio",
+                prefillTitle: "Weekly Sync",
+                prefillDescription: "Retry after a failed export",
+                prefillCategory: "Tech",
+                prefillIsPublic: "true",
+                sourceSessionId: "8",
+            },
+        });
+    });
+
+    it("prefills create with the previous live session metadata", () => {
+        mockParams = {
+            mode: "full-create",
+            recordingMode: "multi",
+            rtcMediaMode: "audio",
+            prefillTitle: "Weekly Sync",
+            prefillDescription: "Retry after a failed export",
+            prefillCategory: "Tech",
+            prefillIsPublic: "true",
+            sourceSessionId: "8",
+        };
+
+        const { getByDisplayValue, getByText } = render(<Create />);
+
+        expect(getByDisplayValue("Weekly Sync")).toBeTruthy();
+        expect(getByDisplayValue("Retry after a failed export")).toBeTruthy();
+        expect(getByText("Using Previous Live Session Setup")).toBeTruthy();
+        expect(getByText("Multi-host live")).toBeTruthy();
+        expect(getByText("Audio only")).toBeTruthy();
     });
 });
 
