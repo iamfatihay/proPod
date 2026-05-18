@@ -1,6 +1,10 @@
 import React from "react";
 import { fireEvent, render } from "@testing-library/react-native";
-import { RtcFailedReviewActions } from "../../../../app/(main)/create";
+import {
+    RtcFailedReviewActions,
+    buildRtcSessionHistoryNotificationAction,
+    buildRtcSessionHistoryRoute,
+} from "../../../../app/(main)/create";
 
 const mockBack = jest.fn();
 const mockPush = jest.fn();
@@ -88,6 +92,27 @@ jest.mock("../../../components/PermissionModal", () => () => null);
 jest.mock("../../../components/ConfirmationModal", () => () => null);
 jest.mock("../../../components/recording/RecordingControls", () => () => null);
 jest.mock("../../../components/rtc/HmsRoom", () => () => null);
+
+describe("RTC session history helpers", () => {
+    it("builds a focused history route when a session id is available", () => {
+        expect(buildRtcSessionHistoryRoute(42)).toEqual({
+            pathname: "/(main)/rtc-sessions",
+            params: { focusSessionId: "42" },
+        });
+    });
+
+    it("falls back to the generic history route when no session id exists", () => {
+        expect(buildRtcSessionHistoryRoute(null)).toBe("/(main)/rtc-sessions");
+    });
+
+    it("includes focusSessionId in failed notification actions", () => {
+        expect(buildRtcSessionHistoryNotificationAction(42)).toEqual({
+            type: "navigate",
+            screen: "rtc-sessions",
+            params: { focusSessionId: "42" },
+        });
+    });
+});
 
 describe("RtcFailedReviewActions", () => {
     it("renders the re-record CTA and dispatches the expected actions", () => {
