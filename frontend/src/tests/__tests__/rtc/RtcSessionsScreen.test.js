@@ -10,6 +10,7 @@ let mockParams = {};
 jest.mock("../../../services/api/apiService", () => ({
     __esModule: true,
     default: {
+        getRtcSession: jest.fn(),
         listRtcSessions: jest.fn(),
     },
 }));
@@ -201,6 +202,107 @@ describe("RtcSessionsScreen", () => {
                 prefillIsPublic: "true",
                 sourceSessionId: "44",
             },
+        });
+    });
+
+    it("checks a processing session inline and updates the card when recording finishes", async () => {
+        apiService.listRtcSessions.mockResolvedValue({
+            sessions: [
+                {
+                    id: 55,
+                    title: "Processing Roundtable",
+                    room_name: "processing-roundtable",
+                    created_at: "2026-05-08T10:00:00Z",
+                    media_mode: "audio",
+                    participant_count: 2,
+                    duration_seconds: 300,
+                    podcast_id: null,
+                    status: "ended",
+                    recording_status: "processing",
+                    is_live: false,
+                },
+            ],
+            total: 1,
+            limit: 25,
+            offset: 0,
+            has_more: false,
+        });
+        apiService.getRtcSession.mockResolvedValue({
+            id: 55,
+            title: "Processing Roundtable",
+            room_name: "processing-roundtable",
+            created_at: "2026-05-08T10:00:00Z",
+            media_mode: "audio",
+            participant_count: 2,
+            duration_seconds: 300,
+            podcast_id: 91,
+            status: "ended",
+            recording_status: "completed",
+            is_live: false,
+        });
+
+        const { getByLabelText, getByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Check Status")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Check recording status for Processing Roundtable"));
+
+        await waitFor(() => {
+            expect(apiService.getRtcSession).toHaveBeenCalledWith(55);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Podcast ready")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Open podcast for Processing Roundtable"));
+
+        expect(mockPush).toHaveBeenCalledWith({
+            pathname: "/(main)/details",
+            params: { id: "91" },
+        });
+    });
+
+    it("shows an inline error when a processing status refresh fails", async () => {
+        apiService.listRtcSessions.mockResolvedValue({
+            sessions: [
+                {
+                    id: 56,
+                    title: "Delayed Recording",
+                    room_name: "delayed-recording",
+                    created_at: "2026-05-08T10:00:00Z",
+                    media_mode: "video",
+                    participant_count: 3,
+                    duration_seconds: 900,
+                    podcast_id: null,
+                    status: "ended",
+                    recording_status: "processing",
+                    is_live: false,
+                },
+            ],
+            total: 1,
+            limit: 25,
+            offset: 0,
+            has_more: false,
+        });
+        apiService.getRtcSession.mockRejectedValue(new Error("Status check timed out"));
+
+        const { getByLabelText, getByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Check Status")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Check recording status for Delayed Recording"));
+
+        await waitFor(() => {
+            expect(apiService.getRtcSession).toHaveBeenCalledWith(56);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Status check timed out")).toBeTruthy();
         });
     });
 
