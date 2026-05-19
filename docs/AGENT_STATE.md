@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-19
-**Last session (39):** RTC history status feedback -- branch `feature/rtc-history-status-feedback` / PR #152 adds per-session confirmation copy after manual status checks so creators get feedback even when a recording is still processing
+**Last session (40):** RTC history persistent check feedback -- branch `feature/rtc-history-persistent-check-feedback` / PR pending persists per-session manual status-check timestamps so feedback survives screen reloads and app focus changes
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -73,7 +73,7 @@
 - RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
 - Host failed-session notification routing is now covered, but the create-screen RTC lifecycle still lacks end-to-end screen coverage without more screen decomposition.
 - RTC session recovery prefill now depends on Expo Router params reaching Create reliably; device QA should confirm the values survive tab navigation and back-stack hops on iOS and Android.
-- RTC history manual status checks now show confirmation copy, but the feedback is session-local UI state and does not survive a full reload or background/foreground cycle.
+- RTC history manual status checks now persist per device, but the last-checked feedback still does not sync across devices or survive app reinstall.
 - `/rtc/sessions` is now validated at the frontend API boundary, but other paginated endpoints still accept raw response shapes without shared contract helpers.
 - Continue-listening playback behavior is now covered at the HomeScreen handler layer, but it still lacks device QA for the loaded-track toggle and resume-position paths.
 
@@ -151,6 +151,8 @@
 - 2026-05-19: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-19: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/rtc/RtcSessionsScreen.test.js --runInBand` passed (11 tests); Jest emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-19: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-19: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/rtc/RtcSessionsScreen.test.js --runInBand` passed (12 tests); Jest emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-19: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -158,9 +160,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC history feedback device QA** -- verify on iOS and Android that `Check Status` now shows clear confirmation copy for still-processing, ready, and failed recordings during real webhook delays.
+1. **RTC history persistence device QA** -- verify on iOS and Android that `Check Status` feedback survives pull-to-refresh plus background/foreground cycles for still-processing, ready, and failed recordings.
 2. **RTC history recovery device QA** -- verify on iOS and Android that `Use Same Setup` and `Check Status` from RTC session history preserve the expected title, category, visibility, media mode, and ready-state navigation.
-3. **RTC history persistent check metadata** -- if device QA still shows uncertainty during longer waits, persist last-checked timestamps so the feedback survives refreshes and app state changes.
+3. **RTC history stale-check cleanup** -- cap or expire persisted local status-check timestamps so older device-only feedback does not linger indefinitely in AsyncStorage.
 
 ---
 
