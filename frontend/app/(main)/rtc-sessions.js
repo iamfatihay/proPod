@@ -27,6 +27,17 @@ const STATUS_CHECK_STORAGE_KEY_PREFIX = "@propod/rtc-history-status-check/";
 
 const getStatusCheckStorageKey = (sessionId) => `${STATUS_CHECK_STORAGE_KEY_PREFIX}${sessionId}`;
 
+const buildStatusCheckEntry = (session, checkedAt) => {
+    if (!checkedAt) {
+        return null;
+    }
+
+    return {
+        checkedAt,
+        recordingStatus: getRecordingStatus(session),
+    };
+};
+
 const getPersistedStatusChecksForSessions = async (sessions) => {
     const sessionIds = sessions
         .map((session) => session?.id)
@@ -41,30 +52,85 @@ const getPersistedStatusChecksForSessions = async (sessions) => {
             sessionIds.map((sessionId) => getStatusCheckStorageKey(sessionId))
         );
 
-        return storedEntries.reduce((successes, [storageKey, checkedAt]) => {
-            if (typeof checkedAt !== "string" || !checkedAt) {
+        const invalidStorageKeys = [];
+
+        const persistedStatusChecks = storedEntries.reduce((successes, [storageKey, rawEntry]) => {
+            if (typeof rawEntry !== "string" || !rawEntry) {
                 return successes;
             }
 
             const sessionId = storageKey.replace(STATUS_CHECK_STORAGE_KEY_PREFIX, "");
+            const session = sessions.find((candidate) => String(candidate?.id) === sessionId);
+
+            if (!session) {
+                invalidStorageKeys.push(storageKey);
+                return successes;
+            }
+
+            let parsedEntry;
+
+            try {
+                parsedEntry = JSON.parse(rawEntry);
+            } catch {
+                invalidStorageKeys.push(storageKey);
+                return successes;
+            }
+
+            const checkedAt = parsedEntry?.checkedAt;
+            const recordingStatus = parsedEntry?.recordingStatus;
+
+            if (
+                typeof checkedAt !== "string"
+                || !checkedAt
+                || typeof recordingStatus !== "string"
+                || !recordingStatus
+            ) {
+                invalidStorageKeys.push(storageKey);
+                return successes;
+            }
+
+            if (recordingStatus !== getRecordingStatus(session)) {
+                invalidStorageKeys.push(storageKey);
+                return successes;
+            }
 
             return {
                 ...successes,
-                [sessionId]: checkedAt,
+                [sessionId]: {
+                    checkedAt,
+                    recordingStatus,
+                },
             };
         }, {});
+
+        if (invalidStorageKeys.length > 0) {
+            AsyncStorage.multiRemove(invalidStorageKeys).catch(() => {
+                // Ignore cleanup failures so screen loading still succeeds.
+            });
+        }
+
+        return persistedStatusChecks;
     } catch {
         return {};
     }
 };
 
-const persistStatusCheck = async (sessionId, checkedAt) => {
-    if (sessionId === null || sessionId === undefined || !checkedAt) {
+const persistStatusCheck = async (sessionId, session, checkedAt) => {
+    if (sessionId === null || sessionId === undefined) {
+        return;
+    }
+
+    const statusCheckEntry = buildStatusCheckEntry(session, checkedAt);
+
+    if (!statusCheckEntry) {
         return;
     }
 
     try {
-        await AsyncStorage.setItem(getStatusCheckStorageKey(sessionId), checkedAt);
+        await AsyncStorage.setItem(
+            getStatusCheckStorageKey(sessionId),
+            JSON.stringify(statusCheckEntry)
+        );
     } catch {
         // Ignore local persistence failures so status refresh remains usable.
     }
@@ -163,14 +229,14 @@ const formatDuration = (seconds) => {
 
 const getRecordingStatus = (session) => session?.recording_status || session?.recording_state || (session?.is_live ? "live" : "waiting");
 
-const getStatusCheckFeedback = (session, checkedAt) => {
-    const checkedLabel = formatStatusCheckTimestamp(checkedAt);
+const getStatusCheckFeedback = (session, statusCheck) => {
+    const checkedLabel = formatStatusCheckTimestamp(statusCheck?.checkedAt);
 
     if (!checkedLabel) {
         return null;
     }
 
-    const recordingStatus = getRecordingStatus(session);
+    const recordingStatus = statusCheck?.recordingStatus || getRecordingStatus(session);
 
     if (recordingStatus === "completed") {
         return `Checked ${checkedLabel}. Podcast is ready.`;
@@ -518,12 +584,13 @@ export default function RtcSessionsScreen() {
         try {
             const nextSession = await apiService.getRtcSession(session.id);
             const checkedAt = new Date().toISOString();
+            const statusCheckEntry = buildStatusCheckEntry(nextSession, checkedAt);
             setSessions((currentSessions) => replaceSessionById(currentSessions, nextSession));
             setSessionRefreshSuccesses((currentSuccesses) => ({
                 ...currentSuccesses,
-                [session.id]: checkedAt,
+                [session.id]: statusCheckEntry,
             }));
-            persistStatusCheck(session.id, checkedAt);
+            persistStatusCheck(session.id, nextSession, checkedAt);
         } catch (refreshError) {
             setSessionRefreshErrors((currentErrors) => ({
                 ...currentErrors,
