@@ -57,6 +57,10 @@ const mergeSessionPages = (existingSessions, nextSessions) => {
     return [...existingSessions, ...uniqueNextSessions];
 };
 
+const replaceSessionById = (sessions, nextSession) => sessions.map((session) => (
+    session?.id === nextSession?.id ? nextSession : session
+));
+
 const formatSessionTimestamp = (value) => {
     if (!value) {
         return "Unknown time";
@@ -141,10 +145,19 @@ const getStatusPresentation = (session) => {
     };
 };
 
-const SessionCard = ({ highlighted, onOpenPodcast, onRestartSession, session }) => {
+const SessionCard = ({
+    highlighted,
+    onCheckSessionStatus,
+    onOpenPodcast,
+    onRestartSession,
+    refreshError,
+    session,
+    statusRefreshInFlight,
+}) => {
     const status = getStatusPresentation(session);
     const recordingStatus = getRecordingStatus(session);
     const hasPodcast = recordingStatus === "completed" && Boolean(session?.podcast_id);
+    const canCheckStatus = recordingStatus === "processing";
     const canRestartSession = recordingStatus === "failed";
     const participantCount = session?.participant_count ?? 0;
     const participantLabel = participantCount === 0
@@ -227,6 +240,10 @@ const SessionCard = ({ highlighted, onOpenPodcast, onRestartSession, session }) 
                 <Text style={styles.inviteCodeText}>Invite code: {session.invite_code}</Text>
             )}
 
+            {refreshError && (
+                <Text style={styles.sessionErrorText}>{refreshError}</Text>
+            )}
+
             {hasPodcast && (
                 <TouchableOpacity
                     accessibilityRole="button"
@@ -235,6 +252,23 @@ const SessionCard = ({ highlighted, onOpenPodcast, onRestartSession, session }) 
                     style={styles.openButton}
                 >
                     <Text style={styles.openButtonText}>Open Podcast</Text>
+                </TouchableOpacity>
+            )}
+
+            {canCheckStatus && (
+                <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={`Check recording status for ${session?.title || session?.room_name || "live session"}`}
+                    disabled={statusRefreshInFlight}
+                    onPress={() => onCheckSessionStatus(session)}
+                    style={[
+                        styles.secondaryButton,
+                        statusRefreshInFlight && styles.secondaryButtonDisabled,
+                    ]}
+                >
+                    <Text style={styles.secondaryButtonText}>
+                        {statusRefreshInFlight ? "Checking..." : "Check Status"}
+                    </Text>
                 </TouchableOpacity>
             )}
 
@@ -265,6 +299,8 @@ export default function RtcSessionsScreen() {
     const [paginationError, setPaginationError] = useState(null);
     const [hasMore, setHasMore] = useState(false);
     const [totalSessions, setTotalSessions] = useState(null);
+    const [refreshingSessionIds, setRefreshingSessionIds] = useState({});
+    const [sessionRefreshErrors, setSessionRefreshErrors] = useState({});
 
     const loadSessions = useCallback(async ({ isRefresh = false } = {}) => {
         if (isRefresh) {
@@ -278,6 +314,8 @@ export default function RtcSessionsScreen() {
             setSessions(response.sessions);
             setHasMore(response.has_more);
             setTotalSessions(response.total);
+            setRefreshingSessionIds({});
+            setSessionRefreshErrors({});
             setError(null);
             setPaginationError(null);
         } catch (loadError) {
@@ -341,6 +379,42 @@ export default function RtcSessionsScreen() {
         },
         [router]
     );
+
+    const handleCheckSessionStatus = useCallback(async (session) => {
+        if (!session?.id) {
+            return;
+        }
+
+        setRefreshingSessionIds((currentIds) => ({
+            ...currentIds,
+            [session.id]: true,
+        }));
+        setSessionRefreshErrors((currentErrors) => {
+            if (!currentErrors[session.id]) {
+                return currentErrors;
+            }
+
+            const nextErrors = { ...currentErrors };
+            delete nextErrors[session.id];
+            return nextErrors;
+        });
+
+        try {
+            const nextSession = await apiService.getRtcSession(session.id);
+            setSessions((currentSessions) => replaceSessionById(currentSessions, nextSession));
+        } catch (refreshError) {
+            setSessionRefreshErrors((currentErrors) => ({
+                ...currentErrors,
+                [session.id]: refreshError?.message || "Could not refresh live session status.",
+            }));
+        } finally {
+            setRefreshingSessionIds((currentIds) => {
+                const nextIds = { ...currentIds };
+                delete nextIds[session.id];
+                return nextIds;
+            });
+        }
+    }, []);
 
     const renderEmptyState = () => (
         <View style={styles.emptyState}>
@@ -438,9 +512,12 @@ export default function RtcSessionsScreen() {
                 renderItem={({ item }) => (
                     <SessionCard
                         highlighted={Number.isInteger(focusSessionId) && item.id === focusSessionId}
+                        onCheckSessionStatus={handleCheckSessionStatus}
                         onOpenPodcast={handleOpenPodcast}
                         onRestartSession={handleRestartSession}
+                        refreshError={sessionRefreshErrors[item.id]}
                         session={item}
+                        statusRefreshInFlight={Boolean(refreshingSessionIds[item.id])}
                     />
                 )}
                 contentContainerStyle={withTabScreenBottomPadding([
@@ -583,6 +660,12 @@ const styles = StyleSheet.create({
         color: COLORS.text.muted,
         fontSize: FONT_SIZES.sm,
     },
+    sessionErrorText: {
+        marginTop: 14,
+        color: COLORS.error,
+        fontSize: FONT_SIZES.sm,
+        lineHeight: 20,
+    },
     openButton: {
         marginTop: 16,
         borderRadius: BORDER_RADIUS.md,
@@ -609,6 +692,9 @@ const styles = StyleSheet.create({
         borderColor: COLORS.border,
         paddingVertical: 12,
         alignItems: "center",
+    },
+    secondaryButtonDisabled: {
+        opacity: 0.65,
     },
     secondaryButtonText: {
         color: COLORS.text.secondary,
