@@ -1,5 +1,6 @@
 import React from "react";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import RtcSessionsScreen from "../../../../app/(main)/rtc-sessions";
 import apiService from "../../../services/api/apiService";
 
@@ -66,6 +67,7 @@ jest.mock("@expo/vector-icons", () => {
 describe("RtcSessionsScreen", () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        AsyncStorage.__clearMockStorage();
         mockParams = {};
     });
 
@@ -361,6 +363,127 @@ describe("RtcSessionsScreen", () => {
         });
 
         expect(getByText("Check Status")).toBeTruthy();
+    });
+
+    it("restores manual status-check feedback after the screen remounts", async () => {
+        apiService.listRtcSessions.mockResolvedValue({
+            sessions: [
+                {
+                    id: 58,
+                    title: "Persistent Processing Session",
+                    room_name: "persistent-processing-session",
+                    created_at: "2026-05-08T10:00:00Z",
+                    media_mode: "audio",
+                    participant_count: 2,
+                    duration_seconds: 1200,
+                    podcast_id: null,
+                    status: "ended",
+                    recording_status: "processing",
+                    is_live: false,
+                },
+            ],
+            total: 1,
+            limit: 25,
+            offset: 0,
+            has_more: false,
+        });
+        apiService.getRtcSession.mockResolvedValue({
+            id: 58,
+            title: "Persistent Processing Session",
+            room_name: "persistent-processing-session",
+            created_at: "2026-05-08T10:00:00Z",
+            media_mode: "audio",
+            participant_count: 2,
+            duration_seconds: 1200,
+            podcast_id: null,
+            status: "ended",
+            recording_status: "processing",
+            is_live: false,
+        });
+
+        const firstRender = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(firstRender.getByText("Check Status")).toBeTruthy();
+        });
+
+        fireEvent.press(
+            firstRender.getByLabelText(
+                "Check recording status for Persistent Processing Session"
+            )
+        );
+
+        await waitFor(() => {
+            expect(apiService.getRtcSession).toHaveBeenCalledWith(58);
+        });
+
+        await waitFor(() => {
+            expect(
+                firstRender.getByText("Checked just now. Recording is still processing.")
+            ).toBeTruthy();
+        });
+
+        firstRender.unmount();
+
+        const secondRender = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        });
+
+        await waitFor(() => {
+            expect(
+                secondRender.getByText("Checked just now. Recording is still processing.")
+            ).toBeTruthy();
+        });
+    });
+
+    it("drops persisted manual feedback when the loaded session status has changed", async () => {
+        const checkedAt = new Date().toISOString();
+
+        AsyncStorage.__setMockStorage({
+            "@propod/rtc-history-status-check/59": JSON.stringify({
+                checkedAt,
+                recordingStatus: "processing",
+            }),
+        });
+
+        apiService.listRtcSessions.mockResolvedValue({
+            sessions: [
+                {
+                    id: 59,
+                    title: "Completed After Delay",
+                    room_name: "completed-after-delay",
+                    created_at: "2026-05-08T10:00:00Z",
+                    media_mode: "audio",
+                    participant_count: 2,
+                    duration_seconds: 1200,
+                    podcast_id: 99,
+                    status: "ended",
+                    recording_status: "completed",
+                    is_live: false,
+                },
+            ],
+            total: 1,
+            limit: 25,
+            offset: 0,
+            has_more: false,
+        });
+
+        const { getByText, queryByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Podcast ready")).toBeTruthy();
+        });
+
+        expect(queryByText("Checked just now. Podcast is ready.")).toBeNull();
+        expect(queryByText("Checked just now. Recording is still processing.")).toBeNull();
+        expect(AsyncStorage.multiRemove).toHaveBeenCalledWith([
+            "@propod/rtc-history-status-check/59",
+        ]);
+        expect(
+            AsyncStorage.__getMockStorage()["@propod/rtc-history-status-check/59"]
+        ).toBeUndefined();
     });
 
     it("keeps exact history count copy for paginated responses", async () => {

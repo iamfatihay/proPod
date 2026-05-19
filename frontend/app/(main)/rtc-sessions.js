@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
@@ -22,6 +23,118 @@ import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOpti
 import { buildRtcSessionRecoveryRoute } from "../../src/utils/rtcSessionRoutes";
 
 const PAGE_SIZE = 25;
+const STATUS_CHECK_STORAGE_KEY_PREFIX = "@propod/rtc-history-status-check/";
+
+const getStatusCheckStorageKey = (sessionId) => `${STATUS_CHECK_STORAGE_KEY_PREFIX}${sessionId}`;
+
+const buildStatusCheckEntry = (session, checkedAt) => {
+    if (!checkedAt) {
+        return null;
+    }
+
+    return {
+        checkedAt,
+        recordingStatus: getRecordingStatus(session),
+    };
+};
+
+const getPersistedStatusChecksForSessions = async (sessions) => {
+    const sessionIds = sessions
+        .map((session) => session?.id)
+        .filter((sessionId) => sessionId !== null && sessionId !== undefined);
+
+    if (sessionIds.length === 0) {
+        return {};
+    }
+
+    try {
+        const storedEntries = await AsyncStorage.multiGet(
+            sessionIds.map((sessionId) => getStatusCheckStorageKey(sessionId))
+        );
+
+        const invalidStorageKeys = [];
+
+        const persistedStatusChecks = storedEntries.reduce((successes, [storageKey, rawEntry]) => {
+            if (typeof rawEntry !== "string" || !rawEntry) {
+                return successes;
+            }
+
+            const sessionId = storageKey.replace(STATUS_CHECK_STORAGE_KEY_PREFIX, "");
+            const session = sessions.find((candidate) => String(candidate?.id) === sessionId);
+
+            if (!session) {
+                invalidStorageKeys.push(storageKey);
+                return successes;
+            }
+
+            let parsedEntry;
+
+            try {
+                parsedEntry = JSON.parse(rawEntry);
+            } catch {
+                invalidStorageKeys.push(storageKey);
+                return successes;
+            }
+
+            const checkedAt = parsedEntry?.checkedAt;
+            const recordingStatus = parsedEntry?.recordingStatus;
+
+            if (
+                typeof checkedAt !== "string"
+                || !checkedAt
+                || typeof recordingStatus !== "string"
+                || !recordingStatus
+            ) {
+                invalidStorageKeys.push(storageKey);
+                return successes;
+            }
+
+            if (recordingStatus !== getRecordingStatus(session)) {
+                invalidStorageKeys.push(storageKey);
+                return successes;
+            }
+
+            return {
+                ...successes,
+                [sessionId]: {
+                    checkedAt,
+                    recordingStatus,
+                },
+            };
+        }, {});
+
+        if (invalidStorageKeys.length > 0) {
+            AsyncStorage.multiRemove(invalidStorageKeys).catch(() => {
+                // Ignore cleanup failures so screen loading still succeeds.
+            });
+        }
+
+        return persistedStatusChecks;
+    } catch {
+        return {};
+    }
+};
+
+const persistStatusCheck = async (sessionId, session, checkedAt) => {
+    if (sessionId === null || sessionId === undefined) {
+        return;
+    }
+
+    const statusCheckEntry = buildStatusCheckEntry(session, checkedAt);
+
+    if (!statusCheckEntry) {
+        return;
+    }
+
+    try {
+        await AsyncStorage.setItem(
+            getStatusCheckStorageKey(sessionId),
+            JSON.stringify(statusCheckEntry)
+        );
+    } catch {
+        // Ignore local persistence failures so status refresh remains usable.
+    }
+};
 
 const getSessionCountLabel = (count) => (count === 1 ? "1 session" : `${count} sessions`);
 
@@ -116,14 +229,14 @@ const formatDuration = (seconds) => {
 
 const getRecordingStatus = (session) => session?.recording_status || session?.recording_state || (session?.is_live ? "live" : "waiting");
 
-const getStatusCheckFeedback = (session, checkedAt) => {
-    const checkedLabel = formatStatusCheckTimestamp(checkedAt);
+const getStatusCheckFeedback = (session, statusCheck) => {
+    const checkedLabel = formatStatusCheckTimestamp(statusCheck?.checkedAt);
 
     if (!checkedLabel) {
         return null;
     }
 
-    const recordingStatus = getRecordingStatus(session);
+    const recordingStatus = statusCheck?.recordingStatus || getRecordingStatus(session);
 
     if (recordingStatus === "completed") {
         return `Checked ${checkedLabel}. Podcast is ready.`;
@@ -364,12 +477,13 @@ export default function RtcSessionsScreen() {
 
         try {
             const response = await apiService.listRtcSessions({ limit: PAGE_SIZE, offset: 0 });
+            const persistedStatusChecks = await getPersistedStatusChecksForSessions(response.sessions);
             setSessions(response.sessions);
             setHasMore(response.has_more);
             setTotalSessions(response.total);
             setRefreshingSessionIds({});
             setSessionRefreshErrors({});
-            setSessionRefreshSuccesses({});
+            setSessionRefreshSuccesses(persistedStatusChecks);
             setError(null);
             setPaginationError(null);
         } catch (loadError) {
@@ -396,10 +510,15 @@ export default function RtcSessionsScreen() {
                 limit: PAGE_SIZE,
                 offset: sessions.length,
             });
+            const persistedStatusChecks = await getPersistedStatusChecksForSessions(response.sessions);
 
             setSessions((currentSessions) => mergeSessionPages(currentSessions, response.sessions));
             setHasMore(response.has_more);
             setTotalSessions(response.total);
+            setSessionRefreshSuccesses((currentSuccesses) => ({
+                ...persistedStatusChecks,
+                ...currentSuccesses,
+            }));
         } catch (loadError) {
             setPaginationError(loadError?.message || "Could not load more live sessions.");
         } finally {
@@ -464,11 +583,14 @@ export default function RtcSessionsScreen() {
 
         try {
             const nextSession = await apiService.getRtcSession(session.id);
+            const checkedAt = new Date().toISOString();
+            const statusCheckEntry = buildStatusCheckEntry(nextSession, checkedAt);
             setSessions((currentSessions) => replaceSessionById(currentSessions, nextSession));
             setSessionRefreshSuccesses((currentSuccesses) => ({
                 ...currentSuccesses,
-                [session.id]: new Date().toISOString(),
+                [session.id]: statusCheckEntry,
             }));
+            persistStatusCheck(session.id, nextSession, checkedAt);
         } catch (refreshError) {
             setSessionRefreshErrors((currentErrors) => ({
                 ...currentErrors,
