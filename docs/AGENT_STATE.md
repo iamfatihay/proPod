@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-19
-**Last session (40):** RTC history persistent check feedback -- branch `feature/rtc-history-persistent-check-feedback` / PR pending persists per-session manual status-check timestamps so feedback survives screen reloads and app focus changes
+**Last session (40):** RTC history persistent check feedback -- branch `feature/rtc-history-persistent-check-feedback` / PR #153 persists per-session manual status-check timestamps so feedback survives screen reloads and app focus changes
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
