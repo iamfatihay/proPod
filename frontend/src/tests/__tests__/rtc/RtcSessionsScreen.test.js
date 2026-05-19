@@ -257,6 +257,8 @@ describe("RtcSessionsScreen", () => {
             expect(getByText("Podcast ready")).toBeTruthy();
         });
 
+        expect(getByText("Checked just now. Podcast is ready.")).toBeTruthy();
+
         fireEvent.press(getByLabelText("Open podcast for Processing Roundtable"));
 
         expect(mockPush).toHaveBeenCalledWith({
@@ -304,6 +306,61 @@ describe("RtcSessionsScreen", () => {
         await waitFor(() => {
             expect(getByText("Status check timed out")).toBeTruthy();
         });
+    });
+
+    it("confirms when a processing session is still preparing after a manual check", async () => {
+        apiService.listRtcSessions.mockResolvedValue({
+            sessions: [
+                {
+                    id: 57,
+                    title: "Long Processing Session",
+                    room_name: "long-processing-session",
+                    created_at: "2026-05-08T10:00:00Z",
+                    media_mode: "audio",
+                    participant_count: 2,
+                    duration_seconds: 1200,
+                    podcast_id: null,
+                    status: "ended",
+                    recording_status: "processing",
+                    is_live: false,
+                },
+            ],
+            total: 1,
+            limit: 25,
+            offset: 0,
+            has_more: false,
+        });
+        apiService.getRtcSession.mockResolvedValue({
+            id: 57,
+            title: "Long Processing Session",
+            room_name: "long-processing-session",
+            created_at: "2026-05-08T10:00:00Z",
+            media_mode: "audio",
+            participant_count: 2,
+            duration_seconds: 1200,
+            podcast_id: null,
+            status: "ended",
+            recording_status: "processing",
+            is_live: false,
+        });
+
+        const { getByLabelText, getByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Check Status")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Check recording status for Long Processing Session"));
+
+        await waitFor(() => {
+            expect(apiService.getRtcSession).toHaveBeenCalledWith(57);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Checked just now. Recording is still processing.")).toBeTruthy();
+        });
+
+        expect(getByText("Check Status")).toBeTruthy();
     });
 
     it("keeps exact history count copy for paginated responses", async () => {

@@ -80,6 +80,24 @@ const formatSessionTimestamp = (value) => {
     });
 };
 
+const formatStatusCheckTimestamp = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    if (Date.now() - date.getTime() < 60 * 1000) {
+        return "just now";
+    }
+
+    return formatSessionTimestamp(value);
+};
+
 const formatDuration = (seconds) => {
     if (!seconds) {
         return "0m";
@@ -97,6 +115,34 @@ const formatDuration = (seconds) => {
 };
 
 const getRecordingStatus = (session) => session?.recording_status || session?.recording_state || (session?.is_live ? "live" : "waiting");
+
+const getStatusCheckFeedback = (session, checkedAt) => {
+    const checkedLabel = formatStatusCheckTimestamp(checkedAt);
+
+    if (!checkedLabel) {
+        return null;
+    }
+
+    const recordingStatus = getRecordingStatus(session);
+
+    if (recordingStatus === "completed") {
+        return `Checked ${checkedLabel}. Podcast is ready.`;
+    }
+
+    if (recordingStatus === "failed") {
+        return `Checked ${checkedLabel}. Recording needs attention.`;
+    }
+
+    if (recordingStatus === "live") {
+        return `Checked ${checkedLabel}. Session is live now.`;
+    }
+
+    if (recordingStatus === "processing") {
+        return `Checked ${checkedLabel}. Recording is still processing.`;
+    }
+
+    return `Checked ${checkedLabel}. Session is waiting to start.`;
+};
 
 const getStatusPresentation = (session) => {
     const recordingStatus = getRecordingStatus(session);
@@ -151,10 +197,12 @@ const SessionCard = ({
     onOpenPodcast,
     onRestartSession,
     refreshError,
+    refreshSuccess,
     session,
     statusRefreshInFlight,
 }) => {
     const status = getStatusPresentation(session);
+    const statusCheckFeedback = getStatusCheckFeedback(session, refreshSuccess);
     const recordingStatus = getRecordingStatus(session);
     const hasPodcast = recordingStatus === "completed" && Boolean(session?.podcast_id);
     const canCheckStatus = recordingStatus === "processing";
@@ -244,6 +292,10 @@ const SessionCard = ({
                 <Text style={styles.sessionErrorText}>{refreshError}</Text>
             )}
 
+            {!refreshError && statusCheckFeedback && (
+                <Text style={styles.sessionFeedbackText}>{statusCheckFeedback}</Text>
+            )}
+
             {hasPodcast && (
                 <TouchableOpacity
                     accessibilityRole="button"
@@ -301,6 +353,7 @@ export default function RtcSessionsScreen() {
     const [totalSessions, setTotalSessions] = useState(null);
     const [refreshingSessionIds, setRefreshingSessionIds] = useState({});
     const [sessionRefreshErrors, setSessionRefreshErrors] = useState({});
+    const [sessionRefreshSuccesses, setSessionRefreshSuccesses] = useState({});
 
     const loadSessions = useCallback(async ({ isRefresh = false } = {}) => {
         if (isRefresh) {
@@ -316,6 +369,7 @@ export default function RtcSessionsScreen() {
             setTotalSessions(response.total);
             setRefreshingSessionIds({});
             setSessionRefreshErrors({});
+            setSessionRefreshSuccesses({});
             setError(null);
             setPaginationError(null);
         } catch (loadError) {
@@ -398,10 +452,23 @@ export default function RtcSessionsScreen() {
             delete nextErrors[session.id];
             return nextErrors;
         });
+        setSessionRefreshSuccesses((currentSuccesses) => {
+            if (!currentSuccesses[session.id]) {
+                return currentSuccesses;
+            }
+
+            const nextSuccesses = { ...currentSuccesses };
+            delete nextSuccesses[session.id];
+            return nextSuccesses;
+        });
 
         try {
             const nextSession = await apiService.getRtcSession(session.id);
             setSessions((currentSessions) => replaceSessionById(currentSessions, nextSession));
+            setSessionRefreshSuccesses((currentSuccesses) => ({
+                ...currentSuccesses,
+                [session.id]: new Date().toISOString(),
+            }));
         } catch (refreshError) {
             setSessionRefreshErrors((currentErrors) => ({
                 ...currentErrors,
@@ -516,6 +583,7 @@ export default function RtcSessionsScreen() {
                         onOpenPodcast={handleOpenPodcast}
                         onRestartSession={handleRestartSession}
                         refreshError={sessionRefreshErrors[item.id]}
+                        refreshSuccess={sessionRefreshSuccesses[item.id]}
                         session={item}
                         statusRefreshInFlight={Boolean(refreshingSessionIds[item.id])}
                     />
@@ -663,6 +731,12 @@ const styles = StyleSheet.create({
     sessionErrorText: {
         marginTop: 14,
         color: COLORS.error,
+        fontSize: FONT_SIZES.sm,
+        lineHeight: 20,
+    },
+    sessionFeedbackText: {
+        marginTop: 14,
+        color: COLORS.text.muted,
         fontSize: FONT_SIZES.sm,
         lineHeight: 20,
     },
