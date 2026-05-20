@@ -117,6 +117,26 @@ const buildStatusChecksForSessions = (sessions, ...sources) => sessions.reduce((
     };
 }, {});
 
+const buildRefreshingSessionIdsForSessions = (sessions, refreshingSessionIds) => sessions.reduce(
+    (nextRefreshingSessionIds, session) => {
+        const sessionId = session?.id;
+
+        if (sessionId === null || sessionId === undefined) {
+            return nextRefreshingSessionIds;
+        }
+
+        if (!refreshingSessionIds?.[sessionId] && !refreshingSessionIds?.[String(sessionId)]) {
+            return nextRefreshingSessionIds;
+        }
+
+        return {
+            ...nextRefreshingSessionIds,
+            [sessionId]: true,
+        };
+    },
+    {}
+);
+
 const omitStatusChecksForSessions = (statusChecks, sessions) => {
     const loadedSessionIds = new Set(
         sessions
@@ -581,7 +601,10 @@ export default function RtcSessionsScreen() {
             setSessions(response.sessions);
             setHasMore(response.has_more);
             setTotalSessions(response.total);
-            setRefreshingSessionIds({});
+            setRefreshingSessionIds((currentIds) => buildRefreshingSessionIdsForSessions(
+                response.sessions,
+                currentIds
+            ));
             setSessionRefreshErrors({});
             setSessionRefreshSuccesses((currentSuccesses) => buildStatusChecksForSessions(
                 response.sessions,
