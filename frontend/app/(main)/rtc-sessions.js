@@ -1,7 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
+    AppState,
     FlatList,
     RefreshControl,
     SafeAreaView,
@@ -575,6 +576,8 @@ export default function RtcSessionsScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const focusSessionId = Number.parseInt(params?.focusSessionId, 10);
+    const appStateRef = useRef(AppState.currentState);
+    const isScreenFocusedRef = useRef(false);
 
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -659,9 +662,29 @@ export default function RtcSessionsScreen() {
 
     useFocusEffect(
         useCallback(() => {
+            isScreenFocusedRef.current = true;
             loadSessions();
+
+            return () => {
+                isScreenFocusedRef.current = false;
+            };
         }, [loadSessions])
     );
+
+    useEffect(() => {
+        const subscription = AppState.addEventListener("change", (nextAppState) => {
+            const wasActive = appStateRef.current === "active";
+            appStateRef.current = nextAppState;
+
+            if (wasActive || nextAppState !== "active" || !isScreenFocusedRef.current) {
+                return;
+            }
+
+            loadSessions({ isRefresh: true });
+        });
+
+        return () => subscription.remove();
+    }, [loadSessions]);
 
     const handleOpenPodcast = useCallback(
         (session) => {

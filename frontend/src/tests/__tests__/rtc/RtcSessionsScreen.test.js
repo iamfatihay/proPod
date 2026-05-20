@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RtcSessionsScreen from "../../../../app/(main)/rtc-sessions";
 import apiService from "../../../services/api/apiService";
@@ -7,6 +7,13 @@ import apiService from "../../../services/api/apiService";
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 let mockParams = {};
+var mockAppState;
+var mockAppStateListeners;
+var mockEmitAppStateChange;
+
+const emitAppStateChange = (nextState) => {
+    mockEmitAppStateChange(nextState);
+};
 
 jest.mock("../../../services/api/apiService", () => ({
     __esModule: true,
@@ -23,8 +30,29 @@ jest.mock("react-native", () => {
         createRefreshControlMock,
     } = require("../../utils/reactNativeScreenTestHelpers");
 
+    mockAppStateListeners = new Set();
+    mockAppState = {
+        currentState: "active",
+        addEventListener: jest.fn((eventType, listener) => {
+            if (eventType === "change") {
+                mockAppStateListeners.add(listener);
+            }
+
+            return {
+                remove: () => {
+                    mockAppStateListeners.delete(listener);
+                },
+            };
+        }),
+    };
+    mockEmitAppStateChange = (nextState) => {
+        mockAppState.currentState = nextState;
+        mockAppStateListeners.forEach((listener) => listener(nextState));
+    };
+
     return {
         ...actual,
+        AppState: mockAppState,
         FlatList: createFlatListMock(actual),
         RefreshControl: createRefreshControlMock(actual, "Refresh live sessions"),
     };
@@ -69,6 +97,8 @@ describe("RtcSessionsScreen", () => {
         jest.clearAllMocks();
         AsyncStorage.__clearMockStorage();
         mockParams = {};
+        mockAppStateListeners.clear();
+        mockAppState.currentState = "active";
     });
 
     it("renders recent sessions and opens ready podcasts", async () => {
@@ -620,6 +650,173 @@ describe("RtcSessionsScreen", () => {
             id: 62,
             title: "Locked Refresh Session",
             room_name: "locked-refresh-session",
+            created_at: "2026-05-08T10:00:00Z",
+            media_mode: "audio",
+            participant_count: 2,
+            duration_seconds: 1200,
+            podcast_id: null,
+            status: "ended",
+            recording_status: "processing",
+            is_live: false,
+        });
+
+        await waitFor(() => {
+            expect(getByText("Checked just now. Recording is still processing.")).toBeTruthy();
+        });
+    });
+
+    it("reloads RTC history when the app returns to the foreground", async () => {
+        apiService.listRtcSessions
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 63,
+                        title: "Foreground Refresh Session",
+                        room_name: "foreground-refresh-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 2,
+                        duration_seconds: 1200,
+                        podcast_id: null,
+                        status: "ended",
+                        recording_status: "processing",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            })
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 63,
+                        title: "Foreground Refresh Session",
+                        room_name: "foreground-refresh-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 2,
+                        duration_seconds: 1200,
+                        podcast_id: 121,
+                        status: "completed",
+                        recording_status: "completed",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            });
+
+        const { getByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Processing recording")).toBeTruthy();
+        });
+
+        act(() => {
+            emitAppStateChange("background");
+            emitAppStateChange("active");
+        });
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Podcast ready")).toBeTruthy();
+        });
+    });
+
+    it("keeps an in-flight status check locked during a foreground reload", async () => {
+        let resolveStatusCheck;
+
+        apiService.listRtcSessions
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 64,
+                        title: "Foreground Lock Session",
+                        room_name: "foreground-lock-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 2,
+                        duration_seconds: 1200,
+                        podcast_id: null,
+                        status: "ended",
+                        recording_status: "processing",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            })
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 64,
+                        title: "Foreground Lock Session",
+                        room_name: "foreground-lock-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 2,
+                        duration_seconds: 1200,
+                        podcast_id: null,
+                        status: "ended",
+                        recording_status: "processing",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            });
+        apiService.getRtcSession.mockImplementation(() => new Promise((resolve) => {
+            resolveStatusCheck = resolve;
+        }));
+
+        const { getByLabelText, getByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Check Status")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Check recording status for Foreground Lock Session"));
+
+        await waitFor(() => {
+            expect(apiService.getRtcSession).toHaveBeenCalledWith(64);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Checking...")).toBeTruthy();
+        });
+        expect(
+            getByLabelText("Check recording status for Foreground Lock Session").props.disabled
+        ).toBe(true);
+
+        act(() => {
+            emitAppStateChange("background");
+            emitAppStateChange("active");
+        });
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        });
+
+        expect(getByText("Checking...")).toBeTruthy();
+        expect(
+            getByLabelText("Check recording status for Foreground Lock Session").props.disabled
+        ).toBe(true);
+
+        resolveStatusCheck({
+            id: 64,
+            title: "Foreground Lock Session",
+            room_name: "foreground-lock-session",
             created_at: "2026-05-08T10:00:00Z",
             media_mode: "audio",
             participant_count: 2,
