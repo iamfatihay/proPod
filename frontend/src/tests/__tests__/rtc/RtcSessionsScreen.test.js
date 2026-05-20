@@ -486,6 +486,53 @@ describe("RtcSessionsScreen", () => {
         ).toBeUndefined();
     });
 
+    it("drops persisted manual feedback when the stored check is stale", async () => {
+        const checkedAt = new Date(Date.now() - (25 * 60 * 60 * 1000)).toISOString();
+
+        AsyncStorage.__setMockStorage({
+            "@propod/rtc-history-status-check/60": JSON.stringify({
+                checkedAt,
+                recordingStatus: "processing",
+            }),
+        });
+
+        apiService.listRtcSessions.mockResolvedValue({
+            sessions: [
+                {
+                    id: 60,
+                    title: "Stale Processing Session",
+                    room_name: "stale-processing-session",
+                    created_at: "2026-05-08T10:00:00Z",
+                    media_mode: "audio",
+                    participant_count: 2,
+                    duration_seconds: 1200,
+                    podcast_id: null,
+                    status: "ended",
+                    recording_status: "processing",
+                    is_live: false,
+                },
+            ],
+            total: 1,
+            limit: 25,
+            offset: 0,
+            has_more: false,
+        });
+
+        const { getByText, queryByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Processing recording")).toBeTruthy();
+        });
+
+        expect(queryByText(/^Checked /)).toBeNull();
+        expect(AsyncStorage.multiRemove).toHaveBeenCalledWith([
+            "@propod/rtc-history-status-check/60",
+        ]);
+        expect(
+            AsyncStorage.__getMockStorage()["@propod/rtc-history-status-check/60"]
+        ).toBeUndefined();
+    });
+
     it("keeps exact history count copy for paginated responses", async () => {
         apiService.listRtcSessions.mockResolvedValue({
             sessions: [
