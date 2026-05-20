@@ -703,6 +703,10 @@ export default function RtcSessionsScreen() {
             const wasActive = appStateRef.current === "active";
             appStateRef.current = nextAppState;
 
+            if (nextAppState !== "active") {
+                pendingForegroundRefreshRef.current = false;
+            }
+
             if (
                 wasActive
                 || nextAppState !== "active"
@@ -716,6 +720,7 @@ export default function RtcSessionsScreen() {
                 return;
             }
 
+            pendingForegroundRefreshRef.current = false;
             loadSessions({ isRefresh: true });
         });
 
