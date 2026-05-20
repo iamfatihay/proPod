@@ -66,6 +66,77 @@ const buildStatusCheckEntry = (session, checkedAt) => {
     };
 };
 
+const getValidStatusCheckEntry = (session, statusCheck) => {
+    if (!statusCheck) {
+        return null;
+    }
+
+    const checkedAt = statusCheck?.checkedAt;
+    const recordingStatus = statusCheck?.recordingStatus;
+
+    if (
+        typeof checkedAt !== "string"
+        || !checkedAt
+        || typeof recordingStatus !== "string"
+        || !recordingStatus
+        || isStatusCheckExpired(checkedAt)
+        || recordingStatus !== getRecordingStatus(session)
+    ) {
+        return null;
+    }
+
+    return {
+        checkedAt,
+        recordingStatus,
+    };
+};
+
+const buildStatusChecksForSessions = (sessions, ...sources) => sessions.reduce((successes, session) => {
+    const sessionId = session?.id;
+
+    if (sessionId === null || sessionId === undefined) {
+        return successes;
+    }
+
+    const matchedStatusCheck = sources.reduce((match, source) => {
+        if (match || !source) {
+            return match;
+        }
+
+        return source[sessionId] || source[String(sessionId)] || null;
+    }, null);
+    const validStatusCheck = getValidStatusCheckEntry(session, matchedStatusCheck);
+
+    if (!validStatusCheck) {
+        return successes;
+    }
+
+    return {
+        ...successes,
+        [sessionId]: validStatusCheck,
+    };
+}, {});
+
+const omitStatusChecksForSessions = (statusChecks, sessions) => {
+    const loadedSessionIds = new Set(
+        sessions
+            .map((session) => session?.id)
+            .filter((sessionId) => sessionId !== null && sessionId !== undefined)
+            .map((sessionId) => String(sessionId))
+    );
+
+    return Object.entries(statusChecks || {}).reduce((remainingStatusChecks, [sessionId, statusCheck]) => {
+        if (loadedSessionIds.has(String(sessionId))) {
+            return remainingStatusChecks;
+        }
+
+        return {
+            ...remainingStatusChecks,
+            [sessionId]: statusCheck,
+        };
+    }, {});
+};
+
 const getPersistedStatusChecksForSessions = async (sessions) => {
     const sessionIds = sessions
         .map((session) => session?.id)
@@ -512,7 +583,11 @@ export default function RtcSessionsScreen() {
             setTotalSessions(response.total);
             setRefreshingSessionIds({});
             setSessionRefreshErrors({});
-            setSessionRefreshSuccesses(persistedStatusChecks);
+            setSessionRefreshSuccesses((currentSuccesses) => buildStatusChecksForSessions(
+                response.sessions,
+                currentSuccesses,
+                persistedStatusChecks
+            ));
             setError(null);
             setPaginationError(null);
         } catch (loadError) {
@@ -545,8 +620,12 @@ export default function RtcSessionsScreen() {
             setHasMore(response.has_more);
             setTotalSessions(response.total);
             setSessionRefreshSuccesses((currentSuccesses) => ({
-                ...persistedStatusChecks,
-                ...currentSuccesses,
+                ...omitStatusChecksForSessions(currentSuccesses, response.sessions),
+                ...buildStatusChecksForSessions(
+                    response.sessions,
+                    currentSuccesses,
+                    persistedStatusChecks
+                ),
             }));
         } catch (loadError) {
             setPaginationError(loadError?.message || "Could not load more live sessions.");
