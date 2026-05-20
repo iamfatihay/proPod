@@ -536,6 +536,105 @@ describe("RtcSessionsScreen", () => {
         resolvePersist();
     });
 
+    it("keeps an in-flight status check locked during a refresh reload", async () => {
+        let resolveStatusCheck;
+
+        apiService.listRtcSessions
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 62,
+                        title: "Locked Refresh Session",
+                        room_name: "locked-refresh-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 2,
+                        duration_seconds: 1200,
+                        podcast_id: null,
+                        status: "ended",
+                        recording_status: "processing",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            })
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 62,
+                        title: "Locked Refresh Session",
+                        room_name: "locked-refresh-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 2,
+                        duration_seconds: 1200,
+                        podcast_id: null,
+                        status: "ended",
+                        recording_status: "processing",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            });
+        apiService.getRtcSession.mockImplementation(() => new Promise((resolve) => {
+            resolveStatusCheck = resolve;
+        }));
+
+        const { getByLabelText, getByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Check Status")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Check recording status for Locked Refresh Session"));
+
+        await waitFor(() => {
+            expect(apiService.getRtcSession).toHaveBeenCalledWith(62);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Checking...")).toBeTruthy();
+        });
+        expect(
+            getByLabelText("Check recording status for Locked Refresh Session").props.disabled
+        ).toBe(true);
+
+        fireEvent.press(getByLabelText("Refresh live sessions"));
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        });
+
+        expect(getByText("Checking...")).toBeTruthy();
+        expect(
+            getByLabelText("Check recording status for Locked Refresh Session").props.disabled
+        ).toBe(true);
+
+        resolveStatusCheck({
+            id: 62,
+            title: "Locked Refresh Session",
+            room_name: "locked-refresh-session",
+            created_at: "2026-05-08T10:00:00Z",
+            media_mode: "audio",
+            participant_count: 2,
+            duration_seconds: 1200,
+            podcast_id: null,
+            status: "ended",
+            recording_status: "processing",
+            is_live: false,
+        });
+
+        await waitFor(() => {
+            expect(getByText("Checked just now. Recording is still processing.")).toBeTruthy();
+        });
+    });
+
     it("drops persisted manual feedback when the loaded session status has changed", async () => {
         const checkedAt = new Date().toISOString();
 
