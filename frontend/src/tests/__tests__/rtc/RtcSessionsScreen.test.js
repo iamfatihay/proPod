@@ -730,14 +730,36 @@ describe("RtcSessionsScreen", () => {
         });
     });
 
-    it("skips foreground reloads while the initial history load is still in flight", async () => {
+    it("queues one foreground reload while the initial history load is still in flight", async () => {
         let resolveInitialLoad;
 
-        apiService.listRtcSessions.mockImplementationOnce(() => new Promise((resolve) => {
-            resolveInitialLoad = resolve;
-        }));
+        apiService.listRtcSessions
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                resolveInitialLoad = resolve;
+            }))
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 65,
+                        title: "Single In-Flight Session",
+                        room_name: "single-in-flight-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 1,
+                        duration_seconds: 600,
+                        podcast_id: 201,
+                        status: "completed",
+                        recording_status: "completed",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            });
 
-        render(<RtcSessionsScreen />);
+        const { getByText } = render(<RtcSessionsScreen />);
 
         await waitFor(() => {
             expect(apiService.listRtcSessions).toHaveBeenCalledTimes(1);
@@ -773,7 +795,11 @@ describe("RtcSessionsScreen", () => {
         });
 
         await waitFor(() => {
-            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(1);
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Podcast ready")).toBeTruthy();
         });
     });
 
