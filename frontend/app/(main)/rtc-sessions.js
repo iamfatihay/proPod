@@ -578,6 +578,7 @@ export default function RtcSessionsScreen() {
     const focusSessionId = Number.parseInt(params?.focusSessionId, 10);
     const appStateRef = useRef(AppState.currentState);
     const isScreenFocusedRef = useRef(false);
+    const listRequestInFlightRef = useRef(false);
 
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -592,6 +593,12 @@ export default function RtcSessionsScreen() {
     const [sessionRefreshSuccesses, setSessionRefreshSuccesses] = useState({});
 
     const loadSessions = useCallback(async ({ isRefresh = false } = {}) => {
+        if (listRequestInFlightRef.current) {
+            return;
+        }
+
+        listRequestInFlightRef.current = true;
+
         if (isRefresh) {
             setRefreshing(true);
         } else {
@@ -619,6 +626,8 @@ export default function RtcSessionsScreen() {
         } catch (loadError) {
             setError(loadError?.message || "Could not load live sessions.");
         } finally {
+            listRequestInFlightRef.current = false;
+
             if (isRefresh) {
                 setRefreshing(false);
             } else {
@@ -628,10 +637,11 @@ export default function RtcSessionsScreen() {
     }, []);
 
     const loadMoreSessions = useCallback(async () => {
-        if (loading || loadingMore || refreshing || !hasMore) {
+        if (loading || loadingMore || refreshing || !hasMore || listRequestInFlightRef.current) {
             return;
         }
 
+        listRequestInFlightRef.current = true;
         setLoadingMore(true);
         setPaginationError(null);
 
@@ -656,6 +666,7 @@ export default function RtcSessionsScreen() {
         } catch (loadError) {
             setPaginationError(loadError?.message || "Could not load more live sessions.");
         } finally {
+            listRequestInFlightRef.current = false;
             setLoadingMore(false);
         }
     }, [hasMore, loading, loadingMore, refreshing, sessions.length]);
@@ -676,7 +687,12 @@ export default function RtcSessionsScreen() {
             const wasActive = appStateRef.current === "active";
             appStateRef.current = nextAppState;
 
-            if (wasActive || nextAppState !== "active" || !isScreenFocusedRef.current) {
+            if (
+                wasActive
+                || nextAppState !== "active"
+                || !isScreenFocusedRef.current
+                || listRequestInFlightRef.current
+            ) {
                 return;
             }
 

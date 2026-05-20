@@ -730,6 +730,53 @@ describe("RtcSessionsScreen", () => {
         });
     });
 
+    it("skips foreground reloads while the initial history load is still in flight", async () => {
+        let resolveInitialLoad;
+
+        apiService.listRtcSessions.mockImplementationOnce(() => new Promise((resolve) => {
+            resolveInitialLoad = resolve;
+        }));
+
+        render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(1);
+        });
+
+        act(() => {
+            emitAppStateChange("background");
+            emitAppStateChange("active");
+        });
+
+        expect(apiService.listRtcSessions).toHaveBeenCalledTimes(1);
+
+        resolveInitialLoad({
+            sessions: [
+                {
+                    id: 65,
+                    title: "Single In-Flight Session",
+                    room_name: "single-in-flight-session",
+                    created_at: "2026-05-08T10:00:00Z",
+                    media_mode: "audio",
+                    participant_count: 1,
+                    duration_seconds: 600,
+                    podcast_id: null,
+                    status: "ended",
+                    recording_status: "processing",
+                    is_live: false,
+                },
+            ],
+            total: 1,
+            limit: 25,
+            offset: 0,
+            has_more: false,
+        });
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(1);
+        });
+    });
+
     it("keeps an in-flight status check locked during a foreground reload", async () => {
         let resolveStatusCheck;
 
