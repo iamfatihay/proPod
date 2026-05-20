@@ -10,9 +10,31 @@ let mockParams = {};
 var mockAppState;
 var mockAppStateListeners;
 var mockEmitAppStateChange;
+var mockFocusEffectCallbacks;
+var mockFocusEffectCleanups;
 
 const emitAppStateChange = (nextState) => {
     mockEmitAppStateChange(nextState);
+};
+
+const emitScreenBlur = () => {
+    mockFocusEffectCallbacks.forEach((callback) => {
+        const cleanup = mockFocusEffectCleanups.get(callback);
+
+        if (typeof cleanup === "function") {
+            cleanup();
+        }
+
+        mockFocusEffectCleanups.delete(callback);
+    });
+};
+
+const emitScreenFocus = () => {
+    mockFocusEffectCallbacks.forEach((callback) => {
+        const cleanup = callback();
+
+        mockFocusEffectCleanups.set(callback, cleanup);
+    });
 };
 
 jest.mock("../../../services/api/apiService", () => ({
@@ -61,6 +83,9 @@ jest.mock("react-native", () => {
 jest.mock("expo-router", () => {
     const React = require("react");
 
+    mockFocusEffectCallbacks = new Set();
+    mockFocusEffectCleanups = new Map();
+
     return {
         Stack: {
             Screen: () => null,
@@ -71,7 +96,24 @@ jest.mock("expo-router", () => {
         }),
         useLocalSearchParams: () => mockParams,
         useFocusEffect: (callback) => {
-            React.useEffect(() => callback(), [callback]);
+            React.useEffect(() => {
+                mockFocusEffectCallbacks.add(callback);
+
+                const cleanup = callback();
+                mockFocusEffectCleanups.set(callback, cleanup);
+
+                return () => {
+                    mockFocusEffectCallbacks.delete(callback);
+
+                    const currentCleanup = mockFocusEffectCleanups.get(callback);
+
+                    if (typeof currentCleanup === "function") {
+                        currentCleanup();
+                    }
+
+                    mockFocusEffectCleanups.delete(callback);
+                };
+            }, [callback]);
         },
     };
 });
@@ -99,6 +141,8 @@ describe("RtcSessionsScreen", () => {
         mockParams = {};
         mockAppStateListeners.clear();
         mockAppState.currentState = "active";
+        mockFocusEffectCallbacks.clear();
+        mockFocusEffectCleanups.clear();
     });
 
     it("renders recent sessions and opens ready podcasts", async () => {
@@ -723,6 +767,80 @@ describe("RtcSessionsScreen", () => {
 
         await waitFor(() => {
             expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Podcast ready")).toBeTruthy();
+        });
+    });
+
+    it("keeps loaded history visible while refocus refresh is in flight", async () => {
+        let resolveRefocusRefresh;
+
+        apiService.listRtcSessions
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 67,
+                        title: "Refocus Refresh Session",
+                        room_name: "refocus-refresh-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 2,
+                        duration_seconds: 1200,
+                        podcast_id: null,
+                        status: "ended",
+                        recording_status: "processing",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            })
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                resolveRefocusRefresh = resolve;
+            }));
+
+        const { getByText, queryByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Refocus Refresh Session")).toBeTruthy();
+        });
+
+        act(() => {
+            emitScreenBlur();
+            emitScreenFocus();
+        });
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        });
+
+        expect(getByText("Refocus Refresh Session")).toBeTruthy();
+        expect(queryByText("Loading live sessions...")).toBeNull();
+
+        resolveRefocusRefresh({
+            sessions: [
+                {
+                    id: 67,
+                    title: "Refocus Refresh Session",
+                    room_name: "refocus-refresh-session",
+                    created_at: "2026-05-08T10:00:00Z",
+                    media_mode: "audio",
+                    participant_count: 2,
+                    duration_seconds: 1200,
+                    podcast_id: 122,
+                    status: "completed",
+                    recording_status: "completed",
+                    is_live: false,
+                },
+            ],
+            total: 1,
+            limit: 25,
+            offset: 0,
+            has_more: false,
         });
 
         await waitFor(() => {
