@@ -438,6 +438,104 @@ describe("RtcSessionsScreen", () => {
         });
     });
 
+    it("keeps manual status-check feedback during an immediate refresh before persistence finishes", async () => {
+        let resolvePersist;
+
+        apiService.listRtcSessions
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 61,
+                        title: "Refresh Race Session",
+                        room_name: "refresh-race-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 2,
+                        duration_seconds: 1200,
+                        podcast_id: null,
+                        status: "ended",
+                        recording_status: "processing",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            })
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 61,
+                        title: "Refresh Race Session",
+                        room_name: "refresh-race-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 2,
+                        duration_seconds: 1200,
+                        podcast_id: 101,
+                        status: "ended",
+                        recording_status: "completed",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            });
+        apiService.getRtcSession.mockResolvedValue({
+            id: 61,
+            title: "Refresh Race Session",
+            room_name: "refresh-race-session",
+            created_at: "2026-05-08T10:00:00Z",
+            media_mode: "audio",
+            participant_count: 2,
+            duration_seconds: 1200,
+            podcast_id: 101,
+            status: "ended",
+            recording_status: "completed",
+            is_live: false,
+        });
+        AsyncStorage.setItem.mockImplementationOnce((key, value) => new Promise((resolve) => {
+            resolvePersist = () => {
+                AsyncStorage.__setMockStorage({
+                    ...AsyncStorage.__getMockStorage(),
+                    [key]: value,
+                });
+                resolve();
+            };
+        }));
+
+        const { getByLabelText, getByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Check Status")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Check recording status for Refresh Race Session"));
+
+        await waitFor(() => {
+            expect(apiService.getRtcSession).toHaveBeenCalledWith(61);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Checked just now. Podcast is ready.")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Refresh live sessions"));
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Checked just now. Podcast is ready.")).toBeTruthy();
+        });
+
+        resolvePersist();
+    });
+
     it("drops persisted manual feedback when the loaded session status has changed", async () => {
         const checkedAt = new Date().toISOString();
 
