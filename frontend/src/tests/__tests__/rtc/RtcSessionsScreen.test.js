@@ -730,14 +730,36 @@ describe("RtcSessionsScreen", () => {
         });
     });
 
-    it("skips foreground reloads while the initial history load is still in flight", async () => {
+    it("queues one foreground reload while the initial history load is still in flight", async () => {
         let resolveInitialLoad;
 
-        apiService.listRtcSessions.mockImplementationOnce(() => new Promise((resolve) => {
-            resolveInitialLoad = resolve;
-        }));
+        apiService.listRtcSessions
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                resolveInitialLoad = resolve;
+            }))
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 65,
+                        title: "Single In-Flight Session",
+                        room_name: "single-in-flight-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 1,
+                        duration_seconds: 600,
+                        podcast_id: 201,
+                        status: "completed",
+                        recording_status: "completed",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            });
 
-        render(<RtcSessionsScreen />);
+        const { getByText } = render(<RtcSessionsScreen />);
 
         await waitFor(() => {
             expect(apiService.listRtcSessions).toHaveBeenCalledTimes(1);
@@ -773,8 +795,97 @@ describe("RtcSessionsScreen", () => {
         });
 
         await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Podcast ready")).toBeTruthy();
+        });
+    });
+
+    it("clears stale queued foreground refreshes before an immediate resume reload", async () => {
+        let resolveInitialLoad;
+
+        apiService.listRtcSessions
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                resolveInitialLoad = resolve;
+            }))
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 66,
+                        title: "Stale Pending Session",
+                        room_name: "stale-pending-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 1,
+                        duration_seconds: 600,
+                        podcast_id: 301,
+                        status: "completed",
+                        recording_status: "completed",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            });
+
+        const { getByText, queryByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
             expect(apiService.listRtcSessions).toHaveBeenCalledTimes(1);
         });
+
+        act(() => {
+            emitAppStateChange("background");
+            emitAppStateChange("active");
+            emitAppStateChange("background");
+        });
+
+        resolveInitialLoad({
+            sessions: [
+                {
+                    id: 66,
+                    title: "Stale Pending Session",
+                    room_name: "stale-pending-session",
+                    created_at: "2026-05-08T10:00:00Z",
+                    media_mode: "audio",
+                    participant_count: 1,
+                    duration_seconds: 600,
+                    podcast_id: null,
+                    status: "ended",
+                    recording_status: "processing",
+                    is_live: false,
+                },
+            ],
+            total: 1,
+            limit: 25,
+            offset: 0,
+            has_more: false,
+        });
+
+        await waitFor(() => {
+            expect(getByText("Processing recording")).toBeTruthy();
+        });
+
+        expect(apiService.listRtcSessions).toHaveBeenCalledTimes(1);
+
+        act(() => {
+            emitAppStateChange("active");
+        });
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Podcast ready")).toBeTruthy();
+        });
+
+        expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        expect(queryByText("Couldn't load live sessions.")).toBeNull();
     });
 
     it("keeps an in-flight status check locked during a foreground reload", async () => {
@@ -1181,6 +1292,110 @@ describe("RtcSessionsScreen", () => {
                 limit: 25,
                 offset: 0,
             });
+        });
+    });
+
+    it("queues one foreground reload while load-more pagination is still in flight", async () => {
+        const firstPage = Array.from({ length: 25 }, (_, index) => ({
+            id: 300 - index,
+            title: `Paged Session ${index + 1}`,
+            room_name: `paged-session-${index + 1}`,
+            created_at: "2026-05-08T10:00:00Z",
+            media_mode: "audio",
+            participant_count: 2,
+            duration_seconds: 300,
+            podcast_id: null,
+            status: "ended",
+            recording_status: "processing",
+            is_live: false,
+        }));
+
+        let resolveLoadMore;
+
+        apiService.listRtcSessions
+            .mockResolvedValueOnce({
+                sessions: firstPage,
+                total: 26,
+                limit: 25,
+                offset: 0,
+                has_more: true,
+            })
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                resolveLoadMore = resolve;
+            }))
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        ...firstPage[0],
+                        podcast_id: 401,
+                        status: "completed",
+                        recording_status: "completed",
+                    },
+                    ...firstPage.slice(1),
+                ],
+                total: 26,
+                limit: 25,
+                offset: 0,
+                has_more: true,
+            });
+
+        const { getByLabelText, getByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Paged Session 1")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Load more live sessions"));
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenLastCalledWith({
+                limit: 25,
+                offset: 25,
+            });
+        });
+
+        act(() => {
+            emitAppStateChange("background");
+            emitAppStateChange("active");
+        });
+
+        expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+
+        resolveLoadMore({
+            sessions: [
+                {
+                    id: 275,
+                    title: "Older Load More Session",
+                    room_name: "older-load-more-session",
+                    created_at: "2026-05-07T10:00:00Z",
+                    media_mode: "video",
+                    participant_count: 3,
+                    duration_seconds: 1200,
+                    podcast_id: null,
+                    status: "ended",
+                    recording_status: "processing",
+                    is_live: false,
+                },
+            ],
+            total: 26,
+            limit: 25,
+            offset: 25,
+            has_more: false,
+        });
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(3);
+        });
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenLastCalledWith({
+                limit: 25,
+                offset: 0,
+            });
+        });
+
+        await waitFor(() => {
+            expect(getByText("Podcast ready")).toBeTruthy();
         });
     });
 });

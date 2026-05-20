@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-20
-**Last session (44):** RTC history foreground refresh -- branch `feature/rtc-history-foreground-refresh` / PR pending reloads live-session history when the app returns to the foreground and keeps in-flight per-session Check Status locks through resume-triggered reloads
+**Last session (45):** RTC history queued foreground refresh -- branch `fix/rtc-history-queued-foreground-refresh` / PR pending queues one follow-up live-session history refresh when the app resumes during an in-flight list request so the latest recording state still lands after the original request settles
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -59,7 +59,7 @@
 - `fix/rtc-history-stale-check-cleanup` / PR pending -- expires persisted RTC history manual status-check feedback after 24 hours and prunes stale AsyncStorage entries so device-local confirmation copy does not linger indefinitely.
 - `fix/rtc-history-feedback-refresh-race` / PR pending -- preserves per-session RTC history status-check confirmation copy during immediate pull-to-refresh and focus reloads even when the AsyncStorage persistence write has not finished yet.
 - `fix/rtc-history-refresh-lock` / PR pending -- keeps in-flight per-session `Check Status` actions disabled through pull-to-refresh and focus reloads so creators cannot trigger duplicate manual status checks before the original request settles.
-- `feature/rtc-history-foreground-refresh` / PR pending -- reloads RTC session history when the screen returns with the app foregrounded and preserves in-flight per-session `Check Status` locks through that resume-triggered reload.
+- `fix/rtc-history-queued-foreground-refresh` / PR pending -- queues one follow-up RTC session history refresh when the app resumes during an in-flight list request so foreground reloads are not silently dropped.
 
 ---
 
@@ -81,7 +81,7 @@
 - RTC history stale-check expiry now uses a hard-coded 24-hour retention window; device QA should confirm that slower recording-processing cases do not need a longer local feedback window.
 - RTC history status-check feedback now survives immediate screen reloads in Jest, but device QA should still confirm the same behavior during real iOS and Android background/foreground cycles under slower storage conditions.
 - RTC history in-flight status-check locking now survives refresh reloads in Jest, but device QA should confirm the disabled button state still blocks duplicate taps during pull-to-refresh and focus reloads on iOS and Android.
-- RTC history now reloads on AppState foreground while focused, but device QA should confirm that resuming the app does not trigger redundant duplicate reloads on iOS and Android.
+- RTC history now queues one follow-up foreground refresh after in-flight list requests in Jest, but device QA should confirm resume-during-load and resume-during-load-more do not trigger duplicate reloads on iOS and Android.
 - `/rtc/sessions` is now validated at the frontend API boundary, but other paginated endpoints still accept raw response shapes without shared contract helpers.
 - Continue-listening playback behavior is now covered at the HomeScreen handler layer, but it still lacks device QA for the loaded-track toggle and resume-position paths.
 
@@ -167,6 +167,8 @@
 - 2026-05-20: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed for the refresh-lock fix; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-20: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/rtc/RtcSessionsScreen.test.js --runInBand --verbose 2>&1 | tail -n 160` passed after adding AppState foreground RTC history reload coverage; Jest still emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-20: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed for the foreground-refresh change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-20: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/rtc/RtcSessionsScreen.test.js --runInBand --verbose 2>&1 | tail -n 160` passed after queuing one follow-up foreground refresh when the app resumes during an in-flight RTC history request; Jest still emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-20: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed for the queued foreground-refresh follow-up; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -174,8 +176,8 @@
 
 ## Next Session Suggestions
 
-1. **RTC history foreground-refresh device QA** -- verify on iOS and Android that returning to the app refreshes session status once and keeps `Check Status` disabled until the original per-session request resolves.
-2. **RTC history persistence device QA** -- verify on iOS and Android that the last manual `Check Status` feedback still survives immediate reloads for processing, ready, and failed recordings after the new foreground refresh path.
+1. **RTC history queued-foreground-refresh device QA** -- verify on iOS and Android that resuming during an initial load or load-more triggers exactly one follow-up history refresh and does not double-reload.
+2. **RTC history persistence device QA** -- verify on iOS and Android that manual `Check Status` feedback still survives queued foreground refreshes for processing, ready, and failed recordings.
 3. **RTC history retention tuning** -- adjust the 24-hour stale-check retention window only if device QA shows creators still need the local confirmation copy for unusually long processing jobs.
 
 ---
