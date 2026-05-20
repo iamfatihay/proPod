@@ -6,8 +6,8 @@
 
 ## Current State
 
-**Last updated:** 2026-05-19
-**Last session (40):** RTC history persistent check feedback -- branch `feature/rtc-history-persistent-check-feedback` / PR #153 persists per-session manual status-check timestamps so feedback survives screen reloads and app focus changes
+**Last updated:** 2026-05-20
+**Last session (41):** RTC history stale-check cleanup -- branch `fix/rtc-history-stale-check-cleanup` / PR pending expires persisted per-session manual status-check feedback after 24 hours so old device-local check copy does not linger indefinitely
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -56,6 +56,7 @@
 - `feature/rtc-session-history-recovery-actions` / PR pending -- adds a failed-session recovery CTA in RTC session history and reopens Create with the previous multi-host title/category/visibility/media-mode prefilled.
 - `feature/rtc-processing-status-action` / PR #151 -- adds an inline `Check Status` action for processing RTC session history cards so creators can refresh one recording in place and see inline status-check failures without relying on pull-to-refresh.
 - `feature/rtc-history-status-feedback` / PR #152 -- adds subtle per-session confirmation copy after manual RTC history status checks so longer processing windows acknowledge the refresh even when the recording is still pending.
+- `fix/rtc-history-stale-check-cleanup` / PR pending -- expires persisted RTC history manual status-check feedback after 24 hours and prunes stale AsyncStorage entries so device-local confirmation copy does not linger indefinitely.
 
 ---
 
@@ -74,6 +75,7 @@
 - Host failed-session notification routing is now covered, but the create-screen RTC lifecycle still lacks end-to-end screen coverage without more screen decomposition.
 - RTC session recovery prefill now depends on Expo Router params reaching Create reliably; device QA should confirm the values survive tab navigation and back-stack hops on iOS and Android.
 - RTC history manual status checks now persist per device, but the last-checked feedback still does not sync across devices or survive app reinstall.
+- RTC history stale-check expiry now uses a hard-coded 24-hour retention window; device QA should confirm that slower recording-processing cases do not need a longer local feedback window.
 - `/rtc/sessions` is now validated at the frontend API boundary, but other paginated endpoints still accept raw response shapes without shared contract helpers.
 - Continue-listening playback behavior is now covered at the HomeScreen handler layer, but it still lacks device QA for the loaded-track toggle and resume-position paths.
 
@@ -160,9 +162,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC history persistence device QA** -- verify on iOS and Android that `Check Status` feedback survives pull-to-refresh plus background/foreground cycles for still-processing, ready, and failed recordings.
+1. **RTC history persistence device QA** -- verify on iOS and Android that `Check Status` feedback survives pull-to-refresh plus background/foreground cycles for still-processing, ready, and failed recordings, then disappears once the local retention window is exceeded.
 2. **RTC history recovery device QA** -- verify on iOS and Android that `Use Same Setup` and `Check Status` from RTC session history preserve the expected title, category, visibility, media mode, and ready-state navigation.
-3. **RTC history stale-check cleanup** -- cap or expire persisted local status-check timestamps so older device-only feedback does not linger indefinitely in AsyncStorage.
+3. **RTC history retention tuning** -- adjust the 24-hour stale-check retention window only if device QA shows creators still need the local confirmation copy for unusually long processing jobs.
 
 ---
 

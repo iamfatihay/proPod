@@ -24,8 +24,36 @@ import { buildRtcSessionRecoveryRoute } from "../../src/utils/rtcSessionRoutes";
 
 const PAGE_SIZE = 25;
 const STATUS_CHECK_STORAGE_KEY_PREFIX = "@propod/rtc-history-status-check/";
+const STATUS_CHECK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const getStatusCheckStorageKey = (sessionId) => `${STATUS_CHECK_STORAGE_KEY_PREFIX}${sessionId}`;
+
+const getStatusCheckDate = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    return date;
+};
+
+const isStatusCheckExpired = (value) => {
+    const checkedAtDate = getStatusCheckDate(value);
+
+    if (!checkedAtDate) {
+        return true;
+    }
+
+    const checkedAtTime = checkedAtDate.getTime();
+    const ageMs = Date.now() - checkedAtTime;
+
+    return ageMs < 0 || ageMs > STATUS_CHECK_MAX_AGE_MS;
+};
 
 const buildStatusCheckEntry = (session, checkedAt) => {
     if (!checkedAt) {
@@ -85,6 +113,11 @@ const getPersistedStatusChecksForSessions = async (sessions) => {
                 || typeof recordingStatus !== "string"
                 || !recordingStatus
             ) {
+                invalidStorageKeys.push(storageKey);
+                return successes;
+            }
+
+            if (isStatusCheckExpired(checkedAt)) {
                 invalidStorageKeys.push(storageKey);
                 return successes;
             }
@@ -194,15 +227,11 @@ const formatSessionTimestamp = (value) => {
 };
 
 const formatStatusCheckTimestamp = (value) => {
-    if (!value) {
+    if (isStatusCheckExpired(value)) {
         return null;
     }
 
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return null;
-    }
+    const date = getStatusCheckDate(value);
 
     if (Date.now() - date.getTime() < 60 * 1000) {
         return "just now";
