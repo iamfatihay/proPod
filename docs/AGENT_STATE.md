@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-21
-**Last session (48):** Listening history refresh-failure UX -- branch `fix/history-refresh-failure-ux` / PR pending keeps previously loaded listening history entries visible when refocus or pull-to-refresh reloads fail and surfaces an inline retry message instead of dropping into the blocking full-screen error state
+**Last session (49):** Listening history inline retry state -- branch `fix/history-inline-retry-state` / PR pending keeps the inline refresh-failure card visible during retry, disables duplicate retry taps, and shows a `Retrying...` label until the in-place refresh settles
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -37,6 +37,7 @@
 
 ## Open / In-Progress
 
+- `fix/history-inline-retry-state` / PR pending -- keeps the Listening History inline refresh-failure card visible during retry, disables duplicate retry taps, and shows a `Retrying...` label while the in-place refresh is still running.
 - `fix/history-focus-refresh` / PR pending -- switches Listening History focus reloads onto the refresh path after the first load attempt so loaded entries stay visible during refocus-triggered refreshes.
 - `fix/history-refresh-failure-ux` / PR pending -- keeps previously loaded Listening History entries visible when refocus or pull-to-refresh reloads fail and shows inline retry copy above the list instead of replacing it with the blocking full-screen error state.
 - `feature/rtc-failed-host-notification` / PR pending -- adds `rtc_failed` notification type; processing notification upgrades to failed when polling confirms failure; Android back-button no longer blocks navigation away from failed sessions.
@@ -88,6 +89,7 @@
 - RTC history focus reloads now avoid the blocking initial-load overlay after the first fetch attempt in Jest, but device QA should confirm the lighter refocus refresh still feels correct for empty and prior-error states on iOS and Android.
 - Listening History refocus now keeps loaded entries visible in Jest, but device QA should confirm the lighter refresh still feels correct on iOS and Android when navigating back from episode details.
 - Listening History now keeps prior entries visible when in-place refreshes fail in Jest, but device QA should confirm the inline error card and retry CTA feel clear on iOS and Android during slower or intermittent networks.
+- Listening History inline retry state now stays visible and blocks duplicate taps in Jest, but device QA should confirm the disabled CTA and `Retrying...` label feel clear during slower in-place refreshes on iOS and Android.
 - `/rtc/sessions` is now validated at the frontend API boundary, but other paginated endpoints still accept raw response shapes without shared contract helpers.
 - Continue-listening playback behavior is now covered at the HomeScreen handler layer, but it still lacks device QA for the loaded-track toggle and resume-position paths.
 
@@ -181,6 +183,8 @@
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/history.js' 'src/tests/__tests__/history/HistoryScreen.test.js'` passed; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/history/HistoryScreen.test.js --runInBand` passed (3 tests) after keeping loaded history rows visible for refocus and pull-to-refresh failures; Jest still emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/history.js' 'src/tests/__tests__/history/HistoryScreen.test.js'` passed for the inline refresh-failure UX change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-21: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/history/HistoryScreen.test.js --runInBand` passed (6 tests) after keeping the inline retry card visible and disabling duplicate taps during in-flight Listening History refresh retries; Jest still emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/history.js' 'src/tests/__tests__/history/HistoryScreen.test.js'` passed for the Listening History retry-state polish; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -188,8 +192,8 @@
 
 ## Next Session Suggestions
 
-1. **Listening history refresh-failure device QA** -- verify on iOS and Android that failed refocus and pull-to-refresh reloads keep prior rows visible, show the inline retry card, and recover cleanly on the next successful refresh.
-2. **Listening history retry interaction polish** -- decide whether the inline retry CTA should stay visible during an in-flight retry or clear immediately once a new refresh starts on device.
+1. **Listening history retry-state device QA** -- verify on iOS and Android that the inline refresh-failure card stays visible, the retry CTA disables, and the `Retrying...` label reads clearly during slower retries.
+2. **Listening history loaded-state recovery QA** -- confirm on device that refocus failures, pull-to-refresh failures, and the follow-up successful refresh all preserve rows and transition cleanly between inline error, retrying, and recovered states.
 3. **Shared focus-reload audit** -- check other list-style screens that still cold-load on `useFocusEffect` and apply the same keep-visible-on-refresh-failure pattern where it improves continuity.
 
 ---
