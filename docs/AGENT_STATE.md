@@ -6,8 +6,8 @@
 
 ## Current State
 
-**Last updated:** 2026-05-20
-**Last session (46):** RTC history focus refresh polish -- branch `fix/rtc-history-focus-refresh` / PR pending keeps loaded live-session history visible on screen refocus and refreshes in place instead of re-showing the blocking initial-load overlay
+**Last updated:** 2026-05-21
+**Last session (47):** Listening history focus refresh polish -- branch `fix/history-focus-refresh` / PR pending keeps loaded listening history visible on screen refocus and refreshes in place instead of re-showing the blocking initial-load spinner
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -37,6 +37,7 @@
 
 ## Open / In-Progress
 
+- `fix/history-focus-refresh` / PR pending -- switches Listening History focus reloads onto the refresh path after the first load attempt so loaded entries stay visible during refocus-triggered refreshes.
 - `feature/rtc-failed-host-notification` / PR pending -- adds `rtc_failed` notification type; processing notification upgrades to failed when polling confirms failure; Android back-button no longer blocks navigation away from failed sessions.
 - `feature/rtc-recording-retry-cta` / PR #129 -- adds a direct re-record CTA to the host RTC failed review screen so creators can launch a fresh live session without detouring through history.
 - `fix/rtc-room-db-safety-and-screen-spacing` / PR pending -- rolls back cleanly on RTC room DB errors, merges current Alembic heads, and adds consistent bottom spacing to create/details/messages/activity/notifications tab screens.
@@ -84,6 +85,8 @@
 - RTC history in-flight status-check locking now survives refresh reloads in Jest, but device QA should confirm the disabled button state still blocks duplicate taps during pull-to-refresh and focus reloads on iOS and Android.
 - RTC history now queues one follow-up foreground refresh after in-flight list requests in Jest, but device QA should confirm resume-during-load and resume-during-load-more do not trigger duplicate reloads on iOS and Android.
 - RTC history focus reloads now avoid the blocking initial-load overlay after the first fetch attempt in Jest, but device QA should confirm the lighter refocus refresh still feels correct for empty and prior-error states on iOS and Android.
+- Listening History refocus now keeps loaded entries visible in Jest, but device QA should confirm the lighter refresh still feels correct on iOS and Android when navigating back from episode details.
+- Listening History still falls back to the full-screen error state if an in-place refresh fails after prior data has loaded; consider inline error treatment if device QA shows that transition is too disruptive.
 - `/rtc/sessions` is now validated at the frontend API boundary, but other paginated endpoints still accept raw response shapes without shared contract helpers.
 - Continue-listening playback behavior is now covered at the HomeScreen handler layer, but it still lacks device QA for the loaded-track toggle and resume-position paths.
 
@@ -173,6 +176,8 @@
 - 2026-05-20: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed for the queued foreground-refresh follow-up; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-20: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/rtc/RtcSessionsScreen.test.js --runInBand` passed (22 tests) after switching RTC history refocus reloads to the lightweight refresh path; Jest still emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-20: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed for the RTC history focus-refresh polish; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-21: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/history/HistoryScreen.test.js --runInBand` passed (1 test); Jest still emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/history.js' 'src/tests/__tests__/history/HistoryScreen.test.js'` passed; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -180,9 +185,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC history focus-refresh device QA** -- verify on iOS and Android that tab or stack refocus keeps loaded cards visible and avoids the blocking overlay while the history refresh runs.
-2. **RTC history empty/error refocus QA** -- verify on iOS and Android that refocusing after an empty history or prior load failure still shows the right lightweight refresh affordance and recovers cleanly.
-3. **RTC history shared reload audit** -- check whether other list screens still reuse cold-load overlays on focus and apply the same refresh-after-first-load pattern where it improves continuity.
+1. **Listening history focus-refresh device QA** -- verify on iOS and Android that returning from episode details keeps loaded history rows visible and only shows pull-to-refresh activity during the refocus reload.
+2. **Listening history refresh-failure UX** -- decide whether refocus or pull-to-refresh failures with already-loaded entries should keep the list visible with inline retry copy instead of replacing it with the full-screen error state.
+3. **Shared focus-reload audit** -- check other list-style screens that still cold-load on `useFocusEffect` and apply the refresh-after-first-load pattern where it clearly improves continuity.
 
 ---
 

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useRef, useState, useCallback } from "react";
 import {
     View,
     Text,
@@ -183,6 +183,7 @@ const PAGE_SIZE = 20;
 export default function HistoryScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const hasLoadedHistoryRef = useRef(false);
 
     const [entries, setEntries] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -227,6 +228,8 @@ export default function HistoryScreen() {
                     setError(e?.detail || e?.message || "Failed to load history");
                 })
                 .finally(() => {
+                    hasLoadedHistoryRef.current = true;
+
                     if (isRefresh) setRefreshing(false);
                     else setLoading(false);
                 });
@@ -237,14 +240,9 @@ export default function HistoryScreen() {
     // Reload whenever screen comes into focus
     useFocusEffect(
         useCallback(() => {
-            let active = true;
-            loadFresh().then(() => {
-                // no-op -- active guard not needed since loadFresh uses setState
-                // which React batches; any state update after unmount is a no-op.
-            });
-            return () => {
-                active = false;
-            };
+            loadFresh({ isRefresh: hasLoadedHistoryRef.current });
+
+            return undefined;
         }, [loadFresh])
     );
 
