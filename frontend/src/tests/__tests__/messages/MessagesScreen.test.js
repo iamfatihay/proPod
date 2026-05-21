@@ -197,6 +197,43 @@ describe("MessagesScreen", () => {
         expect(queryByText("Couldn't load messages.")).toBeNull();
     });
 
+    it("does not treat a cancelled focus load as a completed inbox load", async () => {
+        const cancelledLoad = createDeferred();
+
+        apiService.getDMInbox
+            .mockReturnValueOnce(cancelledLoad.promise)
+            .mockRejectedValueOnce(new Error("Refocus failed"));
+
+        const { getByText, queryByText } = render(<MessagesScreen />);
+
+        await waitFor(() => {
+            expect(apiService.getDMInbox).toHaveBeenCalledTimes(1);
+        });
+
+        await act(async () => {
+            emitScreenBlur();
+        });
+
+        await act(async () => {
+            cancelledLoad.resolve({ threads: [buildThread()] });
+        });
+
+        await act(async () => {
+            emitScreenFocus();
+        });
+
+        await waitFor(() => {
+            expect(apiService.getDMInbox).toHaveBeenCalledTimes(2);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Couldn't load messages.")).toBeTruthy();
+            expect(getByText("Refocus failed")).toBeTruthy();
+        });
+
+        expect(queryByText("Couldn't refresh messages.")).toBeNull();
+    });
+
     it("keeps the inline refresh error visible and disables retry while an inbox retry is in flight", async () => {
         const deferredRetry = createDeferred();
 

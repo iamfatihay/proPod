@@ -115,6 +115,7 @@ const ThreadRow = ({ item, onPress }) => (
 export default function MessagesScreen() {
     const router = useRouter();
     const hasLoadedInboxRef = useRef(false);
+    const inboxRequestIdRef = useRef(0);
     const threadsRef = useRef([]);
     const [threads, setThreads] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -129,6 +130,9 @@ export default function MessagesScreen() {
     }, [threads]);
 
     const loadInbox = useCallback(async ({ isRefresh = false, signal = { cancelled: false } } = {}) => {
+        const requestId = inboxRequestIdRef.current + 1;
+        inboxRequestIdRef.current = requestId;
+
         if (isRefresh) {
             setRefreshing(true);
         } else {
@@ -141,16 +145,18 @@ export default function MessagesScreen() {
 
         try {
             const data = await apiService.getDMInbox();
-            if (signal.cancelled) return;
+            if (signal.cancelled || inboxRequestIdRef.current !== requestId) return;
             setThreads(data.threads || []);
             setError(null);
         } catch (err) {
-            if (signal.cancelled) return;
+            if (signal.cancelled || inboxRequestIdRef.current !== requestId) return;
             setError(err?.detail || err?.message || "Failed to load messages");
         } finally {
-            hasLoadedInboxRef.current = true;
+            if (!signal.cancelled) {
+                hasLoadedInboxRef.current = true;
+            }
 
-            if (signal.cancelled) {
+            if (inboxRequestIdRef.current !== requestId) {
                 return;
             }
 

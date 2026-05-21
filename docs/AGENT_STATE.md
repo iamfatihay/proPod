@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-21
-**Last session (50):** Messages refresh continuity -- branch `fix/messages-refresh-continuity` / PR pending keeps loaded inbox threads visible during focus and pull-to-refresh reload failures, adds inline retry feedback for refresh errors, and adds focused Jest coverage for the non-blocking retry path
+**Last session (50):** Messages refresh continuity -- branch `fix/messages-refresh-continuity` / PR #163 keeps loaded inbox threads visible during focus and pull-to-refresh reload failures, ignores cancelled focus loads when deciding whether the inbox has completed an initial load, and adds focused Jest coverage for the non-blocking retry path
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -40,7 +40,7 @@
 - `fix/history-inline-retry-state` / PR pending -- keeps the Listening History inline refresh-failure card visible during retry, disables duplicate retry taps, and shows a `Retrying...` label while the in-place refresh is still running.
 - `fix/history-focus-refresh` / PR pending -- switches Listening History focus reloads onto the refresh path after the first load attempt so loaded entries stay visible during refocus-triggered refreshes.
 - `fix/history-refresh-failure-ux` / PR pending -- keeps previously loaded Listening History entries visible when refocus or pull-to-refresh reloads fail and shows inline retry copy above the list instead of replacing it with the blocking full-screen error state.
-- `fix/messages-refresh-continuity` / PR pending -- keeps loaded inbox threads visible during focus and pull-to-refresh reload failures, adds inline retry feedback for refresh errors, and keeps the blocking error state only for true cold-load failures.
+- `fix/messages-refresh-continuity` / PR #163 -- keeps loaded inbox threads visible during focus and pull-to-refresh reload failures, ignores cancelled focus loads when deciding whether the inbox has completed an initial load, and keeps the blocking error state only for true cold-load failures.
 - `feature/rtc-failed-host-notification` / PR pending -- adds `rtc_failed` notification type; processing notification upgrades to failed when polling confirms failure; Android back-button no longer blocks navigation away from failed sessions.
 - `feature/rtc-recording-retry-cta` / PR #129 -- adds a direct re-record CTA to the host RTC failed review screen so creators can launch a fresh live session without detouring through history.
 - `fix/rtc-room-db-safety-and-screen-spacing` / PR pending -- rolls back cleanly on RTC room DB errors, merges current Alembic heads, and adds consistent bottom spacing to create/details/messages/activity/notifications tab screens.
@@ -189,6 +189,8 @@
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/history.js' 'src/tests/__tests__/history/HistoryScreen.test.js'` passed for the Listening History retry-state polish; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/messages/MessagesScreen.test.js --runInBand` passed (3 tests) after switching inbox refocus reloads onto the non-blocking refresh path and preserving loaded threads during refresh failures; Jest still emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/messages.js' 'src/tests/__tests__/messages/MessagesScreen.test.js'` passed for the inbox refresh-continuity change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-21: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/messages/MessagesScreen.test.js --runInBand` passed (4 tests) after preventing cancelled focus loads from flipping the inbox loaded-state flag or leaving the next refocus failure stuck behind the blocking spinner; Jest still emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/messages.js' 'src/tests/__tests__/messages/MessagesScreen.test.js'` passed for the cancelled-focus inbox follow-up; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
