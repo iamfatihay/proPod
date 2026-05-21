@@ -303,6 +303,49 @@ describe("HistoryScreen", () => {
         expect(queryByText("alert-circle-outline")).toBeNull();
     });
 
+    it("keeps the inline refresh error visible and disables retry while a retry request is in flight", async () => {
+        const deferredRetry = createDeferred();
+
+        apiService.getListeningHistory
+            .mockResolvedValueOnce([buildHistoryEntry()])
+            .mockRejectedValueOnce(new Error("Retry failed"))
+            .mockReturnValueOnce(deferredRetry.promise);
+
+        const { getByLabelText, getByText } = render(<HistoryScreen />);
+
+        await waitFor(() => {
+            expect(apiService.getListeningHistory).toHaveBeenNthCalledWith(1, { skip: 0, limit: PAGE_SIZE });
+        });
+
+        fireEvent.press(getByLabelText("Refresh listening history"));
+
+        await waitFor(() => {
+            expect(apiService.getListeningHistory).toHaveBeenNthCalledWith(2, { skip: 0, limit: PAGE_SIZE });
+        });
+
+        await waitFor(() => {
+            expect(getByText("Couldn't refresh listening history.")).toBeTruthy();
+            expect(getByText("Retry failed")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Retry refreshing listening history"));
+
+        await waitFor(() => {
+            expect(apiService.getListeningHistory).toHaveBeenNthCalledWith(3, { skip: 0, limit: PAGE_SIZE });
+        });
+
+        expect(getByText("Retry failed")).toBeTruthy();
+        expect(getByText("Retrying...")).toBeTruthy();
+
+        await act(async () => {
+            deferredRetry.resolve([buildHistoryEntry({ position: 180 })]);
+        });
+
+        await waitFor(() => {
+            expect(getByText(/50% listened/)).toBeTruthy();
+        });
+    });
+
     it("preserves the previous pagination offset after a refresh failure", async () => {
         apiService.getListeningHistory
             .mockResolvedValueOnce(buildHistoryPage(PAGE_SIZE))

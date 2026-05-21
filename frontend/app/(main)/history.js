@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import {
     View,
     Text,
@@ -184,6 +184,7 @@ export default function HistoryScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const hasLoadedHistoryRef = useRef(false);
+    const entriesRef = useRef([]);
 
     const [entries, setEntries] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -193,6 +194,10 @@ export default function HistoryScreen() {
     const [error, setError] = useState(null);
     const [hasMore, setHasMore] = useState(true);
     const [currentSkip, setCurrentSkip] = useState(0);
+
+    useEffect(() => {
+        entriesRef.current = entries;
+    }, [entries]);
 
     const fetchPage = useCallback(async (skip) => {
         const data = await apiService.getListeningHistory({
@@ -213,7 +218,9 @@ export default function HistoryScreen() {
             if (isRefresh) setRefreshing(true);
             else setLoading(true);
 
-            setError(null);
+            if (!isRefresh || entriesRef.current.length === 0) {
+                setError(null);
+            }
             setLoadMoreError(null);
 
             return fetchPage(0)
@@ -346,20 +353,27 @@ export default function HistoryScreen() {
             return null;
         }
 
+        const isRetryingInlineError = refreshing;
+
         return (
             <View style={styles.inlineErrorCard}>
                 <Text style={styles.inlineErrorTitle}>Couldn&apos;t refresh listening history.</Text>
                 <Text style={styles.inlineErrorBody}>{error}</Text>
                 <TouchableOpacity
-                    onPress={handleRetry}
-                    style={styles.inlineRetryButton}
                     accessibilityLabel="Retry refreshing listening history"
+                    accessibilityState={{ disabled: isRetryingInlineError }}
+                    disabled={isRetryingInlineError}
+                    onPress={handleRetry}
+                    style={[
+                        styles.inlineRetryButton,
+                        isRetryingInlineError && styles.retryButtonDisabled,
+                    ]}
                 >
-                    <Text style={styles.retryText}>Retry</Text>
+                    <Text style={styles.retryText}>{isRetryingInlineError ? "Retrying..." : "Retry"}</Text>
                 </TouchableOpacity>
             </View>
         );
-    }, [entries.length, error, handleRetry]);
+    }, [entries.length, error, handleRetry, refreshing]);
 
     return (
         <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
@@ -551,6 +565,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 6,
         borderRadius: 10,
+    },
+    retryButtonDisabled: {
+        opacity: 0.65,
     },
     // FIX #2 -- load-more footer error
     footerError: {
