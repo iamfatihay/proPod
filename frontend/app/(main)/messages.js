@@ -4,7 +4,7 @@
  * Shows one thread entry per conversation partner, sorted by most-recent
  * message first. Tapping a thread opens chat-details.js with that partner.
  */
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     View,
     Text,
@@ -114,6 +114,8 @@ const ThreadRow = ({ item, onPress }) => (
 
 export default function MessagesScreen() {
     const router = useRouter();
+    const hasLoadedInboxRef = useRef(false);
+    const threadsRef = useRef([]);
     const [threads, setThreads] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -122,7 +124,21 @@ export default function MessagesScreen() {
     // Clear the tab-bar badge the moment the user opens the inbox
     const resetDMUnread = useDMStore((state) => state.resetDMUnread);
 
-    const loadInbox = useCallback(async (signal = { cancelled: false }) => {
+    useEffect(() => {
+        threadsRef.current = threads;
+    }, [threads]);
+
+    const loadInbox = useCallback(async ({ isRefresh = false, signal = { cancelled: false } } = {}) => {
+        if (isRefresh) {
+            setRefreshing(true);
+        } else {
+            setLoading(true);
+        }
+
+        if (!isRefresh || threadsRef.current.length === 0) {
+            setError(null);
+        }
+
         try {
             const data = await apiService.getDMInbox();
             if (signal.cancelled) return;
@@ -131,6 +147,18 @@ export default function MessagesScreen() {
         } catch (err) {
             if (signal.cancelled) return;
             setError(err?.detail || err?.message || "Failed to load messages");
+        } finally {
+            hasLoadedInboxRef.current = true;
+
+            if (signal.cancelled) {
+                return;
+            }
+
+            if (isRefresh) {
+                setRefreshing(false);
+            } else {
+                setLoading(false);
+            }
         }
     }, []);
 
@@ -140,10 +168,7 @@ export default function MessagesScreen() {
             resetDMUnread();
 
             const signal = { cancelled: false };
-            setLoading(true);
-            loadInbox(signal).finally(() => {
-                if (!signal.cancelled) setLoading(false);
-            });
+            loadInbox({ signal, isRefresh: hasLoadedInboxRef.current });
             return () => {
                 signal.cancelled = true;
             };
@@ -151,10 +176,16 @@ export default function MessagesScreen() {
     );
 
     const onRefresh = useCallback(async () => {
-        setRefreshing(true);
-        await loadInbox();
-        setRefreshing(false);
+        await loadInbox({ isRefresh: true });
     }, [loadInbox]);
+
+    const handleRetry = useCallback(() => {
+        loadInbox({ isRefresh: threads.length > 0 });
+    }, [loadInbox, threads.length]);
+
+    const hasThreads = threads.length > 0;
+    const showInlineError = Boolean(error) && hasThreads;
+    const isRetryingInlineError = showInlineError && refreshing;
 
     const handlePress = useCallback(
         (thread) => {
@@ -184,17 +215,49 @@ export default function MessagesScreen() {
                 }}
             />
 
-            {loading ? (
+            {loading && !hasThreads ? (
                 <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
                     <ActivityIndicator color={COLORS.primary} />
                 </View>
-            ) : error ? (
-                <View style={{ padding: 20 }}>
+            ) : error && !hasThreads ? (
+                <View style={{ flex: 1, justifyContent: "center", padding: 20 }}>
+                    <Text
+                        style={{
+                            color: COLORS.text.primary,
+                            fontSize: FONT_SIZES.lg,
+                            fontWeight: "700",
+                            marginBottom: 8,
+                        }}
+                    >
+                        Couldn&apos;t load messages.
+                    </Text>
                     <Text
                         style={{ color: COLORS.text.secondary, fontSize: FONT_SIZES.base }}
                     >
                         {error}
                     </Text>
+                    <TouchableOpacity
+                        accessibilityLabel="Retry loading messages"
+                        onPress={handleRetry}
+                        style={{
+                            alignItems: "center",
+                            borderColor: COLORS.primary,
+                            borderRadius: BORDER_RADIUS.md,
+                            borderWidth: 1,
+                            marginTop: 16,
+                            paddingVertical: 12,
+                        }}
+                    >
+                        <Text
+                            style={{
+                                color: COLORS.text.primary,
+                                fontSize: FONT_SIZES.base,
+                                fontWeight: "600",
+                            }}
+                        >
+                            Try Again
+                        </Text>
+                    </TouchableOpacity>
                 </View>
             ) : (
                 <FlatList
@@ -231,6 +294,64 @@ export default function MessagesScreen() {
                             >
                                 Your private conversations with other users.
                             </Text>
+
+                            {showInlineError && (
+                                <View
+                                    style={{
+                                        backgroundColor: "rgba(239,68,68,0.08)",
+                                        borderColor: "rgba(239,68,68,0.24)",
+                                        borderRadius: BORDER_RADIUS.lg,
+                                        borderWidth: 1,
+                                        marginTop: 16,
+                                        padding: 16,
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            color: COLORS.error,
+                                            fontSize: FONT_SIZES.base,
+                                            fontWeight: "600",
+                                            marginBottom: 6,
+                                        }}
+                                    >
+                                        Couldn&apos;t refresh messages.
+                                    </Text>
+                                    <Text
+                                        style={{
+                                            color: COLORS.text.secondary,
+                                            fontSize: FONT_SIZES.sm,
+                                            lineHeight: 20,
+                                        }}
+                                    >
+                                        {error}
+                                    </Text>
+                                    <TouchableOpacity
+                                        accessibilityLabel="Retry refreshing messages"
+                                        accessibilityState={{ disabled: isRetryingInlineError }}
+                                        disabled={isRetryingInlineError}
+                                        onPress={handleRetry}
+                                        style={{
+                                            alignItems: "center",
+                                            borderColor: COLORS.primary,
+                                            borderRadius: BORDER_RADIUS.md,
+                                            borderWidth: 1,
+                                            marginTop: 14,
+                                            opacity: isRetryingInlineError ? 0.65 : 1,
+                                            paddingVertical: 10,
+                                        }}
+                                    >
+                                        <Text
+                                            style={{
+                                                color: COLORS.text.primary,
+                                                fontSize: FONT_SIZES.base,
+                                                fontWeight: "600",
+                                            }}
+                                        >
+                                            {isRetryingInlineError ? "Retrying..." : "Retry"}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
                         </View>
                     }
                     ListEmptyComponent={

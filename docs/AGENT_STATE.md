@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-21
-**Last session (49):** Listening history inline retry state -- branch `fix/history-inline-retry-state` / PR pending keeps the inline refresh-failure card visible during retry, disables duplicate retry taps, and shows a `Retrying...` label until the in-place refresh settles
+**Last session (50):** Messages refresh continuity -- branch `fix/messages-refresh-continuity` / PR pending keeps loaded inbox threads visible during focus and pull-to-refresh reload failures, adds inline retry feedback for refresh errors, and adds focused Jest coverage for the non-blocking retry path
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -40,6 +40,7 @@
 - `fix/history-inline-retry-state` / PR pending -- keeps the Listening History inline refresh-failure card visible during retry, disables duplicate retry taps, and shows a `Retrying...` label while the in-place refresh is still running.
 - `fix/history-focus-refresh` / PR pending -- switches Listening History focus reloads onto the refresh path after the first load attempt so loaded entries stay visible during refocus-triggered refreshes.
 - `fix/history-refresh-failure-ux` / PR pending -- keeps previously loaded Listening History entries visible when refocus or pull-to-refresh reloads fail and shows inline retry copy above the list instead of replacing it with the blocking full-screen error state.
+- `fix/messages-refresh-continuity` / PR pending -- keeps loaded inbox threads visible during focus and pull-to-refresh reload failures, adds inline retry feedback for refresh errors, and keeps the blocking error state only for true cold-load failures.
 - `feature/rtc-failed-host-notification` / PR pending -- adds `rtc_failed` notification type; processing notification upgrades to failed when polling confirms failure; Android back-button no longer blocks navigation away from failed sessions.
 - `feature/rtc-recording-retry-cta` / PR #129 -- adds a direct re-record CTA to the host RTC failed review screen so creators can launch a fresh live session without detouring through history.
 - `fix/rtc-room-db-safety-and-screen-spacing` / PR pending -- rolls back cleanly on RTC room DB errors, merges current Alembic heads, and adds consistent bottom spacing to create/details/messages/activity/notifications tab screens.
@@ -90,6 +91,7 @@
 - Listening History refocus now keeps loaded entries visible in Jest, but device QA should confirm the lighter refresh still feels correct on iOS and Android when navigating back from episode details.
 - Listening History now keeps prior entries visible when in-place refreshes fail in Jest, but device QA should confirm the inline error card and retry CTA feel clear on iOS and Android during slower or intermittent networks.
 - Listening History inline retry state now stays visible and blocks duplicate taps in Jest, but device QA should confirm the disabled CTA and `Retrying...` label feel clear during slower in-place refreshes on iOS and Android.
+- Messages inbox refreshes now stay non-blocking in Jest after the first successful load, but device QA should confirm the inline retry card and pull-to-refresh spinner feel clear on iOS and Android during intermittent networks.
 - `/rtc/sessions` is now validated at the frontend API boundary, but other paginated endpoints still accept raw response shapes without shared contract helpers.
 - Continue-listening playback behavior is now covered at the HomeScreen handler layer, but it still lacks device QA for the loaded-track toggle and resume-position paths.
 
@@ -185,6 +187,8 @@
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/history.js' 'src/tests/__tests__/history/HistoryScreen.test.js'` passed for the inline refresh-failure UX change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/history/HistoryScreen.test.js --runInBand` passed (6 tests) after keeping the inline retry card visible and disabling duplicate taps during in-flight Listening History refresh retries; Jest still emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/history.js' 'src/tests/__tests__/history/HistoryScreen.test.js'` passed for the Listening History retry-state polish; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-21: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/messages/MessagesScreen.test.js --runInBand` passed (3 tests) after switching inbox refocus reloads onto the non-blocking refresh path and preserving loaded threads during refresh failures; Jest still emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/messages.js' 'src/tests/__tests__/messages/MessagesScreen.test.js'` passed for the inbox refresh-continuity change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -192,9 +196,9 @@
 
 ## Next Session Suggestions
 
-1. **Listening history retry-state device QA** -- verify on iOS and Android that the inline refresh-failure card stays visible, the retry CTA disables, and the `Retrying...` label reads clearly during slower retries.
-2. **Listening history loaded-state recovery QA** -- confirm on device that refocus failures, pull-to-refresh failures, and the follow-up successful refresh all preserve rows and transition cleanly between inline error, retrying, and recovered states.
-3. **Shared focus-reload audit** -- check other list-style screens that still cold-load on `useFocusEffect` and apply the same keep-visible-on-refresh-failure pattern where it improves continuity.
+1. **Messages refresh continuity device QA** -- verify on iOS and Android that refocus failures and pull-to-refresh failures keep prior inbox threads visible, show the inline retry card, and recover cleanly after a successful retry.
+2. **Messages cold-load failure QA** -- confirm on device that true first-load failures still show the blocking retry state, the retry CTA works under offline-to-online recovery, and badge clearing stays correct across focus changes.
+3. **Shared focus-reload audit** -- apply the same keep-visible-on-refresh-failure pattern to the next list-style screen that still cold-loads on `useFocusEffect`, with `library.js` and `public-playlists.js` as the first candidates.
 
 ---
 
