@@ -213,6 +213,7 @@ export default function HistoryScreen() {
             if (isRefresh) setRefreshing(true);
             else setLoading(true);
 
+            setError(null);
             setCurrentSkip(0);
             setHasMore(true);
             setLoadMoreError(null);
@@ -275,7 +276,10 @@ export default function HistoryScreen() {
         handleLoadMore();
     }, [handleLoadMore]);
 
-    const handleRetry = useCallback(() => loadFresh(), [loadFresh]);
+    const handleRetry = useCallback(
+        () => loadFresh({ isRefresh: entries.length > 0 }),
+        [entries.length, loadFresh]
+    );
 
     const handlePress = useCallback(
         (entry) => {
@@ -339,6 +343,26 @@ export default function HistoryScreen() {
         return null;
     }, [loadingMore, loadMoreError, handleLoadMoreRetry]);
 
+    const ListHeader = useCallback(() => {
+        if (!error || entries.length === 0) {
+            return null;
+        }
+
+        return (
+            <View style={styles.inlineErrorCard}>
+                <Text style={styles.inlineErrorTitle}>Couldn&apos;t refresh listening history.</Text>
+                <Text style={styles.inlineErrorBody}>{error}</Text>
+                <TouchableOpacity
+                    onPress={handleRetry}
+                    style={styles.inlineRetryButton}
+                    accessibilityLabel="Retry refreshing listening history"
+                >
+                    <Text style={styles.retryText}>Retry</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }, [entries.length, error, handleRetry]);
+
     return (
         <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
             {/* Header */}
@@ -363,7 +387,7 @@ export default function HistoryScreen() {
                 <View style={styles.centered}>
                     <ActivityIndicator color={COLORS.primary} size="large" />
                 </View>
-            ) : error ? (
+            ) : error && entries.length === 0 ? (
                 <View style={styles.centered}>
                     <MaterialCommunityIcons
                         name="alert-circle-outline"
@@ -413,6 +437,7 @@ export default function HistoryScreen() {
                     keyExtractor={keyExtractor}
                     renderItem={renderItem}
                     contentContainerStyle={styles.listContent}
+                    ListHeaderComponent={ListHeader}
                     showsVerticalScrollIndicator={false}
                     onEndReached={handleLoadMore}
                     onEndReachedThreshold={0.4}
@@ -500,6 +525,35 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingTop: 4,
     }),
+    inlineErrorCard: {
+        marginBottom: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "rgba(239,68,68,0.24)",
+        backgroundColor: "rgba(239,68,68,0.08)",
+        padding: 12,
+    },
+    inlineErrorTitle: {
+        color: COLORS.error,
+        fontSize: 14,
+        fontWeight: "600",
+        marginBottom: 4,
+    },
+    inlineErrorBody: {
+        color: COLORS.text.secondary,
+        fontSize: 13,
+        lineHeight: 18,
+        marginBottom: 10,
+    },
+    inlineRetryButton: {
+        alignSelf: "flex-start",
+        backgroundColor: COLORS.panel,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+        borderRadius: 10,
+    },
     // FIX #2 -- load-more footer error
     footerError: {
         alignItems: "center",

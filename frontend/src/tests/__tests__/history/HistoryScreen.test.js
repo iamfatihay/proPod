@@ -1,5 +1,5 @@
 import React from "react";
-import { act, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import HistoryScreen from "../../../../app/(main)/history";
 import apiService from "../../../services/api/apiService";
 
@@ -43,6 +43,21 @@ const createDeferred = () => {
         reject,
     };
 };
+
+const buildHistoryEntry = (overrides = {}) => ({
+    id: 11,
+    podcast_id: 21,
+    position: 120,
+    completed: false,
+    updated_at: "2026-05-21T10:00:00Z",
+    podcast: {
+        title: "Focus-safe listening",
+        thumbnail_url: null,
+        duration: 360,
+        owner: { name: "ProPod FM" },
+    },
+    ...overrides,
+});
 
 jest.mock("../../../services/api/apiService", () => ({
     __esModule: true,
@@ -126,21 +141,7 @@ describe("HistoryScreen", () => {
         const deferredRefresh = createDeferred();
 
         apiService.getListeningHistory
-            .mockResolvedValueOnce([
-                {
-                    id: 11,
-                    podcast_id: 21,
-                    position: 120,
-                    completed: false,
-                    updated_at: "2026-05-21T10:00:00Z",
-                    podcast: {
-                        title: "Focus-safe listening",
-                        thumbnail_url: null,
-                        duration: 360,
-                        owner: { name: "ProPod FM" },
-                    },
-                },
-            ])
+            .mockResolvedValueOnce([buildHistoryEntry()])
             .mockReturnValueOnce(deferredRefresh.promise);
 
         const { getByText } = render(<HistoryScreen />);
@@ -164,24 +165,72 @@ describe("HistoryScreen", () => {
 
         await act(async () => {
             deferredRefresh.resolve([
-                {
-                    id: 11,
-                    podcast_id: 21,
+                buildHistoryEntry({
                     position: 180,
-                    completed: false,
                     updated_at: "2026-05-21T10:05:00Z",
-                    podcast: {
-                        title: "Focus-safe listening",
-                        thumbnail_url: null,
-                        duration: 360,
-                        owner: { name: "ProPod FM" },
-                    },
-                },
+                }),
             ]);
         });
 
         await waitFor(() => {
             expect(getByText(/50% listened/)).toBeTruthy();
         });
+    });
+
+    it("keeps loaded entries visible and shows inline retry copy when a refocus refresh fails", async () => {
+        apiService.getListeningHistory
+            .mockResolvedValueOnce([buildHistoryEntry()])
+            .mockRejectedValueOnce(new Error("Refresh failed"));
+
+        const { getByText, queryByText } = render(<HistoryScreen />);
+
+        await waitFor(() => {
+            expect(apiService.getListeningHistory).toHaveBeenCalledWith({ skip: 0, limit: 20 });
+        });
+
+        expect(getByText("Focus-safe listening")).toBeTruthy();
+
+        await act(async () => {
+            emitScreenBlur();
+            emitScreenFocus();
+        });
+
+        await waitFor(() => {
+            expect(apiService.getListeningHistory).toHaveBeenCalledTimes(2);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Focus-safe listening")).toBeTruthy();
+            expect(getByText("Couldn't refresh listening history.")).toBeTruthy();
+            expect(getByText("Refresh failed")).toBeTruthy();
+        });
+
+        expect(queryByText("alert-circle-outline")).toBeNull();
+    });
+
+    it("keeps loaded entries visible and shows inline retry copy when pull to refresh fails", async () => {
+        apiService.getListeningHistory
+            .mockResolvedValueOnce([buildHistoryEntry()])
+            .mockRejectedValueOnce(new Error("Pull to refresh failed"));
+
+        const { getByLabelText, getByText, queryByText } = render(<HistoryScreen />);
+
+        await waitFor(() => {
+            expect(apiService.getListeningHistory).toHaveBeenCalledWith({ skip: 0, limit: 20 });
+        });
+
+        fireEvent.press(getByLabelText("Refresh listening history"));
+
+        await waitFor(() => {
+            expect(apiService.getListeningHistory).toHaveBeenCalledTimes(2);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Focus-safe listening")).toBeTruthy();
+            expect(getByText("Couldn't refresh listening history.")).toBeTruthy();
+            expect(getByText("Pull to refresh failed")).toBeTruthy();
+        });
+
+        expect(queryByText("alert-circle-outline")).toBeNull();
     });
 });
