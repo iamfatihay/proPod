@@ -149,6 +149,8 @@ const PublicPlaylistCard = ({ playlist, onPress }) => {
 const PublicPlaylists = () => {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const hasLoadedPlaylistsRef = useRef(false);
+    const playlistsRef = useRef([]);
 
     const [playlists, setPlaylists]         = useState([]);
     const [loading, setLoading]             = useState(true);
@@ -172,15 +174,24 @@ const PublicPlaylists = () => {
         };
     }, []);
 
+    useEffect(() => {
+        playlistsRef.current = playlists;
+    }, [playlists]);
+
     // ── Initial / refresh load ─────────────────────────────────────────────
-    const loadFirst = useCallback(async ({ silent = false, q = activeQueryRef.current } = {}) => {
-        if (silent) {
+    const loadFirst = useCallback(async ({ isRefresh = false, q = activeQueryRef.current } = {}) => {
+        if (isRefresh) {
             setRefreshing(true);
         } else {
             setLoading(true);
         }
-        setError(null);
+
+        if (!isRefresh || playlistsRef.current.length === 0) {
+            setError(null);
+        }
+
         setLoadMoreError(null);
+
         try {
             const res = await apiService.getPublicPlaylists({ skip: 0, limit: PAGE_SIZE, q });
             setPlaylists(res.playlists || []);
@@ -189,14 +200,19 @@ const PublicPlaylists = () => {
         } catch (e) {
             setError(e?.detail || e?.message || "Failed to load playlists");
         } finally {
-            setLoading(false);
-            setRefreshing(false);
+            hasLoadedPlaylistsRef.current = true;
+
+            if (isRefresh) {
+                setRefreshing(false);
+            } else {
+                setLoading(false);
+            }
         }
     }, []);
 
     // Pull-to-refresh
     const handleRefresh = useCallback(() => {
-        loadFirst({ silent: true });
+        loadFirst({ isRefresh: true });
     }, [loadFirst]);
 
     // ── Search with debounce ───────────────────────────────────────────────
@@ -256,9 +272,17 @@ const PublicPlaylists = () => {
 
     useFocusEffect(
         useCallback(() => {
-            loadFirst();
+            loadFirst({ isRefresh: hasLoadedPlaylistsRef.current });
         }, [loadFirst])
     );
+
+    const handleRetry = useCallback(() => {
+        loadFirst({ isRefresh: playlists.length > 0 });
+    }, [loadFirst, playlists.length]);
+
+    const hasPlaylists = playlists.length > 0;
+    const showInlineError = Boolean(error) && hasPlaylists;
+    const isRetryingInlineError = showInlineError && refreshing;
 
     // ── Render helpers ─────────────────────────────────────────────────────
     const ListFooter = () => {
@@ -270,6 +294,7 @@ const PublicPlaylists = () => {
                 />
             );
         }
+
         if (loadMoreError) {
             return (
                 <View className="items-center py-4">
@@ -285,6 +310,7 @@ const PublicPlaylists = () => {
                 </View>
             );
         }
+
         return null;
     };
 
@@ -381,11 +407,11 @@ const PublicPlaylists = () => {
 
             {/* Content */}
             <View className="flex-1 px-4">
-                {loading ? (
+                {loading && !hasPlaylists ? (
                     <View className="flex-1 items-center justify-center">
                         <ActivityIndicator color={COLORS.primary} size="large" />
                     </View>
-                ) : error ? (
+                ) : error && !hasPlaylists ? (
                     <View className="flex-1 items-center justify-center">
                         <MaterialCommunityIcons
                             name="alert-circle-outline"
@@ -394,36 +420,97 @@ const PublicPlaylists = () => {
                         />
                         <Text className="text-error mt-3 text-center">{error}</Text>
                         <TouchableOpacity
-                            onPress={() => loadFirst()}
+                            accessibilityLabel="Retry loading public playlists"
+                            onPress={handleRetry}
                             className="mt-4 bg-panel border border-border px-5 py-2 rounded-xl"
                         >
                             <Text className="text-text-primary">Retry</Text>
                         </TouchableOpacity>
                     </View>
                 ) : (
-                    <FlatList
-                        data={playlists}
-                        keyExtractor={(item) => String(item.id)}
-                        renderItem={({ item }) => (
-                            <PublicPlaylistCard
-                                playlist={item}
-                                onPress={() =>
-                                    router.push({
-                                        pathname: "/(main)/playlist-detail",
-                                        params: { id: item.id, name: item.name },
-                                    })
-                                }
-                            />
+                    <>
+                        {showInlineError && (
+                            <View
+                                style={{
+                                    backgroundColor: "rgba(239,68,68,0.08)",
+                                    borderColor: "rgba(239,68,68,0.24)",
+                                    borderRadius: 16,
+                                    borderWidth: 1,
+                                    marginBottom: 14,
+                                    padding: 16,
+                                }}
+                            >
+                                <Text
+                                    style={{
+                                        color: COLORS.error,
+                                        fontSize: 16,
+                                        fontWeight: "600",
+                                        marginBottom: 6,
+                                    }}
+                                >
+                                    Couldn&apos;t refresh playlists.
+                                </Text>
+                                <Text
+                                    style={{
+                                        color: COLORS.text.secondary,
+                                        fontSize: 14,
+                                        lineHeight: 20,
+                                    }}
+                                >
+                                    {error}
+                                </Text>
+                                <TouchableOpacity
+                                    accessibilityLabel="Retry refreshing public playlists"
+                                    accessibilityState={{ disabled: isRetryingInlineError }}
+                                    disabled={isRetryingInlineError}
+                                    onPress={handleRetry}
+                                    style={{
+                                        alignItems: "center",
+                                        borderColor: COLORS.primary,
+                                        borderRadius: 12,
+                                        borderWidth: 1,
+                                        marginTop: 14,
+                                        opacity: isRetryingInlineError ? 0.65 : 1,
+                                        paddingVertical: 10,
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            color: COLORS.text.primary,
+                                            fontSize: 16,
+                                            fontWeight: "600",
+                                        }}
+                                    >
+                                        {isRetryingInlineError ? "Retrying..." : "Retry"}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
                         )}
-                        refreshing={refreshing}
-                        onRefresh={handleRefresh}
-                        onEndReached={loadMore}
-                        onEndReachedThreshold={0.4}
-                        ListFooterComponent={<ListFooter />}
-                        ListEmptyComponent={<ListEmpty />}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={withTabScreenBottomPadding({ flexGrow: 1 })}
-                    />
+
+                        <FlatList
+                            data={playlists}
+                            keyExtractor={(item) => String(item.id)}
+                            renderItem={({ item }) => (
+                                <PublicPlaylistCard
+                                    playlist={item}
+                                    onPress={() =>
+                                        router.push({
+                                            pathname: "/(main)/playlist-detail",
+                                            params: { id: item.id, name: item.name },
+                                        })
+                                    }
+                                />
+                            )}
+                            refreshing={refreshing}
+                            onRefresh={handleRefresh}
+                            onEndReached={loadMore}
+                            onEndReachedThreshold={0.4}
+                            ListFooterComponent={<ListFooter />}
+                            ListEmptyComponent={<ListEmpty />}
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={withTabScreenBottomPadding({ flexGrow: 1 })}
+                        />
+                    </>
                 )}
             </View>
         </SafeAreaView>
