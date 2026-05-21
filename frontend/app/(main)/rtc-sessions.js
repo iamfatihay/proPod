@@ -578,6 +578,7 @@ export default function RtcSessionsScreen() {
     const focusSessionId = Number.parseInt(params?.focusSessionId, 10);
     const appStateRef = useRef(AppState.currentState);
     const isScreenFocusedRef = useRef(false);
+    const hasLoadedHistoryRef = useRef(false);
     const listRequestInFlightRef = useRef(false);
     const pendingForegroundRefreshRef = useRef(false);
 
@@ -627,6 +628,7 @@ export default function RtcSessionsScreen() {
         } catch (loadError) {
             setError(loadError?.message || "Could not load live sessions.");
         } finally {
+            hasLoadedHistoryRef.current = true;
             listRequestInFlightRef.current = false;
 
             if (isRefresh) {
@@ -675,7 +677,7 @@ export default function RtcSessionsScreen() {
     useFocusEffect(
         useCallback(() => {
             isScreenFocusedRef.current = true;
-            loadSessions();
+            loadSessions({ isRefresh: hasLoadedHistoryRef.current });
 
             return () => {
                 isScreenFocusedRef.current = false;

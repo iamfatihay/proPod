@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-20
-**Last session (45):** RTC history queued foreground refresh -- branch `fix/rtc-history-queued-foreground-refresh` / PR pending queues one follow-up live-session history refresh when the app resumes during an in-flight list request so the latest recording state still lands after the original request settles
+**Last session (46):** RTC history focus refresh polish -- branch `fix/rtc-history-focus-refresh` / PR pending keeps loaded live-session history visible on screen refocus and refreshes in place instead of re-showing the blocking initial-load overlay
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -30,6 +30,7 @@
 - RTC session history screen wired from create flow
 - RTC session history pagination (PR #124)
 - RTC guest session summary polish with host/session context (PR #125)
+- RTC history queued foreground refresh (PR #158)
 - Shared queue-track normalization across playback surfaces
 
 ---
@@ -59,7 +60,7 @@
 - `fix/rtc-history-stale-check-cleanup` / PR pending -- expires persisted RTC history manual status-check feedback after 24 hours and prunes stale AsyncStorage entries so device-local confirmation copy does not linger indefinitely.
 - `fix/rtc-history-feedback-refresh-race` / PR pending -- preserves per-session RTC history status-check confirmation copy during immediate pull-to-refresh and focus reloads even when the AsyncStorage persistence write has not finished yet.
 - `fix/rtc-history-refresh-lock` / PR pending -- keeps in-flight per-session `Check Status` actions disabled through pull-to-refresh and focus reloads so creators cannot trigger duplicate manual status checks before the original request settles.
-- `fix/rtc-history-queued-foreground-refresh` / PR pending -- queues one follow-up RTC session history refresh when the app resumes during an in-flight list request so foreground reloads are not silently dropped.
+- `fix/rtc-history-focus-refresh` / PR pending -- treats RTC session history focus reloads as in-place refreshes after the first load attempt so returning to the screen keeps loaded cards visible while the latest request runs.
 
 ---
 
@@ -82,6 +83,7 @@
 - RTC history status-check feedback now survives immediate screen reloads in Jest, but device QA should still confirm the same behavior during real iOS and Android background/foreground cycles under slower storage conditions.
 - RTC history in-flight status-check locking now survives refresh reloads in Jest, but device QA should confirm the disabled button state still blocks duplicate taps during pull-to-refresh and focus reloads on iOS and Android.
 - RTC history now queues one follow-up foreground refresh after in-flight list requests in Jest, but device QA should confirm resume-during-load and resume-during-load-more do not trigger duplicate reloads on iOS and Android.
+- RTC history focus reloads now avoid the blocking initial-load overlay after the first fetch attempt in Jest, but device QA should confirm the lighter refocus refresh still feels correct for empty and prior-error states on iOS and Android.
 - `/rtc/sessions` is now validated at the frontend API boundary, but other paginated endpoints still accept raw response shapes without shared contract helpers.
 - Continue-listening playback behavior is now covered at the HomeScreen handler layer, but it still lacks device QA for the loaded-track toggle and resume-position paths.
 
@@ -169,6 +171,8 @@
 - 2026-05-20: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed for the foreground-refresh change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-20: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/rtc/RtcSessionsScreen.test.js --runInBand --verbose 2>&1 | tail -n 160` passed after queuing one follow-up foreground refresh when the app resumes during an in-flight RTC history request; Jest still emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-20: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed for the queued foreground-refresh follow-up; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-20: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/rtc/RtcSessionsScreen.test.js --runInBand` passed (22 tests) after switching RTC history refocus reloads to the lightweight refresh path; Jest still emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-20: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed for the RTC history focus-refresh polish; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -176,9 +180,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC history queued-foreground-refresh device QA** -- verify on iOS and Android that resuming during an initial load or load-more triggers exactly one follow-up history refresh and does not double-reload.
-2. **RTC history persistence device QA** -- verify on iOS and Android that manual `Check Status` feedback still survives queued foreground refreshes for processing, ready, and failed recordings.
-3. **RTC history retention tuning** -- adjust the 24-hour stale-check retention window only if device QA shows creators still need the local confirmation copy for unusually long processing jobs.
+1. **RTC history focus-refresh device QA** -- verify on iOS and Android that tab or stack refocus keeps loaded cards visible and avoids the blocking overlay while the history refresh runs.
+2. **RTC history empty/error refocus QA** -- verify on iOS and Android that refocusing after an empty history or prior load failure still shows the right lightweight refresh affordance and recovers cleanly.
+3. **RTC history shared reload audit** -- check whether other list screens still reuse cold-load overlays on focus and apply the same refresh-after-first-load pattern where it improves continuity.
 
 ---
 
