@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-21
-**Last session (50):** Messages refresh continuity -- branch `fix/messages-refresh-continuity` / PR #163 keeps loaded inbox threads visible during focus and pull-to-refresh reload failures, ignores cancelled focus loads when deciding whether the inbox has completed an initial load, and adds focused Jest coverage for the non-blocking retry path
+**Last session (51):** Public playlists refresh continuity -- branch `fix/public-playlists-refresh-continuity` / PR #164 keeps loaded Discover Playlists results visible during focus and pull-to-refresh reloads, moves refresh failures into an inline retry card, and adds focused screen coverage for the non-blocking retry path
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -41,6 +41,7 @@
 - `fix/history-focus-refresh` / PR pending -- switches Listening History focus reloads onto the refresh path after the first load attempt so loaded entries stay visible during refocus-triggered refreshes.
 - `fix/history-refresh-failure-ux` / PR pending -- keeps previously loaded Listening History entries visible when refocus or pull-to-refresh reloads fail and shows inline retry copy above the list instead of replacing it with the blocking full-screen error state.
 - `fix/messages-refresh-continuity` / PR #163 -- keeps loaded inbox threads visible during focus and pull-to-refresh reload failures, ignores cancelled focus loads when deciding whether the inbox has completed an initial load, and keeps the blocking error state only for true cold-load failures.
+- `fix/public-playlists-refresh-continuity` / PR #164 -- keeps loaded Discover Playlists results visible during focus and pull-to-refresh reloads, moves refresh failures into an inline retry card, and adds focused screen coverage for refresh continuity and in-place retry behavior.
 - `feature/rtc-failed-host-notification` / PR pending -- adds `rtc_failed` notification type; processing notification upgrades to failed when polling confirms failure; Android back-button no longer blocks navigation away from failed sessions.
 - `feature/rtc-recording-retry-cta` / PR #129 -- adds a direct re-record CTA to the host RTC failed review screen so creators can launch a fresh live session without detouring through history.
 - `fix/rtc-room-db-safety-and-screen-spacing` / PR pending -- rolls back cleanly on RTC room DB errors, merges current Alembic heads, and adds consistent bottom spacing to create/details/messages/activity/notifications tab screens.
@@ -92,6 +93,7 @@
 - Listening History now keeps prior entries visible when in-place refreshes fail in Jest, but device QA should confirm the inline error card and retry CTA feel clear on iOS and Android during slower or intermittent networks.
 - Listening History inline retry state now stays visible and blocks duplicate taps in Jest, but device QA should confirm the disabled CTA and `Retrying...` label feel clear during slower in-place refreshes on iOS and Android.
 - Messages inbox refreshes now stay non-blocking in Jest after the first successful load, but device QA should confirm the inline retry card and pull-to-refresh spinner feel clear on iOS and Android during intermittent networks.
+- Public Playlists refreshes now stay non-blocking in Jest after the first successful load, but device QA should confirm the inline retry card and pull-to-refresh spinner feel clear on iOS and Android during intermittent networks.
 - `/rtc/sessions` is now validated at the frontend API boundary, but other paginated endpoints still accept raw response shapes without shared contract helpers.
 - Continue-listening playback behavior is now covered at the HomeScreen handler layer, but it still lacks device QA for the loaded-track toggle and resume-position paths.
 
@@ -191,6 +193,9 @@
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/messages.js' 'src/tests/__tests__/messages/MessagesScreen.test.js'` passed for the inbox refresh-continuity change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/messages/MessagesScreen.test.js --runInBand` passed (4 tests) after preventing cancelled focus loads from flipping the inbox loaded-state flag or leaving the next refocus failure stuck behind the blocking spinner; Jest still emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/messages.js' 'src/tests/__tests__/messages/MessagesScreen.test.js'` passed for the cancelled-focus inbox follow-up; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-21: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/playlists/PublicPlaylistsScreen.test.js --runInBand` passed (3 tests) after keeping loaded Discover Playlists results visible during refocus refreshes, refresh failures, and inline retry flows; Jest still emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/public-playlists.js' 'src/tests/__tests__/playlists/PublicPlaylistsScreen.test.js'` passed for the Discover Playlists refresh-continuity change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-21: local pre-commit hook passed during `git commit` for `fix(frontend): preserve public playlists on refresh failure`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -198,9 +203,9 @@
 
 ## Next Session Suggestions
 
-1. **Messages refresh continuity device QA** -- verify on iOS and Android that refocus failures and pull-to-refresh failures keep prior inbox threads visible, show the inline retry card, and recover cleanly after a successful retry.
-2. **Messages cold-load failure QA** -- confirm on device that true first-load failures still show the blocking retry state, the retry CTA works under offline-to-online recovery, and badge clearing stays correct across focus changes.
-3. **Shared focus-reload audit** -- apply the same keep-visible-on-refresh-failure pattern to the next list-style screen that still cold-loads on `useFocusEffect`, with `library.js` and `public-playlists.js` as the first candidates.
+1. **Public playlists refresh continuity device QA** -- verify on iOS and Android that refocus failures and pull-to-refresh failures keep prior Discover Playlists results visible, show the inline retry card, and recover cleanly after a successful retry.
+2. **Public playlists empty-state and cold-load QA** -- confirm on device that empty search results and true first-load failures still show sensible loading/error states, and that retry works under offline-to-online recovery.
+3. **Library focus-reload continuity** -- apply the same keep-visible-on-refresh-failure pattern to `frontend/app/(main)/library.js`, which still treats focus reloads as cold loads for its existing list tabs.
 
 ---
 
