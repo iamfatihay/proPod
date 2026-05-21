@@ -214,8 +214,6 @@ export default function HistoryScreen() {
             else setLoading(true);
 
             setError(null);
-            setCurrentSkip(0);
-            setHasMore(true);
             setLoadMoreError(null);
 
             return fetchPage(0)
@@ -253,7 +251,7 @@ export default function HistoryScreen() {
     }, [loadFresh]);
 
     const handleLoadMore = useCallback(async () => {
-        if (loadingMore || !hasMore) return;
+        if (loading || refreshing || loadingMore || !hasMore) return;
         setLoadingMore(true);
         setLoadMoreError(null);
         try {
@@ -268,7 +266,7 @@ export default function HistoryScreen() {
         } finally {
             setLoadingMore(false);
         }
-    }, [loadingMore, hasMore, currentSkip, fetchPage]);
+    }, [currentSkip, fetchPage, hasMore, loading, loadingMore, refreshing]);
 
     // FIX #2: Retry button in the footer after a load-more failure
     const handleLoadMoreRetry = useCallback(() => {

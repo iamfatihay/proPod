@@ -3,6 +3,8 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import HistoryScreen from "../../../../app/(main)/history";
 import apiService from "../../../services/api/apiService";
 
+const PAGE_SIZE = 20;
+
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 var mockFocusEffectCallbacks;
@@ -44,19 +46,37 @@ const createDeferred = () => {
     };
 };
 
-const buildHistoryEntry = (overrides = {}) => ({
-    id: 11,
-    podcast_id: 21,
-    position: 120,
-    completed: false,
-    updated_at: "2026-05-21T10:00:00Z",
-    podcast: {
-        title: "Focus-safe listening",
-        thumbnail_url: null,
-        duration: 360,
-        owner: { name: "ProPod FM" },
-    },
-    ...overrides,
+const buildHistoryEntry = (overrides = {}) => {
+    const { podcast: podcastOverrides = {}, ...entryOverrides } = overrides;
+
+    return {
+        id: 11,
+        podcast_id: 21,
+        position: 120,
+        completed: false,
+        updated_at: "2026-05-21T10:00:00Z",
+        podcast: {
+            title: "Focus-safe listening",
+            thumbnail_url: null,
+            duration: 360,
+            owner: { name: "ProPod FM" },
+            ...podcastOverrides,
+        },
+        ...entryOverrides,
+    };
+};
+
+const buildHistoryPage = (count, startIndex = 0) => Array.from({ length: count }, (_, index) => {
+    const id = startIndex + index + 1;
+
+    return buildHistoryEntry({
+        id,
+        podcast_id: id + 100,
+        updated_at: `2026-05-21T10:${String(index).padStart(2, "0")}:00Z`,
+        podcast: {
+            title: `History episode ${id}`,
+        },
+    });
 });
 
 jest.mock("../../../services/api/apiService", () => ({
@@ -68,15 +88,64 @@ jest.mock("../../../services/api/apiService", () => ({
 }));
 
 jest.mock("react-native", () => {
+    const React = require("react");
     const actual = jest.requireActual("react-native");
     const {
-        createFlatListMock,
         createRefreshControlMock,
     } = require("../../utils/reactNativeScreenTestHelpers");
 
+    const renderListPart = (part) => {
+        if (!part) {
+            return null;
+        }
+
+        if (typeof part === "function") {
+            return React.createElement(part);
+        }
+
+        return part;
+    };
+
+    const FlatList = ({
+        data = [],
+        ListEmptyComponent,
+        ListFooterComponent,
+        ListHeaderComponent,
+        refreshControl,
+        renderItem,
+        keyExtractor,
+        onEndReached,
+    }) => {
+        const items = Array.isArray(data) ? data : [];
+
+        return React.createElement(
+            actual.View,
+            null,
+            renderListPart(ListHeaderComponent),
+            refreshControl,
+            items.length === 0
+                ? renderListPart(ListEmptyComponent)
+                : items.map((item, index) => React.createElement(
+                    actual.View,
+                    {
+                        key: keyExtractor?.(item, index) ?? String(item?.id ?? index),
+                    },
+                    renderItem?.({ item, index }) ?? null
+                )),
+            onEndReached
+                ? React.createElement(actual.TouchableOpacity, {
+                    accessibilityRole: "button",
+                    accessibilityLabel: "Load more listening history",
+                    onPress: onEndReached,
+                })
+                : null,
+            renderListPart(ListFooterComponent)
+        );
+    };
+
     return {
         ...actual,
-        FlatList: createFlatListMock(actual),
+        FlatList,
         RefreshControl: createRefreshControlMock(actual, "Refresh listening history"),
     };
 });
@@ -232,5 +301,76 @@ describe("HistoryScreen", () => {
         });
 
         expect(queryByText("alert-circle-outline")).toBeNull();
+    });
+
+    it("preserves the previous pagination offset after a refresh failure", async () => {
+        apiService.getListeningHistory
+            .mockResolvedValueOnce(buildHistoryPage(PAGE_SIZE))
+            .mockRejectedValueOnce(new Error("Refresh failed"))
+            .mockResolvedValueOnce([
+                buildHistoryEntry({
+                    id: 999,
+                    podcast_id: 1999,
+                    podcast: { title: "Next page episode" },
+                }),
+            ]);
+
+        const { getByLabelText, getByText } = render(<HistoryScreen />);
+
+        await waitFor(() => {
+            expect(apiService.getListeningHistory).toHaveBeenNthCalledWith(1, { skip: 0, limit: PAGE_SIZE });
+        });
+
+        await act(async () => {
+            emitScreenBlur();
+            emitScreenFocus();
+        });
+
+        await waitFor(() => {
+            expect(apiService.getListeningHistory).toHaveBeenNthCalledWith(2, { skip: 0, limit: PAGE_SIZE });
+        });
+
+        fireEvent.press(getByLabelText("Load more listening history"));
+
+        await waitFor(() => {
+            expect(apiService.getListeningHistory).toHaveBeenNthCalledWith(3, { skip: PAGE_SIZE, limit: PAGE_SIZE });
+        });
+
+        expect(getByText("Next page episode")).toBeTruthy();
+    });
+
+    it("does not paginate while a refresh request is still in flight", async () => {
+        const deferredRefresh = createDeferred();
+
+        apiService.getListeningHistory
+            .mockResolvedValueOnce(buildHistoryPage(PAGE_SIZE))
+            .mockReturnValueOnce(deferredRefresh.promise);
+
+        const { getByLabelText } = render(<HistoryScreen />);
+
+        await waitFor(() => {
+            expect(apiService.getListeningHistory).toHaveBeenNthCalledWith(1, { skip: 0, limit: PAGE_SIZE });
+        });
+
+        await act(async () => {
+            emitScreenBlur();
+            emitScreenFocus();
+        });
+
+        await waitFor(() => {
+            expect(apiService.getListeningHistory).toHaveBeenCalledTimes(2);
+        });
+
+        fireEvent.press(getByLabelText("Load more listening history"));
+
+        expect(apiService.getListeningHistory).toHaveBeenCalledTimes(2);
+
+        await act(async () => {
+            deferredRefresh.resolve(buildHistoryPage(PAGE_SIZE, PAGE_SIZE));
+        });
+
+        await waitFor(() => {
+            expect(apiService.getListeningHistory).toHaveBeenCalledTimes(2);
+        });
     });
 });
