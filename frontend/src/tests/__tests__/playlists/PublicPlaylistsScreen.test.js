@@ -221,7 +221,7 @@ describe("PublicPlaylists", () => {
             .mockRejectedValueOnce(new Error("Retry failed"))
             .mockReturnValueOnce(deferredRetry.promise);
 
-        const { getByLabelText, getByText } = render(<PublicPlaylists />);
+        const { getByLabelText, getByText, queryByText } = render(<PublicPlaylists />);
 
         await waitFor(() => {
             expect(apiService.getPublicPlaylists).toHaveBeenCalledTimes(1);
@@ -259,6 +259,51 @@ describe("PublicPlaylists", () => {
 
         await waitFor(() => {
             expect(getByText("Recovered playlist")).toBeTruthy();
+        });
+
+        expect(queryByText("Couldn't refresh playlists.")).toBeNull();
+        expect(queryByText("Retry failed")).toBeNull();
+    });
+
+    it("keeps focus reloads on the blocking load path until at least one playlist page succeeds", async () => {
+        const deferredReload = createDeferred();
+
+        apiService.getPublicPlaylists
+            .mockRejectedValueOnce(new Error("Initial load failed"))
+            .mockReturnValueOnce(deferredReload.promise);
+
+        const { getByLabelText, getByText, queryByLabelText, queryByText } = render(<PublicPlaylists />);
+
+        await waitFor(() => {
+            expect(apiService.getPublicPlaylists).toHaveBeenCalledTimes(1);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Initial load failed")).toBeTruthy();
+            expect(getByLabelText("Retry loading public playlists")).toBeTruthy();
+        });
+
+        await act(async () => {
+            emitScreenBlur();
+            emitScreenFocus();
+        });
+
+        await waitFor(() => {
+            expect(apiService.getPublicPlaylists).toHaveBeenCalledTimes(2);
+        });
+
+        expect(queryByLabelText("Retry loading public playlists")).toBeNull();
+        expect(queryByText("No public playlists yet")).toBeNull();
+
+        await act(async () => {
+            deferredReload.resolve({
+                playlists: [buildPlaylist({ name: "Recovered on focus" })],
+                has_more: false,
+            });
+        });
+
+        await waitFor(() => {
+            expect(getByText("Recovered on focus")).toBeTruthy();
         });
     });
 });

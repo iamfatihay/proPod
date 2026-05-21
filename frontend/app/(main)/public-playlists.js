@@ -197,11 +197,11 @@ const PublicPlaylists = () => {
             setPlaylists(res.playlists || []);
             setOffset(PAGE_SIZE);
             setHasMore(res.has_more ?? false);
+            setError(null);
+            hasLoadedPlaylistsRef.current = true;
         } catch (e) {
             setError(e?.detail || e?.message || "Failed to load playlists");
         } finally {
-            hasLoadedPlaylistsRef.current = true;
-
             if (isRefresh) {
                 setRefreshing(false);
             } else {
@@ -272,7 +272,9 @@ const PublicPlaylists = () => {
 
     useFocusEffect(
         useCallback(() => {
-            loadFirst({ isRefresh: hasLoadedPlaylistsRef.current });
+            loadFirst({
+                isRefresh: hasLoadedPlaylistsRef.current && playlistsRef.current.length > 0,
+            });
         }, [loadFirst])
     );
 
