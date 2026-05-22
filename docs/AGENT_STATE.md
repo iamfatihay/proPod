@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-22
-**Last session (57):** RTC history inline retry state -- branch `fix/rtc-history-inline-retry-state` / PR pending keeps the live-session inline refresh retry card visible during retry, disables duplicate taps, shows a `Retrying...` label, and adds focused RTC history coverage for the in-flight retry state
+**Last session (57):** RTC history inline retry state -- branch `fix/rtc-history-inline-retry-state` / PR #169 keeps the live-session inline refresh retry card visible during retry, disables duplicate taps, shows a `Retrying...` label, and adds focused RTC history coverage for the in-flight retry state
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -69,7 +69,7 @@
 - `fix/rtc-history-refresh-lock` / PR pending -- keeps in-flight per-session `Check Status` actions disabled through pull-to-refresh and focus reloads so creators cannot trigger duplicate manual status checks before the original request settles.
 - `fix/rtc-history-focus-refresh` / PR pending -- treats RTC session history focus reloads as in-place refreshes after the first load attempt so returning to the screen keeps loaded cards visible while the latest request runs.
 - `fix/rtc-history-pagination-refresh` / PR #168 -- keeps the RTC session history footer retry visible when pull-to-refresh fails after a load-more error and surfaces the refresh failure inline without hiding already loaded sessions.
-- `fix/rtc-history-inline-retry-state` / PR pending -- keeps the RTC session history inline refresh retry card visible during retry, disables duplicate taps, and shows a `Retrying...` label while the in-place refresh request is still running.
+- `fix/rtc-history-inline-retry-state` / PR #169 -- keeps the RTC session history inline refresh retry card visible during retry, disables duplicate taps, and shows a `Retrying...` label while the in-place refresh request is still running.
 - `fix/library-refresh-continuity` / PR pending -- keeps loaded Library results visible during refocus and pull-to-refresh reloads, moves refresh failures into inline retry copy, and adds focused Library screen coverage for the non-blocking retry path.
 
 ---
