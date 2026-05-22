@@ -596,6 +596,7 @@ export default function RtcSessionsScreen() {
     const hasLoadedSessions = sessions.length > 0;
     const refreshError = hasLoadedSessions ? error : null;
     const blockingError = hasLoadedSessions ? null : error;
+    const isRetryingInlineError = Boolean(refreshError) && refreshing;
 
     const loadSessions = useCallback(async ({ isRefresh = false } = {}) => {
         if (listRequestInFlightRef.current) {
@@ -935,10 +936,18 @@ export default function RtcSessionsScreen() {
                                 <Text style={styles.errorTitle}>Couldn&apos;t refresh live sessions.</Text>
                                 <Text style={styles.errorBody}>{refreshError}</Text>
                                 <TouchableOpacity
+                                    accessibilityLabel="Retry refreshing live sessions"
+                                    accessibilityState={{ disabled: isRetryingInlineError }}
+                                    disabled={isRetryingInlineError}
                                     onPress={() => loadSessions({ isRefresh: true })}
-                                    style={styles.retryButton}
+                                    style={[
+                                        styles.retryButton,
+                                        isRetryingInlineError && styles.retryButtonDisabled,
+                                    ]}
                                 >
-                                    <Text style={styles.retryButtonText}>Try Again</Text>
+                                    <Text style={styles.retryButtonText}>
+                                        {isRetryingInlineError ? "Retrying..." : "Try Again"}
+                                    </Text>
                                 </TouchableOpacity>
                             </View>
                         )}
@@ -1151,6 +1160,9 @@ const styles = StyleSheet.create({
         borderColor: COLORS.primary,
         paddingVertical: 10,
         alignItems: "center",
+    },
+    retryButtonDisabled: {
+        opacity: 0.65,
     },
     retryButtonText: {
         color: COLORS.text.primary,
