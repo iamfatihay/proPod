@@ -6,8 +6,8 @@
 
 ## Current State
 
-**Last updated:** 2026-05-21
-**Last session (51):** Public playlists refresh continuity -- branch `fix/public-playlists-refresh-continuity` / PR #164 keeps loaded Discover Playlists results visible during focus and pull-to-refresh reloads, moves refresh failures into an inline retry card, and adds focused screen coverage for the non-blocking retry path
+**Last updated:** 2026-05-22
+**Last session (53):** Library refresh continuity follow-up -- branch `fix/library-refresh-continuity` / PR #165 fixes empty-tab Library refresh handling, prevents previous-tab episodes from appearing while a new Library tab is still loading, and extends focused Jest coverage for those review cases
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -66,6 +66,7 @@
 - `fix/rtc-history-feedback-refresh-race` / PR pending -- preserves per-session RTC history status-check confirmation copy during immediate pull-to-refresh and focus reloads even when the AsyncStorage persistence write has not finished yet.
 - `fix/rtc-history-refresh-lock` / PR pending -- keeps in-flight per-session `Check Status` actions disabled through pull-to-refresh and focus reloads so creators cannot trigger duplicate manual status checks before the original request settles.
 - `fix/rtc-history-focus-refresh` / PR pending -- treats RTC session history focus reloads as in-place refreshes after the first load attempt so returning to the screen keeps loaded cards visible while the latest request runs.
+- `fix/library-refresh-continuity` / PR pending -- keeps loaded Library results visible during refocus and pull-to-refresh reloads, moves refresh failures into inline retry copy, and adds focused Library screen coverage for the non-blocking retry path.
 
 ---
 
@@ -94,6 +95,7 @@
 - Listening History inline retry state now stays visible and blocks duplicate taps in Jest, but device QA should confirm the disabled CTA and `Retrying...` label feel clear during slower in-place refreshes on iOS and Android.
 - Messages inbox refreshes now stay non-blocking in Jest after the first successful load, but device QA should confirm the inline retry card and pull-to-refresh spinner feel clear on iOS and Android during intermittent networks.
 - Public Playlists refreshes now stay non-blocking in Jest after the first successful load, but device QA should confirm the inline retry card and pull-to-refresh spinner feel clear on iOS and Android during intermittent networks.
+- Library refresh continuity is now covered in Jest for the default Library tab, but device QA should confirm My Episodes, Liked, Saved, and Playlists all keep prior content visible and show clear retry affordances on iOS and Android.
 - `/rtc/sessions` is now validated at the frontend API boundary, but other paginated endpoints still accept raw response shapes without shared contract helpers.
 - Continue-listening playback behavior is now covered at the HomeScreen handler layer, but it still lacks device QA for the loaded-track toggle and resume-position paths.
 
@@ -196,6 +198,10 @@
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/playlists/PublicPlaylistsScreen.test.js --runInBand` passed (3 tests) after keeping loaded Discover Playlists results visible during refocus refreshes, refresh failures, and inline retry flows; Jest still emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/public-playlists.js' 'src/tests/__tests__/playlists/PublicPlaylistsScreen.test.js'` passed for the Discover Playlists refresh-continuity change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-21: local pre-commit hook passed during `git commit` for `fix(frontend): preserve public playlists on refresh failure`.
+- 2026-05-21: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/library/LibraryScreen.test.js --runInBand` passed (4 tests) after keeping loaded Library results visible during refocus and pull-to-refresh failures and preserving the inline retry state; Jest still emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/library.js' 'src/tests/__tests__/library/LibraryScreen.test.js'` passed for the Library refresh-continuity change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-22: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/library/LibraryScreen.test.js --runInBand` passed (6 tests) after fixing empty-tab Library refresh handling and hiding previous-tab episodes while a newly selected Library tab is still loading; Jest still emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-22: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/library.js' 'src/tests/__tests__/library/LibraryScreen.test.js'` passed for the Library review follow-up; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -203,9 +209,9 @@
 
 ## Next Session Suggestions
 
-1. **Public playlists refresh continuity device QA** -- verify on iOS and Android that refocus failures and pull-to-refresh failures keep prior Discover Playlists results visible, show the inline retry card, and recover cleanly after a successful retry.
-2. **Public playlists empty-state and cold-load QA** -- confirm on device that empty search results and true first-load failures still show sensible loading/error states, and that retry works under offline-to-online recovery.
-3. **Library focus-reload continuity** -- apply the same keep-visible-on-refresh-failure pattern to `frontend/app/(main)/library.js`, which still treats focus reloads as cold loads for its existing list tabs.
+1. **Library refresh continuity device QA** -- verify on iOS and Android that My Episodes, Liked, Saved, and Playlists keep prior content visible during refocus and pull-to-refresh failures, show the inline retry card, and recover cleanly after a successful retry.
+2. **Library playlists-tab pagination QA** -- confirm on device that playlist load-more, pull-to-refresh, and inline retry states interact cleanly on slower networks without duplicating rows or hiding the footer retry path.
+3. **Public playlists refresh continuity device QA** -- verify the already-landed Discover Playlists refocus and pull-to-refresh failure behavior on iOS and Android, including offline-to-online retry recovery.
 
 ---
 

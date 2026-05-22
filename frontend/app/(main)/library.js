@@ -97,6 +97,7 @@ const Library = () => {
     const [items,     setItems]     = useState([]);
     const [loading,   setLoading]   = useState(true);
     const [error,     setError]     = useState(null);
+    const [itemsTab,  setItemsTab]  = useState("mine");
 
     // ── Playlist-specific pagination state ──────────────────────────────────
     const [playlists,       setPlaylists]       = useState([]);
@@ -110,32 +111,77 @@ const Library = () => {
     // Each load() invocation captures the ID at call time; results are only
     // applied if the ref still matches when the response arrives.
     const loadIdRef = useRef(0);
+    const hasLoadedTabsRef = useRef({});
+    const hasSkippedInitialFocusLoadRef = useRef(false);
+    const itemsRef = useRef(items);
+    const playlistsRef = useRef(playlists);
+    const tabRef = useRef(tab);
+    const loadRef = useRef(null);
+    const itemsTabRef = useRef(itemsTab);
+
+    itemsRef.current = items;
+    playlistsRef.current = playlists;
+    tabRef.current = tab;
+    itemsTabRef.current = itemsTab;
+
+    const hasLoadedTab = useCallback(
+        (tabKey = tabRef.current) => Boolean(hasLoadedTabsRef.current[tabKey]),
+        []
+    );
+
+    const getVisibleEntryCount = useCallback((tabKey = tabRef.current) => {
+        if (tabKey === "playlists") {
+            return playlistsRef.current.length;
+        }
+
+        if (itemsTabRef.current !== tabKey) {
+            return 0;
+        }
+
+        return itemsRef.current.length;
+    }, []);
 
     // ── Data loading ────────────────────────────────────────────────────────
-    const load = useCallback(async () => {
+    const load = useCallback(async ({ isRefresh = false } = {}) => {
         // Capture a snapshot of the current sequence ID.  If a concurrent
         // call increments loadIdRef before this one resolves, results are
         // silently discarded (stale-response guard).
         const myId = ++loadIdRef.current;
+
+        if (isRefresh) {
+            setRefreshing(true);
+        } else {
+            setLoading(true);
+        }
+
+        if (!isRefresh || getVisibleEntryCount(tab) === 0) {
+            setError(null);
+        }
+
         // Reset load-more error on every fresh load
         setLoadMoreError(null);
+
         try {
             let res;
+
             if (tab === "mine") {
                 res = await apiService.getMyPodcasts();
                 const list = res.podcasts || res || [];
                 if (loadIdRef.current !== myId) return;
                 setItems(list.map((p) => ({ ...p, duration: (p.duration || 0) * 1000 })));
+                setItemsTab(tab);
             } else if (tab === "likes") {
                 res = await apiService.getLikedPodcasts();
                 const list = res.podcasts || res || [];
                 if (loadIdRef.current !== myId) return;
                 setItems(list.map((p) => ({ ...p, duration: (p.duration || 0) * 1000 })));
+                setItemsTab(tab);
             } else if (tab === "bookmarks") {
                 res = await apiService.getBookmarkedPodcasts();
                 const list = res.podcasts || res || [];
                 if (loadIdRef.current !== myId) return;
                 setItems(list.map((p) => ({ ...p, duration: (p.duration || 0) * 1000 })));
+                setItemsTab(tab);
             } else {
                 // playlists — first page; resets pagination state
                 res = await apiService.getMyPlaylists({ skip: 0, limit: PLAYLIST_PAGE_SIZE });
@@ -144,12 +190,24 @@ const Library = () => {
                 setPlaylistOffset(PLAYLIST_PAGE_SIZE);
                 setPlaylistHasMore(res.has_more ?? false);
             }
+
+            hasLoadedTabsRef.current[tab] = true;
             setError(null);
         } catch (e) {
             if (loadIdRef.current !== myId) return;
             setError(e?.detail || e?.message || "Failed to load library");
+        } finally {
+            if (loadIdRef.current !== myId) return;
+
+            if (isRefresh) {
+                setRefreshing(false);
+            } else {
+                setLoading(false);
+            }
         }
-    }, [tab]);
+    }, [getVisibleEntryCount, tab]);
+
+    loadRef.current = load;
 
     // ── Load-more (playlists only) ───────────────────────────────────────────
     const loadMorePlaylists = useCallback(async () => {
@@ -193,38 +251,41 @@ const Library = () => {
 
     // ── Pull-to-refresh (all tabs) ─────────────────────────────────────
     const handleRefresh = useCallback(async () => {
-        setRefreshing(true);
-        await load();
-        setRefreshing(false);
-    }, [load]);
+        await load({ isRefresh: hasLoadedTab() });
+    }, [hasLoadedTab, load]);
+
+    const handleRetry = useCallback(() => {
+        load({ isRefresh: hasLoadedTab() });
+    }, [hasLoadedTab, load]);
 
     // Reload when tab changes
     useEffect(() => {
-        (async () => {
-            setLoading(true);
-            await load();
-            setLoading(false);
-        })();
+        load();
     }, [load]);
 
     // Reload on params.refresh (e.g. after create/delete)
     useEffect(() => {
         if (params.refresh) {
-            (async () => {
-                setLoading(true);
-                await load();
-                setLoading(false);
-            })();
+            load({ isRefresh: hasLoadedTab(tab) });
         }
-    }, [params.refresh, load]);
+    }, [hasLoadedTab, load, params.refresh, tab]);
 
     // Reload when screen comes into focus
     useFocusEffect(
         useCallback(() => {
-            (async () => {
-                await load();
-            })();
-        }, [load])
+            if (!hasSkippedInitialFocusLoadRef.current) {
+                hasSkippedInitialFocusLoadRef.current = true;
+                return undefined;
+            }
+
+            const activeTab = tabRef.current;
+
+            loadRef.current?.({
+                isRefresh: hasLoadedTab(activeTab),
+            });
+
+            return undefined;
+        }, [hasLoadedTab])
     );
 
     // ── Renderers ───────────────────────────────────────────────────────────
@@ -359,6 +420,12 @@ const Library = () => {
         return null;
     };
 
+    const currentItems = itemsTab === tab ? items : [];
+    const hasLoadedCurrentTab = hasLoadedTab(tab);
+    const hasVisibleEntries = tab === "playlists" ? playlists.length > 0 : currentItems.length > 0;
+    const showInlineError = Boolean(error) && hasLoadedCurrentTab;
+    const isRetryingInlineError = showInlineError && refreshing;
+
     // ── Layout ──────────────────────────────────────────────────────────────
 
     return (
@@ -471,52 +538,228 @@ const Library = () => {
                 )}
 
                 {/* Content */}
-                {loading ? (
+                {loading && !hasLoadedCurrentTab ? (
                     <View style={{ flex: 1, alignItems: "center", paddingTop: 40 }}>
                         <ActivityIndicator color={COLORS.primary} />
                     </View>
-                ) : error ? (
-                    <Text style={{ color: COLORS.text.secondary, textAlign: "center", marginTop: 20 }}>
-                        {error}
-                    </Text>
+                ) : error && !hasLoadedCurrentTab ? (
+                    <View
+                        style={{
+                            flex: 1,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            paddingHorizontal: 24,
+                            paddingBottom: 48,
+                        }}
+                    >
+                        <MaterialCommunityIcons
+                            name="alert-circle-outline"
+                            size={48}
+                            color={COLORS.error}
+                        />
+                        <Text
+                            style={{
+                                color: COLORS.text.primary,
+                                fontSize: 18,
+                                fontWeight: "600",
+                                marginTop: 12,
+                                textAlign: "center",
+                            }}
+                        >
+                            Couldn&apos;t load your library.
+                        </Text>
+                        <Text
+                            style={{
+                                color: COLORS.text.secondary,
+                                lineHeight: 22,
+                                marginTop: 8,
+                                textAlign: "center",
+                            }}
+                        >
+                            {error}
+                        </Text>
+                        <TouchableOpacity
+                            accessibilityLabel="Retry loading library"
+                            onPress={handleRetry}
+                            style={{
+                                marginTop: 16,
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: COLORS.border,
+                                paddingHorizontal: 20,
+                                paddingVertical: 10,
+                            }}
+                        >
+                            <Text
+                                style={{
+                                    color: COLORS.text.primary,
+                                    fontSize: 16,
+                                    fontWeight: "600",
+                                }}
+                            >
+                                Retry
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 ) : tab === "playlists" ? (
-                    <FlatList
-                        data={playlists}
-                        keyExtractor={(item) => String(item.id)}
-                        renderItem={renderPlaylist}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={withTabScreenBottomPadding({
-                            flexGrow: 1,
-                        })}
-                        refreshControl={
-                            <RefreshControl
-                                refreshing={refreshing}
-                                onRefresh={handleRefresh}
-                                tintColor={COLORS.primary}
-                                colors={[COLORS.primary]}
-                            />
-                        }
-                        onEndReached={loadMorePlaylists}
-                        onEndReachedThreshold={0.4}
-                        ListFooterComponent={<PlaylistsFooter />}
-                        ListEmptyComponent={<PlaylistsEmpty />}
-                    />
+                    <>
+                        {showInlineError && (
+                            <View
+                                style={{
+                                    backgroundColor: "rgba(239,68,68,0.08)",
+                                    borderColor: "rgba(239,68,68,0.24)",
+                                    borderRadius: 16,
+                                    borderWidth: 1,
+                                    marginBottom: 14,
+                                    padding: 16,
+                                }}
+                            >
+                                <Text
+                                    style={{
+                                        color: COLORS.error,
+                                        fontSize: 16,
+                                        fontWeight: "600",
+                                        marginBottom: 6,
+                                    }}
+                                >
+                                    Couldn&apos;t refresh library.
+                                </Text>
+                                <Text
+                                    style={{
+                                        color: COLORS.text.secondary,
+                                        fontSize: 14,
+                                        lineHeight: 20,
+                                    }}
+                                >
+                                    {error}
+                                </Text>
+                                <TouchableOpacity
+                                    accessibilityLabel="Retry refreshing library"
+                                    accessibilityState={{ disabled: isRetryingInlineError }}
+                                    disabled={isRetryingInlineError}
+                                    onPress={handleRetry}
+                                    style={{
+                                        alignItems: "center",
+                                        borderColor: COLORS.primary,
+                                        borderRadius: 12,
+                                        borderWidth: 1,
+                                        marginTop: 14,
+                                        opacity: isRetryingInlineError ? 0.65 : 1,
+                                        paddingVertical: 10,
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            color: COLORS.text.primary,
+                                            fontSize: 16,
+                                            fontWeight: "600",
+                                        }}
+                                    >
+                                        {isRetryingInlineError ? "Retrying..." : "Retry"}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        <FlatList
+                            data={playlists}
+                            keyExtractor={(item) => String(item.id)}
+                            renderItem={renderPlaylist}
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={withTabScreenBottomPadding({
+                                flexGrow: 1,
+                            })}
+                            refreshControl={
+                                <RefreshControl
+                                    refreshing={refreshing}
+                                    onRefresh={handleRefresh}
+                                    tintColor={COLORS.primary}
+                                    colors={[COLORS.primary]}
+                                />
+                            }
+                            onEndReached={loadMorePlaylists}
+                            onEndReachedThreshold={0.4}
+                            ListFooterComponent={<PlaylistsFooter />}
+                            ListEmptyComponent={<PlaylistsEmpty />}
+                        />
+                    </>
                 ) : (
-                    <FlatList
-                        data={items}
-                        keyExtractor={(item) => String(item.id)}
-                        renderItem={renderPodcast}
-                        showsVerticalScrollIndicator={false}
-                        refreshControl={
-                            <RefreshControl
-                                refreshing={refreshing}
-                                onRefresh={handleRefresh}
-                                tintColor={COLORS.primary}
-                                colors={[COLORS.primary]}
-                            />
-                        }
-                        contentContainerStyle={withTabScreenBottomPadding()}
-                    />
+                    <>
+                        {showInlineError && (
+                            <View
+                                style={{
+                                    backgroundColor: "rgba(239,68,68,0.08)",
+                                    borderColor: "rgba(239,68,68,0.24)",
+                                    borderRadius: 16,
+                                    borderWidth: 1,
+                                    marginBottom: 14,
+                                    padding: 16,
+                                }}
+                            >
+                                <Text
+                                    style={{
+                                        color: COLORS.error,
+                                        fontSize: 16,
+                                        fontWeight: "600",
+                                        marginBottom: 6,
+                                    }}
+                                >
+                                    Couldn&apos;t refresh library.
+                                </Text>
+                                <Text
+                                    style={{
+                                        color: COLORS.text.secondary,
+                                        fontSize: 14,
+                                        lineHeight: 20,
+                                    }}
+                                >
+                                    {error}
+                                </Text>
+                                <TouchableOpacity
+                                    accessibilityLabel="Retry refreshing library"
+                                    accessibilityState={{ disabled: isRetryingInlineError }}
+                                    disabled={isRetryingInlineError}
+                                    onPress={handleRetry}
+                                    style={{
+                                        alignItems: "center",
+                                        borderColor: COLORS.primary,
+                                        borderRadius: 12,
+                                        borderWidth: 1,
+                                        marginTop: 14,
+                                        opacity: isRetryingInlineError ? 0.65 : 1,
+                                        paddingVertical: 10,
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            color: COLORS.text.primary,
+                                            fontSize: 16,
+                                            fontWeight: "600",
+                                        }}
+                                    >
+                                        {isRetryingInlineError ? "Retrying..." : "Retry"}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        <FlatList
+                            data={items}
+                            data={currentItems}
+                            keyExtractor={(item) => String(item.id)}
+                            renderItem={renderPodcast}
+                            showsVerticalScrollIndicator={false}
+                            refreshControl={
+                                <RefreshControl
+                                    refreshing={refreshing}
+                                    onRefresh={handleRefresh}
+                                    tintColor={COLORS.primary}
+                                    colors={[COLORS.primary]}
+                                />
+                            }
+                            contentContainerStyle={withTabScreenBottomPadding()}
+                        />
+                    </>
                 )}
             </View>
         </SafeAreaView>
