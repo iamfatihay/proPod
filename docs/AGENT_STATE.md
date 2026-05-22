@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-22
-**Last session (56):** RTC history pagination refresh continuity -- branch `fix/rtc-history-pagination-refresh` keeps the live-session footer retry visible when pull-to-refresh fails after a load-more error, moves refresh failures into an inline retry card above loaded sessions, and adds focused RTC history coverage for that combined failure path
+**Last session (56):** RTC history pagination refresh continuity -- branch `fix/rtc-history-pagination-refresh` / PR #168 keeps the live-session footer retry visible when pull-to-refresh fails after a load-more error, moves refresh failures into an inline retry card above loaded sessions, and adds focused RTC history coverage for that combined failure path
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -68,7 +68,7 @@
 - `fix/rtc-history-feedback-refresh-race` / PR pending -- preserves per-session RTC history status-check confirmation copy during immediate pull-to-refresh and focus reloads even when the AsyncStorage persistence write has not finished yet.
 - `fix/rtc-history-refresh-lock` / PR pending -- keeps in-flight per-session `Check Status` actions disabled through pull-to-refresh and focus reloads so creators cannot trigger duplicate manual status checks before the original request settles.
 - `fix/rtc-history-focus-refresh` / PR pending -- treats RTC session history focus reloads as in-place refreshes after the first load attempt so returning to the screen keeps loaded cards visible while the latest request runs.
-- `fix/rtc-history-pagination-refresh` / PR pending -- keeps the RTC session history footer retry visible when pull-to-refresh fails after a load-more error and surfaces the refresh failure inline without hiding already loaded sessions.
+- `fix/rtc-history-pagination-refresh` / PR #168 -- keeps the RTC session history footer retry visible when pull-to-refresh fails after a load-more error and surfaces the refresh failure inline without hiding already loaded sessions.
 - `fix/library-refresh-continuity` / PR pending -- keeps loaded Library results visible during refocus and pull-to-refresh reloads, moves refresh failures into inline retry copy, and adds focused Library screen coverage for the non-blocking retry path.
 
 ---
