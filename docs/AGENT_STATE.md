@@ -6,8 +6,8 @@
 
 ## Current State
 
-**Last updated:** 2026-05-21
-**Last session (52):** Library refresh continuity -- branch `fix/library-refresh-continuity` keeps loaded Library episodes visible during refocus and pull-to-refresh reloads, moves refresh failures into inline retry copy, adds a cold-load retry state, and adds focused Jest coverage for the non-blocking retry path
+**Last updated:** 2026-05-22
+**Last session (53):** Library refresh continuity follow-up -- branch `fix/library-refresh-continuity` / PR #165 fixes empty-tab Library refresh handling, prevents previous-tab episodes from appearing while a new Library tab is still loading, and extends focused Jest coverage for those review cases
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -200,6 +200,8 @@
 - 2026-05-21: local pre-commit hook passed during `git commit` for `fix(frontend): preserve public playlists on refresh failure`.
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/library/LibraryScreen.test.js --runInBand` passed (4 tests) after keeping loaded Library results visible during refocus and pull-to-refresh failures and preserving the inline retry state; Jest still emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-21: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/library.js' 'src/tests/__tests__/library/LibraryScreen.test.js'` passed for the Library refresh-continuity change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-22: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/library/LibraryScreen.test.js --runInBand` passed (6 tests) after fixing empty-tab Library refresh handling and hiding previous-tab episodes while a newly selected Library tab is still loading; Jest still emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-22: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/library.js' 'src/tests/__tests__/library/LibraryScreen.test.js'` passed for the Library review follow-up; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 

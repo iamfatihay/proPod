@@ -97,6 +97,7 @@ const Library = () => {
     const [items,     setItems]     = useState([]);
     const [loading,   setLoading]   = useState(true);
     const [error,     setError]     = useState(null);
+    const [itemsTab,  setItemsTab]  = useState("mine");
 
     // ── Playlist-specific pagination state ──────────────────────────────────
     const [playlists,       setPlaylists]       = useState([]);
@@ -116,14 +117,25 @@ const Library = () => {
     const playlistsRef = useRef(playlists);
     const tabRef = useRef(tab);
     const loadRef = useRef(null);
+    const itemsTabRef = useRef(itemsTab);
 
     itemsRef.current = items;
     playlistsRef.current = playlists;
     tabRef.current = tab;
+    itemsTabRef.current = itemsTab;
+
+    const hasLoadedTab = useCallback(
+        (tabKey = tabRef.current) => Boolean(hasLoadedTabsRef.current[tabKey]),
+        []
+    );
 
     const getVisibleEntryCount = useCallback((tabKey = tabRef.current) => {
         if (tabKey === "playlists") {
             return playlistsRef.current.length;
+        }
+
+        if (itemsTabRef.current !== tabKey) {
+            return 0;
         }
 
         return itemsRef.current.length;
@@ -157,16 +169,19 @@ const Library = () => {
                 const list = res.podcasts || res || [];
                 if (loadIdRef.current !== myId) return;
                 setItems(list.map((p) => ({ ...p, duration: (p.duration || 0) * 1000 })));
+                setItemsTab(tab);
             } else if (tab === "likes") {
                 res = await apiService.getLikedPodcasts();
                 const list = res.podcasts || res || [];
                 if (loadIdRef.current !== myId) return;
                 setItems(list.map((p) => ({ ...p, duration: (p.duration || 0) * 1000 })));
+                setItemsTab(tab);
             } else if (tab === "bookmarks") {
                 res = await apiService.getBookmarkedPodcasts();
                 const list = res.podcasts || res || [];
                 if (loadIdRef.current !== myId) return;
                 setItems(list.map((p) => ({ ...p, duration: (p.duration || 0) * 1000 })));
+                setItemsTab(tab);
             } else {
                 // playlists — first page; resets pagination state
                 res = await apiService.getMyPlaylists({ skip: 0, limit: PLAYLIST_PAGE_SIZE });
@@ -236,12 +251,12 @@ const Library = () => {
 
     // ── Pull-to-refresh (all tabs) ─────────────────────────────────────
     const handleRefresh = useCallback(async () => {
-        await load({ isRefresh: getVisibleEntryCount() > 0 });
-    }, [load]);
+        await load({ isRefresh: hasLoadedTab() });
+    }, [hasLoadedTab, load]);
 
     const handleRetry = useCallback(() => {
-        load({ isRefresh: getVisibleEntryCount() > 0 });
-    }, [getVisibleEntryCount, load]);
+        load({ isRefresh: hasLoadedTab() });
+    }, [hasLoadedTab, load]);
 
     // Reload when tab changes
     useEffect(() => {
@@ -251,9 +266,9 @@ const Library = () => {
     // Reload on params.refresh (e.g. after create/delete)
     useEffect(() => {
         if (params.refresh) {
-            load({ isRefresh: getVisibleEntryCount(tab) > 0 });
+            load({ isRefresh: hasLoadedTab(tab) });
         }
-    }, [getVisibleEntryCount, load, params.refresh, tab]);
+    }, [hasLoadedTab, load, params.refresh, tab]);
 
     // Reload when screen comes into focus
     useFocusEffect(
@@ -266,12 +281,11 @@ const Library = () => {
             const activeTab = tabRef.current;
 
             loadRef.current?.({
-                isRefresh: Boolean(hasLoadedTabsRef.current[activeTab])
-                    && getVisibleEntryCount(activeTab) > 0,
+                isRefresh: hasLoadedTab(activeTab),
             });
 
             return undefined;
-        }, [getVisibleEntryCount])
+        }, [hasLoadedTab])
     );
 
     // ── Renderers ───────────────────────────────────────────────────────────
@@ -406,8 +420,10 @@ const Library = () => {
         return null;
     };
 
-    const hasVisibleEntries = tab === "playlists" ? playlists.length > 0 : items.length > 0;
-    const showInlineError = Boolean(error) && hasVisibleEntries;
+    const currentItems = itemsTab === tab ? items : [];
+    const hasLoadedCurrentTab = hasLoadedTab(tab);
+    const hasVisibleEntries = tab === "playlists" ? playlists.length > 0 : currentItems.length > 0;
+    const showInlineError = Boolean(error) && hasLoadedCurrentTab;
     const isRetryingInlineError = showInlineError && refreshing;
 
     // ── Layout ──────────────────────────────────────────────────────────────
@@ -522,11 +538,11 @@ const Library = () => {
                 )}
 
                 {/* Content */}
-                {loading && !hasVisibleEntries ? (
+                {loading && !hasLoadedCurrentTab ? (
                     <View style={{ flex: 1, alignItems: "center", paddingTop: 40 }}>
                         <ActivityIndicator color={COLORS.primary} />
                     </View>
-                ) : error && !hasVisibleEntries ? (
+                ) : error && !hasLoadedCurrentTab ? (
                     <View
                         style={{
                             flex: 1,
@@ -729,6 +745,7 @@ const Library = () => {
 
                         <FlatList
                             data={items}
+                            data={currentItems}
                             keyExtractor={(item) => String(item.id)}
                             renderItem={renderPodcast}
                             showsVerticalScrollIndicator={false}

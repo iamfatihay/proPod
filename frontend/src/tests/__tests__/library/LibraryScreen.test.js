@@ -301,4 +301,69 @@ describe("Library", () => {
 
         expect(queryByText("Couldn't load your library.")).toBeNull();
     });
+
+    it("keeps the playlists empty state visible and shows inline retry copy when a refresh fails", async () => {
+        apiService.getMyPodcasts.mockResolvedValueOnce({ podcasts: [buildPodcast()] });
+        apiService.getMyPlaylists
+            .mockResolvedValueOnce({ playlists: [], has_more: false })
+            .mockRejectedValueOnce(new Error("Playlist refresh failed"));
+
+        const { getByLabelText, getByText, queryByText } = render(<Library />);
+
+        await waitFor(() => {
+            expect(getByText("Library focus-safe episode")).toBeTruthy();
+        });
+
+        fireEvent.press(getByText("Playlists"));
+
+        await waitFor(() => {
+            expect(apiService.getMyPlaylists).toHaveBeenCalledTimes(1);
+            expect(getByText("No playlists yet")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Refresh library"));
+
+        await waitFor(() => {
+            expect(apiService.getMyPlaylists).toHaveBeenCalledTimes(2);
+        });
+
+        await waitFor(() => {
+            expect(getByText("No playlists yet")).toBeTruthy();
+            expect(getByText("Couldn't refresh library.")).toBeTruthy();
+            expect(getByText("Playlist refresh failed")).toBeTruthy();
+        });
+
+        expect(queryByText("Couldn't load your library.")).toBeNull();
+    });
+
+    it("does not show the previous tab episodes while a different tab is loading", async () => {
+        const deferredLikes = createDeferred();
+
+        apiService.getMyPodcasts.mockResolvedValueOnce({ podcasts: [buildPodcast()] });
+        apiService.getLikedPodcasts.mockReturnValueOnce(deferredLikes.promise);
+
+        const { getByText, queryByText } = render(<Library />);
+
+        await waitFor(() => {
+            expect(getByText("Library focus-safe episode")).toBeTruthy();
+        });
+
+        fireEvent.press(getByText("Liked"));
+
+        await waitFor(() => {
+            expect(apiService.getLikedPodcasts).toHaveBeenCalledTimes(1);
+        });
+
+        expect(queryByText("Library focus-safe episode")).toBeNull();
+
+        await act(async () => {
+            deferredLikes.resolve({
+                podcasts: [buildPodcast({ id: 52, title: "Liked tab episode" })],
+            });
+        });
+
+        await waitFor(() => {
+            expect(getByText("Liked tab episode")).toBeTruthy();
+        });
+    });
 });
