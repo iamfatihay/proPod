@@ -1516,4 +1516,59 @@ describe("RtcSessionsScreen", () => {
             expect(getByText("Podcast ready")).toBeTruthy();
         });
     });
+
+    it("keeps the footer retry visible when a refresh fails after load-more fails", async () => {
+        apiService.listRtcSessions
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 410,
+                        title: "Recoverable Session",
+                        room_name: "recoverable-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 2,
+                        duration_seconds: 300,
+                        podcast_id: null,
+                        status: "ended",
+                        recording_status: "processing",
+                        is_live: false,
+                    },
+                ],
+                total: 26,
+                limit: 25,
+                offset: 0,
+                has_more: true,
+            })
+            .mockRejectedValueOnce(new Error("Couldn't load more live sessions."))
+            .mockRejectedValueOnce(new Error("Refresh failed"));
+
+        const { getByLabelText, getByText, queryByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Recoverable Session")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Load more live sessions"));
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+            expect(getByText("Couldn't load more live sessions.")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Refresh live sessions"));
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(3);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Recoverable Session")).toBeTruthy();
+            expect(getByText("Couldn't refresh live sessions.")).toBeTruthy();
+            expect(getByText("Refresh failed")).toBeTruthy();
+            expect(getByText("Couldn't load more live sessions.")).toBeTruthy();
+        });
+
+        expect(queryByText("No live sessions yet")).toBeNull();
+    });
 });

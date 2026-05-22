@@ -593,6 +593,9 @@ export default function RtcSessionsScreen() {
     const [refreshingSessionIds, setRefreshingSessionIds] = useState({});
     const [sessionRefreshErrors, setSessionRefreshErrors] = useState({});
     const [sessionRefreshSuccesses, setSessionRefreshSuccesses] = useState({});
+    const hasLoadedSessions = sessions.length > 0;
+    const refreshError = hasLoadedSessions ? error : null;
+    const blockingError = hasLoadedSessions ? null : error;
 
     const loadSessions = useCallback(async ({ isRefresh = false } = {}) => {
         if (listRequestInFlightRef.current) {
@@ -817,11 +820,11 @@ export default function RtcSessionsScreen() {
     );
 
     const renderFooter = () => {
-        if (error) {
+        if (blockingError) {
             return (
                 <View style={styles.errorCard}>
                     <Text style={styles.errorTitle}>Couldn&apos;t load live sessions.</Text>
-                    <Text style={styles.errorBody}>{error}</Text>
+                    <Text style={styles.errorBody}>{blockingError}</Text>
                     <TouchableOpacity
                         onPress={() => loadSessions()}
                         style={styles.retryButton}
@@ -919,14 +922,29 @@ export default function RtcSessionsScreen() {
                     />
                 }
                 ListHeaderComponent={
-                    <View style={styles.headerBlock}>
-                        <Text style={styles.headerTitle}>Recent Live Sessions</Text>
-                        <Text style={styles.headerSubtitle}>
-                            {getHeaderSubtitle(totalSessions)}
-                        </Text>
-                    </View>
+                    <>
+                        <View style={styles.headerBlock}>
+                            <Text style={styles.headerTitle}>Recent Live Sessions</Text>
+                            <Text style={styles.headerSubtitle}>
+                                {getHeaderSubtitle(totalSessions)}
+                            </Text>
+                        </View>
+
+                        {refreshError && (
+                            <View style={styles.errorCard}>
+                                <Text style={styles.errorTitle}>Couldn&apos;t refresh live sessions.</Text>
+                                <Text style={styles.errorBody}>{refreshError}</Text>
+                                <TouchableOpacity
+                                    onPress={() => loadSessions({ isRefresh: true })}
+                                    style={styles.retryButton}
+                                >
+                                    <Text style={styles.retryButtonText}>Try Again</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </>
                 }
-                ListEmptyComponent={!loading && !error ? renderEmptyState : null}
+                ListEmptyComponent={!loading && !blockingError ? renderEmptyState : null}
                 ListFooterComponent={renderFooter}
             />
 

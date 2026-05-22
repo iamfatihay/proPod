@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-22
-**Last session (55):** Public playlists pagination refresh parity -- branch `fix/public-playlists-pagination-refresh` keeps the Discover Playlists load-more retry affordance visible when pull-to-refresh fails after a pagination error and extends focused screen coverage for that slower-network path
+**Last session (56):** RTC history pagination refresh continuity -- branch `fix/rtc-history-pagination-refresh` / PR #168 keeps the live-session footer retry visible when pull-to-refresh fails after a load-more error, moves refresh failures into an inline retry card above loaded sessions, and adds focused RTC history coverage for that combined failure path
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -68,6 +68,7 @@
 - `fix/rtc-history-feedback-refresh-race` / PR pending -- preserves per-session RTC history status-check confirmation copy during immediate pull-to-refresh and focus reloads even when the AsyncStorage persistence write has not finished yet.
 - `fix/rtc-history-refresh-lock` / PR pending -- keeps in-flight per-session `Check Status` actions disabled through pull-to-refresh and focus reloads so creators cannot trigger duplicate manual status checks before the original request settles.
 - `fix/rtc-history-focus-refresh` / PR pending -- treats RTC session history focus reloads as in-place refreshes after the first load attempt so returning to the screen keeps loaded cards visible while the latest request runs.
+- `fix/rtc-history-pagination-refresh` / PR #168 -- keeps the RTC session history footer retry visible when pull-to-refresh fails after a load-more error and surfaces the refresh failure inline without hiding already loaded sessions.
 - `fix/library-refresh-continuity` / PR pending -- keeps loaded Library results visible during refocus and pull-to-refresh reloads, moves refresh failures into inline retry copy, and adds focused Library screen coverage for the non-blocking retry path.
 
 ---
@@ -92,6 +93,7 @@
 - RTC history in-flight status-check locking now survives refresh reloads in Jest, but device QA should confirm the disabled button state still blocks duplicate taps during pull-to-refresh and focus reloads on iOS and Android.
 - RTC history now queues one follow-up foreground refresh after in-flight list requests in Jest, but device QA should confirm resume-during-load and resume-during-load-more do not trigger duplicate reloads on iOS and Android.
 - RTC history focus reloads now avoid the blocking initial-load overlay after the first fetch attempt in Jest, but device QA should confirm the lighter refocus refresh still feels correct for empty and prior-error states on iOS and Android.
+- RTC history refresh failures now preserve the footer pagination retry in Jest, but device QA should confirm the inline refresh error card plus footer retry remain clear on iOS and Android under slower networks.
 - Listening History refocus now keeps loaded entries visible in Jest, but device QA should confirm the lighter refresh still feels correct on iOS and Android when navigating back from episode details.
 - Listening History now keeps prior entries visible when in-place refreshes fail in Jest, but device QA should confirm the inline error card and retry CTA feel clear on iOS and Android during slower or intermittent networks.
 - Listening History inline retry state now stays visible and blocks duplicate taps in Jest, but device QA should confirm the disabled CTA and `Retrying...` label feel clear during slower in-place refreshes on iOS and Android.
@@ -209,6 +211,8 @@
 - 2026-05-22: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/library.js' 'src/tests/__tests__/library/LibraryScreen.test.js'` passed for the Library playlists pagination refresh follow-up; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-22: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/playlists/PublicPlaylistsScreen.test.js --runInBand` passed (5 tests) after preserving the Discover Playlists footer retry during pull-to-refresh failures that follow a load-more error; Jest still emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-22: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/public-playlists.js' 'src/tests/__tests__/playlists/PublicPlaylistsScreen.test.js'` passed for the Discover Playlists pagination-refresh parity change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-22: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/rtc/RtcSessionsScreen.test.js --runInBand` passed (23 tests) after preserving the RTC history footer retry during pull-to-refresh failures that follow a load-more error; Jest still emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-22: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed for the RTC history pagination-refresh continuity change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -216,8 +220,9 @@
 
 ## Next Session Suggestions
 
-1. **Library playlists-tab device QA** -- verify on iOS and Android that a playlists load-more failure stays recoverable after pull-to-refresh attempts and that footer retry plus refresh states feel clear on slower networks.
-2. **Public playlists pagination device QA** -- verify on iOS and Android that Discover Playlists keeps the footer retry visible after a failed refresh and that retry plus inline error copy remain clear on slower networks.
+1. **RTC history pagination device QA** -- verify on iOS and Android that a live-session load-more failure stays recoverable after pull-to-refresh and that the inline refresh error card plus footer retry remain clear on slower networks.
+2. **Library playlists-tab device QA** -- verify on iOS and Android that a playlists load-more failure stays recoverable after pull-to-refresh attempts and that footer retry plus refresh states feel clear on slower networks.
+4. **Public playlists pagination device QA** -- verify on iOS and Android that Discover Playlists keeps the footer retry visible after a failed refresh and that retry plus inline error copy remain clear on slower networks.
 3. **Library full-tab continuity device QA** -- verify My Episodes, Liked, Saved, and Playlists keep prior content visible during refocus and pull-to-refresh failures and recover cleanly after retry.
 
 ---
