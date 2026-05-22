@@ -78,71 +78,17 @@ jest.mock("../../../components/PlaylistMosaic", () => {
 });
 
 jest.mock("react-native", () => {
-    const React = require("react");
     const actual = jest.requireActual("react-native");
-
-    const renderListPart = (part) => {
-        if (!part) {
-            return null;
-        }
-
-        if (typeof part === "function") {
-            return React.createElement(part);
-        }
-
-        return part;
-    };
-
-    const FlatList = ({
-        data = [],
-        ListEmptyComponent,
-        ListFooterComponent,
-        ListHeaderComponent,
-        refreshControl,
-        refreshing,
-        renderItem,
-        keyExtractor,
-        onEndReached,
-        onRefresh,
-    }) => {
-        const items = Array.isArray(data) ? data : [];
-
-        return React.createElement(
-            actual.View,
-            null,
-            renderListPart(ListHeaderComponent),
-            onRefresh
-                ? React.createElement(actual.TouchableOpacity, {
-                    accessibilityRole: "button",
-                    accessibilityLabel: "Refresh public playlists",
-                    accessibilityState: { busy: Boolean(refreshing) },
-                    onPress: onRefresh,
-                })
-                : null,
-            refreshControl,
-            items.length === 0
-                ? renderListPart(ListEmptyComponent)
-                : items.map((item, index) => React.createElement(
-                    actual.View,
-                    {
-                        key: keyExtractor?.(item, index) ?? String(item?.id ?? index),
-                    },
-                    renderItem?.({ item, index }) ?? null
-                )),
-            onEndReached
-                ? React.createElement(actual.TouchableOpacity, {
-                    accessibilityRole: "button",
-                    accessibilityLabel: "Load more public playlists",
-                    onPress: onEndReached,
-                })
-                : null,
-            renderListPart(ListFooterComponent)
-        );
-    };
+    const {
+        createFlatListMock,
+    } = require("../../utils/reactNativeScreenTestHelpers");
 
     return {
         ...actual,
-        FlatList,
+        FlatList: createFlatListMock(actual, {
+            refreshAccessibilityLabel: "Refresh public playlists",
+            endReachedAccessibilityLabel: "Load more public playlists",
+        }),
     };
 });
 
