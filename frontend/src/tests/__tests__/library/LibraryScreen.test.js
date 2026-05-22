@@ -55,6 +55,15 @@ const buildPodcast = (overrides = {}) => ({
     ...overrides,
 });
 
+const buildPlaylist = (overrides = {}) => ({
+    id: 61,
+    name: "Focus-safe playlist",
+    item_count: 4,
+    preview_thumbnails: [],
+    is_public: false,
+    ...overrides,
+});
+
 jest.mock("../../../services/api/apiService", () => ({
     __esModule: true,
     default: {
@@ -88,15 +97,64 @@ jest.mock("../../../components/PlaylistMosaic", () => {
 });
 
 jest.mock("react-native", () => {
+    const React = require("react");
     const actual = jest.requireActual("react-native");
     const {
-        createFlatListMock,
         createRefreshControlMock,
     } = require("../../utils/reactNativeScreenTestHelpers");
 
+    const renderListPart = (part) => {
+        if (!part) {
+            return null;
+        }
+
+        if (typeof part === "function") {
+            return React.createElement(part);
+        }
+
+        return part;
+    };
+
+    const FlatList = ({
+        data = [],
+        ListEmptyComponent,
+        ListFooterComponent,
+        ListHeaderComponent,
+        refreshControl,
+        renderItem,
+        keyExtractor,
+        onEndReached,
+    }) => {
+        const items = Array.isArray(data) ? data : [];
+
+        return React.createElement(
+            actual.View,
+            null,
+            renderListPart(ListHeaderComponent),
+            refreshControl,
+            items.length === 0
+                ? renderListPart(ListEmptyComponent)
+                : items.map((item, index) => React.createElement(
+                    actual.View,
+                    {
+                        key: keyExtractor?.(item, index) ?? String(item?.id ?? index),
+                    },
+                    renderItem?.({ item, index }) ?? null
+                )),
+            onEndReached
+                ? React.createElement(actual.TouchableOpacity, {
+                    accessibilityRole: "button",
+                    accessibilityLabel: "Load more library items",
+                    onPress: onEndReached,
+                })
+                : null,
+            renderListPart(ListFooterComponent)
+        );
+    };
+
     return {
         ...actual,
-        FlatList: createFlatListMock(actual),
+        FlatList,
         RefreshControl: createRefreshControlMock(actual, "Refresh library"),
     };
 });
@@ -334,6 +392,98 @@ describe("Library", () => {
         });
 
         expect(queryByText("Couldn't load your library.")).toBeNull();
+    });
+
+    it("keeps the playlists footer retry visible when a pull-to-refresh fails after load-more fails", async () => {
+        apiService.getMyPodcasts.mockResolvedValueOnce({ podcasts: [buildPodcast()] });
+        apiService.getMyPlaylists
+            .mockResolvedValueOnce({
+                playlists: [buildPlaylist()],
+                has_more: true,
+            })
+            .mockRejectedValueOnce(new Error("Couldn't load more playlists"))
+            .mockRejectedValueOnce(new Error("Playlist refresh failed"));
+
+        const { getByLabelText, getByText, queryByText } = render(<Library />);
+
+        await waitFor(() => {
+            expect(getByText("Library focus-safe episode")).toBeTruthy();
+        });
+
+        fireEvent.press(getByText("Playlists"));
+
+        await waitFor(() => {
+            expect(apiService.getMyPlaylists).toHaveBeenCalledTimes(1);
+            expect(getByText("Focus-safe playlist")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Load more library items"));
+
+        await waitFor(() => {
+            expect(apiService.getMyPlaylists).toHaveBeenCalledTimes(2);
+            expect(getByText("Couldn't load more playlists")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Refresh library"));
+
+        await waitFor(() => {
+            expect(apiService.getMyPlaylists).toHaveBeenCalledTimes(3);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Focus-safe playlist")).toBeTruthy();
+            expect(getByText("Couldn't refresh library.")).toBeTruthy();
+            expect(getByText("Playlist refresh failed")).toBeTruthy();
+            expect(getByText("Couldn't load more playlists")).toBeTruthy();
+        });
+
+        expect(queryByText("Couldn't load your library.")).toBeNull();
+    });
+
+    it("ignores playlists load-more taps while a refresh is already in flight", async () => {
+        const deferredRefresh = createDeferred();
+
+        apiService.getMyPodcasts.mockResolvedValueOnce({ podcasts: [buildPodcast()] });
+        apiService.getMyPlaylists
+            .mockResolvedValueOnce({
+                playlists: [buildPlaylist()],
+                has_more: true,
+            })
+            .mockReturnValueOnce(deferredRefresh.promise);
+
+        const { getByLabelText, getByText } = render(<Library />);
+
+        await waitFor(() => {
+            expect(getByText("Library focus-safe episode")).toBeTruthy();
+        });
+
+        fireEvent.press(getByText("Playlists"));
+
+        await waitFor(() => {
+            expect(apiService.getMyPlaylists).toHaveBeenCalledTimes(1);
+            expect(getByText("Focus-safe playlist")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Refresh library"));
+
+        await waitFor(() => {
+            expect(apiService.getMyPlaylists).toHaveBeenCalledTimes(2);
+        });
+
+        fireEvent.press(getByLabelText("Load more library items"));
+
+        expect(apiService.getMyPlaylists).toHaveBeenCalledTimes(2);
+
+        await act(async () => {
+            deferredRefresh.resolve({
+                playlists: [buildPlaylist({ id: 62, name: "Refreshed playlist" })],
+                has_more: false,
+            });
+        });
+
+        await waitFor(() => {
+            expect(getByText("Refreshed playlist")).toBeTruthy();
+        });
     });
 
     it("does not show the previous tab episodes while a different tab is loading", async () => {

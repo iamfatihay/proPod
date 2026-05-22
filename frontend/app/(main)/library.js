@@ -147,6 +147,9 @@ const Library = () => {
         // call increments loadIdRef before this one resolves, results are
         // silently discarded (stale-response guard).
         const myId = ++loadIdRef.current;
+        const shouldPreserveLoadMoreError = isRefresh
+            && tab === "playlists"
+            && getVisibleEntryCount(tab) > 0;
 
         if (isRefresh) {
             setRefreshing(true);
@@ -158,8 +161,9 @@ const Library = () => {
             setError(null);
         }
 
-        // Reset load-more error on every fresh load
-        setLoadMoreError(null);
+        if (!shouldPreserveLoadMoreError) {
+            setLoadMoreError(null);
+        }
 
         try {
             let res;
@@ -189,6 +193,7 @@ const Library = () => {
                 setPlaylists(res.playlists || []);
                 setPlaylistOffset(PLAYLIST_PAGE_SIZE);
                 setPlaylistHasMore(res.has_more ?? false);
+                setLoadMoreError(null);
             }
 
             hasLoadedTabsRef.current[tab] = true;
@@ -216,7 +221,7 @@ const Library = () => {
         // guard fixes the stale-closure bug where retryLoadMore() called this
         // callback but the memoized closure still saw the old truthy error and
         // returned early (no-op on first tap).
-        if (loadingMore || !playlistHasMore) return;
+        if (loading || refreshing || loadingMore || !playlistHasMore) return;
 
         // Stale-response guard: capture the current load generation counter.
         // If the user switches tabs while this request is in flight, load()
@@ -243,7 +248,7 @@ const Library = () => {
         } finally {
             setLoadingMore(false);
         }
-    }, [loadingMore, playlistHasMore, playlistOffset]);
+    }, [loading, loadingMore, playlistHasMore, playlistOffset, refreshing]);
 
     const retryLoadMore = useCallback(() => {
         loadMorePlaylists();
