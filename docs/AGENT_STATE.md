@@ -222,7 +222,7 @@
 
 1. **RTC history pagination device QA** -- verify on iOS and Android that a live-session load-more failure stays recoverable after pull-to-refresh and that the inline refresh error card plus footer retry remain clear on slower networks.
 2. **Library playlists-tab device QA** -- verify on iOS and Android that a playlists load-more failure stays recoverable after pull-to-refresh attempts and that footer retry plus refresh states feel clear on slower networks.
-3. **Public playlists pagination device QA** -- verify on iOS and Android that Discover Playlists keeps the footer retry visible after a failed refresh and that retry plus inline error copy remain clear on slower networks.
+4. **Public playlists pagination device QA** -- verify on iOS and Android that Discover Playlists keeps the footer retry visible after a failed refresh and that retry plus inline error copy remain clear on slower networks.
 3. **Library full-tab continuity device QA** -- verify My Episodes, Liked, Saved, and Playlists keep prior content visible during refocus and pull-to-refresh failures and recover cleanly after retry.
 
 ---
