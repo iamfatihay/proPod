@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-22
-**Last session (54):** Library playlists pagination refresh continuity -- branch `fix/library-playlists-pagination-refresh` keeps the playlists-tab load-more retry affordance visible when pull-to-refresh fails, ignores load-more taps during an in-flight playlist refresh, and extends focused Library Jest coverage for those slower-network interactions
+**Last session (55):** Public playlists pagination refresh parity -- branch `fix/public-playlists-pagination-refresh` keeps the Discover Playlists load-more retry affordance visible when pull-to-refresh fails after a pagination error and extends focused screen coverage for that slower-network path
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -42,6 +42,7 @@
 - `fix/history-refresh-failure-ux` / PR pending -- keeps previously loaded Listening History entries visible when refocus or pull-to-refresh reloads fail and shows inline retry copy above the list instead of replacing it with the blocking full-screen error state.
 - `fix/messages-refresh-continuity` / PR #163 -- keeps loaded inbox threads visible during focus and pull-to-refresh reload failures, ignores cancelled focus loads when deciding whether the inbox has completed an initial load, and keeps the blocking error state only for true cold-load failures.
 - `fix/public-playlists-refresh-continuity` / PR #164 -- keeps loaded Discover Playlists results visible during focus and pull-to-refresh reloads, moves refresh failures into an inline retry card, and adds focused screen coverage for refresh continuity and in-place retry behavior.
+- `fix/public-playlists-pagination-refresh` / PR pending -- keeps the Discover Playlists footer retry visible when pull-to-refresh fails after a load-more error and adds focused screen coverage for that pagination-refresh continuity path.
 - `fix/library-playlists-pagination-refresh` / PR pending -- keeps the Library playlists footer retry visible when pull-to-refresh fails after a load-more error and ignores load-more taps during an in-flight playlist refresh so slower-network pagination stays predictable.
 - `feature/rtc-failed-host-notification` / PR pending -- adds `rtc_failed` notification type; processing notification upgrades to failed when polling confirms failure; Android back-button no longer blocks navigation away from failed sessions.
 - `feature/rtc-recording-retry-cta` / PR #129 -- adds a direct re-record CTA to the host RTC failed review screen so creators can launch a fresh live session without detouring through history.
@@ -97,7 +98,7 @@
 - Messages inbox refreshes now stay non-blocking in Jest after the first successful load, but device QA should confirm the inline retry card and pull-to-refresh spinner feel clear on iOS and Android during intermittent networks.
 - Public Playlists refreshes now stay non-blocking in Jest after the first successful load, but device QA should confirm the inline retry card and pull-to-refresh spinner feel clear on iOS and Android during intermittent networks.
 - Library refresh continuity and playlists-tab pagination guards are now covered in Jest, but device QA should confirm My Episodes, Liked, Saved, and Playlists keep prior content visible and that playlist footer retry plus pull-to-refresh interactions still feel clear on iOS and Android.
-- Public Playlists still clears `loadMoreError` at the start of a refresh attempt; if users hit the same slower-network pattern there, align it with the Library playlists-tab behavior.
+- Public Playlists pagination retry now survives failed refreshes in Jest, but device QA should confirm the footer retry and inline refresh error remain clear on iOS and Android under slower networks.
 - `/rtc/sessions` is now validated at the frontend API boundary, but other paginated endpoints still accept raw response shapes without shared contract helpers.
 - Continue-listening playback behavior is now covered at the HomeScreen handler layer, but it still lacks device QA for the loaded-track toggle and resume-position paths.
 
@@ -206,6 +207,8 @@
 - 2026-05-22: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/library.js' 'src/tests/__tests__/library/LibraryScreen.test.js'` passed for the Library review follow-up; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-22: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/library/LibraryScreen.test.js --runInBand` passed (8 tests) after preserving the Library playlists footer retry during refresh failures and ignoring load-more taps while a playlist refresh is already in flight; Jest still emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-22: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/library.js' 'src/tests/__tests__/library/LibraryScreen.test.js'` passed for the Library playlists pagination refresh follow-up; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-22: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/playlists/PublicPlaylistsScreen.test.js --runInBand` passed (5 tests) after preserving the Discover Playlists footer retry during pull-to-refresh failures that follow a load-more error; Jest still emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-22: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/public-playlists.js' 'src/tests/__tests__/playlists/PublicPlaylistsScreen.test.js'` passed for the Discover Playlists pagination-refresh parity change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
@@ -214,8 +217,8 @@
 ## Next Session Suggestions
 
 1. **Library playlists-tab device QA** -- verify on iOS and Android that a playlists load-more failure stays recoverable after pull-to-refresh attempts and that footer retry plus refresh states feel clear on slower networks.
-2. **Library full-tab continuity device QA** -- verify My Episodes, Liked, Saved, and Playlists keep prior content visible during refocus and pull-to-refresh failures and recover cleanly after retry.
-3. **Public playlists load-more refresh parity** -- review and, if needed, align Discover Playlists so its load-more retry state survives failed refresh attempts the same way the Library playlists tab now does.
+2. **Public playlists pagination device QA** -- verify on iOS and Android that Discover Playlists keeps the footer retry visible after a failed refresh and that retry plus inline error copy remain clear on slower networks.
+3. **Library full-tab continuity device QA** -- verify My Episodes, Liked, Saved, and Playlists keep prior content visible during refocus and pull-to-refresh failures and recover cleanly after retry.
 
 ---
 

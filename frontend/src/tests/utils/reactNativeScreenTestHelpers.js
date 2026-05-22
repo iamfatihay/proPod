@@ -50,8 +50,11 @@ export const createScrollViewWithRefreshControl = (
     };
 };
 
-export const createFlatListMock = (reactNative) => {
+export const createFlatListMock = (reactNative, options = {}) => {
     const MockView = reactNative.View || "View";
+    const MockTouchableOpacity = reactNative.TouchableOpacity || MockView;
+    const refreshAccessibilityLabel = options.refreshAccessibilityLabel || null;
+    const endReachedAccessibilityLabel = options.endReachedAccessibilityLabel || null;
 
     return function FlatList({
         data = [],
@@ -59,8 +62,11 @@ export const createFlatListMock = (reactNative) => {
         ListFooterComponent,
         ListHeaderComponent,
         refreshControl,
+        refreshing,
         renderItem,
         keyExtractor,
+        onEndReached,
+        onRefresh,
     }) {
         const items = Array.isArray(data) ? data : [];
 
@@ -68,6 +74,14 @@ export const createFlatListMock = (reactNative) => {
             MockView,
             null,
             renderListPart(ListHeaderComponent),
+            onRefresh && refreshAccessibilityLabel
+                ? React.createElement(MockTouchableOpacity, {
+                    accessibilityRole: "button",
+                    accessibilityLabel: refreshAccessibilityLabel,
+                    accessibilityState: { busy: Boolean(refreshing) },
+                    onPress: onRefresh,
+                })
+                : null,
             refreshControl,
             items.length === 0
                 ? renderListPart(ListEmptyComponent)
@@ -78,6 +92,13 @@ export const createFlatListMock = (reactNative) => {
                     },
                     renderItem?.({ item, index }) ?? null
                 )),
+            onEndReached && endReachedAccessibilityLabel
+                ? React.createElement(MockTouchableOpacity, {
+                    accessibilityRole: "button",
+                    accessibilityLabel: endReachedAccessibilityLabel,
+                    onPress: onEndReached,
+                })
+                : null,
             renderListPart(ListFooterComponent)
         );
     };

@@ -180,6 +180,8 @@ const PublicPlaylists = () => {
 
     // ── Initial / refresh load ─────────────────────────────────────────────
     const loadFirst = useCallback(async ({ isRefresh = false, q = activeQueryRef.current } = {}) => {
+        const shouldPreserveLoadMoreError = isRefresh && playlistsRef.current.length > 0;
+
         if (isRefresh) {
             setRefreshing(true);
         } else {
@@ -190,7 +192,9 @@ const PublicPlaylists = () => {
             setError(null);
         }
 
-        setLoadMoreError(null);
+        if (!shouldPreserveLoadMoreError) {
+            setLoadMoreError(null);
+        }
 
         try {
             const res = await apiService.getPublicPlaylists({ skip: 0, limit: PAGE_SIZE, q });
@@ -198,6 +202,7 @@ const PublicPlaylists = () => {
             setOffset(PAGE_SIZE);
             setHasMore(res.has_more ?? false);
             setError(null);
+            setLoadMoreError(null);
             hasLoadedPlaylistsRef.current = true;
         } catch (e) {
             setError(e?.detail || e?.message || "Failed to load playlists");

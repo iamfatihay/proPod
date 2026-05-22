@@ -85,7 +85,10 @@ jest.mock("react-native", () => {
 
     return {
         ...actual,
-        FlatList: createFlatListMock(actual),
+        FlatList: createFlatListMock(actual, {
+            refreshAccessibilityLabel: "Refresh public playlists",
+            endReachedAccessibilityLabel: "Load more public playlists",
+        }),
     };
 });
 
@@ -263,6 +266,45 @@ describe("PublicPlaylists", () => {
 
         expect(queryByText("Couldn't refresh playlists.")).toBeNull();
         expect(queryByText("Retry failed")).toBeNull();
+    });
+
+    it("keeps the footer retry visible when a pull-to-refresh fails after load-more fails", async () => {
+        apiService.getPublicPlaylists
+            .mockResolvedValueOnce({
+                playlists: [buildPlaylist()],
+                has_more: true,
+            })
+            .mockRejectedValueOnce(new Error("Couldn't load more playlists"))
+            .mockRejectedValueOnce(new Error("Refresh failed"));
+
+        const { getByLabelText, getByText, queryByText } = render(<PublicPlaylists />);
+
+        await waitFor(() => {
+            expect(getByText("Public groove")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Load more public playlists"));
+
+        await waitFor(() => {
+            expect(apiService.getPublicPlaylists).toHaveBeenCalledTimes(2);
+            expect(getByText("Couldn't load more playlists")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Refresh public playlists"));
+
+        await waitFor(() => {
+            expect(apiService.getPublicPlaylists).toHaveBeenCalledTimes(3);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Public groove")).toBeTruthy();
+            expect(getByText("Couldn't refresh playlists.")).toBeTruthy();
+            expect(getByText("Refresh failed")).toBeTruthy();
+            expect(getByText("Couldn't load more playlists")).toBeTruthy();
+        });
+
+        expect(queryByText("Retry loading public playlists")).toBeNull();
+        expect(queryByText("No public playlists yet")).toBeNull();
     });
 
     it("keeps focus reloads on the blocking load path until at least one playlist page succeeds", async () => {
