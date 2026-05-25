@@ -677,7 +677,17 @@ def hard_delete_podcast(db: Session, podcast: models.Podcast) -> bool:
         podcast.thumbnail_url,
     }
     for media_url in managed_urls:
-        storage_service.delete_managed(media_url)
+        if not media_url:
+            continue
+
+        try:
+            storage_service.delete_managed(media_url)
+        except Exception:
+            logger.warning(
+                "Failed to delete managed media during hard delete",
+                extra={"podcast_id": podcast.id, "media_url": media_url},
+                exc_info=True,
+            )
 
     db.delete(podcast)
     db.commit()

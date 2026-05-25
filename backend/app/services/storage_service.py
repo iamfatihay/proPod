@@ -74,7 +74,9 @@ class StorageService:
 
         candidate = (self.media_root / relative_path).resolve()
         media_root_resolved = self.media_root.resolve()
-        if not str(candidate).startswith(str(media_root_resolved)):
+        try:
+            candidate.relative_to(media_root_resolved)
+        except ValueError:
             return None
 
         return candidate

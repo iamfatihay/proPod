@@ -329,6 +329,22 @@ class TestHardDeletePodcast:
         }
         assert db.query(Podcast).filter(Podcast.id == podcast.id).first() is None
 
+    def test_hard_delete_podcast_continues_when_storage_cleanup_fails(self, test_user):
+        db = test_user["db"]
+        podcast = Podcast(
+            title="Hard Delete Cleanup Failure",
+            owner_id=test_user["user"].id,
+            audio_url="/media/audio/hard-delete-failure.mp3",
+        )
+        db.add(podcast)
+        db.commit()
+        db.refresh(podcast)
+
+        with patch("app.crud.storage_service.delete_managed", side_effect=RuntimeError("boom")):
+            assert crud.hard_delete_podcast(db, podcast) is True
+
+        assert db.query(Podcast).filter(Podcast.id == podcast.id).first() is None
+
 
 # --------------- Like / Unlike ---------------
 

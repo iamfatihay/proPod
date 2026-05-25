@@ -80,3 +80,11 @@ def test_delete_managed_deletes_non_audio_local_media(monkeypatch, tmp_path):
 
     assert service.delete_managed("/media/thumbnails/cover.png") is True
     assert thumbnail_path.exists() is False
+
+
+def test_resolve_local_media_path_rejects_sibling_escape(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.services.storage_service.settings.BACKEND_ROOT", tmp_path)
+    monkeypatch.setattr("app.services.storage_service.settings.MEDIA_ROOT", "media")
+    service = StorageService()
+
+    assert service._resolve_local_media_path("/../media-evil/escape.png") is None
