@@ -2,7 +2,7 @@ import {
     requestRecordingPermissionsAsync,
     getRecordingPermissionsAsync,
 } from "expo-audio";
-import { Platform, Alert } from "react-native";
+import { Platform, Alert, Linking } from "react-native";
 import * as MediaLibrary from "expo-media-library";
 import Logger from "../../utils/logger";
 
@@ -48,6 +48,33 @@ class AudioPermissions {
     }
 
     /**
+     * Request only microphone permission for starting a recording session.
+     * @returns {Promise<boolean>}
+     */
+    async requestRecordingPermissions() {
+        try {
+            const recordingResponse = await requestRecordingPermissionsAsync();
+            this.recordingPermission = recordingResponse.status === "granted";
+            this.permissionsGranted = this.recordingPermission;
+
+            if (!this.recordingPermission) {
+                this._showRecordingPermissionDeniedAlert();
+            }
+
+            return this.recordingPermission;
+        } catch (error) {
+            Logger.error("💥 Recording permission request failed:", error);
+            Logger.error("💥 Recording permission error details:", {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+            });
+            this._showPermissionErrorAlert();
+            return false;
+        }
+    }
+
+    /**
      * Check if permissions are already granted
      * @returns {Promise<boolean>}
      */
@@ -74,6 +101,29 @@ class AudioPermissions {
     }
 
     /**
+     * Check only microphone permission for recording.
+     * @returns {Promise<boolean>}
+     */
+    async checkRecordingPermissions() {
+        try {
+            const recordingStatus = await getRecordingPermissionsAsync();
+
+            this.recordingPermission = recordingStatus.status === "granted";
+            this.permissionsGranted = this.recordingPermission;
+
+            return this.recordingPermission;
+        } catch (error) {
+            Logger.error("💥 Recording permission check failed:", error);
+            Logger.error("💥 Recording check error details:", {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+            });
+            return false;
+        }
+    }
+
+    /**
      * Get current permission status
      * @returns {Object} - permission status object
      */
@@ -83,6 +133,15 @@ class AudioPermissions {
             mediaLibrary: this.mediaLibraryPermission,
             allGranted: this.permissionsGranted,
         };
+    }
+
+    async _openAppSettings() {
+        try {
+            await Linking.openSettings();
+        } catch (error) {
+            Logger.error("💥 Failed to open app settings:", error);
+            this._showPermissionErrorAlert();
+        }
     }
 
     /**
@@ -108,11 +167,44 @@ class AudioPermissions {
                     text: Platform.OS === "ios" ? "Open Settings" : "Retry",
                     onPress: () => {
                         if (Platform.OS === "ios") {
-                            // On iOS, redirect to settings
-                            // Linking.openURL('app-settings:');
+                            void this._openAppSettings();
                         } else {
                             // On Android, request permissions again
                             this.requestPermissions();
+                        }
+                    },
+                },
+            ],
+            { cancelable: false }
+        );
+    }
+
+    /**
+     * Show alert when microphone permission is denied.
+     * @private
+     */
+    _showRecordingPermissionDeniedAlert() {
+        const title = "Microphone Permission Required";
+        const message =
+            Platform.OS === "ios"
+                ? "Volo needs microphone access to record podcasts. Please enable microphone permission in Settings > Volo."
+                : "Volo needs microphone access to record podcasts. Please grant microphone permission.";
+
+        Alert.alert(
+            title,
+            message,
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel",
+                },
+                {
+                    text: Platform.OS === "ios" ? "Open Settings" : "Retry",
+                    onPress: () => {
+                        if (Platform.OS === "ios") {
+                            void this._openAppSettings();
+                        } else if (Platform.OS === "android") {
+                            this.requestRecordingPermissions();
                         }
                     },
                 },

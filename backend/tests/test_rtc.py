@@ -207,11 +207,13 @@ class TestRTCWebhook:
 
             assert response.status_code == 401
 
+    @patch("app.routers.rtc.storage_service.persist_remote_media", new_callable=AsyncMock)
     @patch("app.routers.rtc.settings")
-    def test_webhook_creates_podcast(self, mock_settings, test_user):
+    def test_webhook_creates_podcast(self, mock_settings, mock_persist_remote_media, test_user):
         """Test webhook creates podcast from recording."""
         db = test_user["db"]
         mock_settings.HMS_WEBHOOK_SECRET = None  # Disable secret check
+        mock_persist_remote_media.return_value = "/media/audio/rtc_session_1.mp4"
 
         # Create a session
         session = RTCSession(
@@ -247,9 +249,18 @@ class TestRTCWebhook:
         # Verify podcast was created
         db.refresh(session)
         assert session.podcast_id is not None
-        assert session.recording_url == "https://example.com/recording.mp4"
+        assert session.recording_url == "/media/audio/rtc_session_1.mp4"
         assert session.status == "completed"
         assert session.recording_status == "completed"
+
+        podcast = db.query(Podcast).filter(Podcast.id == session.podcast_id).first()
+        assert podcast is not None
+        assert podcast.audio_url == "/media/audio/rtc_session_1.mp4"
+        assert podcast.video_url == "/media/audio/rtc_session_1.mp4"
+        mock_persist_remote_media.assert_awaited_once_with(
+            "https://example.com/recording.mp4",
+            "rtc_session_1.mp4",
+        )
 
     @patch("app.routers.rtc.settings")
     def test_webhook_idempotent(self, mock_settings, test_user):

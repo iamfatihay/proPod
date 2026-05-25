@@ -11,6 +11,7 @@ from pydub import AudioSegment
 from .. import schemas, crud, models, auth, config
 from ..database import get_db
 from ..services.ai_service import get_ai_service
+from ..services.storage_service import storage_service
 
 router = APIRouter(prefix="/podcasts", tags=["podcasts"])
 
@@ -69,29 +70,17 @@ async def upload_podcast_audio(
                 detail=f"File too large. Maximum size: {MAX_UPLOAD_SIZE // (1024*1024)}MB",
             )
 
-        # Ensure media directory exists
-        media_dir = SysPath(os.path.dirname(__file__)
-                            ).parent.parent / "media" / "audio"
-        os.makedirs(media_dir, exist_ok=True)
-
         # Build a safe filename
         original_suffix = SysPath(file.filename).suffix or ".mp3"
         safe_name = f"podcast_{current_user.id}_{time.time_ns()}{original_suffix}"
-        dest_path = media_dir / safe_name
-
-        # Save file to disk
-        with open(dest_path, "wb") as f:
-            f.write(contents)
-
-        # Public URL path (served via /media)
-        public_path = f"/media/audio/{safe_name}"
-
-        # Get base URL from config
-        settings = config.Settings()
-        full_audio_url = f"{settings.BASE_URL}{public_path}"
+        stored_audio_url = await storage_service.persist_bytes(
+            contents,
+            safe_name,
+            content_type=file.content_type,
+        )
 
         return schemas.AudioUploadResponse(
-            audio_url=full_audio_url,
+            audio_url=storage_service.get_playback_url(stored_audio_url),
             file_size=len(contents),
             content_type=file.content_type,
             filename=safe_name
@@ -162,10 +151,8 @@ async def merge_and_upload_audio_segments(
             
             temp_files.append((safe_filename, contents, file.content_type))
         
-        # Ensure temp and media directories exist
-        media_dir = SysPath(os.path.dirname(__file__)).parent.parent / "media" / "audio"
-        temp_dir = media_dir / "temp"
-        os.makedirs(media_dir, exist_ok=True)
+        # Ensure temp directory exists
+        temp_dir = storage_service.media_root / "temp"
         os.makedirs(temp_dir, exist_ok=True)
         
         # Save temp files and load as AudioSegments
@@ -212,7 +199,7 @@ async def merge_and_upload_audio_segments(
             
             # Export merged audio with unique timestamp
             output_filename = f"podcast_{current_user.id}_{time.time_ns()}.m4a"
-            output_path = media_dir / output_filename
+            output_path = temp_dir / output_filename
             
             merged_audio.export(
                 str(output_path),
@@ -229,14 +216,20 @@ async def merge_and_upload_audio_segments(
                     except Exception:
                         pass  # Ignore cleanup errors
         
-        # Public URL
-        public_path = f"/media/audio/{output_filename}"
-        settings = config.Settings()
-        full_audio_url = f"{settings.BASE_URL}{public_path}"
+        output_size = os.path.getsize(output_path)
+        stored_audio_url = await storage_service.persist_file(
+            output_path,
+            output_filename,
+            content_type="audio/mp4",
+        )
+        try:
+            os.remove(output_path)
+        except OSError:
+            pass
         
         return schemas.AudioUploadResponse(
-            audio_url=full_audio_url,
-            file_size=os.path.getsize(output_path),
+            audio_url=storage_service.get_playback_url(stored_audio_url),
+            file_size=output_size,
             content_type="audio/mp4",
             filename=output_filename
         )

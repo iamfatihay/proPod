@@ -302,6 +302,20 @@ class TestAIRouter:
         assert _is_allowed_remote_audio_host("gcp-asia-south1-prod-in2-recording.storage.googleapis.com") is True
         assert _is_allowed_remote_audio_host("example.com") is False
 
+    @patch("app.routers.ai.settings")
+    def test_allowed_remote_audio_host_accepts_spaces_and_cdn_hosts(self, mock_settings):
+        from app.routers.ai import _is_allowed_remote_audio_host
+
+        mock_settings.BASE_URL = "https://api.propod.com"
+        mock_settings.MEDIA_S3_PUBLIC_BASE_URL = "https://propod-media.fra1.cdn.digitaloceanspaces.com"
+        mock_settings.MEDIA_S3_ENDPOINT_URL = "https://fra1.digitaloceanspaces.com"
+        mock_settings.MEDIA_S3_BUCKET = "propod-media"
+        mock_settings.MEDIA_S3_REGION = "fra1"
+
+        assert _is_allowed_remote_audio_host("propod-media.fra1.cdn.digitaloceanspaces.com") is True
+        assert _is_allowed_remote_audio_host("fra1.digitaloceanspaces.com") is True
+        assert _is_allowed_remote_audio_host("propod-media.s3.fra1.amazonaws.com") is True
+
     def test_remote_audio_suffix_uses_content_type_for_extensionless_urls(self):
         from app.routers.ai import _get_remote_audio_suffix
 
