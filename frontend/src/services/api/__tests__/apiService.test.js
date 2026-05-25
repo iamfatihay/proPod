@@ -218,6 +218,32 @@ describe("ApiService", () => {
             );
         });
 
+        test("getFollowingFeed() should wrap bare array responses in a collection object", async () => {
+            global.mockApiResponse([
+                {
+                    id: 30,
+                    title: "Array Feed Podcast",
+                    thumbnail_url: "/media/thumbnails/array-feed.png",
+                },
+            ]);
+
+            const result = await apiService.getFollowingFeed();
+
+            expect(result).toEqual({
+                podcasts: [
+                    expect.objectContaining({
+                        id: 30,
+                        thumbnail_url:
+                            "http://localhost:8000/media/thumbnails/array-feed.png",
+                    }),
+                ],
+                total: 1,
+                limit: 1,
+                offset: 0,
+                has_more: false,
+            });
+        });
+
         test("getPublicUserPodcasts() should normalize thumbnail URLs in list responses", async () => {
             global.mockApiResponse({
                 podcasts: [
@@ -257,6 +283,29 @@ describe("ApiService", () => {
             );
 
             expect(result).toEqual(mockResponse);
+        });
+
+        test("uploadPodcastThumbnail() should send FormData without forcing JSON content type", async () => {
+            global.mockApiResponse({ thumbnail_url: "/media/thumbnails/uploaded.png" });
+
+            await apiService.uploadPodcastThumbnail({
+                uri: "file:///tmp/podcast-thumb.png",
+                fileName: "podcast-thumb.png",
+            });
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                "http://localhost:8000/podcasts/upload-thumbnail",
+                expect.objectContaining({
+                    method: "POST",
+                    body: expect.any(FormData),
+                    headers: expect.objectContaining({
+                        Authorization: "Bearer mock-access-token",
+                    }),
+                })
+            );
+
+            const [, options] = global.fetch.mock.calls.at(-1);
+            expect(options.headers["Content-Type"]).toBeUndefined();
         });
 
         test("deletePodcast() should delete podcast", async () => {

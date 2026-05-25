@@ -20,7 +20,7 @@ export const getLiveRecordingDuration = (status, initialDuration = 0) => {
     }
 
     if (typeof status.duration === "number" && status.duration > 0) {
-        return status.duration;
+        return initialDuration + status.duration;
     }
 
     if (status.startTime) {

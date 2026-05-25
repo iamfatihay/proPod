@@ -100,6 +100,7 @@ if [ -z "$TUNNEL_URL" ]; then
 fi
 
 echo "✅ Backend tunnel: $TUNNEL_URL"
+WEBHOOK_URL="$TUNNEL_URL/rtc/webhooks/100ms"
 
 # ── Step 4: Update .env files ────────────────────────────────
 if [ -f "$FRONTEND_ENV" ]; then
@@ -119,13 +120,19 @@ if [ -f "$BACKEND_ENV" ]; then
     else
         echo "BASE_URL=$TUNNEL_URL" >> "$BACKEND_ENV"
     fi
+
+    if grep -q "^HMS_WEBHOOK_URL=" "$BACKEND_ENV"; then
+        sed -i "s|^HMS_WEBHOOK_URL=.*|HMS_WEBHOOK_URL=$WEBHOOK_URL|" "$BACKEND_ENV"
+    else
+        echo "HMS_WEBHOOK_URL=$WEBHOOK_URL" >> "$BACKEND_ENV"
+    fi
     echo "✅ backend/.env BASE_URL updated"
 fi
 
 echo ""
 echo "┌────────────────────────────────────────────────────────────┐"
 echo "│  Backend API:  $TUNNEL_URL"
-echo "│  Webhooks:     $TUNNEL_URL/rtc/webhooks/100ms"
+echo "│  Webhooks:     $WEBHOOK_URL"
 echo "│"
 echo "│  Backend is reachable from any network via localtunnel"
 echo "└────────────────────────────────────────────────────────────┘"

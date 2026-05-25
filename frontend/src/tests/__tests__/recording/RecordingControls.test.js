@@ -22,6 +22,18 @@ describe("getLiveRecordingDuration", () => {
         ).toBe(5);
     });
 
+    it("adds the resumed recording duration to the initial duration", () => {
+        expect(
+            getLiveRecordingDuration(
+                {
+                    isRecording: true,
+                    duration: 5,
+                },
+                7
+            )
+        ).toBe(12);
+    });
+
     it("falls back to startTime when duration is unavailable", () => {
         expect(
             getLiveRecordingDuration(
