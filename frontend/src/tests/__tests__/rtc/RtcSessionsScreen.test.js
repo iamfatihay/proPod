@@ -232,6 +232,42 @@ describe("RtcSessionsScreen", () => {
         ).toBeTruthy();
     });
 
+    it("keeps the empty state visible when a refresh fails after an empty load", async () => {
+        apiService.listRtcSessions
+            .mockResolvedValueOnce({
+                sessions: [],
+                total: 0,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            })
+            .mockRejectedValueOnce(new Error("Refresh failed"));
+
+        const { getByLabelText, getByText, queryByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("No live sessions yet")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Refresh live sessions"));
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Couldn't refresh live sessions.")).toBeTruthy();
+        });
+
+        expect(getByText("No live sessions yet")).toBeTruthy();
+        expect(
+            getByText(
+                "Start a multi-host live session from Create to track recording progress here."
+            )
+        ).toBeTruthy();
+        expect(queryByText("Couldn't load live sessions.")).toBeNull();
+    });
+
     it("offers a failed-session recovery action with the prior setup", async () => {
         apiService.listRtcSessions.mockResolvedValue({
             sessions: [
@@ -1570,5 +1606,97 @@ describe("RtcSessionsScreen", () => {
         });
 
         expect(queryByText("No live sessions yet")).toBeNull();
+    });
+
+    it("keeps the inline refresh retry visible and disabled while a retry is in flight", async () => {
+        let resolveRetry;
+        const retryPromise = new Promise((resolve) => {
+            resolveRetry = resolve;
+        });
+
+        apiService.listRtcSessions
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 411,
+                        title: "Retry State Session",
+                        room_name: "retry-state-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 2,
+                        duration_seconds: 300,
+                        podcast_id: null,
+                        status: "ended",
+                        recording_status: "processing",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            })
+            .mockRejectedValueOnce(new Error("Refresh failed"))
+            .mockReturnValueOnce(retryPromise);
+
+        const { getByLabelText, getByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Retry State Session")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Refresh live sessions"));
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Couldn't refresh live sessions.")).toBeTruthy();
+            expect(getByText("Refresh failed")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Retry refreshing live sessions"));
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(3);
+        });
+
+        await waitFor(() => {
+            const retryButton = getByLabelText("Retry refreshing live sessions");
+
+            expect(retryButton.props.disabled).toBe(true);
+            expect(retryButton.props.accessibilityState).toEqual({ disabled: true });
+            expect(getByText("Retrying...")).toBeTruthy();
+            expect(getByText("Refresh failed")).toBeTruthy();
+        });
+
+        await act(async () => {
+            resolveRetry({
+                sessions: [
+                    {
+                        id: 411,
+                        title: "Retry State Session",
+                        room_name: "retry-state-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 2,
+                        duration_seconds: 300,
+                        podcast_id: 811,
+                        status: "completed",
+                        recording_status: "completed",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            });
+        });
+
+        await waitFor(() => {
+            expect(getByText("Podcast ready")).toBeTruthy();
+        });
     });
 });
