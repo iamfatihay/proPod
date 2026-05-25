@@ -590,12 +590,12 @@ export default function RtcSessionsScreen() {
     const [paginationError, setPaginationError] = useState(null);
     const [hasMore, setHasMore] = useState(false);
     const [totalSessions, setTotalSessions] = useState(null);
+    const [hasLoadedSessionHistory, setHasLoadedSessionHistory] = useState(false);
     const [refreshingSessionIds, setRefreshingSessionIds] = useState({});
     const [sessionRefreshErrors, setSessionRefreshErrors] = useState({});
     const [sessionRefreshSuccesses, setSessionRefreshSuccesses] = useState({});
-    const hasLoadedSessions = sessions.length > 0;
-    const refreshError = hasLoadedSessions ? error : null;
-    const blockingError = hasLoadedSessions ? null : error;
+    const refreshError = hasLoadedSessionHistory ? error : null;
+    const blockingError = hasLoadedSessionHistory ? null : error;
     const isRetryingInlineError = Boolean(refreshError) && refreshing;
 
     const loadSessions = useCallback(async ({ isRefresh = false } = {}) => {
@@ -614,6 +614,7 @@ export default function RtcSessionsScreen() {
         try {
             const response = await apiService.listRtcSessions({ limit: PAGE_SIZE, offset: 0 });
             const persistedStatusChecks = await getPersistedStatusChecksForSessions(response.sessions);
+            setHasLoadedSessionHistory(true);
             setSessions(response.sessions);
             setHasMore(response.has_more);
             setTotalSessions(response.total);

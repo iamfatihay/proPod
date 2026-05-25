@@ -6,8 +6,8 @@
 
 ## Current State
 
-**Last updated:** 2026-05-22
-**Last session (57):** RTC history inline retry state -- branch `fix/rtc-history-inline-retry-state` / PR #169 keeps the live-session inline refresh retry card visible during retry, disables duplicate taps, shows a `Retrying...` label, and adds focused RTC history coverage for the in-flight retry state
+**Last updated:** 2026-05-25
+**Last session (58):** RTC history empty refresh continuity -- branch `fix/rtc-history-inline-retry-state` / PR #169 now also keeps the empty live-session history state visible when a later refresh fails, preserves the inline retry card, and adds focused RTC history coverage for the empty-state refresh path
 **Test suite baseline:** ~486 backend tests
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -69,7 +69,7 @@
 - `fix/rtc-history-refresh-lock` / PR pending -- keeps in-flight per-session `Check Status` actions disabled through pull-to-refresh and focus reloads so creators cannot trigger duplicate manual status checks before the original request settles.
 - `fix/rtc-history-focus-refresh` / PR pending -- treats RTC session history focus reloads as in-place refreshes after the first load attempt so returning to the screen keeps loaded cards visible while the latest request runs.
 - `fix/rtc-history-pagination-refresh` / PR #168 -- keeps the RTC session history footer retry visible when pull-to-refresh fails after a load-more error and surfaces the refresh failure inline without hiding already loaded sessions.
-- `fix/rtc-history-inline-retry-state` / PR #169 -- keeps the RTC session history inline refresh retry card visible during retry, disables duplicate taps, and shows a `Retrying...` label while the in-place refresh request is still running.
+- `fix/rtc-history-inline-retry-state` / PR #169 -- keeps the RTC session history inline refresh retry card visible during retry, disables duplicate taps, shows a `Retrying...` label while the in-place refresh request is still running, and preserves the empty-state layout when a later refresh fails.
 - `fix/library-refresh-continuity` / PR pending -- keeps loaded Library results visible during refocus and pull-to-refresh reloads, moves refresh failures into inline retry copy, and adds focused Library screen coverage for the non-blocking retry path.
 
 ---
@@ -95,7 +95,7 @@
 - RTC history now queues one follow-up foreground refresh after in-flight list requests in Jest, but device QA should confirm resume-during-load and resume-during-load-more do not trigger duplicate reloads on iOS and Android.
 - RTC history focus reloads now avoid the blocking initial-load overlay after the first fetch attempt in Jest, but device QA should confirm the lighter refocus refresh still feels correct for empty and prior-error states on iOS and Android.
 - RTC history refresh failures now preserve the footer pagination retry in Jest, but device QA should confirm the inline refresh error card plus footer retry remain clear on iOS and Android under slower networks.
-- RTC history inline retry state now stays visible and blocks duplicate taps in Jest, but device QA should confirm the disabled CTA and `Retrying...` label feel clear during slower in-place refreshes on iOS and Android.
+- RTC history inline retry state now stays visible and empty RTC history now stays non-blocking after refresh failures in Jest, but device QA should confirm the disabled CTA, inline error card, and empty-state copy feel clear during slower in-place refreshes on iOS and Android.
 - Listening History refocus now keeps loaded entries visible in Jest, but device QA should confirm the lighter refresh still feels correct on iOS and Android when navigating back from episode details.
 - Listening History now keeps prior entries visible when in-place refreshes fail in Jest, but device QA should confirm the inline error card and retry CTA feel clear on iOS and Android during slower or intermittent networks.
 - Listening History inline retry state now stays visible and blocks duplicate taps in Jest, but device QA should confirm the disabled CTA and `Retrying...` label feel clear during slower in-place refreshes on iOS and Android.
@@ -224,9 +224,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC history retry-state device QA** -- verify on iOS and Android that the inline refresh retry button disables promptly, keeps the error card visible, and shows clear `Retrying...` feedback during slower in-place refreshes.
-2. **RTC history pagination device QA** -- verify on iOS and Android that a live-session load-more failure stays recoverable after pull-to-refresh and that the inline refresh error card plus footer retry remain clear on slower networks.
-3. **Library playlists-tab device QA** -- verify on iOS and Android that a playlists load-more failure stays recoverable after pull-to-refresh attempts and that footer retry plus refresh states feel clear on slower networks.
+1. **RTC history empty-state device QA** -- verify on iOS and Android that an empty live-session history stays visible when pull-to-refresh or refocus reloads fail and that the inline retry card remains clear above the empty-state copy.
+2. **RTC history retry-state device QA** -- verify on iOS and Android that the inline refresh retry button disables promptly, keeps the error card visible, and shows clear `Retrying...` feedback during slower in-place refreshes.
+3. **RTC history pagination device QA** -- verify on iOS and Android that a live-session load-more failure stays recoverable after pull-to-refresh and that the inline refresh error card plus footer retry remain clear on slower networks.
 
 ---
 

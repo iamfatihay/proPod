@@ -232,6 +232,42 @@ describe("RtcSessionsScreen", () => {
         ).toBeTruthy();
     });
 
+    it("keeps the empty state visible when a refresh fails after an empty load", async () => {
+        apiService.listRtcSessions
+            .mockResolvedValueOnce({
+                sessions: [],
+                total: 0,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            })
+            .mockRejectedValueOnce(new Error("Refresh failed"));
+
+        const { getByLabelText, getByText, queryByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("No live sessions yet")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Refresh live sessions"));
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Couldn't refresh live sessions.")).toBeTruthy();
+        });
+
+        expect(getByText("No live sessions yet")).toBeTruthy();
+        expect(
+            getByText(
+                "Start a multi-host live session from Create to track recording progress here."
+            )
+        ).toBeTruthy();
+        expect(queryByText("Couldn't load live sessions.")).toBeNull();
+    });
+
     it("offers a failed-session recovery action with the prior setup", async () => {
         apiService.listRtcSessions.mockResolvedValue({
             sessions: [
