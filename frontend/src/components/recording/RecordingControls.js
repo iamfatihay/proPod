@@ -14,6 +14,22 @@ import Logger from "../../utils/logger";
 
 const { width: screenWidth } = Dimensions.get("window");
 
+export const getLiveRecordingDuration = (status, initialDuration = 0) => {
+    if (!status?.isRecording) {
+        return initialDuration;
+    }
+
+    if (typeof status.duration === "number" && status.duration > 0) {
+        return status.duration;
+    }
+
+    if (status.startTime) {
+        return initialDuration + Math.floor((Date.now() - status.startTime) / 1000);
+    }
+
+    return initialDuration;
+};
+
 const RecordingControls = ({
     onRecordingStart,
     onRecordingStop,
@@ -32,6 +48,12 @@ const RecordingControls = ({
     const [duration, setDuration] = useState(initialDuration); // Start from initial duration
     const [recordingAnimation] = useState(new Animated.Value(1));
     const [waveAnimation] = useState(new Animated.Value(0));
+
+    useEffect(() => {
+        if (!isRecording) {
+            setDuration(initialDuration);
+        }
+    }, [initialDuration, isRecording]);
 
     useEffect(() => {
         let interval;
@@ -64,11 +86,8 @@ const RecordingControls = ({
             // Update duration timer - sync with AudioService for accuracy
             interval = setInterval(() => {
                 const status = AudioService.getRecordingStatus();
-                if (status.isRecording && status.startTime) {
-                    // Calculate actual elapsed time from AudioService
-                    const currentSessionDuration = Math.floor((Date.now() - status.startTime) / 1000);
-                    // Add to initial duration (for continue mode with existing segments)
-                    setDuration(initialDuration + currentSessionDuration);
+                if (status.isRecording) {
+                    setDuration(getLiveRecordingDuration(status, initialDuration));
                 }
             }, 1000);
         } else {
@@ -82,7 +101,7 @@ const RecordingControls = ({
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [isRecording, isPaused]);
+    }, [initialDuration, isPaused, isRecording, recordingAnimation, waveAnimation]);
 
     const formatDuration = (seconds) => {
         const mins = Math.floor(seconds / 60);

@@ -83,6 +83,7 @@ class LiveSessionPreview(BaseModel):
     room_id: str
     title: str
     description: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     owner_name: str
     category: Optional[str] = None
     media_mode: str

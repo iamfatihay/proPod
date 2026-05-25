@@ -19,11 +19,24 @@ import { Platform } from 'react-native';
 import apiService from './api/apiService';
 import Logger from '../utils/logger';
 
+let hasLoggedMissingAndroidPushConfig = false;
+
 function hasAndroidFirebaseConfig() {
     return Boolean(
         Constants.expoConfig?.android?.googleServicesFile ||
             Constants.expoConfig?.extra?.googleServicesFile ||
             Constants.expoConfig?.extra?.android?.googleServicesFile
+    );
+}
+
+function logMissingAndroidPushConfigOnce() {
+    if (hasLoggedMissingAndroidPushConfig) {
+        return;
+    }
+
+    hasLoggedMissingAndroidPushConfig = true;
+    Logger.info(
+        'Android push token registration skipped for this app session: missing Firebase/FCM config (googleServicesFile).'
     );
 }
 
@@ -39,9 +52,7 @@ function hasAndroidFirebaseConfig() {
 export async function registerPushToken() {
     try {
         if (Platform.OS === 'android' && !hasAndroidFirebaseConfig()) {
-            Logger.info(
-                'Android push token registration skipped: Firebase config is missing'
-            );
+            logMissingAndroidPushConfigOnce();
             return null;
         }
 

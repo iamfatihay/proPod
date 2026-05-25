@@ -270,6 +270,17 @@ class TestUpdatePodcast:
         )
         assert resp.status_code == 404
 
+    def test_update_podcast_thumbnail_url(self, test_user):
+        created = _create_podcast_via_api(test_user["token"])
+        resp = client.put(
+            f"/podcasts/{created['id']}",
+            json={"thumbnail_url": "/media/thumbnails/updated-cover.png"},
+            headers=_auth(test_user["token"]),
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["thumbnail_url"] == "/media/thumbnails/updated-cover.png"
+
 
 # --------------- Delete Podcast ---------------
 

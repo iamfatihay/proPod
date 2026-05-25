@@ -152,6 +152,7 @@ async def create_rtc_room(
         title=request.title,
         media_mode=request.media_mode,
         category=request.category,
+        has_thumbnail=bool(request.thumbnail_url),
         template_id=template_id,
         has_webhook=bool(request.webhook_url or settings.HMS_WEBHOOK_URL),
     )
@@ -200,6 +201,7 @@ async def create_rtc_room(
                 title=request.title or request.name,
                 description=request.description,
                 category=request.category or "General",
+                thumbnail_url=request.thumbnail_url,
                 is_public=bool(request.is_public) if request.is_public is not None else False,
                 media_mode=request.media_mode or "video",
                 status="created",
@@ -387,6 +389,7 @@ async def hms_webhook(
             duration=duration_seconds,
             audio_url=stable_recording_url,
             video_url=stable_recording_url if session.media_mode == "video" else None,
+            thumbnail_url=session.thumbnail_url,
         )
 
         podcast = crud.create_podcast(db, podcast_data, session.owner_id)
@@ -590,6 +593,7 @@ def get_rtc_invite_preview(
         room_id=session.room_id,
         title=session.title or session.room_name or "Live Session",
         description=session.description,
+        thumbnail_url=session.thumbnail_url,
         owner_name=owner.name if owner else "Unknown host",
         category=session.category,
         media_mode=session.media_mode,

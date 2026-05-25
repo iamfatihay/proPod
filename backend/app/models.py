@@ -156,6 +156,7 @@ class RTCSession(Base):
     title = Column(String, nullable=True)
     description = Column(String, nullable=True)
     category = Column(String, default="General")
+    thumbnail_url = Column(String, nullable=True)
     is_public = Column(Boolean, default=False)
     media_mode = Column(String, default="video")  # audio | video
 

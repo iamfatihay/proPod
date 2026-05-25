@@ -131,7 +131,9 @@ const Details = () => {
                     prevPodcast.category !==
                     (params.updatedCategory || prevPodcast.category) ||
                     prevPodcast.is_public !==
-                    (params.updatedIsPublic === "true")
+                    (params.updatedIsPublic === "true") ||
+                    prevPodcast.thumbnail_url !==
+                    (params.updatedThumbnailUrl || null)
                 ) {
                     return {
                         ...prevPodcast,
@@ -142,6 +144,7 @@ const Details = () => {
                         category:
                             params.updatedCategory || prevPodcast.category,
                         is_public: params.updatedIsPublic === "true",
+                        thumbnail_url: params.updatedThumbnailUrl || null,
                     };
                 }
                 return prevPodcast;
@@ -152,6 +155,7 @@ const Details = () => {
         params.updatedDescription,
         params.updatedCategory,
         params.updatedIsPublic,
+        params.updatedThumbnailUrl,
     ]);
 
     const loadPodcastDetails = async () => {

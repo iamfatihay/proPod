@@ -139,6 +139,7 @@ class PodcastUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=2000)
     category: Optional[str] = None
     is_public: Optional[bool] = None
+    thumbnail_url: Optional[str] = None
 
 
 # ==================== AI Processing Schemas ====================
@@ -254,6 +255,7 @@ class RTCRoomCreateRequest(BaseModel):
     description: Optional[str] = Field(None, description="Room description")
     title: Optional[str] = Field(None, description="Podcast title")
     category: Optional[str] = Field(None, description="Podcast category")
+    thumbnail_url: Optional[str] = Field(None, description="Thumbnail image URL")
     is_public: Optional[bool] = Field(None, description="Whether podcast is public")
     media_mode: Optional[str] = Field(None, description="audio or video")
     template_id: Optional[str] = Field(None, description="100ms template ID")
@@ -292,6 +294,7 @@ class RTCSessionResponse(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     is_public: bool
     media_mode: str
     status: str
@@ -493,6 +496,13 @@ class PodcastListResponse(BaseModel):
 # Upload Response Schema
 class AudioUploadResponse(BaseModel):
     audio_url: str
+    file_size: int
+    content_type: str
+    filename: str
+
+
+class ImageUploadResponse(BaseModel):
+    image_url: str
     file_size: int
     content_type: str
     filename: str

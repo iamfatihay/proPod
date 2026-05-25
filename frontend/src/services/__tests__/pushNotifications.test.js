@@ -45,17 +45,14 @@ jest.mock('../../utils/logger', () => ({
     warn: jest.fn(),
 }));
 
-import * as Notifications from 'expo-notifications';
-import apiService from '../api/apiService';
-import Logger from '../../utils/logger';
-import {
-    hasAndroidFirebaseConfig,
-    registerPushToken,
-    unregisterPushToken,
-} from '../pushNotifications';
+let apiService;
+let Logger;
+let Notifications;
+let pushNotifications;
 
 describe('pushNotifications', () => {
     beforeEach(() => {
+        jest.resetModules();
         jest.clearAllMocks();
         mockPlatformOS = 'android';
         mockExpoConfig = {
@@ -65,26 +62,46 @@ describe('pushNotifications', () => {
                 },
             },
         };
+
+        const apiServiceModule = require('../api/apiService');
+        apiService = apiServiceModule.default || apiServiceModule;
+
+        const loggerModule = require('../../utils/logger');
+        Logger = loggerModule.default || loggerModule;
+
+        Notifications = require('expo-notifications');
+
+        pushNotifications = require('../pushNotifications');
     });
 
     test('reports missing Android Firebase config when no google-services file is configured', () => {
-        expect(hasAndroidFirebaseConfig()).toBe(false);
+        expect(pushNotifications.hasAndroidFirebaseConfig()).toBe(false);
     });
 
     test('skips Android push token registration when Firebase config is missing', async () => {
-        const token = await registerPushToken();
+        const token = await pushNotifications.registerPushToken();
 
         expect(token).toBeNull();
         expect(Notifications.getPermissionsAsync).not.toHaveBeenCalled();
         expect(Notifications.getExpoPushTokenAsync).not.toHaveBeenCalled();
         expect(apiService.registerDeviceToken).not.toHaveBeenCalled();
         expect(Logger.info).toHaveBeenCalledWith(
-            'Android push token registration skipped: Firebase config is missing'
+            'Android push token registration skipped for this app session: missing Firebase/FCM config (googleServicesFile).'
+        );
+    });
+
+    test('logs missing Android Firebase config only once per app session', async () => {
+        await pushNotifications.registerPushToken();
+        await pushNotifications.registerPushToken();
+
+        expect(Logger.info).toHaveBeenCalledTimes(1);
+        expect(Logger.info).toHaveBeenCalledWith(
+            'Android push token registration skipped for this app session: missing Firebase/FCM config (googleServicesFile).'
         );
     });
 
     test('skips Android push token unregister when Firebase config is missing', async () => {
-        await unregisterPushToken();
+        await pushNotifications.unregisterPushToken();
 
         expect(Notifications.getExpoPushTokenAsync).not.toHaveBeenCalled();
         expect(apiService.removeDeviceToken).not.toHaveBeenCalled();
@@ -98,7 +115,7 @@ describe('pushNotifications', () => {
             },
         };
 
-        const token = await registerPushToken();
+        const token = await pushNotifications.registerPushToken();
 
         expect(token).toBe('ExponentPushToken[test]');
         expect(Notifications.getPermissionsAsync).toHaveBeenCalled();

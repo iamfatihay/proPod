@@ -116,6 +116,34 @@ class ApiService {
         return podcasts.map((p) => this.normalizePodcast(p));
     }
 
+    normalizePodcastCollectionResponse(response) {
+        if (Array.isArray(response)) {
+            const podcasts = this.normalizePodcasts(response);
+            return {
+                podcasts,
+                total: podcasts.length,
+                limit: podcasts.length,
+                offset: 0,
+                has_more: false,
+            };
+        }
+
+        if (response && typeof response === "object") {
+            return {
+                ...response,
+                podcasts: this.normalizePodcasts(response.podcasts || []),
+            };
+        }
+
+        return {
+            podcasts: [],
+            total: 0,
+            limit: 0,
+            offset: 0,
+            has_more: false,
+        };
+    }
+
     validateRtcSessionListResponse(response) {
         const hasValidShape =
             response &&
@@ -462,9 +490,10 @@ class ApiService {
      * @throws {Error} If user not found or request fails
      */
     async getPublicUserPodcasts(userId, { skip = 0, limit = 20 } = {}) {
-        return this.request(
+        const response = await this.request(
             `/users/${userId}/podcasts?skip=${skip}&limit=${limit}`
         );
+        return this.normalizePodcastCollectionResponse(response);
     }
 
     /**
@@ -511,7 +540,10 @@ class ApiService {
      * @returns {Promise<{podcasts: Array, total: number, has_more: boolean}>}
      */
     async getFollowingFeed({ skip = 0, limit = 20 } = {}) {
-        return this.request(`/podcasts/following-feed?skip=${skip}&limit=${limit}`);
+        const response = await this.request(
+            `/podcasts/following-feed?skip=${skip}&limit=${limit}`
+        );
+        return this.normalizePodcastCollectionResponse(response);
     }
 
     /**
@@ -752,7 +784,7 @@ class ApiService {
         const response = await this.request(endpoint);
 
         // Backend returns { podcasts: [], total, limit, offset, has_more }
-        return response?.podcasts || [];
+        return this.normalizePodcasts(response?.podcasts || []);
     }
 
     /**
@@ -768,6 +800,34 @@ class ApiService {
             method: "PUT",
             body: JSON.stringify(updateData),
         });
+    }
+
+    async uploadPodcastThumbnail(imageAsset) {
+        const formData = new FormData();
+        const fileExtension = imageAsset.uri?.split(".").pop()?.toLowerCase() || "jpg";
+        const mimeTypeByExtension = {
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            png: "image/png",
+            webp: "image/webp",
+        };
+        const mimeType = imageAsset.mimeType || imageAsset.type || mimeTypeByExtension[fileExtension] || "image/jpeg";
+        const fileName = imageAsset.fileName || `podcast_thumbnail.${fileExtension}`;
+
+        formData.append("file", {
+            uri: imageAsset.uri,
+            type: mimeType,
+            name: fileName,
+        });
+
+        return this.requestWithRetry(
+            "/podcasts/upload-thumbnail",
+            {
+                method: "POST",
+                body: formData,
+            },
+            true
+        );
     }
 
     /**
@@ -1093,7 +1153,8 @@ class ApiService {
             ? `/podcasts/my/likes?${queryString}`
             : "/podcasts/my/likes";
 
-        return this.request(endpoint);
+        const response = await this.request(endpoint);
+        return this.normalizePodcastCollectionResponse(response);
     }
 
     async getBookmarkedPodcasts(params = {}) {
@@ -1108,7 +1169,8 @@ class ApiService {
             ? `/podcasts/my/bookmarks?${queryString}`
             : "/podcasts/my/bookmarks";
 
-        return this.request(endpoint);
+        const response = await this.request(endpoint);
+        return this.normalizePodcastCollectionResponse(response);
     }
 
     async getMyPodcasts(params = {}) {
@@ -1123,7 +1185,8 @@ class ApiService {
             ? `/podcasts/my/created?${queryString}`
             : "/podcasts/my/created";
 
-        return this.request(endpoint);
+        const response = await this.request(endpoint);
+        return this.normalizePodcastCollectionResponse(response);
     }
 
     async getCreatorCommentInbox({ podcastLimit = 8, commentsPerPodcast = 10 } = {}) {

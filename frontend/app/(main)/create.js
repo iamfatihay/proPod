@@ -12,10 +12,12 @@ import {
     BackHandler,
     Alert,
     Share,
+    Image,
 } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import RecordingControls from "../../src/components/recording/RecordingControls";
 import HmsRoom from "../../src/components/rtc/HmsRoom";
 import AudioService from "../../src/services/audio";
@@ -32,6 +34,10 @@ import {
     buildRtcSessionHistoryNotificationAction,
     buildRtcSessionHistoryRoute,
 } from "../../src/utils/rtcSessionRoutes";
+import {
+    maybeStartAiProcessingForPodcast,
+    resolveAiEnabledForSave,
+} from "../../src/utils/createPodcastAi";
 
 export const RtcFailedReviewActions = ({ isLoading, onGoHome, onRetry, onViewSessions }) => (
     <>
@@ -133,6 +139,8 @@ const Create = () => {
     const [description, setDescription] = useState(prefillDescription);
     const [category, setCategory] = useState(prefillCategory);
     const [isPublic, setIsPublic] = useState(prefillIsPublic);
+    const [thumbnailUrl, setThumbnailUrl] = useState(null);
+    const [thumbnailUploading, setThumbnailUploading] = useState(false);
 
     // Update draft metadata when title/description changes (only if draft loaded or recording active)
     useEffect(() => () => {
@@ -147,10 +155,22 @@ const Create = () => {
                 title: title || 'Untitled Recording',
                 description,
                 category,
-                is_public: isPublic
+                is_public: isPublic,
+                thumbnail_url: thumbnailUrl,
+                ai_enabled: isAIEnabled,
             });
         }
-    }, [title, description, category, isPublic, draftLoaded, isRecording, recordedUri]);
+    }, [
+        title,
+        description,
+        category,
+        isPublic,
+        thumbnailUrl,
+        isAIEnabled,
+        draftLoaded,
+        isRecording,
+        recordedUri,
+    ]);
 
     // UI state
     const [isUploading, setIsUploading] = useState(false);
@@ -175,6 +195,8 @@ const Create = () => {
         setDescription(prefillDescription);
         setCategory(prefillCategory);
         setIsPublic(prefillIsPublic);
+        setThumbnailUrl(null);
+        setThumbnailUploading(false);
         setIsUploading(false);
         setCurrentStep(mode === "quick-record" ? "recording" : "setup");
         setPermissionModalVisible(false);
@@ -254,6 +276,8 @@ const Create = () => {
                             setDescription(existingDraft.metadata?.description || '');
                             setCategory(existingDraft.metadata?.category || 'General');
                             setIsPublic(existingDraft.metadata?.is_public || false);
+                            setThumbnailUrl(existingDraft.metadata?.thumbnail_url || null);
+                            setIsAIEnabled(Boolean(existingDraft.metadata?.ai_enabled));
                         }
                         
                         setIsRecording(hasActiveRecording);
@@ -305,6 +329,8 @@ const Create = () => {
             setDescription(draft.metadata?.description || '');
             setCategory(draft.metadata?.category || 'General');
             setIsPublic(draft.metadata?.is_public || false);
+            setThumbnailUrl(draft.metadata?.thumbnail_url || null);
+            setIsAIEnabled(Boolean(draft.metadata?.ai_enabled));
             setRecordingMode("solo");
             setRtcMediaMode("video");
             setRtcSession(null);
@@ -365,7 +391,9 @@ const Create = () => {
                 // Start protection service for new recording
                 await protectionService.startProtection({
                     title: title || 'New Recording',
-                    category
+                    category,
+                    thumbnail_url: thumbnailUrl,
+                    ai_enabled: isAIEnabled,
                 });
             } else {
                 // Continue mode - resume existing draft protection
@@ -396,6 +424,14 @@ const Create = () => {
     const handleRecordingStop = async (uri) => {
         setIsRecording(false);
 
+        const stopBackgroundRecordingSafely = async () => {
+            try {
+                await backgroundService.stopRecording();
+            } catch (error) {
+                Logger.warn("Background recording stop failed:", error);
+            }
+        };
+
         if (uri) {
             // Get recording duration from AudioService (before try block so it's accessible in catch)
             const status = AudioService.getRecordingStatus();
@@ -408,9 +444,6 @@ const Create = () => {
                 setRecordedUri(segment.uri); // Use permanent URI
                 setRecordedDuration(duration);
                 setCurrentStep("review");
-
-                // Stop background notification
-                await backgroundService.stopRecording();
 
                 if (mode === "quick-record") {
                     const timestamp = new Date().toLocaleString();
@@ -425,11 +458,13 @@ const Create = () => {
                 setRecordedUri(uri);
                 setRecordedDuration(duration); // Now accessible from outer scope
                 setCurrentStep("review");
+            } finally {
+                await stopBackgroundRecordingSafely();
             }
         } else {
             Logger.error("Recording stopped but URI is null");
             showToast("Recording failed - no file was saved", "error");
-            await backgroundService.stopRecording();
+            await stopBackgroundRecordingSafely();
         }
     };
 
@@ -443,11 +478,117 @@ const Create = () => {
 
     const handleAIToggle = (enabled) => {
         setIsAIEnabled(enabled);
+        if (draftLoaded || isRecording || recordedUri) {
+            protectionService.updateMetadata({ ai_enabled: enabled });
+        }
         showToast(
             enabled ? "AI assistance enabled" : "AI assistance disabled",
             "success"
         );
     };
+
+    const handlePickThumbnail = async () => {
+        try {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== "granted") {
+                showToast("Photo library permission is required", "error");
+                return;
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ["images"],
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+                exif: false,
+            });
+
+            if (result.canceled || !result.assets?.[0]) {
+                return;
+            }
+
+            const asset = result.assets[0];
+            if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+                showToast("Thumbnail must be 5MB or smaller", "error");
+                return;
+            }
+
+            setThumbnailUploading(true);
+            const upload = await apiService.uploadPodcastThumbnail(asset);
+            setThumbnailUrl(upload.image_url);
+            showToast("Thumbnail updated", "success");
+        } catch (error) {
+            Logger.error("Thumbnail upload failed:", error);
+            showToast(
+                error?.detail || error?.message || "Failed to upload thumbnail",
+                "error"
+            );
+        } finally {
+            setThumbnailUploading(false);
+        }
+    };
+
+    const handleRemoveThumbnail = () => {
+        setThumbnailUrl(null);
+        showToast("Thumbnail removed", "success");
+    };
+
+    const renderThumbnailSection = () => (
+        <View className="mb-6">
+            <Text className="text-text-primary font-semibold mb-2">
+                Thumbnail
+            </Text>
+            <View className="bg-card rounded-xl border border-border p-4">
+                {thumbnailUrl ? (
+                    <Image
+                        source={{ uri: thumbnailUrl }}
+                        className="w-full h-48 rounded-lg mb-3"
+                        resizeMode="cover"
+                    />
+                ) : (
+                    <View className="h-48 rounded-lg border border-dashed border-border items-center justify-center mb-3 bg-panel">
+                        <Ionicons
+                            name="image-outline"
+                            size={32}
+                            color={COLORS.text.secondary}
+                        />
+                        <Text className="text-text-secondary mt-2">
+                            No thumbnail selected
+                        </Text>
+                    </View>
+                )}
+
+                <View className="flex-row gap-3">
+                    <TouchableOpacity
+                        onPress={handlePickThumbnail}
+                        disabled={thumbnailUploading || isUploading}
+                        className="flex-1 bg-panel border border-border rounded-lg py-3 px-4 flex-row items-center justify-center"
+                    >
+                        {thumbnailUploading ? (
+                            <ActivityIndicator color={COLORS.primary} />
+                        ) : (
+                            <>
+                                <Ionicons name="images-outline" size={18} color={COLORS.text.primary} />
+                                <Text className="text-text-primary font-medium ml-2">
+                                    {thumbnailUrl ? "Change Image" : "Select Image"}
+                                </Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
+
+                    {thumbnailUrl ? (
+                        <TouchableOpacity
+                            onPress={handleRemoveThumbnail}
+                            disabled={thumbnailUploading || isUploading}
+                            className="px-4 rounded-lg border border-border items-center justify-center"
+                        >
+                            <Ionicons name="trash-outline" size={18} color={COLORS.text.secondary} />
+                        </TouchableOpacity>
+                    ) : null}
+                </View>
+            </View>
+        </View>
+    );
 
     const handleSaveRecording = async () => {
         if (recordingMode === "multi") {
@@ -478,6 +619,10 @@ const Create = () => {
             // Get all segments from draft (for continue mode with multiple segments)
             const draft = await protectionService.getDraft();
             const segments = draft?.segments || [];
+            const aiEnabledForSave = resolveAiEnabledForSave({
+                isAIEnabled,
+                draft,
+            });
             
             if (segments.length === 0) {
                 showToast("No valid recording found", "error");
@@ -500,6 +645,7 @@ const Create = () => {
                 category,
                 is_public: isPublic,
                 duration: totalDuration,
+                thumbnail_url: thumbnailUrl,
             };
 
             let uploadRes;
@@ -534,10 +680,28 @@ const Create = () => {
                 finalPodcastData
             );
 
+            const aiProcessingStarted = await maybeStartAiProcessingForPodcast({
+                enabled: aiEnabledForSave,
+                podcastId: createdPodcast?.id,
+                processAudio: (podcastId) => apiService.processAudio(podcastId),
+            });
+
             // Clear draft after successful save
             await protectionService.clearDraft();
 
-            showToast("Podcast saved successfully!", "success");
+            if (aiEnabledForSave && !aiProcessingStarted) {
+                showToast(
+                    "Podcast saved, but AI processing could not be started.",
+                    "warning"
+                );
+            } else {
+                showToast(
+                    aiProcessingStarted
+                        ? "Podcast saved. AI processing started."
+                        : "Podcast saved successfully!",
+                    "success"
+                );
+            }
 
             // Navigate to library and reset create page state
             // Use replace to prevent going back to review screen
@@ -629,6 +793,7 @@ const Create = () => {
                 description: description?.trim() || undefined,
                 title: title.trim(),
                 category,
+                thumbnail_url: thumbnailUrl || undefined,
                 is_public: isPublic,
                 media_mode: rtcMediaMode,
             });
@@ -670,6 +835,7 @@ const Create = () => {
                 room_name: room.name,
                 title: title.trim(),
                 category,
+                thumbnail_url: thumbnailUrl || null,
                 media_mode: rtcMediaMode,
                 status: "created",
                 is_live: false,
@@ -941,6 +1107,8 @@ const Create = () => {
                     />
                 </View>
 
+                {recordingMode !== "multi" && renderThumbnailSection()}
+
                 <View>
                     <Text className="text-text-primary font-semibold mb-2">
                         Category
@@ -1082,7 +1250,7 @@ const Create = () => {
                         : setCurrentStep("recording")
                 }
                 className="bg-primary py-4 rounded-lg mt-8 mb-6"
-                disabled={!title.trim() || rtcLoading}
+                disabled={!title.trim() || rtcLoading || thumbnailUploading}
             >
                 <Text className="text-white text-center font-semibold text-lg">
                     {recordingMode === "multi"
@@ -1566,15 +1734,18 @@ const Create = () => {
                         </Text>
                         <Text className="text-text-secondary">{category}</Text>
                     </View>
+
                 </View>
             )}
+
+            {renderThumbnailSection()}
 
             {/* Action Buttons */}
             <View className="space-y-4 mb-6">
                 <TouchableOpacity
                     onPress={handleSaveRecording}
                     className="bg-primary py-4 mb-4 rounded-lg"
-                    disabled={isUploading}
+                    disabled={isUploading || thumbnailUploading}
                 >
                     {isUploading ? (
                         <View className="flex-row items-center justify-center">

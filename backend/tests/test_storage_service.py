@@ -37,14 +37,44 @@ async def test_persist_remote_media_routes_to_s3(monkeypatch):
     monkeypatch.setattr("app.services.storage_service.settings.MEDIA_STORAGE_BACKEND", "s3")
     service = StorageService()
 
-    async def fake_upload(url, filename):
-        return f"https://cdn.example.com/{filename}"
+    async def fake_upload(url, filename, media_kind="audio"):
+        return f"https://cdn.example.com/{media_kind}/{filename}"
 
     monkeypatch.setattr(service, "upload_to_s3", fake_upload)
 
     result = await service.persist_remote_media("https://example.com/file.mp4", "file.mp4")
 
-    assert result == "https://cdn.example.com/file.mp4"
+    assert result == "https://cdn.example.com/audio/file.mp4"
+
+
+@pytest.mark.asyncio
+async def test_persist_remote_media_routes_media_kind_to_local_download(monkeypatch):
+    monkeypatch.setattr("app.services.storage_service.settings.MEDIA_STORAGE_BACKEND", "local")
+    service = StorageService()
+    calls = {}
+
+    async def fake_download(url, filename, media_kind="audio"):
+        calls.update({
+            "url": url,
+            "filename": filename,
+            "media_kind": media_kind,
+        })
+        return f"/media/{media_kind}/{filename}"
+
+    monkeypatch.setattr(service, "download_to_local", fake_download)
+
+    result = await service.persist_remote_media(
+        "https://example.com/cover.png",
+        "cover.png",
+        media_kind="thumbnails",
+    )
+
+    assert result == "/media/thumbnails/cover.png"
+    assert calls == {
+        "url": "https://example.com/cover.png",
+        "filename": "cover.png",
+        "media_kind": "thumbnails",
+    }
 
 
 def test_delete_managed_routes_s3_public_url(monkeypatch):
