@@ -1662,12 +1662,14 @@ describe("RtcSessionsScreen", () => {
             expect(apiService.listRtcSessions).toHaveBeenCalledTimes(3);
         });
 
-        const retryButton = getByLabelText("Retry refreshing live sessions");
+        await waitFor(() => {
+            const retryButton = getByLabelText("Retry refreshing live sessions");
 
-        expect(retryButton.props.disabled).toBe(true);
-        expect(retryButton.props.accessibilityState).toEqual({ disabled: true });
-        expect(getByText("Retrying...")).toBeTruthy();
-        expect(getByText("Refresh failed")).toBeTruthy();
+            expect(retryButton.props.disabled).toBe(true);
+            expect(retryButton.props.accessibilityState).toEqual({ disabled: true });
+            expect(getByText("Retrying...")).toBeTruthy();
+            expect(getByText("Refresh failed")).toBeTruthy();
+        });
 
         await act(async () => {
             resolveRetry({

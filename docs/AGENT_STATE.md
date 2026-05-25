@@ -217,6 +217,8 @@
 - 2026-05-22: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed for the RTC history pagination-refresh continuity change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-22: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/rtc/RtcSessionsScreen.test.js --runInBand` passed (24 tests) after keeping the RTC history inline refresh retry visible and disabled while a retry stays in flight; Jest still emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-22: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed for the RTC history inline retry-state change; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-25: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/rtc/RtcSessionsScreen.test.js --runInBand --runTestsByPath` passed (25 tests) after preserving the empty RTC history state during refresh failures and tightening the inline retry-state assertion to wait for the disabled CTA; Jest still emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-25: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed for the RTC empty refresh continuity follow-up; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - Prefer focused validation only: a few pytest files max on backend, and targeted lint or `node --check` for frontend JS files.
 - Do not report validation as passing unless it actually ran.
 
