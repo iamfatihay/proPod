@@ -12,7 +12,7 @@ Tests cover:
 import os
 import pytest
 from io import BytesIO
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -201,6 +201,38 @@ class TestPodcastAudioUpload:
         data = response.json()
         assert data["filename"].endswith(".m4a")
         _cleanup_uploaded_file(data)
+
+    @patch("app.routers.podcasts.storage_service.persist_bytes", new_callable=AsyncMock)
+    def test_upload_uses_managed_storage_backend(self, mock_persist_bytes, test_user):
+        """Uploads should go through the managed storage service, not direct router disk writes."""
+        token = test_user["token"]
+        mock_persist_bytes.return_value = "/media/audio/podcast_123_test.mp3"
+
+        response = client.post(
+            "/podcasts/upload",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"file": ("test.mp3", _create_test_audio_bytes(), "audio/mpeg")}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["audio_url"].endswith("/media/audio/podcast_123_test.mp3")
+        mock_persist_bytes.assert_awaited_once()
+
+    @patch("app.routers.podcasts.storage_service.persist_bytes", new_callable=AsyncMock)
+    def test_upload_returns_external_managed_url(self, mock_persist_bytes, test_user):
+        """S3-backed uploads should surface the object-storage URL directly."""
+        token = test_user["token"]
+        mock_persist_bytes.return_value = "https://cdn.example.com/podcasts/audio/test.mp3"
+
+        response = client.post(
+            "/podcasts/upload",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"file": ("test.mp3", _create_test_audio_bytes(), "audio/mpeg")}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["audio_url"] == "https://cdn.example.com/podcasts/audio/test.mp3"
 
 
 if __name__ == "__main__":

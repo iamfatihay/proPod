@@ -1,9 +1,10 @@
 """Application configuration settings."""
-from pydantic_settings import BaseSettings
-from pydantic import ConfigDict, Field, field_validator
 import os
-from typing import Literal
 from pathlib import Path
+from typing import Literal
+
+from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -55,6 +56,27 @@ class Settings(BaseSettings):
         default="media",
         description="Root directory for media files (relative to backend root)"
     )
+    MEDIA_STORAGE_BACKEND: Literal["local", "s3"] = Field(
+        default="local",
+        description="Managed media backend: local filesystem for dev or S3-compatible object storage for production"
+    )
+    MEDIA_S3_BUCKET: str = Field(default="", description="S3 bucket name for managed media uploads")
+    MEDIA_S3_REGION: str = Field(default="", description="S3 region for managed media uploads")
+    MEDIA_S3_ENDPOINT_URL: str = Field(default="", description="Optional S3-compatible endpoint URL")
+    MEDIA_S3_ACCESS_KEY_ID: str = Field(default="", description="Optional S3 access key")
+    MEDIA_S3_SECRET_ACCESS_KEY: str = Field(default="", description="Optional S3 secret key")
+    MEDIA_S3_PUBLIC_BASE_URL: str = Field(
+        default="",
+        description="Optional public CDN/base URL for S3-managed media, e.g. https://cdn.example.com"
+    )
+    MEDIA_S3_PREFIX: str = Field(default="podcasts", description="Object key prefix for managed media uploads")
+
+    @model_validator(mode="after")
+    def validate_media_storage(self):
+        """Ensure required managed-storage settings exist for the selected backend."""
+        if self.MEDIA_STORAGE_BACKEND == "s3" and not self.MEDIA_S3_BUCKET:
+            raise ValueError("MEDIA_S3_BUCKET is required when MEDIA_STORAGE_BACKEND=s3")
+        return self
     
     # AI Service Configuration
     AI_PROVIDER: Literal["local", "openai", "hybrid"] = Field(

@@ -56,6 +56,35 @@ npm run start:dev
 npm run start:dev:tunnel
 ```
 
+## Managed Media Storage
+
+RTC recordings should not be played back from expiring upstream URLs in production.
+
+- Development default: `MEDIA_STORAGE_BACKEND=local`
+- Production recommendation: `MEDIA_STORAGE_BACKEND=s3`
+- DigitalOcean Spaces works here because it is S3-compatible
+
+Example production-style environment:
+
+```env
+MEDIA_STORAGE_BACKEND=s3
+MEDIA_S3_BUCKET=propod-media
+MEDIA_S3_REGION=fra1
+MEDIA_S3_ENDPOINT_URL=https://fra1.digitaloceanspaces.com
+MEDIA_S3_ACCESS_KEY_ID=your-spaces-key
+MEDIA_S3_SECRET_ACCESS_KEY=your-spaces-secret
+MEDIA_S3_PUBLIC_BASE_URL=https://propod-media.fra1.cdn.digitaloceanspaces.com
+MEDIA_S3_PREFIX=podcasts
+```
+
+How it works:
+
+- 100ms webhook delivers a temporary recording URL
+- Backend immediately copies that asset into managed storage
+- Podcast playback then uses your managed storage URL, not the expiring source URL
+
+This keeps old RTC episodes playable and avoids depending on 100ms signed URL lifetime.
+
 ## Development Build Notes
 
 - Use a development build, not Expo Go.

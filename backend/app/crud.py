@@ -14,6 +14,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 from . import models, schemas
+from .services.storage_service import storage_service
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -295,7 +296,13 @@ def create_podcast(db: Session, podcast: schemas.PodcastCreate, owner_id: int) -
     Returns:
         models.Podcast: Created podcast object
     """
-    db_podcast = models.Podcast(**podcast.model_dump(), owner_id=owner_id)
+    podcast_payload = podcast.model_dump()
+    for field_name in ("audio_url", "video_url", "thumbnail_url"):
+        podcast_payload[field_name] = storage_service.normalize_for_storage(
+            podcast_payload.get(field_name)
+        )
+
+    db_podcast = models.Podcast(**podcast_payload, owner_id=owner_id)
     db.add(db_podcast)
     db.flush()  # Get the podcast ID without committing
     
@@ -664,6 +671,24 @@ def hard_delete_podcast(db: Session, podcast: models.Podcast) -> bool:
     Returns:
         bool: True if deletion successful
     """
+    managed_urls = {
+        podcast.audio_url,
+        podcast.video_url,
+        podcast.thumbnail_url,
+    }
+    for media_url in managed_urls:
+        if not media_url:
+            continue
+
+        try:
+            storage_service.delete_managed(media_url)
+        except Exception:
+            logger.warning(
+                "Failed to delete managed media during hard delete",
+                extra={"podcast_id": podcast.id, "media_url": media_url},
+                exc_info=True,
+            )
+
     db.delete(podcast)
     db.commit()
     return True

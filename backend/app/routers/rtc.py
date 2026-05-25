@@ -1,6 +1,8 @@
 """RTC integration endpoints (100ms) - Core functionality only."""
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import json
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -15,6 +17,7 @@ from app.database import get_db
 from app import models, crud
 from app.services.hms_service import create_room, generate_auth_token
 from app.services.live_session_service import end_session, generate_invite_code, get_active_participants, start_session
+from app.services.storage_service import storage_service
 from app.models import User
 
 
@@ -59,6 +62,25 @@ def _event_marks_recording_failed(event_name: Optional[str]) -> bool:
         return True
 
     return False
+
+
+def _get_recording_suffix(recording_url: str, media_mode: Optional[str]) -> str:
+    suffix = Path(urlparse(recording_url).path).suffix.lower()
+    if suffix:
+        return suffix
+    return ".mp4" if media_mode == "video" else ".m4a"
+
+
+def _get_recording_filename(session: models.RTCSession, suffix: str) -> str:
+    """Use the stable session ID for persisted filenames instead of upstream room IDs."""
+    return f"rtc_session_{session.id}{suffix}"
+
+
+async def _persist_recording_media(session: models.RTCSession, recording_url: str) -> str:
+    """Persist external RTC recordings to managed media storage."""
+    suffix = _get_recording_suffix(recording_url, session.media_mode)
+    filename = _get_recording_filename(session, suffix)
+    return await storage_service.persist_remote_media(recording_url, filename)
 
 
 @router.post("/token", response_model=schemas.RTCTokenResponse)
@@ -354,6 +376,8 @@ async def hms_webhook(
             db.commit()
             return {"status": "ok"}
 
+        stable_recording_url = await _persist_recording_media(session, recording_url)
+
         podcast_data = schemas.PodcastCreate(
             title=session.title or session.room_name or "Live Session",
             description=session.description,
@@ -361,8 +385,8 @@ async def hms_webhook(
             is_public=session.is_public,
             media_type="video" if session.media_mode == "video" else "audio",
             duration=duration_seconds,
-            audio_url=recording_url,
-            video_url=recording_url if session.media_mode == "video" else None,
+            audio_url=stable_recording_url,
+            video_url=stable_recording_url if session.media_mode == "video" else None,
         )
 
         podcast = crud.create_podcast(db, podcast_data, session.owner_id)
@@ -375,7 +399,7 @@ async def hms_webhook(
                 podcast_id=podcast.id,
             )
         session.podcast_id = podcast.id
-        session.recording_url = recording_url
+        session.recording_url = stable_recording_url
         session.duration_seconds = duration_seconds
         session.status = "completed"
         session.recording_status = "completed"

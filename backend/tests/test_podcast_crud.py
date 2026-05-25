@@ -24,6 +24,8 @@ from app.main import app
 from app.database import SessionLocal
 from app.models import User, Podcast, PodcastStats, PodcastLike, PodcastBookmark, PodcastComment, ListeningHistory
 from app import crud, schemas
+from unittest.mock import patch
+
 from app.auth import create_access_token
 
 client = TestClient(app)
@@ -133,6 +135,14 @@ class TestCreatePodcast:
         assert data["owner_id"] == test_user["user"].id
         assert data["is_public"] is True
         assert data["duration"] == 120
+
+    def test_create_podcast_normalizes_local_media_urls(self, test_user):
+        data = _create_podcast_via_api(
+            test_user["token"],
+            audio_url="http://localhost:8000/media/audio/test.mp3",
+        )
+
+        assert data["audio_url"] == "/media/audio/test.mp3"
 
     def test_create_podcast_minimal_fields(self, test_user):
         """Title is the only truly required field (from PodcastBase)."""
@@ -291,6 +301,49 @@ class TestDeletePodcast:
         created = _create_podcast_via_api(test_user["token"])
         resp = client.delete(f"/podcasts/{created['id']}")
         assert resp.status_code == 401
+
+
+class TestHardDeletePodcast:
+    """Tests for storage cleanup during irreversible hard deletes."""
+
+    def test_hard_delete_podcast_cleans_managed_media(self, test_user):
+        db = test_user["db"]
+        podcast = Podcast(
+            title="Hard Delete Podcast",
+            owner_id=test_user["user"].id,
+            audio_url="/media/audio/hard-delete.mp3",
+            video_url="/media/audio/hard-delete.mp3",
+            thumbnail_url="https://cdn.example.com/thumb.png",
+        )
+        db.add(podcast)
+        db.commit()
+        db.refresh(podcast)
+
+        with patch("app.crud.storage_service.delete_managed") as mock_delete_managed:
+            assert crud.hard_delete_podcast(db, podcast) is True
+
+        deleted_urls = {call.args[0] for call in mock_delete_managed.call_args_list}
+        assert deleted_urls == {
+            "/media/audio/hard-delete.mp3",
+            "https://cdn.example.com/thumb.png",
+        }
+        assert db.query(Podcast).filter(Podcast.id == podcast.id).first() is None
+
+    def test_hard_delete_podcast_continues_when_storage_cleanup_fails(self, test_user):
+        db = test_user["db"]
+        podcast = Podcast(
+            title="Hard Delete Cleanup Failure",
+            owner_id=test_user["user"].id,
+            audio_url="/media/audio/hard-delete-failure.mp3",
+        )
+        db.add(podcast)
+        db.commit()
+        db.refresh(podcast)
+
+        with patch("app.crud.storage_service.delete_managed", side_effect=RuntimeError("boom")):
+            assert crud.hard_delete_podcast(db, podcast) is True
+
+        assert db.query(Podcast).filter(Podcast.id == podcast.id).first() is None
 
 
 # --------------- Like / Unlike ---------------

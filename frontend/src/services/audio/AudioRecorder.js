@@ -23,10 +23,10 @@ class AudioRecorder {
      */
     async initializeRecording() {
         try {
-            // Check permissions first
+            // Recording startup only requires microphone permission.
             const hasPermissions =
-                (await AudioPermissions.checkPermissions()) ||
-                (await AudioPermissions.requestPermissions());
+                (await AudioPermissions.checkRecordingPermissions()) ||
+                (await AudioPermissions.requestRecordingPermissions());
 
             if (!hasPermissions) {
                 throw new Error("Audio permissions not granted");

@@ -114,11 +114,26 @@ def _is_remote_audio_url(audio_url: str) -> bool:
 
 
 def _get_allowed_remote_audio_hosts() -> set[str]:
-    """Allow only the backend host and Google Cloud Storage recording hosts."""
+    """Allow trusted remote media hosts for AI processing downloads."""
     allowed_hosts = {"storage.googleapis.com"}
     base_host = urlparse(settings.BASE_URL).hostname
     if base_host:
         allowed_hosts.add(base_host.lower())
+
+    for media_host in (
+        urlparse(settings.MEDIA_S3_PUBLIC_BASE_URL).hostname,
+        urlparse(settings.MEDIA_S3_ENDPOINT_URL).hostname,
+    ):
+        if media_host:
+            allowed_hosts.add(media_host.lower())
+
+    if settings.MEDIA_S3_BUCKET:
+        allowed_hosts.add(f"{settings.MEDIA_S3_BUCKET}.s3.amazonaws.com")
+        if settings.MEDIA_S3_REGION:
+            allowed_hosts.add(
+                f"{settings.MEDIA_S3_BUCKET}.s3.{settings.MEDIA_S3_REGION}.amazonaws.com"
+            )
+
     return allowed_hosts
 
 

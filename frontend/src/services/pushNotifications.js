@@ -19,6 +19,14 @@ import { Platform } from 'react-native';
 import apiService from './api/apiService';
 import Logger from '../utils/logger';
 
+function hasAndroidFirebaseConfig() {
+    return Boolean(
+        Constants.expoConfig?.android?.googleServicesFile ||
+            Constants.expoConfig?.extra?.googleServicesFile ||
+            Constants.expoConfig?.extra?.android?.googleServicesFile
+    );
+}
+
 /**
  * Request push permission and register the Expo push token with the backend.
  *
@@ -30,6 +38,13 @@ import Logger from '../utils/logger';
  */
 export async function registerPushToken() {
     try {
+        if (Platform.OS === 'android' && !hasAndroidFirebaseConfig()) {
+            Logger.info(
+                'Android push token registration skipped: Firebase config is missing'
+            );
+            return null;
+        }
+
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
 
         let finalStatus = existingStatus;
@@ -82,6 +97,10 @@ export async function registerPushToken() {
  */
 export async function unregisterPushToken() {
     try {
+        if (Platform.OS === 'android' && !hasAndroidFirebaseConfig()) {
+            return;
+        }
+
         const projectId = Constants.expoConfig?.extra?.eas?.projectId;
         const tokenData = await Notifications.getExpoPushTokenAsync(
             projectId ? { projectId } : undefined
@@ -97,3 +116,5 @@ export async function unregisterPushToken() {
         Logger.warn('Push token unregister failed:', err?.message ?? err);
     }
 }
+
+export { hasAndroidFirebaseConfig };
