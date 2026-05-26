@@ -5,6 +5,10 @@ import {
     default as Create,
 } from "../../../../app/(main)/create";
 import {
+    maybeStartAiProcessingForPodcast,
+    resolveAiEnabledForSave,
+} from "../../../utils/createPodcastAi";
+import {
     buildRtcSessionHistoryNotificationAction,
     buildRtcSessionHistoryRoute,
     buildRtcSessionRecoveryRoute,
@@ -26,6 +30,7 @@ jest.mock("../../../services/api/apiService", () => ({
         getRtcSession: jest.fn(),
         startRtcSession: jest.fn(),
         endRtcSession: jest.fn(),
+        processAudio: jest.fn(),
     },
 }));
 
@@ -166,6 +171,90 @@ describe("RTC session history helpers", () => {
         expect(getByText("Using Previous Live Session Setup")).toBeTruthy();
         expect(getByText("Multi-host live")).toBeTruthy();
         expect(getByText("Audio only")).toBeTruthy();
+    });
+});
+
+describe("maybeStartAiProcessingForPodcast", () => {
+    it("starts AI processing when enabled and podcast id exists", async () => {
+        const processAudio = jest.fn().mockResolvedValue({ status: "processing" });
+
+        await expect(
+            maybeStartAiProcessingForPodcast({
+                enabled: true,
+                podcastId: 17,
+                processAudio,
+            })
+        ).resolves.toBe(true);
+
+        expect(processAudio).toHaveBeenCalledWith(17);
+    });
+
+    it("skips AI processing when the toggle is off", async () => {
+        const processAudio = jest.fn();
+
+        await expect(
+            maybeStartAiProcessingForPodcast({
+                enabled: false,
+                podcastId: 17,
+                processAudio,
+            })
+        ).resolves.toBe(false);
+
+        expect(processAudio).not.toHaveBeenCalled();
+    });
+
+    it("returns false when AI processing startup fails", async () => {
+        const logger = { error: jest.fn() };
+        const processAudio = jest.fn().mockRejectedValue(new Error("ai failed"));
+
+        await expect(
+            maybeStartAiProcessingForPodcast({
+                enabled: true,
+                podcastId: 17,
+                processAudio,
+                logger,
+            })
+        ).resolves.toBe(false);
+
+        expect(processAudio).toHaveBeenCalledWith(17);
+        expect(logger.error).toHaveBeenCalled();
+    });
+});
+
+describe("resolveAiEnabledForSave", () => {
+    it("uses in-memory AI state when enabled", () => {
+        expect(
+            resolveAiEnabledForSave({
+                isAIEnabled: true,
+                draft: null,
+            })
+        ).toBe(true);
+    });
+
+    it("falls back to draft metadata when state was lost", () => {
+        expect(
+            resolveAiEnabledForSave({
+                isAIEnabled: false,
+                draft: {
+                    metadata: {
+                        ai_enabled: true,
+                    },
+                },
+            })
+        ).toBe(true);
+    });
+
+    it("returns false when neither state nor draft enables AI", () => {
+        expect(
+            resolveAiEnabledForSave({
+                isAIEnabled: false,
+                draft: {
+                    metadata: {
+                        ai_enabled: false,
+                    },
+                },
+            })
+        ).toBe(false);
     });
 });
 

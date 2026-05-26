@@ -18,6 +18,28 @@ router = APIRouter(prefix="/podcasts", tags=["podcasts"])
 # Maximum upload size in bytes (100 MB). Extracted as a module constant so
 # tests can monkeypatch it to avoid allocating large in-memory payloads.
 MAX_UPLOAD_SIZE = 100 * 1024 * 1024
+MAX_IMAGE_UPLOAD_SIZE = 5 * 1024 * 1024
+
+
+def _detect_image_content_type(contents: bytes) -> Optional[str]:
+    if contents.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+
+    if contents.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+
+    if len(contents) >= 12 and contents[:4] == b"RIFF" and contents[8:12] == b"WEBP":
+        return "image/webp"
+
+    return None
+
+
+def _image_suffix_for_content_type(content_type: str) -> str:
+    return {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+    }[content_type]
 
 
 @router.post("/create", response_model=schemas.Podcast)
@@ -91,6 +113,60 @@ async def upload_podcast_audio(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Audio upload failed: {str(e)}",
+        )
+
+
+@router.post("/upload-thumbnail", response_model=schemas.ImageUploadResponse)
+async def upload_podcast_thumbnail(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """Upload a podcast thumbnail image and return its public URL path."""
+    try:
+        allowed_types = {"image/jpeg", "image/png", "image/webp"}
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Unsupported file type: {file.content_type}. Allowed types: {', '.join(sorted(allowed_types))}",
+            )
+
+        contents = await file.read()
+        if len(contents) > MAX_IMAGE_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large. Maximum size: {MAX_IMAGE_UPLOAD_SIZE // (1024*1024)}MB",
+            )
+
+        detected_content_type = _detect_image_content_type(contents)
+        if detected_content_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Unsupported or invalid image content. Allowed types: image/jpeg, image/png, image/webp",
+            )
+
+        safe_name = (
+            f"podcast_thumb_{current_user.id}_{time.time_ns()}"
+            f"{_image_suffix_for_content_type(detected_content_type)}"
+        )
+        stored_image_url = await storage_service.persist_bytes(
+            contents,
+            safe_name,
+            content_type=detected_content_type,
+            media_kind="thumbnails",
+        )
+
+        return schemas.ImageUploadResponse(
+            image_url=storage_service.get_playback_url(stored_image_url),
+            file_size=len(contents),
+            content_type=detected_content_type,
+            filename=safe_name,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Thumbnail upload failed: {str(e)}",
         )
 
 

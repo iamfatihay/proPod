@@ -31,9 +31,10 @@ def _create_test_audio_bytes():
 
 def _cleanup_uploaded_file(response_json):
     """Remove an uploaded file from disk to prevent test pollution."""
-    if "audio_url" in response_json:
+    upload_url = response_json.get("audio_url") or response_json.get("image_url")
+    if upload_url:
         backend_dir = os.path.dirname(os.path.dirname(__file__))
-        rel_path = response_json["audio_url"].lstrip("/")
+        rel_path = upload_url.lstrip("/")
         full_path = os.path.join(backend_dir, rel_path)
         if os.path.exists(full_path):
             os.remove(full_path)
@@ -233,6 +234,78 @@ class TestPodcastAudioUpload:
 
         assert response.status_code == 200
         assert response.json()["audio_url"] == "https://cdn.example.com/podcasts/audio/test.mp3"
+
+
+class TestPodcastThumbnailUpload:
+    """Test suite for /podcasts/upload-thumbnail endpoint."""
+
+    def test_upload_valid_thumbnail(self, test_user):
+        token = test_user["token"]
+
+        response = client.post(
+            "/podcasts/upload-thumbnail",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"file": ("cover.png", BytesIO(b"\x89PNG\r\n\x1a\nthumb"), "image/png")},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["image_url"].endswith(f"/media/thumbnails/{data['filename']}")
+        assert data["content_type"] == "image/png"
+        assert data["filename"].startswith(f"podcast_thumb_{test_user['user'].id}_")
+        _cleanup_uploaded_file(data)
+
+    def test_upload_thumbnail_invalid_type(self, test_user):
+        token = test_user["token"]
+
+        response = client.post(
+            "/podcasts/upload-thumbnail",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"file": ("cover.gif", BytesIO(b"GIF89a"), "image/gif")},
+        )
+
+        assert response.status_code == 422
+        assert "Unsupported file type" in response.json()["detail"]
+
+    def test_upload_thumbnail_invalid_image_content(self, test_user):
+        token = test_user["token"]
+
+        response = client.post(
+            "/podcasts/upload-thumbnail",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"file": ("cover.png", BytesIO(b"not really an image"), "image/png")},
+        )
+
+        assert response.status_code == 422
+        assert "Unsupported or invalid image content" in response.json()["detail"]
+
+    @patch("app.routers.podcasts.MAX_IMAGE_UPLOAD_SIZE", 4)
+    def test_upload_thumbnail_oversized_file(self, test_user):
+        token = test_user["token"]
+
+        response = client.post(
+            "/podcasts/upload-thumbnail",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"file": ("cover.jpg", BytesIO(b"12345"), "image/jpeg")},
+        )
+
+        assert response.status_code == 413
+
+    @patch("app.routers.podcasts.storage_service.persist_bytes", new_callable=AsyncMock)
+    def test_upload_thumbnail_uses_thumbnail_storage_kind(self, mock_persist_bytes, test_user):
+        token = test_user["token"]
+        mock_persist_bytes.return_value = "/media/thumbnails/cover.png"
+
+        response = client.post(
+            "/podcasts/upload-thumbnail",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"file": ("cover.png", BytesIO(b"\x89PNG\r\n\x1a\nmock"), "image/png")},
+        )
+
+        assert response.status_code == 200
+        _, kwargs = mock_persist_bytes.await_args
+        assert kwargs["media_kind"] == "thumbnails"
+        assert response.json()["image_url"].endswith("/media/thumbnails/cover.png")
 
 
 if __name__ == "__main__":

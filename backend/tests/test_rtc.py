@@ -119,6 +119,7 @@ class TestRTCRoom:
                         "title": "Test Podcast",
                         "description": "Test Description",
                         "category": "Tech",
+                        "thumbnail_url": "https://cdn.example.com/live-thumb.jpg",
                         "is_public": True,
                         "media_mode": "video",
                         "template_id": "test-template",
@@ -131,6 +132,14 @@ class TestRTCRoom:
                 assert data["id"] == "mock-room-id-123"
                 assert data["name"] == "test-room"
                 assert "session_id" in data
+
+                session = (
+                    test_user["db"].query(RTCSession)
+                    .filter(RTCSession.id == data["session_id"])
+                    .first()
+                )
+                assert session is not None
+                assert session.thumbnail_url == "https://cdn.example.com/live-thumb.jpg"
 
     @patch("app.config.settings")
     def test_create_room_missing_template(self, mock_settings, test_user):
@@ -223,6 +232,7 @@ class TestRTCWebhook:
             title="Webhook Test Podcast",
             description="Test",
             category="Tech",
+            thumbnail_url="https://cdn.example.com/live-thumb.jpg",
             is_public=True,
             media_mode="video",
             status="created",
@@ -257,6 +267,7 @@ class TestRTCWebhook:
         assert podcast is not None
         assert podcast.audio_url == "/media/audio/rtc_session_1.mp4"
         assert podcast.video_url == "/media/audio/rtc_session_1.mp4"
+        assert podcast.thumbnail_url == "https://cdn.example.com/live-thumb.jpg"
         mock_persist_remote_media.assert_awaited_once_with(
             "https://example.com/recording.mp4",
             "rtc_session_1.mp4",

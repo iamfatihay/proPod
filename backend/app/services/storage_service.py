@@ -15,8 +15,12 @@ class StorageService:
     
     def __init__(self):
         self.media_root = settings.BACKEND_ROOT / settings.MEDIA_ROOT
-        self.media_dir = self.media_root / "audio"
-        os.makedirs(self.media_dir, exist_ok=True)
+        os.makedirs(self._get_local_media_dir("audio"), exist_ok=True)
+
+    def _get_local_media_dir(self, media_kind: str) -> Path:
+        media_dir = self.media_root / media_kind
+        os.makedirs(media_dir, exist_ok=True)
+        return media_dir
     
     def is_external_url(self, url: str) -> bool:
         """Check if URL is external (not local backend)."""
@@ -81,9 +85,9 @@ class StorageService:
 
         return candidate
 
-    def _build_s3_key(self, filename: str) -> str:
+    def _build_s3_key(self, filename: str, media_kind: str = "audio") -> str:
         prefix = settings.MEDIA_S3_PREFIX.strip("/")
-        return f"{prefix}/audio/{filename}" if prefix else f"audio/{filename}"
+        return f"{prefix}/{media_kind}/{filename}" if prefix else f"{media_kind}/{filename}"
 
     def _get_s3_client(self):
         try:
@@ -142,14 +146,14 @@ class StorageService:
 
         return temp_path
 
-    async def upload_to_s3(self, url: str, filename: str) -> str:
+    async def upload_to_s3(self, url: str, filename: str, media_kind: str = "audio") -> str:
         """Download remote media and upload it into S3-compatible object storage."""
         if not settings.MEDIA_S3_BUCKET:
             raise RuntimeError("MEDIA_STORAGE_BACKEND=s3 requires MEDIA_S3_BUCKET to be configured")
 
         suffix = Path(filename).suffix or ".bin"
         temp_path = await self._download_remote_to_tempfile(url, suffix)
-        key = self._build_s3_key(filename)
+        key = self._build_s3_key(filename, media_kind)
         client = self._get_s3_client()
         try:
             client.upload_file(temp_path, settings.MEDIA_S3_BUCKET, key)
@@ -161,10 +165,16 @@ class StorageService:
 
         return self._get_s3_public_url(key)
 
-    async def persist_bytes(self, contents: bytes, filename: str, content_type: str | None = None) -> str:
+    async def persist_bytes(
+        self,
+        contents: bytes,
+        filename: str,
+        content_type: str | None = None,
+        media_kind: str = "audio",
+    ) -> str:
         """Persist in-memory media into the configured backend."""
         if settings.MEDIA_STORAGE_BACKEND == "s3":
-            key = self._build_s3_key(filename)
+            key = self._build_s3_key(filename, media_kind)
             client = self._get_s3_client()
             put_kwargs = {
                 "Bucket": settings.MEDIA_S3_BUCKET,
@@ -175,16 +185,22 @@ class StorageService:
             client.put_object(**put_kwargs)
             return self._get_s3_public_url(key)
 
-        dest_path = self.media_dir / filename
+        dest_path = self._get_local_media_dir(media_kind) / filename
         with open(dest_path, "wb") as file_handle:
             file_handle.write(contents)
-        return f"/media/audio/{filename}"
+        return f"/media/{media_kind}/{filename}"
 
-    async def persist_file(self, source_path: str | Path, filename: str, content_type: str | None = None) -> str:
+    async def persist_file(
+        self,
+        source_path: str | Path,
+        filename: str,
+        content_type: str | None = None,
+        media_kind: str = "audio",
+    ) -> str:
         """Persist an existing local file into the configured backend."""
         source_path = Path(source_path)
         if settings.MEDIA_STORAGE_BACKEND == "s3":
-            key = self._build_s3_key(filename)
+            key = self._build_s3_key(filename, media_kind)
             client = self._get_s3_client()
             upload_kwargs = self._get_s3_extra_args(content_type)
             if upload_kwargs:
@@ -193,16 +209,16 @@ class StorageService:
                 client.upload_file(str(source_path), settings.MEDIA_S3_BUCKET, key)
             return self._get_s3_public_url(key)
 
-        dest_path = self.media_dir / filename
+        dest_path = self._get_local_media_dir(media_kind) / filename
         if source_path.resolve() != dest_path.resolve():
             shutil.copyfile(source_path, dest_path)
-        return f"/media/audio/{filename}"
+        return f"/media/{media_kind}/{filename}"
 
-    async def persist_remote_media(self, url: str, filename: str) -> str:
+    async def persist_remote_media(self, url: str, filename: str, media_kind: str = "audio") -> str:
         """Persist remote media into the configured managed storage backend."""
         if settings.MEDIA_STORAGE_BACKEND == "s3":
-            return await self.upload_to_s3(url, filename)
-        return await self.download_to_local(url, filename)
+            return await self.upload_to_s3(url, filename, media_kind)
+        return await self.download_to_local(url, filename, media_kind)
 
     def _extract_s3_key(self, media_url: str) -> str | None:
         parsed = urlparse(media_url)
@@ -247,9 +263,9 @@ class StorageService:
         client.delete_object(Bucket=settings.MEDIA_S3_BUCKET, Key=key)
         return True
     
-    async def download_to_local(self, url: str, filename: str) -> str:
+    async def download_to_local(self, url: str, filename: str, media_kind: str = "audio") -> str:
         """Download external file to local storage."""
-        dest_path = self.media_dir / filename
+        dest_path = self._get_local_media_dir(media_kind) / filename
 
         async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
             async with client.stream("GET", url) as response:
@@ -260,7 +276,7 @@ class StorageService:
                         if chunk:
                             f.write(chunk)
 
-        return f"/media/audio/{filename}"
+        return f"/media/{media_kind}/{filename}"
     
     def delete_local(self, path: str) -> bool:
         """Delete local file."""

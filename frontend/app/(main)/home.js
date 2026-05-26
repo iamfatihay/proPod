@@ -301,10 +301,14 @@ export default function HomeScreen() {
     useEffect(() => {
         if (params.refresh) {
             (async () => {
-                await load();
+                await Promise.allSettled([
+                    load(),
+                    loadContinueListening(),
+                    loadSupplementaryFeeds(),
+                ]);
             })();
         }
-    }, [params.refresh, load]);
+    }, [params.refresh, load, loadContinueListening, loadSupplementaryFeeds]);
 
     // Reload when screen comes into focus.
     // Only await the main feed — loadContinueListening fires independently
@@ -351,12 +355,15 @@ export default function HomeScreen() {
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await Promise.all([
-            load(),
-            loadContinueListening(),
-            loadSupplementaryFeeds(),
-        ]);
-        setRefreshing(false);
+        try {
+            await Promise.allSettled([
+                load(),
+                loadContinueListening(),
+                loadSupplementaryFeeds(),
+            ]);
+        } finally {
+            setRefreshing(false);
+        }
     }, [load, loadContinueListening, loadSupplementaryFeeds]);
 
     const handleLogout = () => {

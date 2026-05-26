@@ -165,7 +165,13 @@ describe("ApiService", () => {
 
         test("getPodcasts() should fetch podcasts with query parameters", async () => {
             const mockResponse = {
-                podcasts: [{ id: 1, title: "Podcast 1" }],
+                podcasts: [
+                    {
+                        id: 1,
+                        title: "Podcast 1",
+                        thumbnail_url: "/media/thumbnails/podcast-1.png",
+                    },
+                ],
                 total: 1,
                 has_more: false,
             };
@@ -187,7 +193,77 @@ describe("ApiService", () => {
             );
 
             // getPodcasts now returns only the podcasts array
-            expect(result).toEqual(mockResponse.podcasts);
+            expect(result[0].thumbnail_url).toBe(
+                "http://localhost:8000/media/thumbnails/podcast-1.png"
+            );
+        });
+
+        test("getFollowingFeed() should normalize thumbnail URLs in feed responses", async () => {
+            global.mockApiResponse({
+                podcasts: [
+                    {
+                        id: 3,
+                        title: "Following Feed Podcast",
+                        thumbnail_url: "/media/thumbnails/following.png",
+                    },
+                ],
+                total: 1,
+                has_more: false,
+            });
+
+            const result = await apiService.getFollowingFeed();
+
+            expect(result.podcasts[0].thumbnail_url).toBe(
+                "http://localhost:8000/media/thumbnails/following.png"
+            );
+        });
+
+        test("getFollowingFeed() should wrap bare array responses in a collection object", async () => {
+            global.mockApiResponse([
+                {
+                    id: 30,
+                    title: "Array Feed Podcast",
+                    thumbnail_url: "/media/thumbnails/array-feed.png",
+                },
+            ]);
+
+            const result = await apiService.getFollowingFeed();
+
+            expect(result).toEqual({
+                podcasts: [
+                    expect.objectContaining({
+                        id: 30,
+                        thumbnail_url:
+                            "http://localhost:8000/media/thumbnails/array-feed.png",
+                    }),
+                ],
+                total: 1,
+                limit: 1,
+                offset: 0,
+                has_more: false,
+            });
+        });
+
+        test("getPublicUserPodcasts() should normalize thumbnail URLs in list responses", async () => {
+            global.mockApiResponse({
+                podcasts: [
+                    {
+                        id: 4,
+                        title: "Public User Podcast",
+                        thumbnail_url: "/media/thumbnails/public-user.png",
+                    },
+                ],
+                total: 1,
+                limit: 20,
+                offset: 0,
+                has_more: false,
+            });
+
+            const result = await apiService.getPublicUserPodcasts(42);
+
+            expect(result.podcasts[0].thumbnail_url).toBe(
+                "http://localhost:8000/media/thumbnails/public-user.png"
+            );
         });
 
         test("updatePodcast() should update podcast", async () => {
@@ -209,6 +285,29 @@ describe("ApiService", () => {
             expect(result).toEqual(mockResponse);
         });
 
+        test("uploadPodcastThumbnail() should send FormData without forcing JSON content type", async () => {
+            global.mockApiResponse({ thumbnail_url: "/media/thumbnails/uploaded.png" });
+
+            await apiService.uploadPodcastThumbnail({
+                uri: "file:///tmp/podcast-thumb.png",
+                fileName: "podcast-thumb.png",
+            });
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                "http://localhost:8000/podcasts/upload-thumbnail",
+                expect.objectContaining({
+                    method: "POST",
+                    body: expect.any(FormData),
+                    headers: expect.objectContaining({
+                        Authorization: "Bearer mock-access-token",
+                    }),
+                })
+            );
+
+            const [, options] = global.fetch.mock.calls.at(-1);
+            expect(options.headers["Content-Type"]).toBeUndefined();
+        });
+
         test("deletePodcast() should delete podcast", async () => {
             global.mockApiResponse({ message: "Podcast deleted successfully" });
 
@@ -222,6 +321,64 @@ describe("ApiService", () => {
             );
 
             expect(result.message).toBe("Podcast deleted successfully");
+        });
+
+        test("getMyPodcasts() should normalize thumbnail URLs in list responses", async () => {
+            global.mockApiResponse({
+                podcasts: [
+                    {
+                        id: 1,
+                        title: "Created Podcast",
+                        thumbnail_url: "/media/thumbnails/cover.png",
+                    },
+                ],
+                total: 1,
+                limit: 20,
+                offset: 0,
+                has_more: false,
+            });
+
+            const result = await apiService.getMyPodcasts();
+
+            expect(result.podcasts[0].thumbnail_url).toBe(
+                "http://localhost:8000/media/thumbnails/cover.png"
+            );
+        });
+
+        test("getLikedPodcasts() should normalize thumbnail URLs in list responses", async () => {
+            global.mockApiResponse({
+                podcasts: [
+                    {
+                        id: 2,
+                        title: "Liked Podcast",
+                        thumbnail_url: "/media/thumbnails/liked.png",
+                    },
+                ],
+            });
+
+            const result = await apiService.getLikedPodcasts();
+
+            expect(result.podcasts[0].thumbnail_url).toBe(
+                "http://localhost:8000/media/thumbnails/liked.png"
+            );
+        });
+
+        test("getBookmarkedPodcasts() should normalize thumbnail URLs in list responses", async () => {
+            global.mockApiResponse({
+                podcasts: [
+                    {
+                        id: 3,
+                        title: "Bookmarked Podcast",
+                        thumbnail_url: "/media/thumbnails/bookmarked.png",
+                    },
+                ],
+            });
+
+            const result = await apiService.getBookmarkedPodcasts();
+
+            expect(result.podcasts[0].thumbnail_url).toBe(
+                "http://localhost:8000/media/thumbnails/bookmarked.png"
+            );
         });
     });
 
