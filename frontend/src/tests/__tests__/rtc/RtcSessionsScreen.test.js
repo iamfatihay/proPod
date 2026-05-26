@@ -420,6 +420,78 @@ describe("RtcSessionsScreen", () => {
         });
     });
 
+    it("keeps a manual status-check error visible after a successful list refresh", async () => {
+        apiService.listRtcSessions
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 68,
+                        title: "Retrying Processing Session",
+                        room_name: "retrying-processing-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 2,
+                        duration_seconds: 900,
+                        podcast_id: null,
+                        status: "ended",
+                        recording_status: "processing",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            })
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        id: 68,
+                        title: "Retrying Processing Session",
+                        room_name: "retrying-processing-session",
+                        created_at: "2026-05-08T10:00:00Z",
+                        media_mode: "audio",
+                        participant_count: 2,
+                        duration_seconds: 900,
+                        podcast_id: null,
+                        status: "ended",
+                        recording_status: "processing",
+                        is_live: false,
+                    },
+                ],
+                total: 1,
+                limit: 25,
+                offset: 0,
+                has_more: false,
+            });
+        apiService.getRtcSession.mockRejectedValue(new Error("Status check timed out"));
+
+        const { getByLabelText, getByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Check Status")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Check recording status for Retrying Processing Session"));
+
+        await waitFor(() => {
+            expect(apiService.getRtcSession).toHaveBeenCalledWith(68);
+        });
+
+        await waitFor(() => {
+            expect(getByText("Status check timed out")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Refresh live sessions"));
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+        });
+
+        expect(getByText("Retrying Processing Session")).toBeTruthy();
+        expect(getByText("Status check timed out")).toBeTruthy();
+    });
+
     it("confirms when a processing session is still preparing after a manual check", async () => {
         apiService.listRtcSessions.mockResolvedValue({
             sessions: [
