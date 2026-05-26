@@ -6,9 +6,9 @@
 
 ## Current State
 
-**Last updated:** 2026-05-25
-**Last session (58):** RTC history empty refresh continuity -- branch `fix/rtc-history-inline-retry-state` / PR #169 now also keeps the empty live-session history state visible when a later refresh fails, preserves the inline retry card, and adds focused RTC history coverage for the empty-state refresh path
-**Test suite baseline:** ~486 backend tests
+**Last updated:** 2026-05-26
+**Last session (59):** Podcast thumbnail/create-flow hardening -- branch `fix/podcast-thumbnail-home-create-flows` / PR #171 is merged into `master`; the shipped work hardened thumbnail upload validation, normalized thumbnail handling across create/detail/home/library surfaces, preserved resumed recording duration, and wired `HMS_WEBHOOK_URL` into the tunnel startup flow for RTC recording-export verification
+**Validation baseline:** Backend and frontend suites are large enough that targeted validation remains the default; full-repo runs are still outside normal sandbox budgets
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
 
@@ -20,6 +20,8 @@
 
 ## Recently Shipped
 
+- Podcast thumbnail and create-flow hardening, RTC thumbnail propagation, review follow-up fixes, and tunnel webhook wiring (PR #171)
+- Managed storage and permission review follow-ups for local/S3 media handling (PR #170)
 - DM unread badge wired end-to-end (PR #102)
 - DM badge 30s polling with background refresh (PR #103)
 - Notification badge last-read-timestamp, no cold-start flicker (PR #114)
@@ -45,9 +47,7 @@
 - `fix/public-playlists-pagination-refresh` / PR pending -- keeps the Discover Playlists footer retry visible when pull-to-refresh fails after a load-more error and adds focused screen coverage for that pagination-refresh continuity path.
 - `fix/library-playlists-pagination-refresh` / PR pending -- keeps the Library playlists footer retry visible when pull-to-refresh fails after a load-more error and ignores load-more taps during an in-flight playlist refresh so slower-network pagination stays predictable.
 - `feature/rtc-failed-host-notification` / PR pending -- adds `rtc_failed` notification type; processing notification upgrades to failed when polling confirms failure; Android back-button no longer blocks navigation away from failed sessions.
-- `feature/rtc-recording-retry-cta` / PR #129 -- adds a direct re-record CTA to the host RTC failed review screen so creators can launch a fresh live session without detouring through history.
 - `fix/rtc-room-db-safety-and-screen-spacing` / PR pending -- rolls back cleanly on RTC room DB errors, merges current Alembic heads, and adds consistent bottom spacing to create/details/messages/activity/notifications tab screens.
-- `feature/shared-tab-screen-spacing` / PR #132 -- adds a shared tab-stack content padding helper and replaces remaining fixed-value bottom spacing across the main tab-stack screens.
 - `fix/shared-padding-analytics-rtc-session-screens` / PR pending -- moves analytics and RTC session history to the shared tab-screen bottom padding helper for consistent spacing above the tab bar.
 - `test/analytics-screen-coverage` / PR pending -- adds focused Jest coverage for the analytics screen shared bottom padding and pull-to-refresh reload path.
 - `fix/backend-validation-warning-noise` / PR pending -- corrects the backend `pytest.ini` section header so targeted RTC pytest runs apply the repo config and suppress the known third-party Python 3.13 deprecation noise.
@@ -56,20 +56,12 @@
 - `test/continue-listening-home-coverage` / PR pending -- adds focused HomeScreen coverage for the continue-listening resume CTA so the persisted `startPosition` handoff is pinned at the user interaction layer.
 - `test/rtc-screen-helper-migration` / PR pending -- migrates `RtcSessionsScreen.test.js` onto the shared React Native screen-test helper and extends the helper with shared FlatList plus refresh accessibility-label support.
 - `feature/rtc-session-history-metadata` / PR pending -- adds explicit `total` and `has_more` metadata to `/rtc/sessions` and consumes it in the RTC session history screen so pagination no longer guesses from page size.
-- `feature/rtc-session-history-end-state` / PR #144 -- uses `/rtc/sessions` metadata to show total session count context and an explicit end-of-history state in the RTC session history screen.
-- `fix/rtc-session-history-fallback-cleanup` / PR #145 -- removes the temporary bare-array fallback in the RTC session history screen so count/end-of-history messaging always follows the paginated `/rtc/sessions` contract.
-- `fix/rtc-session-response-contract` / PR #146 -- validates `/rtc/sessions` paginated metadata in frontend `apiService` so malformed responses fail fast and the RTC history screen shows an explicit retryable error state.
 - `test/continue-listening-active-track-coverage` / PR #148 -- adds focused HomeScreen coverage for the continue-listening loaded-track pause/resume toggle so active playback does not regress into an unintended restart path.
-- `feature/rtc-failed-notification-focus` / PR #149 -- threads `focusSessionId` through failed RTC processing notifications so tapping the alert opens the relevant live-session history entry instead of the generic history list.
 - `feature/rtc-session-history-recovery-actions` / PR pending -- adds a failed-session recovery CTA in RTC session history and reopens Create with the previous multi-host title/category/visibility/media-mode prefilled.
-- `feature/rtc-processing-status-action` / PR #151 -- adds an inline `Check Status` action for processing RTC session history cards so creators can refresh one recording in place and see inline status-check failures without relying on pull-to-refresh.
-- `feature/rtc-history-status-feedback` / PR #152 -- adds subtle per-session confirmation copy after manual RTC history status checks so longer processing windows acknowledge the refresh even when the recording is still pending.
 - `fix/rtc-history-stale-check-cleanup` / PR pending -- expires persisted RTC history manual status-check feedback after 24 hours and prunes stale AsyncStorage entries so device-local confirmation copy does not linger indefinitely.
 - `fix/rtc-history-feedback-refresh-race` / PR pending -- preserves per-session RTC history status-check confirmation copy during immediate pull-to-refresh and focus reloads even when the AsyncStorage persistence write has not finished yet.
 - `fix/rtc-history-refresh-lock` / PR pending -- keeps in-flight per-session `Check Status` actions disabled through pull-to-refresh and focus reloads so creators cannot trigger duplicate manual status checks before the original request settles.
 - `fix/rtc-history-focus-refresh` / PR pending -- treats RTC session history focus reloads as in-place refreshes after the first load attempt so returning to the screen keeps loaded cards visible while the latest request runs.
-- `fix/rtc-history-pagination-refresh` / PR #168 -- keeps the RTC session history footer retry visible when pull-to-refresh fails after a load-more error and surfaces the refresh failure inline without hiding already loaded sessions.
-- `fix/rtc-history-inline-retry-state` / PR #169 -- keeps the RTC session history inline refresh retry card visible during retry, disables duplicate taps, shows a `Retrying...` label while the in-place refresh request is still running, and preserves the empty-state layout when a later refresh fails.
 - `fix/library-refresh-continuity` / PR pending -- keeps loaded Library results visible during refocus and pull-to-refresh reloads, moves refresh failures into inline retry copy, and adds focused Library screen coverage for the non-blocking retry path.
 
 ---
@@ -84,6 +76,7 @@
 - Share web pages still contain placeholder CTA behavior and need production-ready app-open/download handling.
 - Full test suite timeout: ~486 tests exceeds the practical sandbox budget; run targeted groups of 3-4 files max.
 - Frontend RTC Jest runs still emit the upstream `react-test-renderer` deprecation warning; validation passes, but the test stack should be modernized.
+- RTC recording export still depends on a public `HMS_WEBHOOK_URL`; `npm run dev` on LAN is insufficient for 100ms recording-finalization QA, so RTC export verification must use `npm run dev:tunnel` or another public HTTPS webhook target.
 - RTC join provider errors are classified from SDK message text; SDK error codes would make invite/auth/provider cases more precise if exposed reliably.
 - RTC recording failure classification still depends on 100ms webhook event names; upstream event-name changes could misclassify failed vs processing outcomes until mapped.
 - Host failed-session notification routing is now covered, but the create-screen RTC lifecycle still lacks end-to-end screen coverage without more screen decomposition.
@@ -111,6 +104,10 @@
 ## Validation Notes
 
 - Frontend ESLint is no longer blocked by JSX parsing; targeted lint is valid again.
+- 2026-05-25: `cd /home/fatih/proPod/backend && pytest tests/test_storage_service.py -q` passed.
+- 2026-05-25: `cd /home/fatih/proPod/backend && pytest tests/test_podcast_upload.py -q` passed after updating the thumbnail-upload test bytes to valid image fixtures.
+- 2026-05-25: `cd /home/fatih/proPod/frontend && npm test -- --runTestsByPath src/tests/__tests__/recording/RecordingControls.test.js src/services/api/__tests__/apiService.test.js --runInBand` passed (48 tests).
+- 2026-05-25: `cd /home/fatih/proPod && bash -n scripts/start-dev-tunnel.sh` passed after wiring `HMS_WEBHOOK_URL` into the tunnel startup flow.
 - 2026-05-07: `cd frontend && npx eslint app/live.js` passed for guest session summary changes; Node emitted the existing package module-type warning.
 - 2026-05-07: `cd frontend && npx jest src/tests/__tests__/rtc/HmsRoom.test.js --runInBand` passed (15 tests).
 - 2026-05-07: `cd frontend && npx eslint src/components/rtc/HmsRoom.js src/tests/__tests__/rtc/HmsRoom.test.js` passed; Node emitted the existing package module-type warning.
@@ -226,9 +223,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC history empty-state device QA** -- verify on iOS and Android that an empty live-session history stays visible when pull-to-refresh or refocus reloads fail and that the inline retry card remains clear above the empty-state copy.
-2. **RTC history retry-state device QA** -- verify on iOS and Android that the inline refresh retry button disables promptly, keeps the error card visible, and shows clear `Retrying...` feedback during slower in-place refreshes.
-3. **RTC history pagination device QA** -- verify on iOS and Android that a live-session load-more failure stays recoverable after pull-to-refresh and that the inline refresh error card plus footer retry remain clear on slower networks.
+1. **RTC export tunnel verification** -- run `npm run dev:tunnel`, create a fresh video room, and confirm backend logs show `has_webhook: True`, `webhook.received`, and `webhook.podcast_created` instead of the session staying stuck in `processing`.
+2. **RTC create-flow device QA** -- verify on iOS and Android that thumbnail selection, resumed recording duration, and AI-enable save behavior still work across quick create, full create, and RTC recovery/retry flows after PR #171.
+3. **Stale detail-navigation cleanup** -- reproduce and fix the lingering `GET /podcasts/16` 404 client request so old podcast-detail navigation state does not survive after list refreshes or recently created episode changes.
 
 ---
 
