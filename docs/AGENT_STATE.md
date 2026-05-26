@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-26
-**Last session (60):** Stale podcast detail load guard -- branch `fix/stale-detail-navigation` / PR #172 keeps podcast details from applying stale route-change fetches, normalizes detail-route params before optimistic edit updates, and adds focused Jest coverage so old detail requests no longer overwrite the active episode or surface stale error toasts
+**Last session (61):** RTC history queued refresh handling -- branch `fix/rtc-history-queued-refresh` / PR pending now replays pull-to-refresh and refocus reloads after in-flight load-more requests finish, so slower pagination no longer drops the creator's refresh intent, and adds focused RTC session-history Jest coverage for both queued paths
 **Validation baseline:** Backend and frontend suites are large enough that targeted validation remains the default; full-repo runs are still outside normal sandbox budgets
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -58,6 +58,7 @@
 - `feature/rtc-session-history-metadata` / PR pending -- adds explicit `total` and `has_more` metadata to `/rtc/sessions` and consumes it in the RTC session history screen so pagination no longer guesses from page size.
 - `test/continue-listening-active-track-coverage` / PR #148 -- adds focused HomeScreen coverage for the continue-listening loaded-track pause/resume toggle so active playback does not regress into an unintended restart path.
 - `feature/rtc-session-history-recovery-actions` / PR pending -- adds a failed-session recovery CTA in RTC session history and reopens Create with the previous multi-host title/category/visibility/media-mode prefilled.
+- `fix/rtc-history-queued-refresh` / PR pending -- queues pull-to-refresh and refocus reloads behind in-flight RTC history pagination so slower load-more requests do not drop the creator's in-place refresh intent.
 - `fix/rtc-history-stale-check-cleanup` / PR pending -- expires persisted RTC history manual status-check feedback after 24 hours and prunes stale AsyncStorage entries so device-local confirmation copy does not linger indefinitely.
 - `fix/rtc-history-feedback-refresh-race` / PR pending -- preserves per-session RTC history status-check confirmation copy during immediate pull-to-refresh and focus reloads even when the AsyncStorage persistence write has not finished yet.
 - `fix/rtc-history-refresh-lock` / PR pending -- keeps in-flight per-session `Check Status` actions disabled through pull-to-refresh and focus reloads so creators cannot trigger duplicate manual status checks before the original request settles.
@@ -87,6 +88,7 @@
 - RTC history status-check feedback now survives immediate screen reloads in Jest, but device QA should still confirm the same behavior during real iOS and Android background/foreground cycles under slower storage conditions.
 - RTC history in-flight status-check locking now survives refresh reloads in Jest, but device QA should confirm the disabled button state still blocks duplicate taps during pull-to-refresh and focus reloads on iOS and Android.
 - RTC history now queues one follow-up foreground refresh after in-flight list requests in Jest, but device QA should confirm resume-during-load and resume-during-load-more do not trigger duplicate reloads on iOS and Android.
+- RTC history queued pull-to-refresh and refocus reloads now survive in-flight pagination in Jest, but device QA should confirm the delayed refresh still feels clear on iOS and Android when creators pull or return to the screen before load-more finishes.
 - RTC history focus reloads now avoid the blocking initial-load overlay after the first fetch attempt in Jest, but device QA should confirm the lighter refocus refresh still feels correct for empty and prior-error states on iOS and Android.
 - RTC history refresh failures now preserve the footer pagination retry in Jest, but device QA should confirm the inline refresh error card plus footer retry remain clear on iOS and Android under slower networks.
 - RTC history inline retry state now stays visible and empty RTC history now stays non-blocking after refresh failures in Jest, but device QA should confirm the disabled CTA, inline error card, and empty-state copy feel clear during slower in-place refreshes on iOS and Android.
@@ -106,6 +108,8 @@
 ## Validation Notes
 
 - Frontend ESLint is no longer blocked by JSX parsing; targeted lint is valid again.
+- 2026-05-26: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/rtc/RtcSessionsScreen.test.js --runInBand` passed (27 tests) after queuing pull-to-refresh and refocus reloads behind in-flight RTC history pagination; Jest emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-26: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/rtc-sessions.js' 'src/tests/__tests__/rtc/RtcSessionsScreen.test.js'` passed; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-26: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/details/DetailsScreen.test.js --runInBand` passed (2 tests); Jest emitted the existing `react-test-renderer` deprecation warnings.
 - 2026-05-26: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/details.js' 'src/tests/__tests__/details/DetailsScreen.test.js'` passed; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
 - 2026-05-26: local pre-commit hook passed during `git commit` for `fix(frontend): guard stale podcast detail loads`.
@@ -228,9 +232,9 @@
 
 ## Next Session Suggestions
 
-1. **Detail stack device QA** -- verify on iOS and Android that fast detail-to-detail transitions, related-podcast taps, and back navigation do not revive stale podcast detail screens or surface stale error toasts after PR #172.
-2. **RTC export tunnel verification** -- run `npm run dev:tunnel`, create a fresh video room, and confirm backend logs show `has_webhook: True`, `webhook.received`, and `webhook.podcast_created` instead of the session staying stuck in `processing`.
-3. **RTC create-flow device QA** -- verify on iOS and Android that thumbnail selection, resumed recording duration, and AI-enable save behavior still work across quick create, full create, and RTC recovery/retry flows after PR #171.
+1. **RTC history queued-refresh device QA** -- verify on iOS and Android that pulling to refresh or returning to Live Sessions during an in-flight load-more request triggers one delayed refresh and leaves the list state understandable.
+2. **Detail stack device QA** -- verify on iOS and Android that fast detail-to-detail transitions, related-podcast taps, and back navigation do not revive stale podcast detail screens or surface stale error toasts after PR #172.
+3. **RTC export tunnel verification** -- run `npm run dev:tunnel`, create a fresh video room, and confirm backend logs show `has_webhook: True`, `webhook.received`, and `webhook.podcast_created` instead of the session staying stuck in `processing`.
 
 ---
 
