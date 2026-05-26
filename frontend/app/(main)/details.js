@@ -38,10 +38,19 @@ import downloadService from "../../src/services/downloads/downloadService";
 
 const { width: screenWidth } = Dimensions.get("window");
 
+const getRouteParamValue = (value) => (Array.isArray(value) ? value[0] : value);
+
 const Details = () => {
     const router = useRouter();
     const params = useLocalSearchParams();
     const { showToast } = useToast();
+    const podcastId = getRouteParamValue(params.id);
+    const refreshToken = getRouteParamValue(params.refresh);
+    const updatedTitle = getRouteParamValue(params.updatedTitle);
+    const updatedDescription = getRouteParamValue(params.updatedDescription);
+    const updatedCategory = getRouteParamValue(params.updatedCategory);
+    const updatedIsPublic = getRouteParamValue(params.updatedIsPublic);
+    const updatedThumbnailUrl = getRouteParamValue(params.updatedThumbnailUrl);
 
     // PERFORMANCE FIX: Use selective subscriptions to prevent unnecessary re-renders
     // Only subscribe to values that affect THIS component's UI
@@ -101,6 +110,7 @@ const Details = () => {
     const [downloadProgress, setDownloadProgress] = useState(0);
     // Ref to suppress "Download failed" toast when the user intentionally cancels
     const downloadCancelledRef = useRef(false);
+    const detailsRequestIdRef = useRef(0);
 
     const isVideoPodcast = Boolean(
         podcast?.media_type === "video" && podcast?.video_url
@@ -114,51 +124,21 @@ const Details = () => {
         }
     }, [audioError, clearError, showToast]);
 
-    useEffect(() => {
-        loadPodcastDetails();
-    }, [params.id, params.refresh]);
-
-    // Handle optimistic update from edit page (only once when params change)
-    useEffect(() => {
-        if (podcast && params.updatedTitle) {
-            setPodcast((prevPodcast) => {
-                // Only update if values actually changed (prevent infinite loop)
-                if (
-                    prevPodcast.title !== params.updatedTitle ||
-                    prevPodcast.description !==
-                    (params.updatedDescription ||
-                        prevPodcast.description) ||
-                    prevPodcast.category !==
-                    (params.updatedCategory || prevPodcast.category) ||
-                    prevPodcast.is_public !==
-                    (params.updatedIsPublic === "true") ||
-                    prevPodcast.thumbnail_url !==
-                    (params.updatedThumbnailUrl || null)
-                ) {
-                    return {
-                        ...prevPodcast,
-                        title: params.updatedTitle,
-                        description:
-                            params.updatedDescription ||
-                            prevPodcast.description,
-                        category:
-                            params.updatedCategory || prevPodcast.category,
-                        is_public: params.updatedIsPublic === "true",
-                        thumbnail_url: params.updatedThumbnailUrl || null,
-                    };
-                }
-                return prevPodcast;
-            });
+    const loadPodcastDetails = useCallback(async (requestedPodcastId = podcastId) => {
+        if (!requestedPodcastId) {
+            setPodcast(null);
+            setRelatedPodcasts([]);
+            setAiData(null);
+            setIsOwner(false);
+            setIsLiked(false);
+            setIsBookmarked(false);
+            setIsLoading(false);
+            return;
         }
-    }, [
-        params.updatedTitle,
-        params.updatedDescription,
-        params.updatedCategory,
-        params.updatedIsPublic,
-        params.updatedThumbnailUrl,
-    ]);
 
-    const loadPodcastDetails = async () => {
+        const requestId = ++detailsRequestIdRef.current;
+        const isCurrentRequest = () => detailsRequestIdRef.current === requestId;
+
         try {
             setIsLoading(true);
 
@@ -169,53 +149,140 @@ const Details = () => {
             setDownloadProgress(0);
             downloadCancelledRef.current = false;
 
-            // Load podcast details
-            const podcastData = await apiService.getPodcast(params.id);
+            const podcastData = await apiService.getPodcast(requestedPodcastId);
+
+            if (!isCurrentRequest()) {
+                return;
+            }
+
             // Normalize URLs (relative to absolute)
             setPodcast(normalizePodcast(podcastData));
 
-            // Check if current user is owner
             const userProfile = await apiService.getUserProfile();
+
+            if (!isCurrentRequest()) {
+                return;
+            }
+
             setIsOwner(userProfile.id === podcastData.owner_id);
 
-            // Load user interactions
-            const interactions = await apiService.getPodcastInteractions(
-                params.id
-            );
+            const interactions = await apiService.getPodcastInteractions(requestedPodcastId);
+
+            if (!isCurrentRequest()) {
+                return;
+            }
+
             setIsLiked(interactions.is_liked);
             setIsBookmarked(interactions.is_bookmarked);
 
-            // Load related podcasts
-            const related = await apiService.getRelatedPodcasts(params.id);
+            const related = await apiService.getRelatedPodcasts(requestedPodcastId);
+
+            if (!isCurrentRequest()) {
+                return;
+            }
+
             // Normalize related podcasts URLs
             setRelatedPodcasts(normalizePodcasts(related));
 
-            // Check for offline download
             try {
                 const uri = await downloadService.getLocalUri(podcastData.id);
+
+                if (!isCurrentRequest()) {
+                    return;
+                }
+
                 setLocalUri(uri);
             } catch (dlErr) {
+                if (!isCurrentRequest()) {
+                    return;
+                }
+
                 Logger.error("Download state check failed:", dlErr);
             }
 
             // Only fetch AI detail payload when processing has actually completed.
             if (podcastData.ai_processing_status === "completed") {
                 try {
-                    const aiDataResponse = await apiService.getPodcastAIData(params.id);
+                    const aiDataResponse = await apiService.getPodcastAIData(requestedPodcastId);
+
+                    if (!isCurrentRequest()) {
+                        return;
+                    }
+
                     setAiData(aiDataResponse);
                 } catch (error) {
+                    if (!isCurrentRequest()) {
+                        return;
+                    }
+
                     // AI data is optional, fail silently
                 }
             } else {
                 setAiData(null);
             }
         } catch (error) {
+            if (!isCurrentRequest()) {
+                return;
+            }
+
+            setPodcast(null);
+            setRelatedPodcasts([]);
+            setAiData(null);
+            setIsOwner(false);
+            setIsLiked(false);
+            setIsBookmarked(false);
             Logger.error("Failed to load podcast details:", error);
             showToast("Failed to load podcast details", "error");
         } finally {
-            setIsLoading(false);
+            if (isCurrentRequest()) {
+                setIsLoading(false);
+            }
         }
-    };
+    }, [podcastId, showToast]);
+
+    useEffect(() => {
+        loadPodcastDetails(podcastId);
+    }, [loadPodcastDetails, podcastId, refreshToken]);
+
+    // Handle optimistic update from edit page (only once when params change)
+    useEffect(() => {
+        if (podcast && updatedTitle) {
+            setPodcast((prevPodcast) => {
+                // Only update if values actually changed (prevent infinite loop)
+                if (
+                    prevPodcast.title !== updatedTitle ||
+                    prevPodcast.description !==
+                    (updatedDescription ||
+                        prevPodcast.description) ||
+                    prevPodcast.category !==
+                    (updatedCategory || prevPodcast.category) ||
+                    prevPodcast.is_public !==
+                    (updatedIsPublic === "true") ||
+                    prevPodcast.thumbnail_url !==
+                    (updatedThumbnailUrl || null)
+                ) {
+                    return {
+                        ...prevPodcast,
+                        title: updatedTitle,
+                        description:
+                            updatedDescription ||
+                            prevPodcast.description,
+                        category:
+                            updatedCategory || prevPodcast.category,
+                        is_public: updatedIsPublic === "true",
+                        thumbnail_url: updatedThumbnailUrl || null,
+                    };
+                }
+                return prevPodcast;
+            });
+        }
+    }, [
+        updatedTitle,
+        updatedDescription,
+        updatedCategory,
+        updatedIsPublic,
+        updatedThumbnailUrl,
+    ]);
 
     const handlePlay = useCallback(() => {
         if (!podcast?.audio_url) {
