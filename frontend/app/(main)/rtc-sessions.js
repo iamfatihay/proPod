@@ -580,7 +580,7 @@ export default function RtcSessionsScreen() {
     const isScreenFocusedRef = useRef(false);
     const hasLoadedHistoryRef = useRef(false);
     const listRequestInFlightRef = useRef(false);
-    const pendingForegroundRefreshRef = useRef(false);
+    const pendingRefreshRequestRef = useRef(false);
 
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -600,7 +600,15 @@ export default function RtcSessionsScreen() {
 
     const loadSessions = useCallback(async ({ isRefresh = false } = {}) => {
         if (listRequestInFlightRef.current) {
+            if (isRefresh) {
+                pendingRefreshRequestRef.current = true;
+            }
+
             return;
+        }
+
+        if (isRefresh) {
+            pendingRefreshRequestRef.current = false;
         }
 
         listRequestInFlightRef.current = true;
@@ -686,14 +694,14 @@ export default function RtcSessionsScreen() {
 
             return () => {
                 isScreenFocusedRef.current = false;
-                pendingForegroundRefreshRef.current = false;
+                pendingRefreshRequestRef.current = false;
             };
         }, [loadSessions])
     );
 
     useEffect(() => {
         if (
-            !pendingForegroundRefreshRef.current
+            !pendingRefreshRequestRef.current
             || listRequestInFlightRef.current
             || !isScreenFocusedRef.current
             || appStateRef.current !== "active"
@@ -701,7 +709,7 @@ export default function RtcSessionsScreen() {
             return;
         }
 
-        pendingForegroundRefreshRef.current = false;
+        pendingRefreshRequestRef.current = false;
         loadSessions({ isRefresh: true });
     }, [loadSessions, loading, loadingMore, refreshing]);
 
@@ -711,7 +719,7 @@ export default function RtcSessionsScreen() {
             appStateRef.current = nextAppState;
 
             if (nextAppState !== "active") {
-                pendingForegroundRefreshRef.current = false;
+                pendingRefreshRequestRef.current = false;
             }
 
             if (
@@ -722,12 +730,6 @@ export default function RtcSessionsScreen() {
                 return;
             }
 
-            if (listRequestInFlightRef.current) {
-                pendingForegroundRefreshRef.current = true;
-                return;
-            }
-
-            pendingForegroundRefreshRef.current = false;
             loadSessions({ isRefresh: true });
         });
 

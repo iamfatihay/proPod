@@ -1449,6 +1449,107 @@ describe("RtcSessionsScreen", () => {
         });
     });
 
+    it("queues one pull-to-refresh reload while load-more pagination is still in flight", async () => {
+        const firstPage = Array.from({ length: 25 }, (_, index) => ({
+            id: 400 - index,
+            title: `Refresh Queue Session ${index + 1}`,
+            room_name: `refresh-queue-session-${index + 1}`,
+            created_at: "2026-05-08T10:00:00Z",
+            media_mode: "audio",
+            participant_count: 2,
+            duration_seconds: 300,
+            podcast_id: null,
+            status: "ended",
+            recording_status: "processing",
+            is_live: false,
+        }));
+
+        let resolveLoadMore;
+
+        apiService.listRtcSessions
+            .mockResolvedValueOnce({
+                sessions: firstPage,
+                total: 26,
+                limit: 25,
+                offset: 0,
+                has_more: true,
+            })
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                resolveLoadMore = resolve;
+            }))
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        ...firstPage[0],
+                        podcast_id: 501,
+                        status: "completed",
+                        recording_status: "completed",
+                    },
+                    ...firstPage.slice(1),
+                ],
+                total: 26,
+                limit: 25,
+                offset: 0,
+                has_more: true,
+            });
+
+        const { getByLabelText, getByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Refresh Queue Session 1")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Load more live sessions"));
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenLastCalledWith({
+                limit: 25,
+                offset: 25,
+            });
+        });
+
+        fireEvent.press(getByLabelText("Refresh live sessions"));
+
+        expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+
+        resolveLoadMore({
+            sessions: [
+                {
+                    id: 375,
+                    title: "Older Refresh Queue Session",
+                    room_name: "older-refresh-queue-session",
+                    created_at: "2026-05-07T10:00:00Z",
+                    media_mode: "video",
+                    participant_count: 3,
+                    duration_seconds: 1200,
+                    podcast_id: null,
+                    status: "ended",
+                    recording_status: "processing",
+                    is_live: false,
+                },
+            ],
+            total: 26,
+            limit: 25,
+            offset: 25,
+            has_more: false,
+        });
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(3);
+        });
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenLastCalledWith({
+                limit: 25,
+                offset: 0,
+            });
+        });
+
+        await waitFor(() => {
+            expect(getByText("Podcast ready")).toBeTruthy();
+        });
+    });
+
     it("queues one foreground reload while load-more pagination is still in flight", async () => {
         const firstPage = Array.from({ length: 25 }, (_, index) => ({
             id: 300 - index,
@@ -1521,6 +1622,110 @@ describe("RtcSessionsScreen", () => {
                     id: 275,
                     title: "Older Load More Session",
                     room_name: "older-load-more-session",
+                    created_at: "2026-05-07T10:00:00Z",
+                    media_mode: "video",
+                    participant_count: 3,
+                    duration_seconds: 1200,
+                    podcast_id: null,
+                    status: "ended",
+                    recording_status: "processing",
+                    is_live: false,
+                },
+            ],
+            total: 26,
+            limit: 25,
+            offset: 25,
+            has_more: false,
+        });
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenCalledTimes(3);
+        });
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenLastCalledWith({
+                limit: 25,
+                offset: 0,
+            });
+        });
+
+        await waitFor(() => {
+            expect(getByText("Podcast ready")).toBeTruthy();
+        });
+    });
+
+    it("queues one refocus reload while load-more pagination is still in flight", async () => {
+        const firstPage = Array.from({ length: 25 }, (_, index) => ({
+            id: 500 - index,
+            title: `Refocus Queue Session ${index + 1}`,
+            room_name: `refocus-queue-session-${index + 1}`,
+            created_at: "2026-05-08T10:00:00Z",
+            media_mode: "audio",
+            participant_count: 2,
+            duration_seconds: 300,
+            podcast_id: null,
+            status: "ended",
+            recording_status: "processing",
+            is_live: false,
+        }));
+
+        let resolveLoadMore;
+
+        apiService.listRtcSessions
+            .mockResolvedValueOnce({
+                sessions: firstPage,
+                total: 26,
+                limit: 25,
+                offset: 0,
+                has_more: true,
+            })
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                resolveLoadMore = resolve;
+            }))
+            .mockResolvedValueOnce({
+                sessions: [
+                    {
+                        ...firstPage[0],
+                        podcast_id: 601,
+                        status: "completed",
+                        recording_status: "completed",
+                    },
+                    ...firstPage.slice(1),
+                ],
+                total: 26,
+                limit: 25,
+                offset: 0,
+                has_more: true,
+            });
+
+        const { getByLabelText, getByText } = render(<RtcSessionsScreen />);
+
+        await waitFor(() => {
+            expect(getByText("Refocus Queue Session 1")).toBeTruthy();
+        });
+
+        fireEvent.press(getByLabelText("Load more live sessions"));
+
+        await waitFor(() => {
+            expect(apiService.listRtcSessions).toHaveBeenLastCalledWith({
+                limit: 25,
+                offset: 25,
+            });
+        });
+
+        act(() => {
+            emitScreenBlur();
+            emitScreenFocus();
+        });
+
+        expect(apiService.listRtcSessions).toHaveBeenCalledTimes(2);
+
+        resolveLoadMore({
+            sessions: [
+                {
+                    id: 475,
+                    title: "Older Refocus Queue Session",
+                    room_name: "older-refocus-queue-session",
                     created_at: "2026-05-07T10:00:00Z",
                     media_mode: "video",
                     participant_count: 3,
