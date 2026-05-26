@@ -7,7 +7,7 @@
 ## Current State
 
 **Last updated:** 2026-05-26
-**Last session (59):** Podcast thumbnail/create-flow hardening -- branch `fix/podcast-thumbnail-home-create-flows` / PR #171 is merged into `master`; the shipped work hardened thumbnail upload validation, normalized thumbnail handling across create/detail/home/library surfaces, preserved resumed recording duration, and wired `HMS_WEBHOOK_URL` into the tunnel startup flow for RTC recording-export verification
+**Last session (60):** Stale podcast detail load guard -- branch `fix/stale-detail-navigation` / PR #172 keeps podcast details from applying stale route-change fetches, normalizes detail-route params before optimistic edit updates, and adds focused Jest coverage so old detail requests no longer overwrite the active episode or surface stale error toasts
 **Validation baseline:** Backend and frontend suites are large enough that targeted validation remains the default; full-repo runs are still outside normal sandbox budgets
 
 **Tech stack:** React Native + Expo Router + NativeWind frontend; FastAPI + SQLAlchemy backend; PostgreSQL (prod) / SQLite (local and test)
@@ -63,6 +63,7 @@
 - `fix/rtc-history-refresh-lock` / PR pending -- keeps in-flight per-session `Check Status` actions disabled through pull-to-refresh and focus reloads so creators cannot trigger duplicate manual status checks before the original request settles.
 - `fix/rtc-history-focus-refresh` / PR pending -- treats RTC session history focus reloads as in-place refreshes after the first load attempt so returning to the screen keeps loaded cards visible while the latest request runs.
 - `fix/library-refresh-continuity` / PR pending -- keeps loaded Library results visible during refocus and pull-to-refresh reloads, moves refresh failures into inline retry copy, and adds focused Library screen coverage for the non-blocking retry path.
+- `fix/stale-detail-navigation` / PR #172 -- ignores stale podcast detail requests after route changes, normalizes detail-route params before edit refresh updates, and adds focused coverage for stale success and stale failure detail loads.
 
 ---
 
@@ -98,12 +99,16 @@
 - Public Playlists pagination retry now survives failed refreshes in Jest, but device QA should confirm the footer retry and inline refresh error remain clear on iOS and Android under slower networks.
 - `/rtc/sessions` is now validated at the frontend API boundary, but other paginated endpoints still accept raw response shapes without shared contract helpers.
 - Continue-listening playback behavior is now covered at the HomeScreen handler layer, but it still lacks device QA for the loaded-track toggle and resume-position paths.
+- Detail-to-detail transitions still stack another details route; if device QA shows stale back-stack behavior after related-podcast taps or repeated detail opens, switch those transitions to replace the active detail route instead of pushing a second one.
 
 ---
 
 ## Validation Notes
 
 - Frontend ESLint is no longer blocked by JSX parsing; targeted lint is valid again.
+- 2026-05-26: `cd /home/fatih/proPod/frontend && npx jest src/tests/__tests__/details/DetailsScreen.test.js --runInBand` passed (2 tests); Jest emitted the existing `react-test-renderer` deprecation warnings.
+- 2026-05-26: `cd /home/fatih/proPod/frontend && npx eslint 'app/(main)/details.js' 'src/tests/__tests__/details/DetailsScreen.test.js'` passed; Node emitted the existing `MODULE_TYPELESS_PACKAGE_JSON` warning for `eslint.config.js`.
+- 2026-05-26: local pre-commit hook passed during `git commit` for `fix(frontend): guard stale podcast detail loads`.
 - 2026-05-25: `cd /home/fatih/proPod/backend && pytest tests/test_storage_service.py -q` passed.
 - 2026-05-25: `cd /home/fatih/proPod/backend && pytest tests/test_podcast_upload.py -q` passed after updating the thumbnail-upload test bytes to valid image fixtures.
 - 2026-05-25: `cd /home/fatih/proPod/frontend && npm test -- --runTestsByPath src/tests/__tests__/recording/RecordingControls.test.js src/services/api/__tests__/apiService.test.js --runInBand` passed (48 tests).
@@ -223,9 +228,9 @@
 
 ## Next Session Suggestions
 
-1. **RTC export tunnel verification** -- run `npm run dev:tunnel`, create a fresh video room, and confirm backend logs show `has_webhook: True`, `webhook.received`, and `webhook.podcast_created` instead of the session staying stuck in `processing`.
-2. **RTC create-flow device QA** -- verify on iOS and Android that thumbnail selection, resumed recording duration, and AI-enable save behavior still work across quick create, full create, and RTC recovery/retry flows after PR #171.
-3. **Stale detail-navigation cleanup** -- reproduce and fix the lingering `GET /podcasts/16` 404 client request so old podcast-detail navigation state does not survive after list refreshes or recently created episode changes.
+1. **Detail stack device QA** -- verify on iOS and Android that fast detail-to-detail transitions, related-podcast taps, and back navigation do not revive stale podcast detail screens or surface stale error toasts after PR #172.
+2. **RTC export tunnel verification** -- run `npm run dev:tunnel`, create a fresh video room, and confirm backend logs show `has_webhook: True`, `webhook.received`, and `webhook.podcast_created` instead of the session staying stuck in `processing`.
+3. **RTC create-flow device QA** -- verify on iOS and Android that thumbnail selection, resumed recording duration, and AI-enable save behavior still work across quick create, full create, and RTC recovery/retry flows after PR #171.
 
 ---
 
