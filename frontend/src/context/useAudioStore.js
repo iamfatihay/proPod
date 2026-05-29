@@ -464,7 +464,7 @@ const useAudioStore = create(
                 clearInterval(_historyIntervalId);
                 set({ _historyIntervalId: null });
             }
-            get()._saveListeningHistory();
+            get()._saveListeningHistory(false, true); // force: final pause position
 
             // Execute pause immediately - it's fast enough
             if (sound) {
@@ -490,7 +490,7 @@ const useAudioStore = create(
             if (_historyIntervalId) {
                 clearInterval(_historyIntervalId);
             }
-            get()._saveListeningHistory();
+            get()._saveListeningHistory(false, true); // force: final stop position
             // Immediate state update — also clear playlist context so the
             // Library row indicator doesn't stay highlighted after stop.
             set({
@@ -790,9 +790,11 @@ const useAudioStore = create(
             set({ error: null });
         },
 
-        // Persist playback position to the backend (fire-and-forget, non-critical)
-        _saveListeningHistory: async (completed = false) => {
-            if (get()._historyWriteInProgress) return;
+        // Persist playback position to the backend (fire-and-forget, non-critical).
+        // force=true bypasses the in-flight guard for explicit final saves (pause, stop,
+        // episode complete) so the final position is never silently dropped.
+        _saveListeningHistory: async (completed = false, force = false) => {
+            if (!force && get()._historyWriteInProgress) return;
             const { currentTrack, position } = get();
             if (!currentTrack?.id) return;
             set({ _historyWriteInProgress: true });
@@ -867,7 +869,7 @@ const useAudioStore = create(
                         }
 
                         // Save history as completed before advancing
-                        get()._saveListeningHistory(true);
+                        get()._saveListeningHistory(true, true); // force: episode complete
                         const hasNext =
                             state.currentIndex < state.queue.length - 1;
                         const willRepeat = state.repeatMode === "all";

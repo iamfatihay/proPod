@@ -175,11 +175,12 @@ async def create_rtc_room(
 
     webhook_url = request.webhook_url or settings.HMS_WEBHOOK_URL or None
 
-    # Merge the shared secret into webhook_headers so 100ms callbacks always pass
-    # auth, even when the caller supplies their own custom headers.
+    # Only attach the shared secret when the webhook target is the configured
+    # backend URL — never inject it into a caller-supplied URL, as that would
+    # leak the inbound-auth secret to an arbitrary caller-controlled host.
     webhook_headers = dict(request.webhook_headers) if request.webhook_headers else {}
-    if settings.HMS_WEBHOOK_SECRET and "X-Webhook-Secret" not in webhook_headers:
-        webhook_headers["X-Webhook-Secret"] = settings.HMS_WEBHOOK_SECRET
+    if settings.HMS_WEBHOOK_SECRET and not request.webhook_url:
+        webhook_headers.setdefault("X-Webhook-Secret", settings.HMS_WEBHOOK_SECRET)
     webhook_headers = webhook_headers or None
 
     try:
@@ -390,15 +391,31 @@ async def hms_webhook(
     session.last_webhook_payload = json.dumps(payload)
 
     if recording_url:
-        if session.podcast_id or session.recording_url:
+        # Atomically claim this delivery: only update when both podcast_id and
+        # recording_url are still NULL.  The DB-level UPDATE is atomic and
+        # prevents two concurrent webhook deliveries from both passing the
+        # idempotency gate and each creating a podcast.
+        rows_claimed = (
+            db.query(models.RTCSession)
+            .filter(
+                models.RTCSession.id == session.id,
+                models.RTCSession.podcast_id == None,  # noqa: E711
+                models.RTCSession.recording_url == None,  # noqa: E711
+            )
+            .update({"recording_url": recording_url}, synchronize_session=False)
+        )
+        db.commit()  # commits last_webhook_payload + the atomic claim together
+
+        if rows_claimed == 0:
             _rtc_log(
                 "webhook.idempotent",
                 session_id=session.id,
                 room_id=room_id,
                 podcast_id=session.podcast_id,
             )
-            db.commit()
             return {"status": "ok"}
+
+        db.refresh(session)  # pick up the committed recording_url
 
         stable_recording_url = await _persist_recording_media(session, recording_url)
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { TouchableOpacity, View, Text, Platform, Image, ImageBackground } from "react-native";
+import { TouchableOpacity, View, Text, Platform, ImageBackground } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";

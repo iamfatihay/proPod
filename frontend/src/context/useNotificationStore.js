@@ -61,9 +61,14 @@ const useNotificationStore = create((set, get) => ({
 
         set((state) => {
             const next = pruneNotifications([newNotification, ...state.notifications]);
+            const lrt = state.lastReadTimestamp;
             return {
                 notifications: next,
-                unreadCount: state.unreadCount + 1,
+                // Recalculate from the pruned list so the badge is never higher
+                // than the number of unread entries actually in state.
+                unreadCount: lrt > 0
+                    ? next.filter(n => n.created_at > lrt).length
+                    : next.filter(n => !n.read).length,
             };
         });
 
@@ -302,18 +307,18 @@ const useNotificationStore = create((set, get) => ({
             );
 
             // Merge: local (AI/system) first, then server notifications
-            const merged = [...localNotifs, ...serverNotifs].sort(
-                (a, b) => b.created_at - a.created_at
+            const merged = pruneNotifications(
+                [...localNotifs, ...serverNotifs].sort(
+                    (a, b) => b.created_at - a.created_at
+                )
             );
 
+            const lrt = get().lastReadTimestamp;
             set({
                 notifications: merged,
-                unreadCount: (() => {
-                    const lrt = get().lastReadTimestamp;
-                    return lrt > 0
-                        ? merged.filter((n) => n.created_at > lrt).length
-                        : merged.filter((n) => !n.read).length;
-                })(),
+                unreadCount: lrt > 0
+                    ? merged.filter((n) => n.created_at > lrt).length
+                    : merged.filter((n) => !n.read).length,
             });
 
             // Persist merged list so the tab badge survives app restarts
