@@ -198,13 +198,18 @@ const useNotificationStore = create((set, get) => ({
                 
                 // Drop notifications older than 30 days, and stale rtc_processing
                 // entries that never resolved (app crash, network failure, etc.).
+                // Sort by created_at descending BEFORE pruning so the hard cap
+                // consistently removes the oldest entries regardless of the order
+                // they were persisted by older versions of the app.
                 const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
                 const validNotifications = pruneNotifications(
-                    parsed.notifications.filter(n => {
-                        if (n.created_at <= thirtyDaysAgo) return false;
-                        if (n.type === 'rtc_processing' && Date.now() - n.created_at > RTC_PROCESSING_TTL_MS) return false;
-                        return true;
-                    })
+                    parsed.notifications
+                        .filter(n => {
+                            if (n.created_at <= thirtyDaysAgo) return false;
+                            if (n.type === 'rtc_processing' && Date.now() - n.created_at > RTC_PROCESSING_TTL_MS) return false;
+                            return true;
+                        })
+                        .sort((a, b) => b.created_at - a.created_at)
                 );
 
                 set({

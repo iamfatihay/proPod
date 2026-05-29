@@ -999,6 +999,7 @@ const Create = () => {
                 if (rtcProcessingNotifId) {
                     useNotificationStore.getState().updateNotification(rtcProcessingNotifId, {
                         type: "rtc_failed",
+                        read: false,
                         title: "Recording Failed",
                         message: `"${title || "Your session"}" did not finish processing. Tap to view session history.`,
                         action: buildRtcSessionHistoryNotificationAction(

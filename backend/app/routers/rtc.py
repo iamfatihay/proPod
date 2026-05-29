@@ -175,12 +175,14 @@ async def create_rtc_room(
 
     webhook_url = request.webhook_url or settings.HMS_WEBHOOK_URL or None
 
-    # Only attach the shared secret when the webhook target is the configured
-    # backend URL — never inject it into a caller-supplied URL, as that would
-    # leak the inbound-auth secret to an arbitrary caller-controlled host.
+    # Only inject the shared secret when the resolved webhook target IS the
+    # configured backend URL.  Comparing the resolved URL (not the raw request
+    # field) avoids leaking the secret to a caller-supplied arbitrary host.
+    # Force-set (not setdefault) so a stale/incorrect X-Webhook-Secret supplied
+    # by the caller can't cause 100ms to call back with the wrong value.
     webhook_headers = dict(request.webhook_headers) if request.webhook_headers else {}
-    if settings.HMS_WEBHOOK_SECRET and not request.webhook_url:
-        webhook_headers.setdefault("X-Webhook-Secret", settings.HMS_WEBHOOK_SECRET)
+    if settings.HMS_WEBHOOK_SECRET and settings.HMS_WEBHOOK_URL and webhook_url == settings.HMS_WEBHOOK_URL:
+        webhook_headers["X-Webhook-Secret"] = settings.HMS_WEBHOOK_SECRET
     webhook_headers = webhook_headers or None
 
     try:
@@ -391,10 +393,11 @@ async def hms_webhook(
     session.last_webhook_payload = json.dumps(payload)
 
     if recording_url:
-        # Atomically claim this delivery: only update when both podcast_id and
-        # recording_url are still NULL.  The DB-level UPDATE is atomic and
-        # prevents two concurrent webhook deliveries from both passing the
-        # idempotency gate and each creating a podcast.
+        # Atomically claim this delivery within the current transaction: only
+        # update when both podcast_id and recording_url are still NULL.
+        # flush() (not commit()) keeps the claim inside the transaction so that
+        # if _persist_recording_media or podcast creation fails the UPDATE rolls
+        # back along with everything else, leaving the session retryable.
         rows_claimed = (
             db.query(models.RTCSession)
             .filter(
@@ -404,7 +407,7 @@ async def hms_webhook(
             )
             .update({"recording_url": recording_url}, synchronize_session=False)
         )
-        db.commit()  # commits last_webhook_payload + the atomic claim together
+        db.flush()  # execute UPDATE now; stays in-transaction, rolls back on failure
 
         if rows_claimed == 0:
             _rtc_log(
@@ -413,9 +416,10 @@ async def hms_webhook(
                 room_id=room_id,
                 podcast_id=session.podcast_id,
             )
+            db.commit()  # persist last_webhook_payload
             return {"status": "ok"}
 
-        db.refresh(session)  # pick up the committed recording_url
+        db.refresh(session)  # pick up the flushed recording_url
 
         stable_recording_url = await _persist_recording_media(session, recording_url)
 
