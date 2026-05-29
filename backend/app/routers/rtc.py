@@ -24,6 +24,15 @@ from app.models import User
 router = APIRouter(prefix="/rtc", tags=["RTC"])
 MAX_INVITE_CODE_RETRIES = 3
 
+# track.recording.success — individual per-peer track: audio-only OR video-only, never
+#                           a combined file. Always skip for podcast creation.
+# beam.recording.success  — composite of ALL peers but the beam keeps running for ~5 min
+#                           of dead air after all peers leave (100ms lifecycle). The
+#                           resulting file is 5+ min even for a 14-sec session. Skip it.
+# stream.recording.success — per-peer webcam+audio in one file, stops exactly when the
+#                            peer leaves → correct duration, no dead air. USE THIS.
+_SKIP_RECORDING_EVENTS = {"track.recording.success", "beam.recording.success"}
+
 
 def _rtc_log(action: str, **context: Any) -> None:
     safe_context = {k: v for k, v in context.items() if v is not None}
@@ -166,6 +175,16 @@ async def create_rtc_room(
 
     webhook_url = request.webhook_url or settings.HMS_WEBHOOK_URL or None
 
+    # Only inject the shared secret when the resolved webhook target IS the
+    # configured backend URL.  Comparing the resolved URL (not the raw request
+    # field) avoids leaking the secret to a caller-supplied arbitrary host.
+    # Force-set (not setdefault) so a stale/incorrect X-Webhook-Secret supplied
+    # by the caller can't cause 100ms to call back with the wrong value.
+    webhook_headers = dict(request.webhook_headers) if request.webhook_headers else {}
+    if settings.HMS_WEBHOOK_SECRET and settings.HMS_WEBHOOK_URL and webhook_url == settings.HMS_WEBHOOK_URL:
+        webhook_headers["X-Webhook-Secret"] = settings.HMS_WEBHOOK_SECRET
+    webhook_headers = webhook_headers or None
+
     try:
         room = await create_room(
             name=request.name,
@@ -175,7 +194,7 @@ async def create_rtc_room(
             size=request.size,
             max_duration_seconds=request.max_duration_seconds,
             webhook_url=webhook_url,
-            webhook_headers=request.webhook_headers,
+            webhook_headers=webhook_headers,
         )
         
         # Validate 100ms response contains required room ID
@@ -356,11 +375,17 @@ async def hms_webhook(
         _rtc_log("webhook.ignored", reason="missing_room_id")
         return {"status": "ok"}
 
-    session = (
-        db.query(models.RTCSession)
-        .filter(models.RTCSession.room_id == room_id)
-        .first()
-    )
+    # Skip individual-track recordings — each file is either audio-only or video-only,
+    # never a complete podcast recording.
+    if event_name in _SKIP_RECORDING_EVENTS:
+        _rtc_log("webhook.recording_skipped", event=event_name, room_id=room_id)
+        return {"status": "ok"}
+
+    # Idempotency is enforced below by checking session.podcast_id / recording_url
+    # before writing.  SELECT FOR UPDATE is skipped: it is a no-op on SQLite and
+    # adds lock contention on Postgres without additional safety here.
+    session = db.query(models.RTCSession).filter(models.RTCSession.room_id == room_id).first()
+
     if not session:
         _rtc_log("webhook.ignored", reason="session_not_found", room_id=room_id)
         return {"status": "ok"}
@@ -368,27 +393,56 @@ async def hms_webhook(
     session.last_webhook_payload = json.dumps(payload)
 
     if recording_url:
-        if session.podcast_id or session.recording_url:
+        # Atomically claim this delivery within the current transaction: only
+        # update when both podcast_id and recording_url are still NULL.
+        # flush() (not commit()) keeps the claim inside the transaction so that
+        # if _persist_recording_media or podcast creation fails the UPDATE rolls
+        # back along with everything else, leaving the session retryable.
+        rows_claimed = (
+            db.query(models.RTCSession)
+            .filter(
+                models.RTCSession.id == session.id,
+                models.RTCSession.podcast_id == None,  # noqa: E711
+                models.RTCSession.recording_url == None,  # noqa: E711
+            )
+            .update({"recording_url": recording_url}, synchronize_session=False)
+        )
+        db.flush()  # execute UPDATE now; stays in-transaction, rolls back on failure
+
+        if rows_claimed == 0:
             _rtc_log(
                 "webhook.idempotent",
                 session_id=session.id,
                 room_id=room_id,
                 podcast_id=session.podcast_id,
             )
-            db.commit()
+            db.commit()  # persist last_webhook_payload
             return {"status": "ok"}
 
+        db.refresh(session)  # pick up the flushed recording_url
+
         stable_recording_url = await _persist_recording_media(session, recording_url)
+
+        # Beam = composite of all peers (multi-host) → video+audio, treat as video when
+        # session is in video mode.
+        # Stream = per-peer webcam+audio → video when session is video mode.
+        # (track events are skipped and never reach here)
+        if session.media_mode == "video":
+            recording_media_type = "video"
+            recording_video_url = stable_recording_url
+        else:
+            recording_media_type = "audio"
+            recording_video_url = None
 
         podcast_data = schemas.PodcastCreate(
             title=session.title or session.room_name or "Live Session",
             description=session.description,
             category=session.category or "General",
             is_public=session.is_public,
-            media_type="video" if session.media_mode == "video" else "audio",
+            media_type=recording_media_type,
             duration=duration_seconds,
             audio_url=stable_recording_url,
-            video_url=stable_recording_url if session.media_mode == "video" else None,
+            video_url=recording_video_url,
             thumbnail_url=session.thumbnail_url,
         )
 

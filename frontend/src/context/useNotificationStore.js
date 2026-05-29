@@ -21,6 +21,20 @@ import Logger from '../utils/logger';
 import apiService from '../services/api/apiService';
 
 const STORAGE_KEY = '@notifications';
+const MAX_NOTIFICATIONS = 50;
+// In-progress recording notifications that haven't resolved after this window are
+// considered stale and removed on the next load (avoids zombies like "fff is processing").
+const RTC_PROCESSING_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * Prune the list to MAX_NOTIFICATIONS by dropping the oldest entries beyond the cap.
+ * Preserves chronological (newest-first) ordering and enforces a strict hard limit.
+ */
+function pruneNotifications(list) {
+    if (list.length <= MAX_NOTIFICATIONS) return list;
+    // list is always newest-first; slice drops the oldest tail.
+    return list.slice(0, MAX_NOTIFICATIONS);
+}
 
 const useNotificationStore = create((set, get) => ({
     notifications: [],
@@ -45,10 +59,18 @@ const useNotificationStore = create((set, get) => ({
             ...notification,
         };
 
-        set((state) => ({
-            notifications: [newNotification, ...state.notifications],
-            unreadCount: state.unreadCount + 1,
-        }));
+        set((state) => {
+            const next = pruneNotifications([newNotification, ...state.notifications]);
+            const lrt = state.lastReadTimestamp;
+            return {
+                notifications: next,
+                // Recalculate from the pruned list so the badge is never higher
+                // than the number of unread entries actually in state.
+                unreadCount: lrt > 0
+                    ? next.filter(n => n.created_at > lrt).length
+                    : next.filter(n => !n.read).length,
+            };
+        });
 
         // Persist to storage
         get().saveToStorage();
@@ -113,11 +135,24 @@ const useNotificationStore = create((set, get) => ({
      * @param {Object} updates - Fields to merge into the notification
      */
     updateNotification: (id, updates) => {
-        set((state) => ({
-            notifications: state.notifications.map(n =>
-                n.id === id ? { ...n, ...updates } : n
-            ),
-        }));
+        set((state) => {
+            const notification = state.notifications.find(n => n.id === id);
+            if (!notification) return state;
+
+            // If the update explicitly marks the notification as unread and it was
+            // previously read, increment the badge counter so the tab badge refreshes.
+            const wasRead = notification.read;
+            const becomesUnread = updates.read === false;
+
+            return {
+                notifications: state.notifications.map(n =>
+                    n.id === id ? { ...n, ...updates } : n
+                ),
+                unreadCount: wasRead && becomesUnread
+                    ? state.unreadCount + 1
+                    : state.unreadCount,
+            };
+        });
 
         get().saveToStorage();
     },
@@ -161,10 +196,20 @@ const useNotificationStore = create((set, get) => ({
             if (data) {
                 const parsed = JSON.parse(data);
                 
-                // Filter out old notifications (older than 30 days)
+                // Drop notifications older than 30 days, and stale rtc_processing
+                // entries that never resolved (app crash, network failure, etc.).
+                // Sort by created_at descending BEFORE pruning so the hard cap
+                // consistently removes the oldest entries regardless of the order
+                // they were persisted by older versions of the app.
                 const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-                const validNotifications = parsed.notifications.filter(
-                    n => n.created_at > thirtyDaysAgo
+                const validNotifications = pruneNotifications(
+                    parsed.notifications
+                        .filter(n => {
+                            if (n.created_at <= thirtyDaysAgo) return false;
+                            if (n.type === 'rtc_processing' && Date.now() - n.created_at > RTC_PROCESSING_TTL_MS) return false;
+                            return true;
+                        })
+                        .sort((a, b) => b.created_at - a.created_at)
                 );
 
                 set({
@@ -267,18 +312,18 @@ const useNotificationStore = create((set, get) => ({
             );
 
             // Merge: local (AI/system) first, then server notifications
-            const merged = [...localNotifs, ...serverNotifs].sort(
-                (a, b) => b.created_at - a.created_at
+            const merged = pruneNotifications(
+                [...localNotifs, ...serverNotifs].sort(
+                    (a, b) => b.created_at - a.created_at
+                )
             );
 
+            const lrt = get().lastReadTimestamp;
             set({
                 notifications: merged,
-                unreadCount: (() => {
-                    const lrt = get().lastReadTimestamp;
-                    return lrt > 0
-                        ? merged.filter((n) => n.created_at > lrt).length
-                        : merged.filter((n) => !n.read).length;
-                })(),
+                unreadCount: lrt > 0
+                    ? merged.filter((n) => n.created_at > lrt).length
+                    : merged.filter((n) => !n.read).length,
             });
 
             // Persist merged list so the tab badge survives app restarts
