@@ -266,7 +266,9 @@ class TestRTCWebhook:
         podcast = db.query(Podcast).filter(Podcast.id == session.podcast_id).first()
         assert podcast is not None
         assert podcast.audio_url == "/media/audio/rtc_session_1.mp4"
+        # session.media_mode is "video" so composite/stream recording sets video_url too
         assert podcast.video_url == "/media/audio/rtc_session_1.mp4"
+        assert podcast.media_type == "video"
         assert podcast.thumbnail_url == "https://cdn.example.com/live-thumb.jpg"
         mock_persist_remote_media.assert_awaited_once_with(
             "https://example.com/recording.mp4",

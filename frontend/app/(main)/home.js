@@ -681,12 +681,7 @@ export default function HomeScreen() {
                     <View className="mb-6">
                         <View className="flex-row items-center justify-between mb-4">
                             <View className="flex-row items-center">
-                                <MaterialCommunityIcons
-                                    name="robot"
-                                    size={24}
-                                    color={COLORS.gradient.blue}
-                                />
-                                <Text className="text-xl font-bold text-text-primary ml-2">
+                                <Text className="text-xl font-bold text-text-primary">
                                     For You
                                 </Text>
                             </View>
@@ -754,12 +749,7 @@ export default function HomeScreen() {
                     {!loadingTrending && trendingPodcasts.length > 0 && (
                         <View className="mb-6">
                             <View className="flex-row items-center mb-4">
-                                <MaterialCommunityIcons
-                                    name="fire"
-                                    size={24}
-                                    color={COLORS.warning}
-                                />
-                                <Text className="text-xl font-bold text-text-primary ml-2">
+                                <Text className="text-xl font-bold text-text-primary">
                                     Trending
                                 </Text>
                             </View>

@@ -24,6 +24,15 @@ from app.models import User
 router = APIRouter(prefix="/rtc", tags=["RTC"])
 MAX_INVITE_CODE_RETRIES = 3
 
+# track.recording.success — individual per-peer track: audio-only OR video-only, never
+#                           a combined file. Always skip for podcast creation.
+# beam.recording.success  — composite of ALL peers but the beam keeps running for ~5 min
+#                           of dead air after all peers leave (100ms lifecycle). The
+#                           resulting file is 5+ min even for a 14-sec session. Skip it.
+# stream.recording.success — per-peer webcam+audio in one file, stops exactly when the
+#                            peer leaves → correct duration, no dead air. USE THIS.
+_SKIP_RECORDING_EVENTS = {"track.recording.success", "beam.recording.success"}
+
 
 def _rtc_log(action: str, **context: Any) -> None:
     safe_context = {k: v for k, v in context.items() if v is not None}
@@ -166,6 +175,13 @@ async def create_rtc_room(
 
     webhook_url = request.webhook_url or settings.HMS_WEBHOOK_URL or None
 
+    # Merge the shared secret into webhook_headers so 100ms callbacks always pass
+    # auth, even when the caller supplies their own custom headers.
+    webhook_headers = dict(request.webhook_headers) if request.webhook_headers else {}
+    if settings.HMS_WEBHOOK_SECRET and "X-Webhook-Secret" not in webhook_headers:
+        webhook_headers["X-Webhook-Secret"] = settings.HMS_WEBHOOK_SECRET
+    webhook_headers = webhook_headers or None
+
     try:
         room = await create_room(
             name=request.name,
@@ -175,7 +191,7 @@ async def create_rtc_room(
             size=request.size,
             max_duration_seconds=request.max_duration_seconds,
             webhook_url=webhook_url,
-            webhook_headers=request.webhook_headers,
+            webhook_headers=webhook_headers,
         )
         
         # Validate 100ms response contains required room ID
@@ -356,11 +372,17 @@ async def hms_webhook(
         _rtc_log("webhook.ignored", reason="missing_room_id")
         return {"status": "ok"}
 
-    session = (
-        db.query(models.RTCSession)
-        .filter(models.RTCSession.room_id == room_id)
-        .first()
-    )
+    # Skip individual-track recordings — each file is either audio-only or video-only,
+    # never a complete podcast recording.
+    if event_name in _SKIP_RECORDING_EVENTS:
+        _rtc_log("webhook.recording_skipped", event=event_name, room_id=room_id)
+        return {"status": "ok"}
+
+    # Idempotency is enforced below by checking session.podcast_id / recording_url
+    # before writing.  SELECT FOR UPDATE is skipped: it is a no-op on SQLite and
+    # adds lock contention on Postgres without additional safety here.
+    session = db.query(models.RTCSession).filter(models.RTCSession.room_id == room_id).first()
+
     if not session:
         _rtc_log("webhook.ignored", reason="session_not_found", room_id=room_id)
         return {"status": "ok"}
@@ -380,15 +402,26 @@ async def hms_webhook(
 
         stable_recording_url = await _persist_recording_media(session, recording_url)
 
+        # Beam = composite of all peers (multi-host) → video+audio, treat as video when
+        # session is in video mode.
+        # Stream = per-peer webcam+audio → video when session is video mode.
+        # (track events are skipped and never reach here)
+        if session.media_mode == "video":
+            recording_media_type = "video"
+            recording_video_url = stable_recording_url
+        else:
+            recording_media_type = "audio"
+            recording_video_url = None
+
         podcast_data = schemas.PodcastCreate(
             title=session.title or session.room_name or "Live Session",
             description=session.description,
             category=session.category or "General",
             is_public=session.is_public,
-            media_type="video" if session.media_mode == "video" else "audio",
+            media_type=recording_media_type,
             duration=duration_seconds,
             audio_url=stable_recording_url,
-            video_url=stable_recording_url if session.media_mode == "video" else None,
+            video_url=recording_video_url,
             thumbnail_url=session.thumbnail_url,
         )
 

@@ -48,6 +48,8 @@ const useAudioStore = create(
         sleepTimerRemaining: 0,    // ms remaining — updated each second for UI countdown
         _sleepTimerIntervalId: null,
         sleepOnEpisodeEnd: false,  // stop playback when the current episode finishes
+        _historyIntervalId: null,  // interval ID for periodic listening history saves
+        _historyWriteInProgress: false, // guard against overlapping save requests
 
         // Error Handling
         error: null,
@@ -367,6 +369,14 @@ const useAudioStore = create(
                     // But set safety timeout in case status updates don't come
                     set({ isLoading: false });
 
+                    // Start/restart the 30-second listening history interval
+                    {
+                        const { _historyIntervalId: oldId } = get();
+                        if (oldId) clearInterval(oldId);
+                        const newId = setInterval(() => get()._saveListeningHistory(), 30000);
+                        set({ _historyIntervalId: newId });
+                    }
+
                     // Safety timeout: if status update doesn't come in 2 seconds, clear loading
                     const timeoutId = setTimeout(() => {
                         const timeoutState = get();
@@ -448,6 +458,14 @@ const useAudioStore = create(
             // Immediate optimistic update - UI responds instantly (synchronous)
             set({ isPlaying: false });
 
+            // Clear history interval and save current position
+            const { _historyIntervalId } = get();
+            if (_historyIntervalId) {
+                clearInterval(_historyIntervalId);
+                set({ _historyIntervalId: null });
+            }
+            get()._saveListeningHistory();
+
             // Execute pause immediately - it's fast enough
             if (sound) {
                 try {
@@ -466,14 +484,20 @@ const useAudioStore = create(
         },
 
         stop: async () => {
-            const { sound } = get();
+            const { sound, _historyIntervalId } = get();
 
+            // Clear history interval and persist final position before tearing down.
+            if (_historyIntervalId) {
+                clearInterval(_historyIntervalId);
+            }
+            get()._saveListeningHistory();
             // Immediate state update — also clear playlist context so the
             // Library row indicator doesn't stay highlighted after stop.
             set({
                 isPlaying: false,
                 showMiniPlayer: false,
                 activePlaylistId: null,
+                _historyIntervalId: null,
             });
 
             // Cleanup sound asynchronously (non-blocking)
@@ -766,6 +790,24 @@ const useAudioStore = create(
             set({ error: null });
         },
 
+        // Persist playback position to the backend (fire-and-forget, non-critical)
+        _saveListeningHistory: async (completed = false) => {
+            if (get()._historyWriteInProgress) return;
+            const { currentTrack, position } = get();
+            if (!currentTrack?.id) return;
+            set({ _historyWriteInProgress: true });
+            try {
+                await apiService.updateListeningHistory(currentTrack.id, {
+                    position: Math.round(position / 1000), // ms → seconds
+                    completed: completed || undefined,
+                });
+            } catch (_e) {
+                // Non-critical — never surface to the user
+            } finally {
+                set({ _historyWriteInProgress: false });
+            }
+        },
+
         // Status Update Handler for expo-audio
         onPlaybackStatusUpdate: (status) => {
             const { sound } = get();
@@ -824,6 +866,8 @@ const useAudioStore = create(
                             return;
                         }
 
+                        // Save history as completed before advancing
+                        get()._saveListeningHistory(true);
                         const hasNext =
                             state.currentIndex < state.queue.length - 1;
                         const willRepeat = state.repeatMode === "all";

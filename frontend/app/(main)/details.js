@@ -920,12 +920,12 @@ const Details = () => {
                     >
                         {/* AI Process Button - PRIMARY CTA (only show if owner and not already processed) */}
                         {isOwner && podcast.ai_processing_status === "processing" && (
-                            <View className="flex-row items-center px-5 py-1 rounded-xl bg-panel border border-warning/30">
+                            <View className="flex-row items-center px-3 py-1 rounded-xl bg-panel border border-warning/30">
                                 <ActivityIndicator
                                     size="small"
                                     color={COLORS.warning}
                                 />
-                                <Text className="text-warning ml-2 font-bold text-sm">
+                                <Text className="text-warning ml-1.5 font-bold text-xs">
                                     AI Processing...
                                 </Text>
                             </View>
@@ -934,7 +934,7 @@ const Details = () => {
                         {isOwner && !podcast.ai_enhanced && podcast.ai_processing_status !== "processing" && podcast.audio_url && (
                             <TouchableOpacity
                                 onPress={handleProcessAI}
-                                className="flex-row items-center px-5 py-1 rounded-xl bg-success border-2 border-success shadow-lg"
+                                className="flex-row items-center px-3 py-1 rounded-xl bg-success border-2 border-success shadow-lg"
                                 activeOpacity={0.7}
                                 disabled={isProcessingAI}
                                 hitSlop={{
@@ -952,11 +952,11 @@ const Details = () => {
                                 ) : (
                                     <MaterialCommunityIcons
                                         name="robot-outline"
-                                        size={20}
+                                        size={16}
                                         color="white"
                                     />
                                 )}
-                                <Text className="text-white ml-2 font-bold text-sm">
+                                <Text className="text-white ml-1.5 font-bold text-xs">
                                     Process with AI
                                 </Text>
                             </TouchableOpacity>
@@ -964,7 +964,7 @@ const Details = () => {
 
                         <TouchableOpacity
                             onPress={handleLike}
-                            className={`flex-row items-center px-4 py-1 rounded-xl ${isLiked ? "bg-primary" : "bg-panel"
+                            className={`flex-row items-center px-3 py-1 rounded-xl ${isLiked ? "bg-primary" : "bg-panel"
                                 }`}
                             activeOpacity={0.7}
                             disabled={isLiking}
@@ -983,12 +983,12 @@ const Details = () => {
                             ) : (
                                 <MaterialCommunityIcons
                                     name={isLiked ? "heart" : "heart-outline"}
-                                    size={18}
+                                    size={16}
                                     color={isLiked ? "white" : COLORS.text.muted}
                                 />
                             )}
                             <Text
-                                className={`ml-1.5 text-sm font-medium ${isLiked
+                                className={`ml-1.5 text-xs font-medium ${isLiked
                                     ? "text-white"
                                     : "text-text-secondary"
                                     }`}
@@ -999,7 +999,7 @@ const Details = () => {
 
                         <TouchableOpacity
                             onPress={handleBookmark}
-                            className={`flex-row items-center px-4 py-1 rounded-xl ${isBookmarked ? "bg-warning" : "bg-panel"
+                            className={`flex-row items-center px-3 py-1 rounded-xl ${isBookmarked ? "bg-warning" : "bg-panel"
                                 }`}
                             activeOpacity={0.7}
                             disabled={isBookmarking}
@@ -1022,12 +1022,12 @@ const Details = () => {
                                             ? "bookmark"
                                             : "bookmark-outline"
                                     }
-                                    size={18}
+                                    size={16}
                                     color={isBookmarked ? "white" : COLORS.text.muted}
                                 />
                             )}
                             <Text
-                                className={`ml-1.5 text-sm font-medium ${isBookmarked
+                                className={`ml-1.5 text-xs font-medium ${isBookmarked
                                     ? "text-white"
                                     : "text-text-secondary"
                                     }`}
@@ -1038,7 +1038,7 @@ const Details = () => {
 
                         <TouchableOpacity
                             onPress={handleAddToQueue}
-                            className="flex-row items-center px-4 py-1 rounded-xl bg-panel"
+                            className="flex-row items-center px-3 py-1 rounded-xl bg-panel"
                             activeOpacity={0.7}
                             hitSlop={{
                                 top: 10,
@@ -1049,10 +1049,10 @@ const Details = () => {
                         >
                             <MaterialCommunityIcons
                                 name="playlist-plus"
-                                size={18}
+                                size={16}
                                 color={COLORS.text.muted}
                             />
-                            <Text className="text-text-secondary ml-1.5 text-sm font-medium">
+                            <Text className="text-text-secondary ml-1.5 text-xs font-medium">
                                 Queue
                             </Text>
                         </TouchableOpacity>
@@ -1061,7 +1061,7 @@ const Details = () => {
                         {!isVideoPodcast && podcast?.audio_url && (
                             <TouchableOpacity
                                 onPress={handleDownload}
-                                className={`flex-row items-center px-4 py-1 rounded-xl ${
+                                className={`flex-row items-center px-3 py-1 rounded-xl ${
                                     localUri ? "bg-success/20 border border-success/30" : "bg-panel"
                                 }`}
                                 activeOpacity={0.7}
@@ -1074,12 +1074,12 @@ const Details = () => {
                                 ) : (
                                     <MaterialCommunityIcons
                                         name={localUri ? "check-circle" : "download-outline"}
-                                        size={18}
+                                        size={16}
                                         color={localUri ? COLORS.success || "#4CAF50" : COLORS.text.muted}
                                     />
                                 )}
                                 <Text
-                                    className={`ml-1.5 text-sm font-medium ${
+                                    className={`ml-1.5 text-xs font-medium ${
                                         localUri ? "text-green-400" : "text-text-secondary"
                                     }`}
                                 >
@@ -1095,7 +1095,7 @@ const Details = () => {
                         {/* Add to Playlist */}
                         <TouchableOpacity
                             onPress={handleOpenPlaylistPicker}
-                            className="flex-row items-center px-4 py-1 rounded-xl bg-panel"
+                            className="flex-row items-center px-3 py-1 rounded-xl bg-panel"
                             activeOpacity={0.7}
                             hitSlop={{
                                 top: 10,
@@ -1106,10 +1106,10 @@ const Details = () => {
                         >
                             <MaterialCommunityIcons
                                 name="playlist-edit"
-                                size={18}
+                                size={16}
                                 color={COLORS.text.muted}
                             />
-                            <Text className="text-text-secondary ml-1.5 text-sm font-medium">
+                            <Text className="text-text-secondary ml-1.5 text-xs font-medium">
                                 Playlist
                             </Text>
                         </TouchableOpacity>
@@ -1118,7 +1118,7 @@ const Details = () => {
                         {isOwner && (
                             <TouchableOpacity
                                 onPress={handleDelete}
-                                className="flex-row items-center px-4 py-1 rounded-xl bg-error/20 border border-error/30"
+                                className="flex-row items-center px-3 py-1 rounded-xl bg-error/20 border border-error/30"
                                 activeOpacity={0.7}
                                 disabled={isDeleting}
                                 hitSlop={{
@@ -1136,11 +1136,11 @@ const Details = () => {
                                 ) : (
                                     <MaterialCommunityIcons
                                         name="delete-outline"
-                                        size={18}
+                                        size={16}
                                         color={COLORS.error}
                                     />
                                 )}
-                                <Text className="text-error ml-1.5 text-sm font-medium">
+                                <Text className="text-error ml-1.5 text-xs font-medium">
                                     Delete
                                 </Text>
                             </TouchableOpacity>
