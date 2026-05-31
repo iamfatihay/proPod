@@ -23,6 +23,7 @@ This directory is the documentation hub for the current state of ProPod.
 ### Project Tracking
 - [Implementation Summary](./project/IMPLEMENTATION_SUMMARY.md)
 - [Feature Roadmap](./project/FEATURE_ROADMAP.md)
+- [Repository Explainer](./project/REPOSITORY_EXPLAINER.md)
 - [RTC Session Memory](./project/RTC_SESSION_MEMORY.md)
 - [AGENT_STATE](./AGENT_STATE.md)
 
