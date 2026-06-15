@@ -2,7 +2,10 @@ import React from "react";
 import { fireEvent, render } from "@testing-library/react-native";
 import {
     RtcFailedReviewActions,
+    buildRtcLiveStatusPanel,
+    buildRtcProcessingPanel,
     default as Create,
+    formatRtcElapsedDuration,
 } from "../../../../app/(main)/create";
 import {
     maybeStartAiProcessingForPodcast,
@@ -171,6 +174,36 @@ describe("RTC session history helpers", () => {
         expect(getByText("Using Previous Live Session Setup")).toBeTruthy();
         expect(getByText("Multi-host live")).toBeTruthy();
         expect(getByText("Audio only")).toBeTruthy();
+    });
+});
+
+describe("RTC create status helpers", () => {
+    it("formats the live elapsed duration for the recording badge", () => {
+        expect(formatRtcElapsedDuration(0)).toBe("00:00");
+        expect(formatRtcElapsedDuration(65)).toBe("01:05");
+    });
+
+    it("builds a clear live recording panel while the host is broadcasting", () => {
+        expect(
+            buildRtcLiveStatusPanel({
+                rtcSessionState: "live",
+                rtcMediaMode: "audio",
+                elapsedSeconds: 65,
+            })
+        ).toMatchObject({
+            title: "Recording active",
+            badge: "Live 01:05",
+        });
+    });
+
+    it("builds a stronger delayed-processing message after polling takes too long", () => {
+        expect(buildRtcProcessingPanel({ isProcessingDelayed: false })).toMatchObject({
+            title: "Processing recording...",
+        });
+
+        expect(buildRtcProcessingPanel({ isProcessingDelayed: true })).toMatchObject({
+            title: "Processing is taking longer than usual",
+        });
     });
 });
 

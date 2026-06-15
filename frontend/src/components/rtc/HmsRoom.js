@@ -713,7 +713,7 @@ const HmsRoom = ({
 
         return (
             <View className="bg-panel rounded-2xl p-2 mb-3">
-                <View className="overflow-hidden rounded-xl bg-black/30" style={{ height: 220 }}>
+                <View className="overflow-hidden rounded-xl bg-black/30" style={{ aspectRatio: 9 / 16 }}>
                     {enableVideo && HmsView && track?.trackId && !track.isMute?.() ? (
                         <HmsView
                             trackId={track.trackId}
