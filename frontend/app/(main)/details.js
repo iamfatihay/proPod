@@ -12,7 +12,7 @@ import {
     Image,
     ActivityIndicator,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import ModernAudioPlayer from "../../src/components/audio/ModernAudioPlayer";
 import PodcastVideoPlayer from "../../src/components/video/PodcastVideoPlayer";
@@ -111,6 +111,7 @@ const Details = () => {
     // Ref to suppress "Download failed" toast when the user intentionally cancels
     const downloadCancelledRef = useRef(false);
     const detailsRequestIdRef = useRef(0);
+    const aiPollingActiveRef = useRef(false);
 
     const isVideoPodcast = Boolean(
         podcast?.media_type === "video" && podcast?.video_url
@@ -123,6 +124,10 @@ const Details = () => {
             clearError(); // Clear error after showing
         }
     }, [audioError, clearError, showToast]);
+
+    useEffect(() => {
+        return () => { aiPollingActiveRef.current = false; };
+    }, []);
 
     const loadPodcastDetails = useCallback(async (requestedPodcastId = podcastId) => {
         if (!requestedPodcastId) {
@@ -243,6 +248,15 @@ const Details = () => {
     useEffect(() => {
         loadPodcastDetails(podcastId);
     }, [loadPodcastDetails, podcastId, refreshToken]);
+
+    // Refresh when returning to this screen (e.g. after AI processing finishes in background)
+    useFocusEffect(
+        useCallback(() => {
+            if (podcastId) {
+                loadPodcastDetails(podcastId);
+            }
+        }, [loadPodcastDetails, podcastId])
+    );
 
     // Handle optimistic update from edit page (only once when params change)
     useEffect(() => {
@@ -592,17 +606,49 @@ const Details = () => {
             setIsProcessingAI(true);
             showToast("🤖 AI processing started...", "info");
 
-            const result = await apiService.processAudio(podcast.id);
-            
+            await apiService.processAudio(podcast.id);
+
             setPodcast((prev) => prev ? ({
                 ...prev,
-                ai_processing_status: result.status || "processing",
+                ai_processing_status: "processing",
             }) : prev);
 
             void hapticFeedback.vibrate([0, 200, 100, 200]);
-            showToast("AI processing started. Insights will appear when analysis finishes.", "success");
-            
+
+            // Poll until completed or failed (max ~3 min, every 5s)
+            const MAX_POLLS = 36;
+            let finalStatus = "timeout";
+            aiPollingActiveRef.current = true;
+
+            for (let i = 0; i < MAX_POLLS; i++) {
+                await new Promise((resolve) => setTimeout(resolve, 5000));
+
+                if (!aiPollingActiveRef.current) break;
+
+                try {
+                    const updated = await apiService.getPodcast(podcast.id);
+                    const status = updated?.ai_processing_status;
+
+                    setPodcast((prev) => (prev ? { ...prev, ...updated } : prev));
+
+                    if (status === "completed" || status === "failed") {
+                        finalStatus = status;
+                        break;
+                    }
+                } catch (pollErr) {
+                    Logger.warn("AI status poll error:", pollErr);
+                }
+            }
+
             await loadPodcastDetails();
+
+            if (finalStatus === "completed") {
+                showToast("AI processing complete!", "success");
+            } else if (finalStatus === "failed") {
+                showToast("AI processing failed. Please try again.", "error");
+            } else {
+                showToast("AI processing is still running. Check again shortly.", "info");
+            }
         } catch (error) {
             Logger.error("AI processing failed:", error);
             const errorMsg = error.response?.data?.detail || "Failed to process with AI";
@@ -610,6 +656,7 @@ const Details = () => {
             
             void hapticFeedback.vibrate(500);
         } finally {
+            aiPollingActiveRef.current = false;
             setIsProcessingAI(false);
         }
     };

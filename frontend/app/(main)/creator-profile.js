@@ -111,7 +111,11 @@ export default function CreatorProfile() {
             setFollowerCount(profileData.total_followers ?? 0);
             const normalized = normalizePodcasts(
                 podcastData.podcasts || podcastData || []
-            );
+            ).map((p) => ({
+                ...p,
+                // PodcastCard expects milliseconds; API returns seconds
+                duration: typeof p.duration === "number" ? p.duration * 1000 : 0,
+            }));
             setPodcasts(normalized);
             setTotal(podcastData.total ?? normalized.length);
             setPage(1);
@@ -138,7 +142,11 @@ export default function CreatorProfile() {
             });
             const normalized = normalizePodcasts(
                 podcastData.podcasts || podcastData || []
-            );
+            ).map((p) => ({
+                ...p,
+                // PodcastCard expects milliseconds; API returns seconds
+                duration: typeof p.duration === "number" ? p.duration * 1000 : 0,
+            }));
             setPodcasts((prev) => [...prev, ...normalized]);
             setPage((p) => p + 1);
         } catch (e) {

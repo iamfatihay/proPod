@@ -2,43 +2,35 @@
 # ============================================================
 # ProPod Dev — Tunnel Mode
 #
-# Usage: npm run dev:tunnel   (from frontend/)
-#   OR:  ./scripts/start-dev-tunnel.sh  (from root)
+# Starts:
+#   1. FastAPI backend on localhost:8000
+#   2. ngrok static backend tunnel
+#   3. Expo in tunnel mode
 #
-# Works on ANY network — same WiFi, office WiFi, mobile data.
-# Use this whenever you need:
-#   - Phone and laptop on different networks
-#   - Testing 100ms RTC webhooks (need public URL)
-#   - Switching between work/home WiFi without reconfiguring
+# Backend URL is static:
+#   https://subsumable-submucronated-inga.ngrok-free.dev
 #
-# What this script does:
-#   1. Starts FastAPI backend (if not already running)
-#   2. Kills any running ngrok (frees the session for Expo's tunnel)
-#   3. Opens localtunnel for the backend (port 8000) → public HTTPS URL
-#   4. Updates API_BASE_URL in .env files
-#   5. Starts Expo in tunnel mode (Expo uses ngrok for its own tunnel)
-#
-# Why localtunnel for backend instead of ngrok?
-#   Expo's --tunnel uses ngrok. Free ngrok allows only 1 session.
-#   localtunnel is free, unlimited, and doesn't conflict with Expo's ngrok.
+# .env files are NOT modified by this script.
 # ============================================================
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
-FRONTEND_ENV="$ROOT_DIR/frontend/.env"
-BACKEND_ENV="$ROOT_DIR/backend/.env"
+
 BACKEND_PID=""
+NGROK_PID=""
+
+BACKEND_URL="https://subsumable-submucronated-inga.ngrok-free.dev"
+WEBHOOK_URL="$BACKEND_URL/rtc/webhooks/100ms"
 
 echo "🚀 ProPod Dev (Tunnel mode)"
 echo "==========================="
 
-# ── Cleanup handler ──────────────────────────────────────────
 cleanup() {
     echo ""
     echo "🛑 Shutting down..."
-    [ -n "$LT_PID" ] && kill "$LT_PID" 2>/dev/null || true
+    [ -n "$NGROK_PID" ] && kill "$NGROK_PID" 2>/dev/null || true
     [ -n "$BACKEND_PID" ] && kill "$BACKEND_PID" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
@@ -50,109 +42,72 @@ if curl -s "http://localhost:8000/docs" > /dev/null 2>&1; then
 else
     echo "🐍 Starting backend..."
     cd "$ROOT_DIR/backend"
+
     if [ ! -f "venv/bin/activate" ]; then
-        echo "❌ venv not found. Run: cd backend && python -m venv venv && pip install -r requirements.txt"
+        echo "❌ venv not found. Run:"
+        echo "   cd backend && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt"
         exit 1
     fi
+
     source venv/bin/activate
     uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
     BACKEND_PID=$!
-    echo "✅ Backend started (PID: $BACKEND_PID)"
 
-    # Wait for it to be ready
     echo "⏳ Waiting for backend..."
     for i in {1..15}; do
         if curl -s "http://localhost:8000/docs" > /dev/null 2>&1; then
             echo "✅ Backend ready"
             break
         fi
-        [ "$i" -eq 15 ] && echo "⚠️  Backend slow to start — continuing anyway..." || sleep 1
+
+        if [ "$i" -eq 15 ]; then
+            echo "⚠️  Backend slow to start — continuing anyway..."
+        else
+            sleep 1
+        fi
     done
 fi
 
-# ── Step 2: Kill any running ngrok ───────────────────────────
-# Expo's --tunnel uses ngrok (via @expo/ngrok). Free ngrok only allows
-# 1 active session. Any running ngrok process will block Expo's tunnel.
-echo "🔄 Freeing ngrok session for Expo tunnel..."
-pkill -f "ngrok" 2>/dev/null || true
-sleep 1
-echo "✅ ngrok session free"
+# ── Step 2: Start ngrok static backend tunnel ────────────────
+if ! command -v ngrok &> /dev/null; then
+    echo "❌ Error: ngrok not found on PATH. Install it from https://ngrok.com/download and ensure it is in your PATH."
+    exit 1
+fi
 
-# ── Step 3: Open localtunnel for backend (port 8000) ─────────
-echo "🌐 Opening backend tunnel (localtunnel, port 8000)..."
+echo "🌐 Starting ngrok backend tunnel..."
 cd "$ROOT_DIR"
-npx localtunnel --port 8000 > /tmp/propod-lt.log 2>&1 &
-LT_PID=$!
 
-# Poll until URL appears in log (up to 25s)
-TUNNEL_URL=""
-for i in {1..25}; do
-    TUNNEL_URL=$(grep -o 'https://[^ ]*\.loca\.lt' /tmp/propod-lt.log 2>/dev/null | head -1)
-    [ -n "$TUNNEL_URL" ] && break
+ngrok http 8000 --url "$BACKEND_URL" > /tmp/propod-ngrok.log 2>&1 &
+NGROK_PID=$!
+
+for i in {1..20}; do
+    if curl -s http://localhost:4040/api/tunnels > /dev/null 2>&1; then
+        echo "✅ ngrok backend tunnel ready"
+        break
+    fi
+
+    if [ "$i" -eq 20 ]; then
+        echo "❌ ngrok did not start in time."
+        echo "   Check: cat /tmp/propod-ngrok.log"
+        exit 1
+    fi
+
     sleep 1
 done
 
-if [ -z "$TUNNEL_URL" ]; then
-    echo "❌ Could not get localtunnel URL after 25s."
-    echo "   Check: cat /tmp/propod-lt.log"
-    echo "   If localtunnel is down, try: npx localtunnel --port 8000"
-    exit 1
-fi
-
-echo "✅ Backend tunnel: $TUNNEL_URL"
-WEBHOOK_URL="$TUNNEL_URL/rtc/webhooks/100ms"
-
-# ── Step 4: Update .env files ────────────────────────────────
-if [ -f "$FRONTEND_ENV" ]; then
-    sed -i "s|^API_BASE_URL=.*|API_BASE_URL=$TUNNEL_URL|" "$FRONTEND_ENV"
-    sed -i "s|^EXPO_PUBLIC_API_URL=.*|EXPO_PUBLIC_API_URL=$TUNNEL_URL|" "$FRONTEND_ENV"
-    echo "✅ frontend/.env updated"
-else
-    echo "⚠️  frontend/.env not found — creating from example"
-    cp "$ROOT_DIR/frontend/.env.example" "$FRONTEND_ENV"
-    sed -i "s|API_BASE_URL=.*|API_BASE_URL=$TUNNEL_URL|" "$FRONTEND_ENV"
-    sed -i "s|EXPO_PUBLIC_API_URL=.*|EXPO_PUBLIC_API_URL=$TUNNEL_URL|" "$FRONTEND_ENV"
-fi
-
-if [ -f "$BACKEND_ENV" ]; then
-    if grep -q "^BASE_URL=" "$BACKEND_ENV"; then
-        sed -i "s|^BASE_URL=.*|BASE_URL=$TUNNEL_URL|" "$BACKEND_ENV"
-    else
-        echo "BASE_URL=$TUNNEL_URL" >> "$BACKEND_ENV"
-    fi
-
-    if grep -q "^HMS_WEBHOOK_URL=" "$BACKEND_ENV"; then
-        sed -i "s|^HMS_WEBHOOK_URL=.*|HMS_WEBHOOK_URL=$WEBHOOK_URL|" "$BACKEND_ENV"
-    else
-        echo "HMS_WEBHOOK_URL=$WEBHOOK_URL" >> "$BACKEND_ENV"
-    fi
-    echo "✅ backend/.env BASE_URL updated"
-fi
-
 echo ""
 echo "┌────────────────────────────────────────────────────────────┐"
-echo "│  Backend API:  $TUNNEL_URL"
+echo "│  Backend API:  $BACKEND_URL"
 echo "│  Webhooks:     $WEBHOOK_URL"
 echo "│"
-echo "│  Backend is reachable from any network via localtunnel"
+echo "│  100ms webhook URL is static. No localtunnel needed."
 echo "└────────────────────────────────────────────────────────────┘"
 echo ""
 
-# ── Step 5: Start Expo (tunnel mode) ─────────────────────────
+# ── Step 3: Start Expo tunnel ────────────────────────────────
 echo "📱 Starting Expo (tunnel mode)..."
-echo "   Scan QR from any network — phone does NOT need to be on same WiFi"
+echo "   Scan QR from any network."
 echo ""
+
 cd "$ROOT_DIR/frontend"
-if ! npm run start:dev:tunnel; then
-    echo ""
-    echo "❌ Expo tunnel failed to start."
-    echo "   Backend tunnel is healthy: $TUNNEL_URL"
-    echo "   The failure is in Expo/@expo-ngrok, not in backend/localtunnel."
-    echo ""
-    echo "   What this means:"
-    echo "   - Same WiFi: use npm run dev"
-    echo "   - Different networks: Expo tunnel is currently unavailable in this environment"
-    echo ""
-    echo "   Retry later or use another remote-network solution for the Metro/dev-client channel."
-    exit 1
-fi
+npm run start:dev:tunnel

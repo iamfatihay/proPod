@@ -93,6 +93,58 @@ const normalizeBooleanRouteParam = (value, fallback = false) => {
     return fallback;
 };
 
+export const formatRtcElapsedDuration = (totalSeconds) => {
+    const safeSeconds = Number.isFinite(totalSeconds) && totalSeconds > 0
+        ? Math.floor(totalSeconds)
+        : 0;
+    const minutes = Math.floor(safeSeconds / 60);
+    const seconds = safeSeconds % 60;
+
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+};
+
+export const buildRtcLiveStatusPanel = ({ rtcSessionState, rtcMediaMode, elapsedSeconds }) => {
+    if (rtcSessionState === "joining") {
+        return {
+            backgroundColor: "rgba(245,158,11,0.15)",
+            borderColor: "rgba(245,158,11,0.3)",
+            icon: "radio-outline",
+            iconColor: COLORS.warning,
+            title: "Joining live room",
+            detail: "Recording begins once the room connection is confirmed.",
+            badge: null,
+        };
+    }
+
+    if (rtcSessionState === "live") {
+        return {
+            backgroundColor: "rgba(16,185,129,0.15)",
+            borderColor: "rgba(16,185,129,0.3)",
+            icon: "radio",
+            iconColor: COLORS.success,
+            title: "Recording active",
+            detail: `${rtcMediaMode === "video" ? "Audio and video" : "Audio"} is being captured now. Stay in the room until the conversation is finished.`,
+            badge: `Live ${formatRtcElapsedDuration(elapsedSeconds)}`,
+        };
+    }
+
+    return null;
+};
+
+export const buildRtcProcessingPanel = ({ isProcessingDelayed }) => {
+    if (isProcessingDelayed) {
+        return {
+            title: "Processing is taking longer than usual",
+            detail: "The recording is still waiting for its final export. Open Live Sessions to check again or retry a manual status check.",
+        };
+    }
+
+    return {
+        title: "Processing recording...",
+        detail: "This usually takes 1-3 minutes. You'll get a notification when it's done, so you can safely leave this screen.",
+    };
+};
+
 const Create = () => {
     const router = useRouter();
     const insets = useSafeAreaInsets();
@@ -133,6 +185,9 @@ const Create = () => {
     const [rtcProcessingNotifId, setRtcProcessingNotifId] = useState(null);
     const [rtcLobbyAudioMuted, setRtcLobbyAudioMuted] = useState(false);
     const [rtcLobbyVideoMuted, setRtcLobbyVideoMuted] = useState(false);
+    const [rtcLiveElapsedSeconds, setRtcLiveElapsedSeconds] = useState(0);
+    const [rtcProcessingDelayed, setRtcProcessingDelayed] = useState(false);
+    const rtcLiveStartedAtRef = useRef(null);
 
     // Podcast metadata
     const [title, setTitle] = useState(prefillTitle);
@@ -213,6 +268,9 @@ const Create = () => {
         setRtcProcessingNotifId(null);
         setRtcLobbyAudioMuted(false);
         setRtcLobbyVideoMuted(false);
+        setRtcLiveElapsedSeconds(0);
+        setRtcProcessingDelayed(false);
+        rtcLiveStartedAtRef.current = null;
     }, [
         defaultRecordingMode,
         defaultRtcMediaMode,
@@ -843,6 +901,9 @@ const Create = () => {
             });
             setRtcSessionState("lobby");
             setRtcStatusMessage("Invite guests, then go live when you're ready.");
+            setRtcLiveElapsedSeconds(0);
+            setRtcProcessingDelayed(false);
+            rtcLiveStartedAtRef.current = null;
             setCurrentStep("recording");
             Logger.info("[RTC] UI transitioned to recording step", {
                 roomId: room?.id,
@@ -888,8 +949,10 @@ const Create = () => {
             });
 
             if (session.recording_status === "completed" || session.recording_url) {
+                setRtcProcessingDelayed(false);
                 setRtcStatusMessage("Recording ready. Adding to library.");
             } else if (session.recording_status === "failed") {
+                setRtcProcessingDelayed(false);
                 setRtcStatusMessage("Recording failed. Start a new live session or review session history for details.");
             }
 
@@ -938,6 +1001,31 @@ const Create = () => {
     }, [rtcSession?.token, showToast]);
 
     useEffect(() => {
+        if (recordingMode !== "multi" || rtcSessionState !== "live") {
+            setRtcLiveElapsedSeconds(0);
+            return undefined;
+        }
+
+        const syncElapsed = () => {
+            if (!rtcLiveStartedAtRef.current) {
+                setRtcLiveElapsedSeconds(0);
+                return;
+            }
+
+            setRtcLiveElapsedSeconds(
+                Math.max(0, Math.floor((Date.now() - rtcLiveStartedAtRef.current) / 1000))
+            );
+        };
+
+        syncElapsed();
+        const intervalId = setInterval(syncElapsed, 1000);
+
+        return () => {
+            clearInterval(intervalId);
+        };
+    }, [recordingMode, rtcSessionState]);
+
+    useEffect(() => {
         if (recordingMode !== "multi") {
             return;
         }
@@ -976,6 +1064,7 @@ const Create = () => {
 
             if (session?.recording_status === "completed" || session?.recording_url || session?.podcast_id) {
                 setRtcSessionState("ready");
+                setRtcProcessingDelayed(false);
                 setRtcStatusMessage("Recording ready");
                 // Upgrade the processing notification to "ready"
                 if (rtcProcessingNotifId) {
@@ -995,6 +1084,7 @@ const Create = () => {
             }
 
             if (session?.recording_status === "failed") {
+                setRtcProcessingDelayed(false);
                 setRtcStatusMessage("Recording failed. Start a new live session or review session history for details.");
                 if (rtcProcessingNotifId) {
                     useNotificationStore.getState().updateNotification(rtcProcessingNotifId, {
@@ -1014,7 +1104,8 @@ const Create = () => {
             if (nextDelay) {
                 timeoutId = setTimeout(pollStatus, nextDelay);
             } else {
-                setRtcStatusMessage("Recording still processing. Check back in a few minutes.");
+                setRtcProcessingDelayed(true);
+                setRtcStatusMessage("Processing is taking longer than usual. Check Live Sessions again in a few minutes.");
             }
         };
 
@@ -1383,6 +1474,53 @@ const Create = () => {
 
             return (
                 <View className="flex-1 px-6">
+                    {(() => {
+                        const liveStatusPanel = buildRtcLiveStatusPanel({
+                            rtcSessionState,
+                            rtcMediaMode,
+                            elapsedSeconds: rtcLiveElapsedSeconds,
+                        });
+
+                        if (!liveStatusPanel) {
+                            return null;
+                        }
+
+                        return (
+                            <View
+                                className="mt-4 mb-4 px-4 py-3 rounded-2xl border"
+                                style={{
+                                    backgroundColor: liveStatusPanel.backgroundColor,
+                                    borderColor: liveStatusPanel.borderColor,
+                                }}
+                            >
+                                <View className="flex-row items-center justify-between mb-2">
+                                    <View className="flex-row items-center flex-1 mr-3">
+                                        <Ionicons
+                                            name={liveStatusPanel.icon}
+                                            size={18}
+                                            color={liveStatusPanel.iconColor}
+                                        />
+                                        <Text className="text-text-primary font-semibold ml-2">
+                                            {liveStatusPanel.title}
+                                        </Text>
+                                    </View>
+
+                                    {liveStatusPanel.badge && (
+                                        <View className="px-3 py-1 rounded-full bg-black/10">
+                                            <Text className="text-text-primary text-xs font-semibold">
+                                                {liveStatusPanel.badge}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+
+                                <Text className="text-text-secondary leading-5">
+                                    {liveStatusPanel.detail}
+                                </Text>
+                            </View>
+                        );
+                    })()}
+
                     <Text className="text-2xl font-bold text-text-primary text-center mt-6 mb-4">
                         {title || "Live Session"}
                     </Text>
@@ -1416,8 +1554,10 @@ const Create = () => {
                             startAudioMuted={rtcLobbyAudioMuted}
                             startVideoMuted={rtcLobbyVideoMuted}
                             onJoin={() => {
+                                rtcLiveStartedAtRef.current = Date.now();
+                                setRtcLiveElapsedSeconds(0);
                                 setRtcSessionState("live");
-                                setRtcStatusMessage("You're live.");
+                                setRtcStatusMessage("Recording is live. Keep everyone in the room until you're ready to finish.");
                                 if (rtcSession?.sessionId) {
                                     apiService.startRtcSession(rtcSession.sessionId).catch((error) => {
                                         Logger.error("Failed to mark RTC session live:", error);
@@ -1425,6 +1565,8 @@ const Create = () => {
                                 }
                             }}
                             onClose={() => {
+                                rtcLiveStartedAtRef.current = null;
+                                setRtcLiveElapsedSeconds(0);
                                 setRtcError(null);
                                 setRtcStatusMessage(null);
                                 setRtcSessionState("lobby");
@@ -1435,6 +1577,9 @@ const Create = () => {
                                 showToast(errorMsg, "error");
                             }}
                             onLeave={(summary) => {
+                                rtcLiveStartedAtRef.current = null;
+                                setRtcLiveElapsedSeconds(0);
+                                setRtcProcessingDelayed(false);
                                 if (rtcSession?.sessionId) {
                                     apiService.endRtcSession(rtcSession.sessionId).catch((error) => {
                                         Logger.error("Failed to mark RTC session ended:", error);
@@ -1473,7 +1618,7 @@ const Create = () => {
 
                     <View className="mt-4 p-3 rounded-lg bg-success/15">
                         <Text className="text-success text-center">
-                            Recording will be processed server-side. Session status is automatically checked after completion.
+                            After you leave, the export keeps processing in the background. Live Sessions will show whether it is still processing, ready, or failed.
                         </Text>
                     </View>
                 </View>
@@ -1525,6 +1670,9 @@ const Create = () => {
             const isReady = recordingStatus === "completed" || Boolean(rtcSessionSummary?.podcast_id);
             const isFailed = recordingStatus === "failed";
             const isProcessing = !isReady && !isFailed && rtcSessionState === "ended";
+            const processingPanel = buildRtcProcessingPanel({
+                isProcessingDelayed: rtcProcessingDelayed,
+            });
 
             return (
                 <ScrollView
@@ -1588,11 +1736,11 @@ const Create = () => {
                             <View className="flex-row items-center justify-center mb-2">
                                 <ActivityIndicator size="small" color={COLORS.warning} />
                                 <Text className="text-warning font-semibold ml-2">
-                                    Processing recording...
+                                    {processingPanel.title}
                                 </Text>
                             </View>
                             <Text className="text-text-secondary text-center text-sm">
-                                This usually takes 1–3 minutes. You'll get a notification when it's done — you can safely go home and wait.
+                                {processingPanel.detail}
                             </Text>
                         </View>
                     )}

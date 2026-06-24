@@ -92,7 +92,12 @@ export default function Profile() {
             if (podcastsData.status === "fulfilled") {
                 // Normalize URLs to absolute + duration seconds → ms before storing
                 const raw = podcastsData.value?.podcasts ?? [];
-                setMyPodcasts(normalizePodcasts(raw));
+                setMyPodcasts(
+                    normalizePodcasts(raw).map((p) => ({
+                        ...p,
+                        duration: (typeof p.duration === "number" && p.duration * 1000) || 0,
+                    }))
+                );
             }
         } catch (e) {
             Logger.error("Profile: failed to load stats", e);

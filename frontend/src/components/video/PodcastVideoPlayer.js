@@ -33,7 +33,7 @@ const PodcastVideoPlayer = ({ uri, title, subtitle }) => {
             <View className="bg-panel rounded-2xl overflow-hidden border border-border">
                 <VideoView
                     player={player}
-                    style={{ width: "100%", aspectRatio: 16 / 9, backgroundColor: "#000" }}
+                    style={{ width: "100%", aspectRatio: 9 / 16, backgroundColor: "#000" }}
                     nativeControls
                     allowsPictureInPicture
                     contentFit="contain"

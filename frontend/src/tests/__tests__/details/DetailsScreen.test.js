@@ -58,6 +58,7 @@ jest.mock("expo-router", () => ({
         push: mockPush,
     }),
     useLocalSearchParams: () => mockParams,
+    useFocusEffect: (cb) => { const { useEffect } = require("react"); useEffect(cb, []); },
 }));
 
 jest.mock("../../../context/useAudioStore", () => ({
