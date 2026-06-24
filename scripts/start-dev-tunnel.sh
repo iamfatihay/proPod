@@ -69,6 +69,11 @@ else
 fi
 
 # ── Step 2: Start ngrok static backend tunnel ────────────────
+if ! command -v ngrok &> /dev/null; then
+    echo "❌ Error: ngrok not found on PATH. Install it from https://ngrok.com/download and ensure it is in your PATH."
+    exit 1
+fi
+
 echo "🌐 Starting ngrok backend tunnel..."
 cd "$ROOT_DIR"
 

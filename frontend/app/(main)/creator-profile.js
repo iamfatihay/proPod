@@ -113,7 +113,8 @@ export default function CreatorProfile() {
                 podcastData.podcasts || podcastData || []
             ).map((p) => ({
                 ...p,
-                duration: (typeof p.duration === "number" && p.duration * 1000) || 0,
+                // PodcastCard expects milliseconds; API returns seconds
+                duration: typeof p.duration === "number" ? p.duration * 1000 : 0,
             }));
             setPodcasts(normalized);
             setTotal(podcastData.total ?? normalized.length);
@@ -143,7 +144,8 @@ export default function CreatorProfile() {
                 podcastData.podcasts || podcastData || []
             ).map((p) => ({
                 ...p,
-                duration: (typeof p.duration === "number" && p.duration * 1000) || 0,
+                // PodcastCard expects milliseconds; API returns seconds
+                duration: typeof p.duration === "number" ? p.duration * 1000 : 0,
             }));
             setPodcasts((prev) => [...prev, ...normalized]);
             setPage((p) => p + 1);

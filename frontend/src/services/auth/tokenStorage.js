@@ -3,9 +3,8 @@ import * as SecureStore from "expo-secure-store";
 
 const isWeb = Platform.OS === "web";
 
-// Web storage is a development/debug fallback only.
-// Production web auth should use a safer strategy such as HttpOnly cookies.
-// Mobile builds continue to use expo-secure-store.
+// Web builds use localStorage since expo-secure-store is mobile-only.
+// Production web auth should migrate to HttpOnly cookies for better security.
 const getWebStorage = () => {
     if (
         typeof globalThis === "undefined" ||

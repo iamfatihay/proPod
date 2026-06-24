@@ -111,6 +111,7 @@ const Details = () => {
     // Ref to suppress "Download failed" toast when the user intentionally cancels
     const downloadCancelledRef = useRef(false);
     const detailsRequestIdRef = useRef(0);
+    const aiPollingActiveRef = useRef(false);
 
     const isVideoPodcast = Boolean(
         podcast?.media_type === "video" && podcast?.video_url
@@ -123,6 +124,10 @@ const Details = () => {
             clearError(); // Clear error after showing
         }
     }, [audioError, clearError, showToast]);
+
+    useEffect(() => {
+        return () => { aiPollingActiveRef.current = false; };
+    }, []);
 
     const loadPodcastDetails = useCallback(async (requestedPodcastId = podcastId) => {
         if (!requestedPodcastId) {
@@ -613,9 +618,12 @@ const Details = () => {
             // Poll until completed or failed (max ~3 min, every 5s)
             const MAX_POLLS = 36;
             let finalStatus = "timeout";
+            aiPollingActiveRef.current = true;
 
             for (let i = 0; i < MAX_POLLS; i++) {
                 await new Promise((resolve) => setTimeout(resolve, 5000));
+
+                if (!aiPollingActiveRef.current) break;
 
                 try {
                     const updated = await apiService.getPodcast(podcast.id);
@@ -648,6 +656,7 @@ const Details = () => {
             
             void hapticFeedback.vibrate(500);
         } finally {
+            aiPollingActiveRef.current = false;
             setIsProcessingAI(false);
         }
     };
