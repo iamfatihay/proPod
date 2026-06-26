@@ -52,3 +52,12 @@ export const HMSPeerUpdate = {
 export const HMSRoomUpdate = {
     ROOM_PEER_COUNT_UPDATED: "ROOM_PEER_COUNT_UPDATED",
 };
+
+export const HMSAudioTrackSettings = jest.fn().mockImplementation((settings) => settings);
+
+export const HMSTrackSettings = jest.fn().mockImplementation((settings) => settings);
+
+export const HMSIOSAudioMode = {
+    MUSIC: "MUSIC",
+    VOICE: "VOICE",
+};
