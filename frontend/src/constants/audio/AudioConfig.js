@@ -1,8 +1,8 @@
 export const AudioConfig = {
     // Base Recording Settings (expo-audio compatible)
-    SAMPLE_RATE: 44100,
+    SAMPLE_RATE: 48000,
     CHANNELS: 1,
-    BIT_RATE: 128000,
+    BIT_RATE: 192000,
 
     // Android specific constants (expo-audio uses string enums)
     ANDROID_OUTPUT_FORMAT: "mpeg4", // MPEG_4
@@ -14,10 +14,10 @@ export const AudioConfig = {
 
     // Streaming Settings (for live streaming features)
     streaming: {
-        sampleRate: 44100,
-        bitRate: 64000,
+        sampleRate: 48000,
+        bitRate: 192000,
         numberOfChannels: 1,
-        bufferSize: 1024,
+        bufferSize: 2048,
     },
 
     // Audio Processing (for future AI features)

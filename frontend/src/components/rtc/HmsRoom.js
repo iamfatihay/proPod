@@ -5,6 +5,7 @@ import {
     TouchableOpacity,
     FlatList,
     ActivityIndicator,
+    Platform,
 } from "react-native";
 import {
     HMSSDK,
@@ -13,6 +14,9 @@ import {
     HMSTrackType,
     HMSTrackUpdate,
     HMSPeerUpdate,
+    HMSAudioTrackSettings,
+    HMSTrackSettings,
+    HMSIOSAudioMode,
 } from "@100mslive/react-native-hms";
 import { Ionicons } from "@expo/vector-icons";
 import { requestCameraPermissionsAsync } from "expo-image-picker";
@@ -525,7 +529,12 @@ const HmsRoom = ({
                     return;
                 }
 
-                const hmsInstance = await HMSSDK.build();
+                const audioTrackSettings = new HMSAudioTrackSettings({
+                    audioMode: Platform.OS === "ios" ? HMSIOSAudioMode.MUSIC : undefined,
+                    useHardwareEchoCancellation: Platform.OS === "android" ? true : undefined,
+                });
+                const trackSettings = new HMSTrackSettings({ audio: audioTrackSettings });
+                const hmsInstance = await HMSSDK.build({ trackSettings });
 
                 if (await abortJoinIfNeeded("after-build", hmsInstance)) {
                     return;
