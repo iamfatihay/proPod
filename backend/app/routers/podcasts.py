@@ -6,6 +6,7 @@ from pathlib import Path as SysPath, PurePath
 import json
 import time
 import os
+import tempfile
 from pydub import AudioSegment
 
 from .. import schemas, crud, models, auth, config
@@ -15,10 +16,13 @@ from ..services.storage_service import storage_service
 
 router = APIRouter(prefix="/podcasts", tags=["podcasts"])
 
-# Maximum upload size in bytes (100 MB). Extracted as a module constant so
-# tests can monkeypatch it to avoid allocating large in-memory payloads.
-MAX_UPLOAD_SIZE = 100 * 1024 * 1024
+# Per-type upload limits. Extracted as module constants so tests can monkeypatch them.
+MAX_AUDIO_UPLOAD_SIZE = 100 * 1024 * 1024   # 100 MB  (~13 hrs at 128 kbps)
+MAX_VIDEO_UPLOAD_SIZE = 500 * 1024 * 1024   # 500 MB  (~66 min at 1 Mbps 720p)
+MAX_UPLOAD_SIZE = MAX_AUDIO_UPLOAD_SIZE      # kept for backward compat with tests
 MAX_IMAGE_UPLOAD_SIZE = 5 * 1024 * 1024
+
+_CHUNK_SIZE = 1024 * 1024  # 1 MB read chunks
 
 
 def _detect_image_content_type(contents: bytes) -> Optional[str]:
@@ -73,47 +77,64 @@ async def upload_podcast_audio(
     file: UploadFile = File(...),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    """Upload a podcast audio file and return its public URL path"""
+    """Upload a podcast audio or video file and return its public URL."""
+    allowed_types = {"audio/mpeg", "audio/mp4",
+                     "audio/m4a", "audio/aac", "audio/wav", "audio/ogg",
+                     "video/mp4", "video/quicktime"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unsupported file type: {file.content_type}. Allowed: {', '.join(allowed_types)}",
+        )
+
+    is_video = file.content_type.startswith("video/")
+    max_size = MAX_VIDEO_UPLOAD_SIZE if is_video else MAX_AUDIO_UPLOAD_SIZE
+    media_kind = "video" if is_video else "audio"
+
+    original_suffix = SysPath(file.filename or "").suffix or (".mp4" if is_video else ".m4a")
+    safe_name = f"podcast_{current_user.id}_{time.time_ns()}{original_suffix}"
+
+    # Stream upload to a temp file to avoid loading large files into server RAM
+    tmp_path = None
     try:
-        # Validate file type and size
-        allowed_types = {"audio/mpeg", "audio/mp4",
-                         "audio/m4a", "audio/aac", "audio/wav", "audio/ogg"}
-        if file.content_type not in allowed_types:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Unsupported file type: {file.content_type}. Allowed types: {', '.join(allowed_types)}",
-            )
+        with tempfile.NamedTemporaryFile(delete=False, suffix=original_suffix) as tmp:
+            tmp_path = tmp.name
+            total_size = 0
+            while True:
+                chunk = await file.read(_CHUNK_SIZE)
+                if not chunk:
+                    break
+                total_size += len(chunk)
+                if total_size > max_size:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=f"File too large. Max for {media_kind}: {max_size // (1024 * 1024)} MB",
+                    )
+                tmp.write(chunk)
 
-        # Read file content to check size
-        contents = await file.read()
-        if len(contents) > MAX_UPLOAD_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"File too large. Maximum size: {MAX_UPLOAD_SIZE // (1024*1024)}MB",
-            )
-
-        # Build a safe filename
-        original_suffix = SysPath(file.filename).suffix or ".mp3"
-        safe_name = f"podcast_{current_user.id}_{time.time_ns()}{original_suffix}"
-        stored_audio_url = await storage_service.persist_bytes(
-            contents,
+        stored_url = await storage_service.persist_file(
+            tmp_path,
             safe_name,
             content_type=file.content_type,
+            media_kind=media_kind,
         )
 
         return schemas.AudioUploadResponse(
-            audio_url=storage_service.get_playback_url(stored_audio_url),
-            file_size=len(contents),
+            audio_url=storage_service.get_playback_url(stored_url),
+            file_size=total_size,
             content_type=file.content_type,
-            filename=safe_name
+            filename=safe_name,
         )
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Audio upload failed: {str(e)}",
+            detail=f"Upload failed: {str(e)}",
         )
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 
 @router.post("/upload-thumbnail", response_model=schemas.ImageUploadResponse)

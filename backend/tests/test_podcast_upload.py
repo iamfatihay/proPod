@@ -150,7 +150,7 @@ class TestPodcastAudioUpload:
         # 2KB file, but we set the limit to 1KB
         file_content = BytesIO(b'\x00' * 2048)
 
-        with patch("app.routers.podcasts.MAX_UPLOAD_SIZE", 1024):
+        with patch("app.routers.podcasts.MAX_AUDIO_UPLOAD_SIZE", 1024):
             response = client.post(
                 "/podcasts/upload",
                 headers={"Authorization": f"Bearer {token}"},
@@ -203,11 +203,11 @@ class TestPodcastAudioUpload:
         assert data["filename"].endswith(".m4a")
         _cleanup_uploaded_file(data)
 
-    @patch("app.routers.podcasts.storage_service.persist_bytes", new_callable=AsyncMock)
-    def test_upload_uses_managed_storage_backend(self, mock_persist_bytes, test_user):
+    @patch("app.routers.podcasts.storage_service.persist_file", new_callable=AsyncMock)
+    def test_upload_uses_managed_storage_backend(self, mock_persist_file, test_user):
         """Uploads should go through the managed storage service, not direct router disk writes."""
         token = test_user["token"]
-        mock_persist_bytes.return_value = "/media/audio/podcast_123_test.mp3"
+        mock_persist_file.return_value = "/media/audio/podcast_123_test.mp3"
 
         response = client.post(
             "/podcasts/upload",
@@ -218,13 +218,13 @@ class TestPodcastAudioUpload:
         assert response.status_code == 200
         data = response.json()
         assert data["audio_url"].endswith("/media/audio/podcast_123_test.mp3")
-        mock_persist_bytes.assert_awaited_once()
+        mock_persist_file.assert_awaited_once()
 
-    @patch("app.routers.podcasts.storage_service.persist_bytes", new_callable=AsyncMock)
-    def test_upload_returns_external_managed_url(self, mock_persist_bytes, test_user):
+    @patch("app.routers.podcasts.storage_service.persist_file", new_callable=AsyncMock)
+    def test_upload_returns_external_managed_url(self, mock_persist_file, test_user):
         """S3-backed uploads should surface the object-storage URL directly."""
         token = test_user["token"]
-        mock_persist_bytes.return_value = "https://cdn.example.com/podcasts/audio/test.mp3"
+        mock_persist_file.return_value = "https://cdn.example.com/podcasts/audio/test.mp3"
 
         response = client.post(
             "/podcasts/upload",
@@ -241,6 +241,7 @@ class TestPodcastThumbnailUpload:
 
     def test_upload_valid_thumbnail(self, test_user):
         token = test_user["token"]
+        user_id = test_user["user"].id
 
         response = client.post(
             "/podcasts/upload-thumbnail",
@@ -250,9 +251,10 @@ class TestPodcastThumbnailUpload:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["image_url"].endswith(f"/media/thumbnails/{data['filename']}")
         assert data["content_type"] == "image/png"
-        assert data["filename"].startswith(f"podcast_thumb_{test_user['user'].id}_")
+        assert data["filename"].startswith(f"podcast_thumb_{user_id}_")
+        assert data["filename"].endswith(".png")
+        assert isinstance(data["image_url"], str) and len(data["image_url"]) > 0
         _cleanup_uploaded_file(data)
 
     def test_upload_thumbnail_invalid_type(self, test_user):

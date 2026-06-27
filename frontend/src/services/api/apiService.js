@@ -203,8 +203,10 @@ class ApiService {
         };
 
         // Create AbortController for timeout handling
+        // _timeout option allows callers (e.g. large file uploads) to override the default
+        const effectiveTimeout = options._timeout || NETWORK_TIMEOUT;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), NETWORK_TIMEOUT);
+        const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
         config.signal = controller.signal;
 
         try {
@@ -885,14 +887,17 @@ class ApiService {
         // IMPORTANT: Don't set Content-Type or headers for FormData
         // The system will set Content-Type automatically with the correct boundary
         // Don't pass headers at all - let request() handle Authorization automatically
+        const isVideo = audioFile.type && audioFile.type.startsWith("video/");
         return this.requestWithRetry(
             "/podcasts/upload",
             {
                 method: "POST",
                 body: formData,
                 // headers intentionally omitted - request() will add Authorization automatically
+                // Video files need a much longer timeout; skip retries to avoid re-uploading large files
+                ...(isVideo && { _timeout: 120000 }),
             },
-            true
+            !isVideo // no retry for video uploads
         );
     }
 

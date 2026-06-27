@@ -30,6 +30,7 @@ module.exports = {
         "^react-native-paper$": "<rootDir>/src/tests/mocks/reactNativePaper.js",
         "^@100mslive/react-native-hms$": "<rootDir>/src/tests/mocks/hmsSDK.js",
         "^expo-image-picker$": "<rootDir>/src/tests/mocks/expoImagePicker.js",
+        "^expo-camera$": "<rootDir>/src/tests/mocks/expoCamera.js",
         "^@/(.*)$": "<rootDir>/src/$1",
         "^~/(.*)$": "<rootDir>/$1",
     },

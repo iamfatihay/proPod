@@ -88,6 +88,14 @@ export default ({ config }) => ({
     plugins: [
         "expo-secure-store",
         "expo-router",
+        [
+            "expo-camera",
+            {
+                cameraPermission: "Allow Volo to access your camera to record video podcasts.",
+                microphonePermission: "Allow Volo to access your microphone to record podcasts.",
+                recordAudioAndroid: true,
+            },
+        ],
         "expo-font",
         "expo-image-picker",
         "expo-asset",

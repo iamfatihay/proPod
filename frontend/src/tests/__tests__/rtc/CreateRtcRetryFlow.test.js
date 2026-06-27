@@ -171,8 +171,8 @@ describe("RTC session history helpers", () => {
 
         expect(getByDisplayValue("Weekly Sync")).toBeTruthy();
         expect(getByDisplayValue("Retry after a failed export")).toBeTruthy();
-        expect(getByText("Using Previous Live Session Setup")).toBeTruthy();
-        expect(getByText("Multi-host live")).toBeTruthy();
+        expect(getByText("Previous Session Restored")).toBeTruthy();
+        expect(getByText("Multi-host")).toBeTruthy();
         expect(getByText("Audio only")).toBeTruthy();
     });
 });

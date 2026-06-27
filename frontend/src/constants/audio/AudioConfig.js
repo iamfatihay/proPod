@@ -1,8 +1,9 @@
 export const AudioConfig = {
     // Base Recording Settings (expo-audio compatible)
-    SAMPLE_RATE: 48000,
+    // 44.1 kHz mono 128 kbps AAC = podcast industry standard (~57 MB/hour)
+    SAMPLE_RATE: 44100,
     CHANNELS: 1,
-    BIT_RATE: 192000,
+    BIT_RATE: 128000,
 
     // Android specific constants (expo-audio uses string enums)
     ANDROID_OUTPUT_FORMAT: "mpeg4", // MPEG_4
@@ -10,12 +11,12 @@ export const AudioConfig = {
 
     // iOS specific constants
     IOS_OUTPUT_FORMAT: 0, // LINEARPCM / MPEG4AAC equivalent
-    IOS_AUDIO_QUALITY: 0x7f, // HIGH (127 in hex)
+    IOS_AUDIO_QUALITY: 0x60, // HIGH (96) — sufficient for speech, was MAX (127)
 
     // Streaming Settings (for live streaming features)
     streaming: {
-        sampleRate: 48000,
-        bitRate: 192000,
+        sampleRate: 44100,
+        bitRate: 128000,
         numberOfChannels: 1,
         bufferSize: 2048,
     },
