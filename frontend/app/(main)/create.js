@@ -732,7 +732,6 @@ const Create = () => {
                     });
                 }
 
-                await protectionService.clearDraft();
             }
 
             // Create podcast with uploaded media URL
@@ -742,6 +741,12 @@ const Create = () => {
                     : { ...podcastData, audio_url: uploadRes.audio_url };
 
             const createdPodcast = await apiService.createPodcast(finalPodcastData);
+
+            // Clear draft only after podcast is successfully created — if createPodcast()
+            // fails above, the draft is preserved so the user can retry saving.
+            if (rtcMediaMode !== "video") {
+                await protectionService.clearDraft();
+            }
 
             const aiProcessingStarted = await maybeStartAiProcessingForPodcast({
                 enabled: aiEnabledForSave,

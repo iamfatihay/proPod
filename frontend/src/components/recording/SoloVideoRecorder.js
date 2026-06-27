@@ -141,11 +141,14 @@ const SoloVideoRecorder = ({ onRecordingStop, onClose, disabled }) => {
                 )}
 
                 <View className="flex-row items-center" style={{ gap: 8 }}>
-                    {/* Camera on/off toggle */}
+                    {/* Camera on/off toggle — disabled while recording to prevent unmounting CameraView during recordAsync */}
                     <TouchableOpacity
-                        onPress={() => setIsCameraOff((prev) => !prev)}
+                        onPress={() => !isRecording && setIsCameraOff((prev) => !prev)}
                         className="w-9 h-9 rounded-full items-center justify-center"
-                        style={{ backgroundColor: isCameraOff ? "rgba(239,68,68,0.6)" : "rgba(0,0,0,0.5)" }}
+                        style={{
+                            backgroundColor: isCameraOff ? "rgba(239,68,68,0.6)" : "rgba(0,0,0,0.5)",
+                            opacity: isRecording ? 0.4 : 1,
+                        }}
                     >
                         <Ionicons name={isCameraOff ? "videocam-off" : "videocam"} size={18} color="white" />
                     </TouchableOpacity>
