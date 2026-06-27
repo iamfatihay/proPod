@@ -41,7 +41,10 @@ import downloadService from "../../src/services/downloads/downloadService";
 const { width: screenWidth } = Dimensions.get("window");
 
 const formatTimeAgo = (dateString) => {
-    const diff = Date.now() - new Date(dateString).getTime();
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    const diff = Date.now() - date.getTime();
     const m = Math.floor(diff / 60000);
     if (m < 1) return "just now";
     if (m < 60) return `${m}m ago`;
@@ -592,10 +595,6 @@ const Details = () => {
 
     const handleDownload = async () => {
         if (!podcast?.audio_url && !podcast?.video_url) return;
-        if (isVideoPodcast) {
-            showToast("Video download is not yet supported", "info");
-            return;
-        }
 
         if (isDownloading) {
             // Mark as intentional cancel BEFORE awaiting cancelAsync so the

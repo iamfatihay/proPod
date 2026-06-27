@@ -50,9 +50,9 @@ async function writeStore(data) {
 }
 
 /** Pick a safe local filename for a podcast episode. */
-function localFilename(podcastId, mediaUrl) {
+function localFilename(podcastId, mediaUrl, fallbackExt = 'mp3') {
     const rawExt = (mediaUrl || '').split('?')[0].split('.').pop()?.toLowerCase();
-    const ext = ['mp3', 'm4a', 'aac', 'wav', 'ogg', 'mp4', 'mov', 'webm'].includes(rawExt) ? rawExt : 'mp3';
+    const ext = ['mp3', 'm4a', 'aac', 'wav', 'ogg', 'mp4', 'mov', 'webm'].includes(rawExt) ? rawExt : fallbackExt;
     return `podcast_${podcastId}.${ext}`;
 }
 
@@ -111,7 +111,8 @@ async function downloadEpisode(podcast, onProgress) {
     if (_activeDownloads[String(id)]) throw new Error('Download already in progress');
 
     await ensureDir();
-    const localUri = DOWNLOADS_DIR + localFilename(id, mediaUrl);
+    const fallbackExt = media_type === 'video' ? 'mp4' : 'mp3';
+    const localUri = DOWNLOADS_DIR + localFilename(id, mediaUrl, fallbackExt);
 
     const handleProgress = ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
         if (onProgress && totalBytesExpectedToWrite > 0) {
