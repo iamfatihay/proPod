@@ -201,6 +201,7 @@ export default function HomeScreen() {
             const normalized = (res || []).map((item) => ({
                 ...item,
                 audio_url: toAbsoluteUrl(item.audio_url),
+                video_url: toAbsoluteUrl(item.video_url),
                 thumbnail_url: toAbsoluteUrl(item.thumbnail_url),
             }));
             setContinueListening(normalized);

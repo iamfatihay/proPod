@@ -252,7 +252,9 @@ const PlaylistDetail = () => {
     // Build a track list from the playlist's playable items
     const buildTracks = useCallback(() => {
         const playableItems = (playlist?.items || []).filter(
-            (item) => item.podcast?.audio_url
+            (item) =>
+                item.podcast?.audio_url ||
+                (item.podcast?.media_type === "video" && item.podcast?.video_url)
         );
         return playableItems
             .map((item) => buildPodcastAudioTrack(item.podcast))
@@ -318,7 +320,11 @@ const PlaylistDetail = () => {
     const title = playlist?.name || params.name || "Playlist";
     const items = playlist?.items || [];
     // Derive playable count once so both the button guard and handlePlayAll agree
-    const playableCount = items.filter((item) => item.podcast?.audio_url).length;
+    const playableCount = items.filter(
+        (item) =>
+            item.podcast?.audio_url ||
+            (item.podcast?.media_type === "video" && item.podcast?.video_url)
+    ).length;
 
     return (
         <SafeAreaView className="flex-1 bg-background" style={{ paddingTop: insets.top }}>

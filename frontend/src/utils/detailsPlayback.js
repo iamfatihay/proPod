@@ -16,7 +16,7 @@ export const buildPodcastPlaybackQueue = (
     }
 
     const relatedTracks = relatedPodcasts
-        .filter((podcast) => podcast?.audio_url)
+        .filter((podcast) => podcast?.audio_url || (podcast?.media_type === "video" && podcast?.video_url))
         .map((podcast) => buildDetailsQueueTrack(podcast))
         .filter(Boolean);
 
@@ -34,8 +34,9 @@ export const buildRelatedPlaybackQueue = (
     }
 
     const remainingTracks = relatedPodcasts
-        .filter(
-            (podcast) => podcast?.audio_url && podcast.id !== selectedPodcast.id
+        .filter((podcast) =>
+            podcast.id !== selectedPodcast.id &&
+            (podcast?.audio_url || (podcast?.media_type === "video" && podcast?.video_url))
         )
         .map((podcast) => buildDetailsQueueTrack(podcast))
         .filter(Boolean);

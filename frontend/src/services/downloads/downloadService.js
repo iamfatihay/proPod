@@ -50,9 +50,9 @@ async function writeStore(data) {
 }
 
 /** Pick a safe local filename for a podcast episode. */
-function localFilename(podcastId, audioUrl) {
-    const rawExt = (audioUrl || '').split('?')[0].split('.').pop()?.toLowerCase();
-    const ext = ['mp3', 'm4a', 'aac', 'wav', 'ogg'].includes(rawExt) ? rawExt : 'mp3';
+function localFilename(podcastId, mediaUrl) {
+    const rawExt = (mediaUrl || '').split('?')[0].split('.').pop()?.toLowerCase();
+    const ext = ['mp3', 'm4a', 'aac', 'wav', 'ogg', 'mp4', 'mov', 'webm'].includes(rawExt) ? rawExt : 'mp3';
     return `podcast_${podcastId}.${ext}`;
 }
 
@@ -105,12 +105,13 @@ async function getLocalUri(podcastId) {
  * @returns {Promise<{ localUri: string }>}
  */
 async function downloadEpisode(podcast, onProgress) {
-    const { id, audio_url, title } = podcast;
-    if (!id || !audio_url) throw new Error('Missing podcast id or audio_url');
+    const { id, audio_url, video_url, media_type, title } = podcast;
+    const mediaUrl = media_type === "video" ? video_url : audio_url;
+    if (!id || !mediaUrl) throw new Error('Missing podcast id or media URL');
     if (_activeDownloads[String(id)]) throw new Error('Download already in progress');
 
     await ensureDir();
-    const localUri = DOWNLOADS_DIR + localFilename(id, audio_url);
+    const localUri = DOWNLOADS_DIR + localFilename(id, mediaUrl);
 
     const handleProgress = ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
         if (onProgress && totalBytesExpectedToWrite > 0) {
@@ -119,7 +120,7 @@ async function downloadEpisode(podcast, onProgress) {
     };
 
     const download = FileSystem.createDownloadResumable(
-        audio_url,
+        mediaUrl,
         localUri,
         {},
         handleProgress,

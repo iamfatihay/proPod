@@ -1,13 +1,20 @@
 const UNKNOWN_ARTIST = "Unknown Artist";
 
+const isVideoPodcast = (podcast) =>
+    podcast?.media_type === "video" && Boolean(podcast?.video_url);
+
+const resolveMediaUrl = (podcast) =>
+    isVideoPodcast(podcast) ? podcast.video_url : podcast?.audio_url;
+
 export const buildPodcastAudioTrack = (podcast, options = {}) => {
-    if (!podcast?.audio_url && !options.uriOverride) {
+    const mediaUrl = options.uriOverride || resolveMediaUrl(podcast);
+    if (!mediaUrl) {
         return null;
     }
 
     return {
         id: podcast.id,
-        uri: options.uriOverride || podcast.audio_url,
+        uri: mediaUrl,
         title: podcast.title,
         artist: podcast.owner?.name || UNKNOWN_ARTIST,
         duration: (podcast.duration || 0) * 1000,
@@ -15,6 +22,7 @@ export const buildPodcastAudioTrack = (podcast, options = {}) => {
         category: podcast.category,
         description: podcast.description,
         ownerId: podcast.owner?.id ?? podcast.owner_id,
+        isVideo: isVideoPodcast(podcast),
     };
 };
 
@@ -27,6 +35,8 @@ export const buildContinueListeningAudioTrack = (item, options = {}) => {
         {
             id: item.podcast_id,
             audio_url: item.audio_url,
+            video_url: item.video_url,
+            media_type: item.media_type,
             title: item.title,
             duration: item.duration,
             thumbnail_url: item.thumbnail_url,
