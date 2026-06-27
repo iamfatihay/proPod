@@ -99,7 +99,7 @@ describe('downloadEpisode', () => {
     it('throws if podcast id or audio_url is missing', async () => {
         await expect(
             downloadService.downloadEpisode({ id: null, audio_url: '' })
-        ).rejects.toThrow('Missing podcast id or audio_url');
+        ).rejects.toThrow('Missing podcast id or media URL');
     });
 });
 
@@ -182,4 +182,92 @@ describe('cancelDownload', () => {
     it('is a no-op when no download is active for that id', async () => {
         await expect(downloadService.cancelDownload(42)).resolves.toBeUndefined();
     });
+});
+
+// ─── video podcast download support ──────────────────────────────────────────
+
+describe('downloadEpisode — video podcasts', () => {
+    const VIDEO_PODCAST = {
+        id: 77,
+        media_type: 'video',
+        video_url: 'https://cdn.example.com/episode.mp4',
+        audio_url: null,
+        title: 'Video Episode',
+    };
+    const VIDEO_LOCAL_URI = DOWNLOADS_DIR + 'podcast_77.mp4';
+
+    it('downloads a video podcast using video_url', async () => {
+        FileSystem.createDownloadResumable.mockReturnValue({
+            downloadAsync: jest.fn().mockResolvedValue({ uri: VIDEO_LOCAL_URI }),
+            cancelAsync: jest.fn(),
+        });
+
+        const result = await downloadService.downloadEpisode(VIDEO_PODCAST);
+
+        expect(result.localUri).toBe(VIDEO_LOCAL_URI);
+        expect(FileSystem.createDownloadResumable).toHaveBeenCalledWith(
+            VIDEO_PODCAST.video_url,
+            expect.stringContaining('podcast_77.mp4'),
+            {},
+            expect.any(Function),
+        );
+    });
+
+    it('stores video download metadata in AsyncStorage', async () => {
+        FileSystem.createDownloadResumable.mockReturnValue({
+            downloadAsync: jest.fn().mockResolvedValue({ uri: VIDEO_LOCAL_URI }),
+            cancelAsync: jest.fn(),
+        });
+
+        await downloadService.downloadEpisode(VIDEO_PODCAST);
+
+        const stored = JSON.parse(
+            AsyncStorage.__getMockStorage()['@propod/downloads'] || '{}'
+        );
+        expect(stored['77']).toMatchObject({
+            localUri: VIDEO_LOCAL_URI,
+            title: 'Video Episode',
+        });
+    });
+
+    it('throws when video podcast has no video_url', async () => {
+        await expect(
+            downloadService.downloadEpisode({ id: 78, media_type: 'video', video_url: null, audio_url: null })
+        ).rejects.toThrow('Missing podcast id or media URL');
+    });
+});
+
+// ─── localFilename extension handling ────────────────────────────────────────
+
+describe('localFilename (extension parsing)', () => {
+    // Access via downloadEpisode to indirectly test localFilename behaviour
+    const testExtension = async (url, expectedSuffix) => {
+        FileSystem.createDownloadResumable.mockReturnValue({
+            downloadAsync: jest.fn().mockResolvedValue({ uri: DOWNLOADS_DIR + `podcast_99${expectedSuffix}` }),
+            cancelAsync: jest.fn(),
+        });
+        const result = await downloadService.downloadEpisode({ id: 99, audio_url: url, title: 'ext test' });
+        expect(FileSystem.createDownloadResumable).toHaveBeenCalledWith(
+            url,
+            expect.stringContaining(`podcast_99${expectedSuffix}`),
+            {},
+            expect.any(Function),
+        );
+        return result;
+    };
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        AsyncStorage.__clearMockStorage();
+        FileSystem.getInfoAsync.mockResolvedValue({ exists: true });
+        FileSystem.makeDirectoryAsync.mockResolvedValue(undefined);
+        FileSystem.deleteAsync.mockResolvedValue(undefined);
+    });
+
+    it('preserves .mp3 extension', () => testExtension('https://cdn.example.com/ep.mp3', '.mp3'));
+    it('preserves .m4a extension', () => testExtension('https://cdn.example.com/ep.m4a', '.m4a'));
+    it('preserves .mp4 extension', () => testExtension('https://cdn.example.com/ep.mp4', '.mp4'));
+    it('preserves .mov extension', () => testExtension('https://cdn.example.com/ep.mov', '.mov'));
+    it('strips query params before parsing extension', () => testExtension('https://cdn.example.com/ep.mp4?signed=abc', '.mp4'));
+    it('falls back to .mp3 for unknown extensions', () => testExtension('https://cdn.example.com/ep.xyz', '.mp3'));
 });

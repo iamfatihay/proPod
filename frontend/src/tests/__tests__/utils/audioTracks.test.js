@@ -29,6 +29,7 @@ describe("audioTracks helpers", () => {
             category: "Technology",
             description: "Shared helper coverage",
             ownerId: 91,
+            isVideo: false,
         });
     });
 
@@ -56,6 +57,7 @@ describe("audioTracks helpers", () => {
             category: "Business",
             description: "Resume helper coverage",
             ownerId: 44,
+            isVideo: false,
         });
     });
 
@@ -84,5 +86,90 @@ describe("audioTracks helpers", () => {
                 ownerId: 45,
             })
         );
+    });
+
+    // ── Video podcast support ────────────────────────────────────────────────
+
+    it("uses video_url for video podcasts and sets isVideo: true", () => {
+        const track = buildPodcastAudioTrack({
+            id: 42,
+            media_type: "video",
+            video_url: "https://cdn.example.com/podcast.mp4",
+            audio_url: null,
+            title: "Video Episode",
+            duration: 120,
+            thumbnail_url: "https://cdn.example.com/thumb.jpg",
+            category: "Tech",
+            description: "Video desc",
+            owner: { id: 1, name: "Creator" },
+        });
+        expect(track.uri).toBe("https://cdn.example.com/podcast.mp4");
+        expect(track.isVideo).toBe(true);
+    });
+
+    it("prefers uriOverride over video_url for video podcasts", () => {
+        const track = buildPodcastAudioTrack(
+            {
+                id: 42,
+                media_type: "video",
+                video_url: "https://cdn.example.com/podcast.mp4",
+                owner: { id: 1, name: "Creator" },
+            },
+            { uriOverride: "file:///local/video.mp4" }
+        );
+        expect(track.uri).toBe("file:///local/video.mp4");
+        expect(track.isVideo).toBe(true);
+    });
+
+    it("returns null for video podcast missing video_url", () => {
+        expect(
+            buildPodcastAudioTrack({
+                id: 43,
+                media_type: "video",
+                video_url: null,
+                audio_url: null,
+            })
+        ).toBeNull();
+    });
+
+    it("treats podcast with video_url but no media_type as audio (uses audio_url)", () => {
+        const track = buildPodcastAudioTrack({
+            id: 44,
+            audio_url: "https://cdn.example.com/audio.mp3",
+            video_url: "https://cdn.example.com/video.mp4",
+            // no media_type
+            owner: { id: 1, name: "Host" },
+        });
+        expect(track.uri).toBe("https://cdn.example.com/audio.mp3");
+        expect(track.isVideo).toBe(false);
+    });
+
+    it("builds a video continue-listening track with video_url", () => {
+        const track = buildContinueListeningAudioTrack({
+            podcast_id: 55,
+            media_type: "video",
+            video_url: "https://cdn.example.com/video.mp4",
+            audio_url: null,
+            title: "Video Resume",
+            duration: 80,
+            owner_id: 2,
+            owner_name: "Host",
+        });
+        expect(track).not.toBeNull();
+        expect(track.uri).toBe("https://cdn.example.com/video.mp4");
+        expect(track.isVideo).toBe(true);
+        expect(track.id).toBe(55);
+    });
+
+    it("returns null for continue-listening video item missing video_url", () => {
+        expect(
+            buildContinueListeningAudioTrack({
+                podcast_id: 56,
+                media_type: "video",
+                video_url: null,
+                audio_url: null,
+                title: "Broken Video",
+            })
+        ).toBeNull();
     });
 });
