@@ -1,50 +1,41 @@
 #!/bin/bash
-# Pre-commit hook: Automatically run tests before commit
-# Install: ./scripts/install-hooks.sh
-
-echo "🔍 Running tests..."
+# Pre-commit hook: fast syntax check only.
+# Full test suite runs in CI (GitHub Actions) on pull requests.
 
 FAILED=0
 
-# Check backend changes
-if git diff --cached --name-only | grep -q "^backend/"; then
-    echo "Backend: testing..."
-    cd backend
-    export DATABASE_URL="${DATABASE_URL:-sqlite:///./precommit_test.db}"
-    export BASE_URL="${BASE_URL:-http://localhost:8000}"
-    PYTHON_BIN="./venv/bin/python"
+# Backend: syntax-check changed Python files
+CHANGED_PY=$(git diff --cached --name-only | grep "^backend/.*\.py$")
+if [ -n "$CHANGED_PY" ]; then
+    PYTHON_BIN="backend/venv/bin/python"
     [ ! -x "$PYTHON_BIN" ] && PYTHON_BIN="python3"
-    if ! "$PYTHON_BIN" -m pytest tests/ -x --tb=short -q 2>/dev/null; then
-        echo "❌ Backend tests failed"
-        FAILED=1
-    else
-        echo "✅ Backend tests passed"
-    fi
-    unset BASE_URL
-    unset DATABASE_URL
-    cd ..
+    echo "Checking Python syntax..."
+    while IFS= read -r file; do
+        if ! "$PYTHON_BIN" -m py_compile "$file" 2>/dev/null; then
+            echo "  ❌ $file"
+            FAILED=1
+        fi
+    done <<< "$CHANGED_PY"
+    [ $FAILED -eq 0 ] && echo "  ✅ Python OK"
 fi
 
-# Check frontend changes
-if git diff --cached --name-only | grep -q "^frontend/"; then
-    echo "Frontend: testing..."
-    cd frontend
-    if ! npm run test:ci &>/dev/null; then
-        echo "❌ Frontend tests failed"
-        FAILED=1
-    else
-        echo "✅ Frontend tests passed"
-    fi
-    cd ..
+# Frontend: syntax-check changed JS/JSX files
+CHANGED_JS=$(git diff --cached --name-only | grep "^frontend/.*\.\(js\|jsx\)$")
+if [ -n "$CHANGED_JS" ]; then
+    echo "Checking JS syntax..."
+    while IFS= read -r file; do
+        if ! node --check "$file" 2>/dev/null; then
+            echo "  ❌ $file"
+            FAILED=1
+        fi
+    done <<< "$CHANGED_JS"
+    [ $FAILED -eq 0 ] && echo "  ✅ JS OK"
 fi
 
-# Exit
 if [ $FAILED -eq 1 ]; then
     echo ""
-    echo "❌ Commit blocked - fix tests first"
-    echo "Skip with: git commit --no-verify"
+    echo "Fix syntax errors before committing. Full tests run in CI on PR."
     exit 1
 fi
 
-echo "✅ All tests passed"
 exit 0
