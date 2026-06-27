@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import RecordingControls from "../../src/components/recording/RecordingControls";
+import SoloVideoRecorder from "../../src/components/recording/SoloVideoRecorder";
 import HmsRoom from "../../src/components/rtc/HmsRoom";
 import AudioService from "../../src/services/audio";
 import apiService from "../../src/services/api/apiService";
@@ -674,78 +675,84 @@ const Create = () => {
                 return;
             }
 
-            // Get all segments from draft (for continue mode with multiple segments)
-            const draft = await protectionService.getDraft();
-            const segments = draft?.segments || [];
-            const aiEnabledForSave = resolveAiEnabledForSave({
-                isAIEnabled,
-                draft,
-            });
-            
-            if (segments.length === 0) {
-                showToast("No valid recording found", "error");
-                setIsUploading(false);
-                return;
-            }
-
-            // Show appropriate loading message
-            const loadingMessage = segments.length > 1 
-                ? `Merging ${segments.length} segments...` 
-                : "Uploading audio...";
-            showToast(loadingMessage, "info");
-
-            const filename = `${title.replace(/[^a-zA-Z0-9]/g, "_")}.m4a`;
-            const totalDuration = draft?.total_duration || recordedDuration;
-
             const podcastData = {
                 title: title.trim(),
                 description: description.trim() || "",
                 category,
                 is_public: isPublic,
-                duration: totalDuration,
+                duration: recordedDuration,
                 thumbnail_url: thumbnailUrl,
             };
 
             let uploadRes;
+            let aiEnabledForSave = false;
 
-            // Use merge-upload for multiple segments, regular upload for single
-            if (segments.length > 1) {
-                const segmentFiles = segments.map((segment, idx) => ({
-                    uri: segment.uri,
-                    type: "audio/mp4",
-                    name: `segment_${idx}.m4a`,
-                }));
-
-                uploadRes = await apiService.mergeAndUploadAudio(segmentFiles);
-                showToast("Segments merged successfully", "success");
+            // Solo video recording path
+            if (rtcMediaMode === "video") {
+                showToast("Uploading video...", "info");
+                const videoFilename = `${title.replace(/[^a-zA-Z0-9]/g, "_")}.mp4`;
+                uploadRes = await apiService.uploadAudio({
+                    uri: recordedUri,
+                    type: "video/mp4",
+                    name: videoFilename,
+                });
             } else {
-                const uploadData = {
-                    uri: segments[0].uri,
-                    type: "audio/mp4",
-                    name: filename,
-                };
+                // Get all segments from draft (for continue mode with multiple segments)
+                const draft = await protectionService.getDraft();
+                const segments = draft?.segments || [];
+                aiEnabledForSave = resolveAiEnabledForSave({ isAIEnabled, draft });
 
-                uploadRes = await apiService.uploadAudio(uploadData);
+                if (segments.length === 0) {
+                    showToast("No valid recording found", "error");
+                    setIsUploading(false);
+                    return;
+                }
+
+                const loadingMessage = segments.length > 1
+                    ? `Merging ${segments.length} segments...`
+                    : "Uploading audio...";
+                showToast(loadingMessage, "info");
+
+                const filename = `${title.replace(/[^a-zA-Z0-9]/g, "_")}.m4a`;
+                podcastData.duration = draft?.total_duration || recordedDuration;
+
+                if (segments.length > 1) {
+                    const segmentFiles = segments.map((segment, idx) => ({
+                        uri: segment.uri,
+                        type: "audio/mp4",
+                        name: `segment_${idx}.m4a`,
+                    }));
+                    uploadRes = await apiService.mergeAndUploadAudio(segmentFiles);
+                    showToast("Segments merged successfully", "success");
+                } else {
+                    uploadRes = await apiService.uploadAudio({
+                        uri: segments[0].uri,
+                        type: "audio/mp4",
+                        name: filename,
+                    });
+                }
+
             }
 
-            // Create podcast with uploaded audio URL
-            const finalPodcastData = {
-                ...podcastData,
-                audio_url: uploadRes.audio_url, // Add audio URL from upload response
-            };
+            // Create podcast with uploaded media URL
+            const finalPodcastData =
+                rtcMediaMode === "video"
+                    ? { ...podcastData, video_url: uploadRes.audio_url, media_type: "video" }
+                    : { ...podcastData, audio_url: uploadRes.audio_url };
 
-            const createdPodcast = await apiService.createPodcast(
-                finalPodcastData
-            );
+            const createdPodcast = await apiService.createPodcast(finalPodcastData);
+
+            // Clear draft only after podcast is successfully created — if createPodcast()
+            // fails above, the draft is preserved so the user can retry saving.
+            if (rtcMediaMode !== "video") {
+                await protectionService.clearDraft();
+            }
 
             const aiProcessingStarted = await maybeStartAiProcessingForPodcast({
                 enabled: aiEnabledForSave,
                 podcastId: createdPodcast?.id,
                 processAudio: (podcastId) => apiService.processAudio(podcastId),
             });
-
-            // Clear draft after successful save
-            await protectionService.clearDraft();
 
             if (aiEnabledForSave && !aiProcessingStarted) {
                 showToast(
@@ -1148,211 +1155,258 @@ const Create = () => {
         return () => backHandler.remove();
     }, [recordingMode, rtcSessionState, rtcSessionSummary?.podcast_id, rtcSessionSummary?.recording_status]);
 
+    const CATEGORIES = [
+        { key: "General", icon: "radio" },
+        { key: "Tech", icon: "hardware-chip" },
+        { key: "Business", icon: "briefcase" },
+        { key: "Education", icon: "school" },
+        { key: "Entertainment", icon: "musical-notes" },
+        { key: "Health", icon: "heart" },
+    ];
+
     const renderSetupStep = () => (
         <ScrollView
-            className="flex-1 px-6 pt-6"
-            contentContainerStyle={withTabScreenBottomPadding()}
+            className="flex-1"
+            contentContainerStyle={{ paddingBottom: 40 }}
+            showsVerticalScrollIndicator={false}
         >
-            <Text className="text-2xl font-bold text-text-primary mb-6">
-                Create New Podcast
-            </Text>
+            {/* Header */}
+            <View className="px-6 pt-6 pb-4">
+                <Text className="text-2xl font-bold text-text-primary">
+                    Create New Podcast
+                </Text>
+                <Text className="text-text-secondary mt-1 text-sm">
+                    Set up your episode before hitting record.
+                </Text>
+            </View>
 
-            <View className="space-y-4">
-                {recoverySourceSessionId && recordingMode === "multi" && (
-                    <View className="bg-success/10 rounded-2xl p-4 mb-2 border border-success/20">
-                        <Text className="text-success font-semibold mb-2">
-                            Using Previous Live Session Setup
-                        </Text>
-                        <Text className="text-text-secondary leading-6">
-                            We filled in the title, visibility, category, and format from your earlier live session so you can launch a replacement room faster.
+            {/* Recovery banner */}
+            {recoverySourceSessionId && recordingMode === "multi" && (
+                <View className="mx-6 mb-4 bg-success/10 rounded-2xl p-4 border border-success/20">
+                    <View className="flex-row items-center mb-1">
+                        <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+                        <Text className="text-success font-semibold ml-2">
+                            Previous Session Restored
                         </Text>
                     </View>
-                )}
-
-                <View>
-                    <Text className="text-text-primary font-semibold mb-2">
-                        Title
+                    <Text className="text-text-secondary text-sm leading-5">
+                        Title, visibility, category and format were carried over from your earlier live session.
                     </Text>
+                </View>
+            )}
+
+            {/* ── BASICS ─────────────────────────────────── */}
+            <View className="mx-6 mb-5">
+                <View className="flex-row items-center mb-3">
+                    <View className="w-1 h-4 bg-primary rounded-full mr-2" />
+                    <Text className="text-text-primary font-bold text-base">Basics</Text>
+                </View>
+
+                {/* Title */}
+                <View className="mb-3">
+                    <View className="flex-row justify-between mb-1">
+                        <Text className="text-text-secondary text-sm font-medium">Title *</Text>
+                        <Text className="text-text-muted text-xs">{title.length}/100</Text>
+                    </View>
                     <TextInput
-                        className="bg-card rounded-lg px-4 py-3 text-text-primary border border-border"
-                        placeholder="Enter podcast title"
-                        placeholderTextColor="#888"
+                        className="bg-card rounded-xl px-4 py-3 text-text-primary border border-border text-base"
+                        placeholder="Give your episode a title"
+                        placeholderTextColor="#666"
                         value={title}
                         onChangeText={setTitle}
                         maxLength={100}
                     />
                 </View>
 
+                {/* Description */}
                 <View>
-                    <Text className="text-text-primary font-semibold mb-2">
-                        Description
-                    </Text>
+                    <View className="flex-row justify-between mb-1">
+                        <Text className="text-text-secondary text-sm font-medium">Description</Text>
+                        <Text className="text-text-muted text-xs">{description.length}/500</Text>
+                    </View>
                     <TextInput
-                        className="bg-card rounded-lg px-4 py-3 text-text-primary border border-border"
-                        placeholder="Describe your podcast"
-                        placeholderTextColor="#888"
+                        className="bg-card rounded-xl px-4 py-3 text-text-primary border border-border"
+                        placeholder="What's this episode about?"
+                        placeholderTextColor="#666"
                         value={description}
                         onChangeText={setDescription}
                         multiline
-                        numberOfLines={4}
+                        numberOfLines={3}
                         maxLength={500}
                         textAlignVertical="top"
+                        style={{ minHeight: 80 }}
                     />
-                </View>
-
-                {recordingMode !== "multi" && renderThumbnailSection()}
-
-                <View>
-                    <Text className="text-text-primary font-semibold mb-2">
-                        Category
-                    </Text>
-                    <View className="flex-row flex-wrap gap-2">
-                        {[
-                            "General",
-                            "Tech",
-                            "Business",
-                            "Education",
-                            "Entertainment",
-                            "Health",
-                        ].map((cat) => (
-                            <TouchableOpacity
-                                key={cat}
-                                onPress={() => setCategory(cat)}
-                                className={`px-4 py-2 rounded-full border ${
-                                    category === cat
-                                        ? "bg-primary border-primary"
-                                        : "bg-panel border-border"
-                                }`}
-                            >
-                                <Text
-                                    className={`${
-                                        category === cat
-                                            ? "text-white"
-                                            : "text-text-secondary"
-                                    }`}
-                                >
-                                    {cat}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </View>
-
-                <View className="flex-row items-center justify-between py-4">
-                    <Text className="text-text-primary font-semibold">
-                        Make Public
-                    </Text>
-                    <TouchableOpacity
-                        onPress={() => setIsPublic(!isPublic)}
-                        className={`w-12 h-6 rounded-full ${
-                            isPublic ? "bg-primary" : "bg-border"
-                        }`}
-                    >
-                        <View
-                            className={`w-5 h-5 bg-white rounded-full m-0.5 ${
-                                isPublic ? "ml-auto" : ""
-                            }`}
-                        />
-                    </TouchableOpacity>
                 </View>
             </View>
 
+            {/* ── THUMBNAIL ──────────────────────────────── */}
+            <View className="mx-6 mb-5">
+                <View className="flex-row items-center mb-3">
+                    <View className="w-1 h-4 bg-primary rounded-full mr-2" />
+                    <Text className="text-text-primary font-bold text-base">Cover Image</Text>
+                </View>
+                {renderThumbnailSection()}
+            </View>
+
+            {/* ── RECORDING FORMAT ───────────────────────── */}
             {mode === "full-create" && (
-                <View className="space-y-4">
-                    <View>
-                        <Text className="text-text-primary font-semibold mb-2">
-                            Recording Mode
-                        </Text>
-                        <View className="flex-row flex-wrap gap-2">
-                            {[
-                                { key: "solo", label: "Solo recording" },
-                                { key: "multi", label: "Multi-host live" },
-                            ].map((option) => (
+                <View className="mx-6 mb-5">
+                    <View className="flex-row items-center mb-3">
+                        <View className="w-1 h-4 bg-primary rounded-full mr-2" />
+                        <Text className="text-text-primary font-bold text-base">Recording Format</Text>
+                    </View>
+
+                    {/* Recording Mode */}
+                    <Text className="text-text-secondary text-xs font-medium mb-2 uppercase tracking-wide">Mode</Text>
+                    <View className="flex-row gap-3 mb-4">
+                        {[
+                            { key: "solo", label: "Solo", desc: "Record by yourself", icon: "mic" },
+                            { key: "multi", label: "Multi-host", desc: "Live with guests", icon: "people" },
+                        ].map((option) => {
+                            const active = recordingMode === option.key;
+                            return (
                                 <TouchableOpacity
                                     key={option.key}
                                     onPress={() => setRecordingMode(option.key)}
-                                    className={`px-4 py-2 rounded-full border ${
-                                        recordingMode === option.key
-                                            ? "bg-primary border-primary"
-                                            : "bg-panel border-border"
+                                    className={`flex-1 rounded-2xl p-4 border ${
+                                        active ? "bg-primary/10 border-primary" : "bg-card border-border"
                                     }`}
                                 >
-                                    <Text
-                                        className={`${
-                                            recordingMode === option.key
-                                                ? "text-white"
-                                                : "text-text-secondary"
-                                        }`}
-                                    >
+                                    <View className={`w-9 h-9 rounded-full items-center justify-center mb-2 ${active ? "bg-primary" : "bg-panel"}`}>
+                                        <Ionicons name={option.icon} size={18} color={active ? "#fff" : COLORS.text.secondary} />
+                                    </View>
+                                    <Text className={`font-semibold text-sm ${active ? "text-primary" : "text-text-primary"}`}>
                                         {option.label}
                                     </Text>
+                                    <Text className="text-text-muted text-xs mt-0.5">{option.desc}</Text>
                                 </TouchableOpacity>
-                            ))}
-                        </View>
+                            );
+                        })}
                     </View>
 
-                    {recordingMode === "multi" && (
-                        <View>
-                            <Text className="text-text-primary font-semibold mb-2">
-                                Session Format
-                            </Text>
-                            <View className="flex-row flex-wrap gap-2">
-                                {[
-                                    { key: "audio", label: "Audio only" },
-                                    { key: "video", label: "Audio + video" },
-                                ].map((option) => (
-                                    <TouchableOpacity
-                                        key={option.key}
-                                        onPress={() => setRtcMediaMode(option.key)}
-                                        className={`px-4 py-2 rounded-full border ${
-                                            rtcMediaMode === option.key
-                                                ? "bg-primary border-primary"
-                                                : "bg-panel border-border"
-                                        }`}
-                                    >
-                                        <Text
-                                            className={`${
-                                                rtcMediaMode === option.key
-                                                    ? "text-white"
-                                                    : "text-text-secondary"
-                                            }`}
-                                        >
-                                            {option.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
+                    {/* Media Type — shown for BOTH modes */}
+                    <Text className="text-text-secondary text-xs font-medium mb-2 uppercase tracking-wide">Media</Text>
+                    <View className="flex-row gap-3">
+                        {[
+                            { key: "audio", label: "Audio only", desc: "Podcast quality audio", icon: "mic-outline" },
+                            { key: "video", label: "Audio + Video", desc: "Record with camera", icon: "videocam-outline" },
+                        ].map((option) => {
+                            const active = rtcMediaMode === option.key;
+                            return (
+                                <TouchableOpacity
+                                    key={option.key}
+                                    onPress={() => setRtcMediaMode(option.key)}
+                                    className={`flex-1 rounded-2xl p-4 border ${
+                                        active ? "bg-primary/10 border-primary" : "bg-card border-border"
+                                    }`}
+                                >
+                                    <View className={`w-9 h-9 rounded-full items-center justify-center mb-2 ${active ? "bg-primary" : "bg-panel"}`}>
+                                        <Ionicons name={option.icon} size={18} color={active ? "#fff" : COLORS.text.secondary} />
+                                    </View>
+                                    <Text className={`font-semibold text-sm ${active ? "text-primary" : "text-text-primary"}`}>
+                                        {option.label}
+                                    </Text>
+                                    <Text className="text-text-muted text-xs mt-0.5">{option.desc}</Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
 
-                            <TouchableOpacity
-                                onPress={openRtcSessionHistory}
-                                className="border border-border py-3 rounded-lg mt-4"
-                            >
-                                <Text className="text-text-secondary text-center font-medium">
-                                    View Previous Live Sessions
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+                    {/* Previous live sessions — multi only */}
+                    {recordingMode === "multi" && (
+                        <TouchableOpacity
+                            onPress={openRtcSessionHistory}
+                            className="border border-border py-3 rounded-xl mt-4 flex-row items-center justify-center"
+                        >
+                            <Ionicons name="time-outline" size={16} color={COLORS.text.secondary} />
+                            <Text className="text-text-secondary text-center font-medium ml-2">
+                                View Previous Live Sessions
+                            </Text>
+                        </TouchableOpacity>
                     )}
                 </View>
             )}
 
-            <TouchableOpacity
-                onPress={() =>
-                    recordingMode === "multi"
-                        ? startRtcSession()
-                        : setCurrentStep("recording")
-                }
-                className="bg-primary py-4 rounded-lg mt-8 mb-6"
-                disabled={!title.trim() || rtcLoading || thumbnailUploading}
-            >
-                <Text className="text-white text-center font-semibold text-lg">
-                    {recordingMode === "multi"
-                        ? rtcLoading
-                            ? "Preparing lobby..."
-                            : "Continue to Live Setup"
-                        : "Start Recording"}
-                </Text>
-            </TouchableOpacity>
+            {/* ── DETAILS ────────────────────────────────── */}
+            <View className="mx-6 mb-5">
+                <View className="flex-row items-center mb-3">
+                    <View className="w-1 h-4 bg-primary rounded-full mr-2" />
+                    <Text className="text-text-primary font-bold text-base">Details</Text>
+                </View>
+
+                {/* Category */}
+                <Text className="text-text-secondary text-xs font-medium mb-2 uppercase tracking-wide">Category</Text>
+                <View className="flex-row flex-wrap gap-2 mb-4">
+                    {CATEGORIES.map(({ key: cat, icon }) => (
+                        <TouchableOpacity
+                            key={cat}
+                            onPress={() => setCategory(cat)}
+                            className={`flex-row items-center px-3 py-2 rounded-full border ${
+                                category === cat ? "bg-primary border-primary" : "bg-card border-border"
+                            }`}
+                        >
+                            <Ionicons
+                                name={icon}
+                                size={13}
+                                color={category === cat ? "#fff" : COLORS.text.secondary}
+                                style={{ marginRight: 5 }}
+                            />
+                            <Text className={`text-sm ${category === cat ? "text-white font-semibold" : "text-text-secondary"}`}>
+                                {cat}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
+                {/* Make Public */}
+                <View className="bg-card rounded-2xl border border-border px-4 py-4 flex-row items-center justify-between">
+                    <View className="flex-1 mr-4">
+                        <Text className="text-text-primary font-semibold">Make Public</Text>
+                        <Text className="text-text-muted text-xs mt-0.5">
+                            {isPublic ? "Anyone can discover and listen" : "Only people with the link can listen"}
+                        </Text>
+                    </View>
+                    <TouchableOpacity
+                        onPress={() => setIsPublic(!isPublic)}
+                        className={`w-12 h-6 rounded-full ${isPublic ? "bg-primary" : "bg-border"}`}
+                    >
+                        <View className={`w-5 h-5 bg-white rounded-full m-0.5 ${isPublic ? "ml-auto" : ""}`} />
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {/* CTA Button */}
+            <View className="mx-6">
+                <TouchableOpacity
+                    onPress={() =>
+                        recordingMode === "multi"
+                            ? startRtcSession()
+                            : setCurrentStep("recording")
+                    }
+                    className={`py-4 rounded-2xl flex-row items-center justify-center ${
+                        !title.trim() || rtcLoading || thumbnailUploading
+                            ? "bg-border"
+                            : "bg-primary"
+                    }`}
+                    disabled={!title.trim() || rtcLoading || thumbnailUploading}
+                >
+                    <Ionicons
+                        name={recordingMode === "multi" ? "people" : rtcMediaMode === "video" ? "videocam" : "mic"}
+                        size={20}
+                        color="#fff"
+                        style={{ marginRight: 8 }}
+                    />
+                    <Text className="text-white text-center font-bold text-base">
+                        {recordingMode === "multi"
+                            ? rtcLoading
+                                ? "Preparing lobby..."
+                                : "Continue to Live Setup"
+                            : rtcMediaMode === "video"
+                                ? "Start Video Recording"
+                                : "Start Recording"}
+                    </Text>
+                </TouchableOpacity>
+            </View>
         </ScrollView>
     );
 
@@ -1625,6 +1679,21 @@ const Create = () => {
             );
         }
 
+        // Solo video recording
+        if (rtcMediaMode === "video") {
+            return (
+                <SoloVideoRecorder
+                    onRecordingStop={(uri, durationSeconds) => {
+                        setRecordedUri(uri);
+                        setRecordedDuration(durationSeconds || 0);
+                        setCurrentStep("review");
+                    }}
+                    onClose={() => setCurrentStep("setup")}
+                />
+            );
+        }
+
+        // Solo audio recording
         return (
             <View className="flex-1 justify-center px-6">
                 <Text className="text-2xl font-bold text-text-primary text-center mb-8">
@@ -1641,7 +1710,7 @@ const Create = () => {
                     onAIAssistToggle={handleAIToggle}
                     isAIEnabled={isAIEnabled}
                     isRecording={isRecording}
-                    initialDuration={recordedDuration} // Pass existing duration for continue mode
+                    initialDuration={recordedDuration}
                     disabled={!audioInitialized}
                 />
 
@@ -1857,36 +1926,74 @@ const Create = () => {
                 )}
             </View>
 
-            {/* Metadata (for full create mode) */}
-            {mode === "full-create" && (
-                <View className="space-y-4 mb-6">
-                    <View>
-                        <Text className="text-text-primary font-semibold mb-2">
-                            Title
-                        </Text>
-                        <Text className="text-text-secondary">{title}</Text>
-                    </View>
-
-                    {description && (
+            {/* Metadata — editable for quick-record, read-only for full-create */}
+            <View className="mb-6">
+                {mode === "quick-record" ? (
+                    <View className="space-y-3">
                         <View>
-                            <Text className="text-text-primary font-semibold mb-2">
-                                Description
-                            </Text>
-                            <Text className="text-text-secondary">
-                                {description}
-                            </Text>
+                            <View className="flex-row justify-between mb-1">
+                                <Text className="text-text-secondary text-sm font-medium">Title *</Text>
+                                <Text className="text-text-muted text-xs">{title.length}/100</Text>
+                            </View>
+                            <TextInput
+                                className="bg-card rounded-xl px-4 py-3 text-text-primary border border-border text-base"
+                                placeholder="Give your episode a title"
+                                placeholderTextColor="#666"
+                                value={title}
+                                onChangeText={setTitle}
+                                maxLength={100}
+                            />
                         </View>
-                    )}
-
-                    <View>
-                        <Text className="text-text-primary font-semibold mb-2">
-                            Category
-                        </Text>
-                        <Text className="text-text-secondary">{category}</Text>
+                        <View>
+                            <View className="flex-row justify-between mb-1">
+                                <Text className="text-text-secondary text-sm font-medium">Description</Text>
+                                <Text className="text-text-muted text-xs">{description.length}/500</Text>
+                            </View>
+                            <TextInput
+                                className="bg-card rounded-xl px-4 py-3 text-text-primary border border-border"
+                                placeholder="What's this episode about?"
+                                placeholderTextColor="#666"
+                                value={description}
+                                onChangeText={setDescription}
+                                multiline
+                                numberOfLines={3}
+                                maxLength={500}
+                                textAlignVertical="top"
+                                style={{ minHeight: 72 }}
+                            />
+                        </View>
+                        <View>
+                            <Text className="text-text-secondary text-sm font-medium mb-2">Category</Text>
+                            <View className="flex-row flex-wrap gap-2">
+                                {["General", "Tech", "Business", "Education", "Entertainment", "Health"].map((cat) => (
+                                    <TouchableOpacity
+                                        key={cat}
+                                        onPress={() => setCategory(cat)}
+                                        className={`px-3 py-2 rounded-full border ${category === cat ? "bg-primary border-primary" : "bg-card border-border"}`}
+                                    >
+                                        <Text className={`text-sm ${category === cat ? "text-white font-semibold" : "text-text-secondary"}`}>{cat}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                        <View className="bg-card rounded-xl border border-border px-4 py-3 flex-row items-center justify-between">
+                            <Text className="text-text-primary font-medium">Make Public</Text>
+                            <TouchableOpacity
+                                onPress={() => setIsPublic(!isPublic)}
+                                className={`w-12 h-6 rounded-full ${isPublic ? "bg-primary" : "bg-border"}`}
+                            >
+                                <View className={`w-5 h-5 bg-white rounded-full m-0.5 ${isPublic ? "ml-auto" : ""}`} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
-
-                </View>
-            )}
+                ) : (
+                    <View className="bg-card rounded-xl border border-border p-4 space-y-2">
+                        <Text className="text-text-primary font-semibold">{title}</Text>
+                        {description ? <Text className="text-text-secondary text-sm">{description}</Text> : null}
+                        <Text className="text-text-muted text-xs">{category} · {isPublic ? "Public" : "Private"}</Text>
+                    </View>
+                )}
+            </View>
 
             {renderThumbnailSection()}
 
