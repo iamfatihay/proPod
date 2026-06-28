@@ -660,144 +660,127 @@ const Create = () => {
             return;
         }
 
-        // Prevent double submission
-        if (isUploading) {
+        if (isUploading) return;
+
+        // Validate before navigating away
+        if (!title || title.trim() === "") {
+            showToast("Please enter a podcast title", "error");
             return;
         }
 
-        try {
-            setIsUploading(true);
+        const podcastTitle = title.trim();
+        const podcastData = {
+            title: podcastTitle,
+            description: description.trim() || "",
+            category,
+            is_public: isPublic,
+            duration: recordedDuration,
+            thumbnail_url: thumbnailUrl,
+        };
 
-            // Validate title
-            if (!title || title.trim() === "") {
-                showToast("Please enter a podcast title", "error");
-                setIsUploading(false);
+        // For audio we must read draft segments before navigating
+        // (component state is gone after router.replace)
+        let uploadTask;
+        if (rtcMediaMode === "video") {
+            uploadTask = {
+                type: "video",
+                uri: recordedUri,
+                filename: `${podcastTitle.replace(/[^a-zA-Z0-9]/g, "_")}.mp4`,
+            };
+        } else {
+            const draft = await protectionService.getDraft();
+            const segments = draft?.segments || [];
+            if (segments.length === 0) {
+                showToast("No valid recording found", "error");
                 return;
             }
-
-            const podcastData = {
-                title: title.trim(),
-                description: description.trim() || "",
-                category,
-                is_public: isPublic,
-                duration: recordedDuration,
-                thumbnail_url: thumbnailUrl,
+            podcastData.duration = draft?.total_duration || recordedDuration;
+            uploadTask = {
+                type: "audio",
+                segments,
+                filename: `${podcastTitle.replace(/[^a-zA-Z0-9]/g, "_")}.m4a`,
+                aiEnabled: resolveAiEnabledForSave({ isAIEnabled, draft }),
             };
+        }
 
-            let uploadRes;
-            let aiEnabledForSave = false;
+        setIsUploading(true);
 
-            // Solo video recording path
-            if (rtcMediaMode === "video") {
-                showToast("Uploading video...", "info");
-                const videoFilename = `${title.replace(/[^a-zA-Z0-9]/g, "_")}.mp4`;
-                uploadRes = await apiService.uploadAudio({
-                    uri: recordedUri,
-                    type: "video/mp4",
-                    name: videoFilename,
-                });
-            } else {
-                // Get all segments from draft (for continue mode with multiple segments)
-                const draft = await protectionService.getDraft();
-                const segments = draft?.segments || [];
-                aiEnabledForSave = resolveAiEnabledForSave({ isAIEnabled, draft });
+        // Navigate immediately — user shouldn't wait on this screen
+        showToast("Uploading in background...", "info");
+        const targetPath = mode === "quick-record" ? "/(main)/home" : "/(main)/library";
+        router.replace({ pathname: targetPath, params: { refresh: Date.now().toString() } });
 
-                if (segments.length === 0) {
-                    showToast("No valid recording found", "error");
-                    setIsUploading(false);
-                    return;
+        // Background upload — never touches component state after this point
+        // because the component may already be unmounted
+        ;(async () => {
+            try {
+                let uploadRes;
+                if (uploadTask.type === "video") {
+                    uploadRes = await apiService.uploadAudio({
+                        uri: uploadTask.uri,
+                        type: "video/mp4",
+                        name: uploadTask.filename,
+                    });
+                } else {
+                    const { segments, filename } = uploadTask;
+                    if (segments.length > 1) {
+                        const segmentFiles = segments.map((s, i) => ({
+                            uri: s.uri,
+                            type: "audio/mp4",
+                            name: `segment_${i}.m4a`,
+                        }));
+                        uploadRes = await apiService.mergeAndUploadAudio(segmentFiles);
+                    } else {
+                        uploadRes = await apiService.uploadAudio({
+                            uri: segments[0].uri,
+                            type: "audio/mp4",
+                            name: filename,
+                        });
+                    }
                 }
 
-                const loadingMessage = segments.length > 1
-                    ? `Merging ${segments.length} segments...`
-                    : "Uploading audio...";
-                showToast(loadingMessage, "info");
+                const finalPodcastData =
+                    uploadTask.type === "video"
+                        ? { ...podcastData, video_url: uploadRes.audio_url, media_type: "video" }
+                        : { ...podcastData, audio_url: uploadRes.audio_url };
 
-                const filename = `${title.replace(/[^a-zA-Z0-9]/g, "_")}.m4a`;
-                podcastData.duration = draft?.total_duration || recordedDuration;
+                const createdPodcast = await apiService.createPodcast(finalPodcastData);
 
-                if (segments.length > 1) {
-                    const segmentFiles = segments.map((segment, idx) => ({
-                        uri: segment.uri,
-                        type: "audio/mp4",
-                        name: `segment_${idx}.m4a`,
-                    }));
-                    uploadRes = await apiService.mergeAndUploadAudio(segmentFiles);
-                    showToast("Segments merged successfully", "success");
-                } else {
-                    uploadRes = await apiService.uploadAudio({
-                        uri: segments[0].uri,
-                        type: "audio/mp4",
-                        name: filename,
+                // Clear draft only after podcast is confirmed saved.
+                // Video uploads don't consume the protection draft (SoloVideoRecorder
+                // writes recordedUri directly), so leave any existing audio draft intact.
+                if (uploadTask.type === "audio") {
+                    await protectionService.clearDraft();
+                }
+
+                if (uploadTask.type === "audio" && uploadTask.aiEnabled) {
+                    await maybeStartAiProcessingForPodcast({
+                        enabled: true,
+                        podcastId: createdPodcast?.id,
+                        processAudio: (id) => apiService.processAudio(id),
                     });
                 }
 
-            }
-
-            // Create podcast with uploaded media URL
-            const finalPodcastData =
-                rtcMediaMode === "video"
-                    ? { ...podcastData, video_url: uploadRes.audio_url, media_type: "video" }
-                    : { ...podcastData, audio_url: uploadRes.audio_url };
-
-            const createdPodcast = await apiService.createPodcast(finalPodcastData);
-
-            // Clear draft only after podcast is successfully created — if createPodcast()
-            // fails above, the draft is preserved so the user can retry saving.
-            if (rtcMediaMode !== "video") {
-                await protectionService.clearDraft();
-            }
-
-            const aiProcessingStarted = await maybeStartAiProcessingForPodcast({
-                enabled: aiEnabledForSave,
-                podcastId: createdPodcast?.id,
-                processAudio: (podcastId) => apiService.processAudio(podcastId),
-            });
-
-            if (aiEnabledForSave && !aiProcessingStarted) {
-                showToast(
-                    "Podcast saved, but AI processing could not be started.",
-                    "warning"
-                );
-            } else {
-                showToast(
-                    aiProcessingStarted
-                        ? "Podcast saved. AI processing started."
-                        : "Podcast saved successfully!",
-                    "success"
-                );
-            }
-
-            // Navigate to library and reset create page state
-            // Use replace to prevent going back to review screen
-            if (mode === "quick-record") {
-                router.replace({
-                    pathname: "/(main)/home",
-                    params: { refresh: Date.now().toString() }
+                useNotificationStore.getState().addNotification({
+                    type: "upload_complete",
+                    title: "Podcast saved!",
+                    message: `"${podcastTitle}" is ready in your library.`,
+                    action: createdPodcast?.id
+                        ? { type: "navigate", screen: "details", params: { id: String(createdPodcast.id) } }
+                        : { type: "navigate", screen: "library" },
                 });
-            } else {
-                router.replace({
-                    pathname: "/(main)/library",
-                    params: { refresh: Date.now().toString() }
+            } catch (err) {
+                Logger.error("Background upload failed:", err);
+                useNotificationStore.getState().addNotification({
+                    type: "upload_failed",
+                    title: "Upload failed",
+                    message: `"${podcastTitle}" could not be saved. Please try again.`,
+                    action: { type: "navigate", screen: "create" },
                 });
             }
-        } catch (error) {
-            Logger.error("Save failed:", error);
-            const errorMessage =
-                error.response?.data?.detail ||
-                error.message ||
-                "Failed to save podcast. Please try again.";
-            showToast(errorMessage, "error");
-
-            // Check if it's an auth error
-            if (error.status === 401) {
-                // Session expired - logout will be handled by apiService
-                // User will be redirected to login automatically
-            }
-        } finally {
-            setIsUploading(false);
-        }
+        })();
     };
+
 
     const handleDiscard = () => {
         setDiscardConfirmVisible(true);

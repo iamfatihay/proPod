@@ -1167,6 +1167,8 @@ def get_continue_listening(
                 title=podcast.title,
                 description=podcast.description,
                 audio_url=podcast.audio_url,
+                video_url=podcast.video_url,
+                media_type=podcast.media_type,
                 thumbnail_url=podcast.thumbnail_url,
                 category=podcast.category,
                 duration=podcast.duration,

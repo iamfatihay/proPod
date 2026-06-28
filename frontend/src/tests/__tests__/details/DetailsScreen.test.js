@@ -46,6 +46,7 @@ jest.mock("../../../services/api/apiService", () => ({
         getPodcastInteractions: jest.fn(),
         getRelatedPodcasts: jest.fn(),
         getPodcastAIData: jest.fn(),
+        getPodcastComments: jest.fn().mockResolvedValue([]),
     },
 }));
 

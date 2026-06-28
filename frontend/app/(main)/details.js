@@ -11,6 +11,8 @@ import {
     StatusBar,
     Image,
     ActivityIndicator,
+    TextInput,
+    KeyboardAvoidingView,
 } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -37,6 +39,68 @@ import GradientCard from "../../src/components/GradientCard";
 import downloadService from "../../src/services/downloads/downloadService";
 
 const { width: screenWidth } = Dimensions.get("window");
+
+const formatTimeAgo = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    const diff = Date.now() - date.getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    if (d < 7) return `${d}d ago`;
+    return new Date(dateString).toLocaleDateString();
+};
+
+const CommentItem = ({ comment, currentUserId, onDelete, onPressAuthor }) => {
+    const name = comment.user?.name || "User";
+    const initial = name.charAt(0).toUpperCase();
+    const isOwn = comment.user_id === currentUserId;
+    const canNavigate = !isOwn && Boolean(comment.user_id) && Boolean(onPressAuthor);
+
+    return (
+        <View className="flex-row items-start mb-4">
+            <TouchableOpacity
+                onPress={canNavigate ? () => onPressAuthor(comment.user_id, name) : undefined}
+                disabled={!canNavigate}
+                activeOpacity={canNavigate ? 0.7 : 1}
+                className="mr-3 flex-shrink-0"
+            >
+                <View
+                    className="w-9 h-9 rounded-full items-center justify-center"
+                    style={{ backgroundColor: COLORS.primary + "33" }}
+                >
+                    <Text className="text-primary font-bold text-sm">{initial}</Text>
+                </View>
+            </TouchableOpacity>
+            <View className="flex-1">
+                <View className="flex-row items-center mb-1">
+                    <TouchableOpacity
+                        onPress={canNavigate ? () => onPressAuthor(comment.user_id, name) : undefined}
+                        disabled={!canNavigate}
+                        activeOpacity={canNavigate ? 0.7 : 1}
+                    >
+                        <Text className="text-text-primary font-semibold text-sm mr-2">{name}</Text>
+                    </TouchableOpacity>
+                    <Text className="text-text-muted text-xs">{formatTimeAgo(comment.created_at)}</Text>
+                </View>
+                <Text className="text-text-secondary text-sm leading-5">{comment.content}</Text>
+            </View>
+            {isOwn && (
+                <TouchableOpacity
+                    onPress={() => onDelete(comment.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    className="ml-2 mt-0.5"
+                >
+                    <Ionicons name="trash-outline" size={15} color={COLORS.text.muted} />
+                </TouchableOpacity>
+            )}
+        </View>
+    );
+};
 
 const getRouteParamValue = (value) => (Array.isArray(value) ? value[0] : value);
 
@@ -113,6 +177,14 @@ const Details = () => {
     const detailsRequestIdRef = useRef(0);
     const aiPollingActiveRef = useRef(false);
 
+    // Comment state
+    const [comments, setComments] = useState([]);
+    const [commentsLoading, setCommentsLoading] = useState(false);
+    const [commentText, setCommentText] = useState("");
+    const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState(null);
+    const commentInputRef = useRef(null);
+
     const isVideoPodcast = Boolean(
         podcast?.media_type === "video" && podcast?.video_url
     );
@@ -170,6 +242,7 @@ const Details = () => {
             }
 
             setIsOwner(userProfile.id === podcastData.owner_id);
+            setCurrentUserId(userProfile.id);
 
             const interactions = await apiService.getPodcastInteractions(requestedPodcastId);
 
@@ -188,6 +261,9 @@ const Details = () => {
 
             // Normalize related podcasts URLs
             setRelatedPodcasts(normalizePodcasts(related));
+
+            setComments([]);
+            loadComments(requestedPodcastId, requestId);
 
             try {
                 const uri = await downloadService.getLocalUri(podcastData.id);
@@ -299,8 +375,10 @@ const Details = () => {
     ]);
 
     const handlePlay = useCallback(() => {
-        if (!podcast?.audio_url) {
-            showToast("Audio not available", "error");
+        const isVideo = podcast?.media_type === "video" && Boolean(podcast?.video_url);
+        const mediaUrl = isVideo ? podcast?.video_url : podcast?.audio_url;
+        if (!mediaUrl) {
+            showToast(isVideo ? "Video not available" : "Audio not available", "error");
             return;
         }
 
@@ -308,7 +386,7 @@ const Details = () => {
         if (isAudioLoading) return;
 
         const track = buildDetailsQueueTrack(podcast, {
-            uriOverride: localUri || podcast.audio_url,
+            uriOverride: localUri || mediaUrl,
         });
 
         // Non-blocking audio operations - errors handled via audioError state
@@ -333,7 +411,7 @@ const Details = () => {
                             podcast,
                             relatedPodcasts,
                             {
-                                uriOverride: localUri || podcast.audio_url,
+                                uriOverride: localUri || mediaUrl,
                             }
                         );
                         setQueue(queue, 0);
@@ -352,6 +430,8 @@ const Details = () => {
     }, [
         podcast?.id,
         podcast?.audio_url,
+        podcast?.video_url,
+        podcast?.media_type,
         podcast?.title,
         podcast?.owner?.name,
         localUri,
@@ -376,8 +456,10 @@ const Details = () => {
      */
     const handlePlayRelated = useCallback(
         (relatedPodcast) => {
-            if (!relatedPodcast?.audio_url) {
-                showToast("Audio not available", "error");
+            const isRelatedVideo = relatedPodcast?.media_type === "video";
+            const relatedMediaUrl = isRelatedVideo ? relatedPodcast?.video_url : relatedPodcast?.audio_url;
+            if (!relatedMediaUrl) {
+                showToast("Media not available", "error");
                 return;
             }
 
@@ -512,7 +594,7 @@ const Details = () => {
     };
 
     const handleDownload = async () => {
-        if (!podcast?.audio_url) return;
+        if (!podcast?.audio_url && !podcast?.video_url) return;
 
         if (isDownloading) {
             // Mark as intentional cancel BEFORE awaiting cancelAsync so the
@@ -585,16 +667,78 @@ const Details = () => {
         }
     };
 
-    const handleAddToQueue = async () => {
-        if (!podcast?.audio_url) return;
+    const handleAddToQueue = useCallback(async () => {
+        const isVideo = podcast?.media_type === "video" && Boolean(podcast?.video_url);
+        const mediaUrl = isVideo ? podcast?.video_url : podcast?.audio_url;
+        if (!mediaUrl) return;
 
         const track = buildDetailsQueueTrack(podcast, {
-            uriOverride: localUri || podcast.audio_url,
+            uriOverride: localUri || mediaUrl,
         });
 
         addToQueue(track);
         showToast("Added to queue", "success");
+    }, [podcast, localUri, addToQueue, showToast]);
+
+    const loadComments = useCallback(async (podcastId, requestId) => {
+        if (!podcastId || detailsRequestIdRef.current !== requestId) return;
+        setCommentsLoading(true);
+        try {
+            const data = await apiService.getPodcastComments(podcastId, { limit: 50 });
+            if (detailsRequestIdRef.current !== requestId) return;
+            setComments(Array.isArray(data) ? data : []);
+        } catch (err) {
+            Logger.error("Failed to load comments:", err);
+        } finally {
+            if (detailsRequestIdRef.current === requestId) {
+                setCommentsLoading(false);
+            }
+        }
+    }, []);
+
+    const handleSubmitComment = async () => {
+        const text = commentText.trim();
+        if (!text || !podcast?.id) return;
+        setIsSubmittingComment(true);
+        try {
+            const newComment = await apiService.createComment(podcast.id, {
+                podcast_id: podcast.id,
+                content: text,
+                timestamp: 0,
+            });
+            setComments((prev) => [newComment, ...prev]);
+            setCommentText("");
+            commentInputRef.current?.blur();
+            showToast("Comment posted", "success");
+        } catch (err) {
+            Logger.error("Failed to post comment:", err);
+            showToast("Could not post comment", "error");
+        } finally {
+            setIsSubmittingComment(false);
+        }
     };
+
+    const handleDeleteComment = useCallback(async (commentId) => {
+        // Optimistic: remove immediately, restore on failure
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+        try {
+            await apiService.deleteComment(commentId);
+        } catch (err) {
+            Logger.error("Failed to delete comment:", err);
+            showToast("Could not delete comment", "error");
+            // Reload to restore deleted comment
+            if (podcast?.id) {
+                loadComments(podcast.id, detailsRequestIdRef.current);
+            }
+        }
+    }, [podcast?.id, showToast, loadComments]);
+
+    const handlePressCommentAuthor = useCallback((userId, name) => {
+        router.push({
+            pathname: "/(main)/creator-profile",
+            params: { userId: String(userId) },
+        });
+    }, [router]);
 
     const handleProcessAI = async () => {
         if (!podcast?.audio_url) {
@@ -906,23 +1050,43 @@ const Details = () => {
                             by {podcast.owner?.name || "Unknown Artist"}
                         </Text>
                     ) : (
-                        <TouchableOpacity
-                            onPress={() =>
-                                router.push({
-                                    pathname: "/(main)/creator-profile",
-                                    params: { userId: podcast.owner_id },
-                                })
-                            }
-                            activeOpacity={0.7}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            accessible
-                            accessibilityLabel={`View ${podcast.owner?.name || "creator"}'s profile`}
-                            accessibilityRole="button"
-                        >
-                            <Text className="text-primary text-lg mb-4 font-medium">
-                                by {podcast.owner?.name || "Unknown Artist"}
-                            </Text>
-                        </TouchableOpacity>
+                        <View className="flex-row items-center mb-4">
+                            <TouchableOpacity
+                                onPress={() =>
+                                    router.push({
+                                        pathname: "/(main)/creator-profile",
+                                        params: { userId: podcast.owner_id },
+                                    })
+                                }
+                                activeOpacity={0.7}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                accessible
+                                accessibilityLabel={`View ${podcast.owner?.name || "creator"}'s profile`}
+                                accessibilityRole="button"
+                            >
+                                <Text className="text-primary text-lg font-medium">
+                                    by {podcast.owner?.name || "Unknown Artist"}
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() =>
+                                    router.push({
+                                        pathname: "/(main)/chat-details",
+                                        params: {
+                                            partnerId: String(podcast.owner_id),
+                                            partnerName: podcast.owner?.name || "Creator",
+                                        },
+                                    })
+                                }
+                                activeOpacity={0.7}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                className="ml-2 p-1"
+                                accessibilityLabel="Send a message to this creator"
+                                accessibilityRole="button"
+                            >
+                                <Ionicons name="mail-outline" size={18} color={COLORS.text.muted} />
+                            </TouchableOpacity>
+                        </View>
                     )}
 
                     {/* Metadata */}
@@ -978,7 +1142,14 @@ const Details = () => {
                             </View>
                         )}
 
-                        {isOwner && !podcast.ai_enhanced && podcast.ai_processing_status !== "processing" && podcast.audio_url && (
+                        {isOwner && isVideoPodcast && (
+                            <View className="flex-row items-center px-3 py-1 rounded-xl bg-panel border border-border">
+                                <Ionicons name="information-circle-outline" size={14} color="#888" />
+                                <Text className="text-text-muted text-xs ml-1">AI enhancement is audio-only</Text>
+                            </View>
+                        )}
+
+                        {isOwner && !isVideoPodcast && !podcast.ai_enhanced && podcast.ai_processing_status !== "processing" && podcast.audio_url && (
                             <TouchableOpacity
                                 onPress={handleProcessAI}
                                 className="flex-row items-center px-3 py-1 rounded-xl bg-success border-2 border-success shadow-lg"
@@ -1104,8 +1275,8 @@ const Details = () => {
                             </Text>
                         </TouchableOpacity>
 
-                        {/* Download for offline listening */}
-                        {!isVideoPodcast && podcast?.audio_url && (
+                        {/* Download for offline listening (audio or video) */}
+                        {(podcast?.audio_url || podcast?.video_url) && (
                             <TouchableOpacity
                                 onPress={handleDownload}
                                 className={`flex-row items-center px-3 py-1 rounded-xl ${
@@ -1462,6 +1633,42 @@ const Details = () => {
                     </View>
                 )}
 
+                {/* Comments */}
+                <View className="px-6 mb-6">
+                    <View className="flex-row items-center mb-4">
+                        <Ionicons name="chatbubble-outline" size={20} color={COLORS.primary} />
+                        <Text className="text-text-primary text-lg font-semibold ml-2">
+                            Comments
+                        </Text>
+                        {comments.length > 0 && (
+                            <View className="ml-2 px-2 py-0.5 rounded-full bg-primary/10">
+                                <Text className="text-primary text-xs font-medium">{comments.length}</Text>
+                            </View>
+                        )}
+                    </View>
+
+                    {commentsLoading ? (
+                        <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 16 }} />
+                    ) : comments.length === 0 ? (
+                        <View className="items-center py-8">
+                            <Ionicons name="chatbubbles-outline" size={36} color={COLORS.text.muted} />
+                            <Text className="text-text-muted text-sm mt-2">
+                                No comments yet. Be the first!
+                            </Text>
+                        </View>
+                    ) : (
+                        comments.map((comment) => (
+                            <CommentItem
+                                key={comment.id}
+                                comment={comment}
+                                currentUserId={currentUserId}
+                                onDelete={handleDeleteComment}
+                                onPressAuthor={handlePressCommentAuthor}
+                            />
+                        ))
+                    )}
+                </View>
+
                 {/* Related Podcasts — horizontal GradientCard scroll row */}
                 {relatedPodcasts.length > 0 && (
                     <View className="mb-6">
@@ -1485,7 +1692,6 @@ const Details = () => {
                                     key={relatedPodcast.id}
                                     podcast={{
                                         ...relatedPodcast,
-                                        // GradientCard expects duration in ms; API returns seconds
                                         duration: (relatedPodcast.duration || 0) * 1000,
                                     }}
                                     category={relatedPodcast.category || "default"}
@@ -1507,9 +1713,47 @@ const Details = () => {
                     </View>
                 )}
 
-                {/* Bottom Spacing for Mini Player */}
-                <View style={{ height: showMiniPlayer ? 100 : 20 }} />
+                {/* Bottom Spacing — extra room for comment input bar */}
+                <View style={{ height: showMiniPlayer ? 160 : 80 }} />
             </ScrollView>
+
+            {/* Comment Input Bar — fixed above mini player */}
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+            >
+                <View
+                    className="flex-row items-center px-4 py-3 border-t border-border bg-background"
+                    style={{ paddingBottom: showMiniPlayer ? 80 : 12 }}
+                >
+                    <TextInput
+                        ref={commentInputRef}
+                        value={commentText}
+                        onChangeText={setCommentText}
+                        placeholder="Add a comment…"
+                        placeholderTextColor={COLORS.text.muted}
+                        className="flex-1 bg-card rounded-full px-4 py-2.5 text-text-primary text-sm border border-border"
+                        multiline={false}
+                        maxLength={500}
+                        returnKeyType="send"
+                        onSubmitEditing={handleSubmitComment}
+                    />
+                    <TouchableOpacity
+                        onPress={handleSubmitComment}
+                        disabled={!commentText.trim() || isSubmittingComment}
+                        className="ml-3 w-10 h-10 rounded-full items-center justify-center"
+                        style={{
+                            backgroundColor: commentText.trim() ? COLORS.primary : COLORS.text.muted + "33",
+                        }}
+                    >
+                        {isSubmittingComment ? (
+                            <ActivityIndicator size="small" color="white" />
+                        ) : (
+                            <Ionicons name="send" size={16} color={commentText.trim() ? "white" : COLORS.text.muted} />
+                        )}
+                    </TouchableOpacity>
+                </View>
+            </KeyboardAvoidingView>
 
             {/* Add-to-Playlist Picker Modal */}
             <CustomModal

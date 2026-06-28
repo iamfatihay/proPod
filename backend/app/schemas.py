@@ -711,6 +711,8 @@ class ContinueListeningItem(BaseModel):
     title: str
     description: Optional[str] = None
     audio_url: Optional[str] = None
+    video_url: Optional[str] = None
+    media_type: str = "audio"
     thumbnail_url: Optional[str] = None
     category: str = "General"
     duration: int = 0

@@ -21,6 +21,7 @@ module.exports = {
     TouchableOpacity: "TouchableOpacity",
     TextInput: "TextInput",
     ScrollView: "ScrollView",
+    KeyboardAvoidingView: "KeyboardAvoidingView",
     Image: "Image",
     FlatList: "FlatList",
     ActivityIndicator: "ActivityIndicator",
