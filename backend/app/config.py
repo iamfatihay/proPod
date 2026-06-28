@@ -91,9 +91,9 @@ class Settings(BaseSettings):
     AI_ANALYSIS_MODEL: str = Field(default="gpt-4-turbo", description="OpenAI model for content analysis")
     
     # Local Whisper Configuration (used when AI_PROVIDER is 'local' or 'hybrid')
-    WHISPER_MODEL_SIZE: Literal["tiny", "base", "small", "medium", "large"] = Field(
+    WHISPER_MODEL_SIZE: Literal["tiny", "base", "small", "medium", "large", "large-v3", "turbo"] = Field(
         default="base",
-        description="Local Whisper model size: tiny (fast), base (balanced), medium/large (accurate)"
+        description="Local Whisper model size: tiny/base (fast), small/medium (balanced), large/large-v3 (accurate), turbo (large-v3-turbo: best speed/accuracy ratio)"
     )
     WHISPER_DEVICE: str = Field(default="cpu", description="Device for Whisper: 'cpu', 'cuda', or 'mps'")
     
