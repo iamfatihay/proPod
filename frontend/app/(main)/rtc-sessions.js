@@ -22,6 +22,7 @@ import {
 } from "../../src/constants/theme";
 import { buildSecondaryScreenOptions } from "../../src/utils/secondaryScreenOptions";
 import { buildRtcSessionRecoveryRoute } from "../../src/utils/rtcSessionRoutes";
+import MultitrackPlayer from "../../src/components/rtc/MultitrackPlayer";
 
 const PAGE_SIZE = 25;
 const STATUS_CHECK_STORAGE_KEY_PREFIX = "@propod/rtc-history-status-check/";
@@ -593,6 +594,17 @@ const SessionCard = ({
                 >
                     <Text style={styles.secondaryButtonText}>Use Same Setup</Text>
                 </TouchableOpacity>
+            )}
+
+            {Array.isArray(session?.track_recordings) && session.track_recordings.length > 0 && (
+                <MultitrackPlayer
+                    tracks={session.track_recordings}
+                    combined={
+                        session?.recording_url
+                            ? { url: session.recording_url, label: "Combined" }
+                            : null
+                    }
+                />
             )}
         </View>
     );

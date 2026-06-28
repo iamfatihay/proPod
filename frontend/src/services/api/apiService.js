@@ -704,6 +704,24 @@ class ApiService {
     }
 
     /**
+     * Register the calling user as a session participant, mapping their 100ms
+     * peer_id so per-peer recording tracks can be labelled with a name.
+     *
+     * @param {number} sessionId - RTC session ID
+     * @param {{ peerId: string, displayName?: string }} params
+     * @returns {Promise<Object>} RTC participant data
+     */
+    async registerRtcParticipant(sessionId, { peerId, displayName } = {}) {
+        return this.request(`/rtc/sessions/${sessionId}/participants`, {
+            method: "POST",
+            body: JSON.stringify({
+                peer_id: peerId,
+                display_name: displayName,
+            }),
+        });
+    }
+
+    /**
      * Get preview data for a live invite code
      *
      * @param {string} inviteCode - Shared invite code

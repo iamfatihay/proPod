@@ -21,6 +21,7 @@ import * as ImagePicker from "expo-image-picker";
 import RecordingControls from "../../src/components/recording/RecordingControls";
 import SoloVideoRecorder from "../../src/components/recording/SoloVideoRecorder";
 import HmsRoom from "../../src/components/rtc/HmsRoom";
+import HmsPreview from "../../src/components/rtc/HmsPreview";
 import AudioService from "../../src/services/audio";
 import apiService from "../../src/services/api/apiService";
 import { useToast } from "../../src/components/Toast";
@@ -1428,6 +1429,18 @@ const Create = () => {
                             )}
                         </View>
 
+                        {rtcSession?.token && (
+                            <HmsPreview
+                                token={rtcSession.token}
+                                userName={userDisplayName}
+                                enableVideo={rtcMediaMode === "video"}
+                                onMuteStateChange={({ audioMuted, videoMuted }) => {
+                                    setRtcLobbyAudioMuted(audioMuted);
+                                    setRtcLobbyVideoMuted(videoMuted);
+                                }}
+                            />
+                        )}
+
                         <View className="bg-card rounded-2xl p-4 mb-4 border border-border">
                             <Text className="text-text-primary font-semibold mb-3">
                                 Join Defaults
@@ -1590,7 +1603,7 @@ const Create = () => {
                             enableVideo={rtcMediaMode === "video"}
                             startAudioMuted={rtcLobbyAudioMuted}
                             startVideoMuted={rtcLobbyVideoMuted}
-                            onJoin={() => {
+                            onJoin={(joinInfo) => {
                                 rtcLiveStartedAtRef.current = Date.now();
                                 setRtcLiveElapsedSeconds(0);
                                 setRtcSessionState("live");
@@ -1599,6 +1612,16 @@ const Create = () => {
                                     apiService.startRtcSession(rtcSession.sessionId).catch((error) => {
                                         Logger.error("Failed to mark RTC session live:", error);
                                     });
+                                    // Map this peer to the user so per-speaker recording
+                                    // tracks can be labelled. Best-effort: never block live.
+                                    if (joinInfo?.peerId) {
+                                        apiService.registerRtcParticipant(rtcSession.sessionId, {
+                                            peerId: joinInfo.peerId,
+                                            displayName: userDisplayName,
+                                        }).catch((error) => {
+                                            Logger.error("Failed to register RTC participant:", error);
+                                        });
+                                    }
                                 }
                             }}
                             onClose={() => {
