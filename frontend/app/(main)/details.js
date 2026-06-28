@@ -1275,8 +1275,8 @@ const Details = () => {
                             </Text>
                         </TouchableOpacity>
 
-                        {/* Download for offline listening */}
-                        {!isVideoPodcast && podcast?.audio_url && (
+                        {/* Download for offline listening (audio or video) */}
+                        {(podcast?.audio_url || podcast?.video_url) && (
                             <TouchableOpacity
                                 onPress={handleDownload}
                                 className={`flex-row items-center px-3 py-1 rounded-xl ${

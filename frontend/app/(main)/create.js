@@ -746,8 +746,12 @@ const Create = () => {
 
                 const createdPodcast = await apiService.createPodcast(finalPodcastData);
 
-                // Clear draft only after podcast is confirmed saved
-                await protectionService.clearDraft();
+                // Clear draft only after podcast is confirmed saved.
+                // Video uploads don't consume the protection draft (SoloVideoRecorder
+                // writes recordedUri directly), so leave any existing audio draft intact.
+                if (uploadTask.type === "audio") {
+                    await protectionService.clearDraft();
+                }
 
                 if (uploadTask.type === "audio" && uploadTask.aiEnabled) {
                     await maybeStartAiProcessingForPodcast({
