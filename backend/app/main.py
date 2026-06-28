@@ -30,6 +30,7 @@ from app.routers import (
     messages,
 )
 from app.admin import setup_admin
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,26 @@ load_dotenv(dotenv_path)
 # ---------------------------------------------------------------------------
 # Scheduled jobs
 # ---------------------------------------------------------------------------
+
+def _run_storage_purge() -> None:
+    """Delete R2 files for soft-deleted podcasts past the 30-day grace period.
+
+    Called by APScheduler once per day.
+    """
+    from app.database import SessionLocal  # noqa: PLC0415
+    from app import crud  # noqa: PLC0415
+
+    db = None
+    try:
+        db = SessionLocal()
+        summary = crud.purge_deleted_podcast_storage(db, grace_days=30)
+        logger.info("Storage purge completed: %s", summary)
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Storage purge failed: %s", exc)
+    finally:
+        if db is not None:
+            db.close()
+
 
 def _run_push_receipt_check() -> None:
     """Run check_push_receipts in an isolated DB session.
@@ -80,8 +101,16 @@ async def lifespan(app: FastAPI):  # noqa: D401
         replace_existing=True,
         misfire_grace_time=120,  # tolerate up to 2-min startup delay
     )
+    scheduler.add_job(
+        _run_storage_purge,
+        trigger="interval",
+        hours=24,
+        id="storage_purge",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
     scheduler.start()
-    logger.info("APScheduler started — push receipt check every 30 min")
+    logger.info("APScheduler started — push receipt check every 30 min, storage purge every 24 h")
     try:
         yield
     finally:
@@ -94,11 +123,17 @@ async def lifespan(app: FastAPI):  # noqa: D401
 # ---------------------------------------------------------------------------
 
 # Initialize FastAPI application
+# In prod, disable interactive docs so internal API structure isn't exposed
+_docs_url = "/docs" if settings.ENV == "dev" else None
+_redoc_url = "/redoc" if settings.ENV == "dev" else None
+
 app = FastAPI(
     title="ProPod API",
     description="Podcast creation and management API with AI features",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url=_docs_url,
+    redoc_url=_redoc_url,
 )
 
 # Add session middleware for admin auth (BEFORE other middlewares)
@@ -107,16 +142,10 @@ app.add_middleware(
     secret_key=os.getenv("ADMIN_SECRET_KEY", "your-secret-key-change-in-production")
 )
 
-# Configure CORS middleware
+# Configure CORS middleware — origins come from CORS_ORIGINS in .env
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8081",
-        "http://localhost:8082",
-        "http://127.0.0.1:8081",
-        "http://127.0.0.1:8082",
-        "https://subsumable-submucronated-inga.ngrok-free.dev",
-    ],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

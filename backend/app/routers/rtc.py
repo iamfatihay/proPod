@@ -16,7 +16,7 @@ from app.config import settings
 from app.database import get_db
 from app import models, crud
 from app.services.hms_service import create_room, generate_auth_token
-from app.services.live_session_service import end_session, generate_invite_code, get_active_participants, start_session
+from app.services.live_session_service import add_participant, end_session, generate_invite_code, get_active_participants, start_session
 from app.services.storage_service import storage_service
 from app.models import User
 
@@ -25,13 +25,15 @@ router = APIRouter(prefix="/rtc", tags=["RTC"])
 MAX_INVITE_CODE_RETRIES = 3
 
 # track.recording.success — individual per-peer track: audio-only OR video-only, never
-#                           a combined file. Always skip for podcast creation.
+#                           a combined file. Not used for podcast creation, but captured
+#                           separately for multitrack export (see _handle_track_recording).
 # beam.recording.success  — composite of ALL peers but the beam keeps running for ~5 min
 #                           of dead air after all peers leave (100ms lifecycle). The
 #                           resulting file is 5+ min even for a 14-sec session. Skip it.
 # stream.recording.success — per-peer webcam+audio in one file, stops exactly when the
 #                            peer leaves → correct duration, no dead air. USE THIS.
-_SKIP_RECORDING_EVENTS = {"track.recording.success", "beam.recording.success"}
+_SKIP_RECORDING_EVENTS = {"beam.recording.success"}
+_TRACK_RECORDING_EVENT = "track.recording.success"
 
 
 def _rtc_log(action: str, **context: Any) -> None:
@@ -90,6 +92,95 @@ async def _persist_recording_media(session: models.RTCSession, recording_url: st
     suffix = _get_recording_suffix(recording_url, session.media_mode)
     filename = _get_recording_filename(session, suffix)
     return await storage_service.persist_remote_media(recording_url, filename)
+
+
+def _extract_track_recording_info(
+    payload: Dict[str, Any],
+) -> Tuple[Optional[str], Optional[str], Optional[str], int]:
+    """Pull per-peer track fields from a 100ms track.recording.success payload."""
+    data = payload.get("data", {})
+    if not isinstance(data, dict):
+        data = {}
+
+    peer_id = data.get("peer_id") or payload.get("peer_id")
+    track_type = (data.get("track_type") or payload.get("track_type") or "").lower() or None
+    recording_url = (
+        data.get("recording_presigned_url")
+        or data.get("recording_url")
+        or payload.get("recording_presigned_url")
+        or payload.get("recording_url")
+    )
+
+    raw_duration = data.get("duration") or payload.get("duration") or 0
+    try:
+        duration_seconds = int(float(raw_duration)) if raw_duration else 0
+    except (TypeError, ValueError):
+        duration_seconds = 0
+
+    return peer_id, track_type, recording_url, duration_seconds
+
+
+def _sanitize_filename_part(value: str) -> str:
+    """Keep only filename-safe characters from an upstream identifier."""
+    return "".join(ch for ch in (value or "") if ch.isalnum() or ch in ("-", "_")) or "peer"
+
+
+async def _handle_track_recording(
+    db: Session,
+    session: models.RTCSession,
+    payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Capture a per-peer track recording for multitrack export.
+
+    Persists the track to managed storage and appends it to
+    session.track_recordings, labelled with the participant's name/role when
+    the peer was registered via POST /rtc/sessions/{id}/participants. Safe to
+    call repeatedly: duplicate (peer_id, track_type) deliveries are ignored.
+    """
+    peer_id, track_type, recording_url, duration_seconds = _extract_track_recording_info(payload)
+
+    if not peer_id or not recording_url:
+        _rtc_log("webhook.track_skipped", reason="missing_peer_or_url", room_id=session.room_id)
+        return {"status": "ok"}
+
+    existing = list(session.track_recordings or [])
+    if any(t.get("peer_id") == peer_id and t.get("track_type") == track_type for t in existing):
+        _rtc_log("webhook.track_idempotent", session_id=session.id, peer_id=peer_id, track_type=track_type)
+        return {"status": "ok"}
+
+    media_kind = "video" if track_type == "video" else "audio"
+    suffix = _get_recording_suffix(recording_url, "video" if track_type == "video" else "audio")
+    filename = f"rtc_session_{session.id}_track_{_sanitize_filename_part(peer_id)}_{track_type or 'audio'}{suffix}"
+    stable_url = await storage_service.persist_remote_media(recording_url, filename, media_kind=media_kind)
+
+    participant = (
+        db.query(models.RTCParticipant)
+        .filter(
+            models.RTCParticipant.session_id == session.id,
+            models.RTCParticipant.peer_id == peer_id,
+        )
+        .first()
+    )
+
+    existing.append({
+        "peer_id": peer_id,
+        "track_type": track_type,
+        "url": stable_url,
+        "duration": duration_seconds,
+        "display_name": participant.display_name if participant else None,
+        "role": participant.role if participant else None,
+    })
+    session.track_recordings = existing
+    db.commit()
+
+    _rtc_log(
+        "webhook.track_captured",
+        session_id=session.id,
+        peer_id=peer_id,
+        track_type=track_type,
+        labelled=bool(participant),
+    )
+    return {"status": "ok"}
 
 
 @router.post("/token", response_model=schemas.RTCTokenResponse)
@@ -392,6 +483,12 @@ async def hms_webhook(
 
     session.last_webhook_payload = json.dumps(payload)
 
+    # Per-peer track recordings are captured for multitrack export rather than
+    # podcast creation. Branch here before the recording_url block below, which
+    # would otherwise treat the partial track as the main podcast recording.
+    if event_name == _TRACK_RECORDING_EVENT:
+        return await _handle_track_recording(db, session, payload)
+
     if recording_url:
         # Atomically claim this delivery within the current transaction: only
         # update when both podcast_id and recording_url are still NULL.
@@ -620,6 +717,53 @@ def list_session_participants(
         )
 
     return get_active_participants(db, session_id)
+
+
+@router.post("/sessions/{session_id}/participants", response_model=schemas.RTCParticipantResponse)
+def register_session_participant(
+    session_id: int,
+    request: schemas.RTCParticipantRegisterRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> models.RTCParticipant:
+    """Register the calling user as a participant, mapping their 100ms peer_id.
+
+    Called by the client on join so per-peer recording tracks can be labelled
+    with a human-readable name. Idempotent per (session_id, peer_id): a repeat
+    call returns the existing participant rather than creating a duplicate.
+    """
+    session = (
+        db.query(models.RTCSession)
+        .filter(models.RTCSession.id == session_id)
+        .first()
+    )
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="RTC session not found",
+        )
+
+    existing = (
+        db.query(models.RTCParticipant)
+        .filter(
+            models.RTCParticipant.session_id == session_id,
+            models.RTCParticipant.peer_id == request.peer_id,
+        )
+        .first()
+    )
+    if existing:
+        return existing
+
+    role = "host" if current_user.id == session.owner_id else "guest"
+    display_name = request.display_name or current_user.name or "Guest"
+    return add_participant(
+        db,
+        session_id=session_id,
+        peer_id=request.peer_id,
+        display_name=display_name,
+        role=role,
+        user_id=current_user.id,
+    )
 
 
 @router.get("/invite/{invite_code}", response_model=schemas_live_session.LiveSessionPreview)

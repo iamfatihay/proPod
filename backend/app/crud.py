@@ -694,6 +694,43 @@ def hard_delete_podcast(db: Session, podcast: models.Podcast) -> bool:
     return True
 
 
+def purge_deleted_podcast_storage(db: Session, grace_days: int = 30) -> dict:
+    """Delete R2/storage files for soft-deleted podcasts past the grace period.
+
+    Runs as a daily scheduled job.  Sets audio_url/video_url to None after
+    deletion so the job never re-processes the same podcast.
+    """
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=grace_days)
+    candidates = (
+        db.query(models.Podcast)
+        .filter(
+            models.Podcast.is_deleted == True,  # noqa: E712
+            models.Podcast.deleted_at < cutoff,
+            models.Podcast.audio_url.isnot(None),
+        )
+        .all()
+    )
+    purged = 0
+    errors = 0
+    for podcast in candidates:
+        media_urls = {podcast.audio_url, podcast.video_url} - {None}
+        for url in media_urls:
+            try:
+                storage_service.delete_managed(url)
+            except Exception:
+                logger.warning(
+                    "Storage purge failed for podcast %s url %s",
+                    podcast.id, url, exc_info=True,
+                )
+                errors += 1
+        podcast.audio_url = None
+        podcast.video_url = None
+        purged += 1
+    if purged:
+        db.commit()
+    return {"purged": purged, "errors": errors}
+
+
 # ==================== Podcast Interaction CRUD Operations ====================
 
 def get_user_podcast_interactions(db: Session, user_id: int, podcast_id: int) -> Dict[str, Any]:

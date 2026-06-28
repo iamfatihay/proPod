@@ -285,6 +285,28 @@ class RTCRoomCreateResponse(BaseModel):
     invite_code: Optional[str] = None
 
 
+class RTCTrackRecording(BaseModel):
+    """A single per-peer recording track captured for multitrack export."""
+    peer_id: str
+    track_type: Optional[str] = None  # "audio" | "video"
+    url: str
+    duration: int = 0
+    display_name: Optional[str] = None
+    role: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RTCParticipantRegisterRequest(BaseModel):
+    """Request to register the calling user as a session participant.
+
+    The frontend reports its 100ms peer_id on join so per-peer recording
+    tracks can later be labelled with a human-readable name.
+    """
+    peer_id: str
+    display_name: Optional[str] = None
+
+
 class RTCSessionResponse(BaseModel):
     """Response schema for RTC session status."""
     id: int
@@ -302,7 +324,8 @@ class RTCSessionResponse(BaseModel):
     recording_url: Optional[str] = None
     duration_seconds: int
     podcast_id: Optional[int] = None
-    
+    track_recordings: Optional[List[RTCTrackRecording]] = None
+
     # Phase 2-4: Live session fields
     is_live: bool = False
     started_at: Optional[datetime.datetime] = None

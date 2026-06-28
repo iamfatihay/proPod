@@ -662,3 +662,216 @@ class TestRTCSessions:
 
         assert response.status_code == 410
         assert response.json()["detail"] == "This live session has already ended"
+
+
+class TestRTCMultitrack:
+    """Test participant registration and per-peer track recording capture."""
+
+    def _make_session(self, db, owner_id, room_id, media_mode="video"):
+        session = RTCSession(
+            room_id=room_id,
+            room_name="Multitrack Room",
+            owner_id=owner_id,
+            title="Multitrack Session",
+            media_mode=media_mode,
+            status="created",
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+        return session
+
+    def _cleanup_participants(self, db, session_id):
+        from app.models import RTCParticipant
+        db.query(RTCParticipant).filter(
+            RTCParticipant.session_id == session_id
+        ).delete(synchronize_session=False)
+        db.commit()
+
+    def test_register_participant_creates_host(self, test_user):
+        db = test_user["db"]
+        session = self._make_session(db, test_user["user"].id, "mt-room-register")
+
+        response = client.post(
+            f"/rtc/sessions/{session.id}/participants",
+            json={"peer_id": "peer-host-1"},
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["peer_id"] == "peer-host-1"
+        assert data["role"] == "host"  # owner registering themselves
+        assert data["display_name"] == "RTC Test User"
+        self._cleanup_participants(db, session.id)
+
+    def test_register_participant_is_idempotent(self, test_user):
+        db = test_user["db"]
+        session = self._make_session(db, test_user["user"].id, "mt-room-idem")
+
+        first = client.post(
+            f"/rtc/sessions/{session.id}/participants",
+            json={"peer_id": "peer-1", "display_name": "Custom Name"},
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+        second = client.post(
+            f"/rtc/sessions/{session.id}/participants",
+            json={"peer_id": "peer-1", "display_name": "Different"},
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert first.json()["id"] == second.json()["id"]  # same row, no duplicate
+        assert second.json()["display_name"] == "Custom Name"  # first registration wins
+        self._cleanup_participants(db, session.id)
+
+    def test_register_participant_missing_session(self, test_user):
+        response = client.post(
+            "/rtc/sessions/999999/participants",
+            json={"peer_id": "peer-x"},
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+        assert response.status_code == 404
+
+    @patch("app.routers.rtc.storage_service.persist_remote_media", new_callable=AsyncMock)
+    @patch("app.routers.rtc.settings")
+    def test_webhook_captures_track_with_label(self, mock_settings, mock_persist, test_user):
+        db = test_user["db"]
+        mock_settings.HMS_WEBHOOK_SECRET = None
+        mock_persist.return_value = "/media/audio/rtc_track.m4a"
+        session = self._make_session(db, test_user["user"].id, "mt-room-track")
+
+        # Register the peer so the captured track is labelled
+        client.post(
+            f"/rtc/sessions/{session.id}/participants",
+            json={"peer_id": "peer-trevor", "display_name": "Trevor"},
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+
+        response = client.post(
+            "/rtc/webhooks/100ms",
+            json={
+                "type": "track.recording.success",
+                "room_id": "mt-room-track",
+                "data": {
+                    "peer_id": "peer-trevor",
+                    "track_type": "audio",
+                    "recording_presigned_url": "https://example.com/trevor.m4a",
+                    "duration": 95,
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        # No podcast should be created from a partial track
+        db.refresh(session)
+        assert session.podcast_id is None
+        assert session.recording_url is None
+        assert session.track_recordings is not None
+        assert len(session.track_recordings) == 1
+        track = session.track_recordings[0]
+        assert track["peer_id"] == "peer-trevor"
+        assert track["track_type"] == "audio"
+        assert track["url"] == "/media/audio/rtc_track.m4a"
+        assert track["duration"] == 95
+        assert track["display_name"] == "Trevor"
+        assert track["role"] == "host"
+        mock_persist.assert_awaited_once_with(
+            "https://example.com/trevor.m4a",
+            f"rtc_session_{session.id}_track_peer-trevor_audio.m4a",
+            media_kind="audio",
+        )
+        self._cleanup_participants(db, session.id)
+
+    @patch("app.routers.rtc.storage_service.persist_remote_media", new_callable=AsyncMock)
+    @patch("app.routers.rtc.settings")
+    def test_webhook_track_without_participant_is_unlabelled(self, mock_settings, mock_persist, test_user):
+        db = test_user["db"]
+        mock_settings.HMS_WEBHOOK_SECRET = None
+        mock_persist.return_value = "/media/audio/rtc_track2.m4a"
+        session = self._make_session(db, test_user["user"].id, "mt-room-nolabel")
+
+        response = client.post(
+            "/rtc/webhooks/100ms",
+            json={
+                "type": "track.recording.success",
+                "room_id": "mt-room-nolabel",
+                "data": {
+                    "peer_id": "peer-unknown",
+                    "track_type": "audio",
+                    "recording_presigned_url": "https://example.com/unknown.m4a",
+                    "duration": 30,
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        db.refresh(session)
+        assert len(session.track_recordings) == 1
+        assert session.track_recordings[0]["display_name"] is None
+        assert session.track_recordings[0]["role"] is None
+
+    @patch("app.routers.rtc.storage_service.persist_remote_media", new_callable=AsyncMock)
+    @patch("app.routers.rtc.settings")
+    def test_webhook_track_is_idempotent(self, mock_settings, mock_persist, test_user):
+        db = test_user["db"]
+        mock_settings.HMS_WEBHOOK_SECRET = None
+        mock_persist.return_value = "/media/audio/rtc_track3.m4a"
+        session = self._make_session(db, test_user["user"].id, "mt-room-dupe")
+
+        payload = {
+            "type": "track.recording.success",
+            "room_id": "mt-room-dupe",
+            "data": {
+                "peer_id": "peer-dupe",
+                "track_type": "audio",
+                "recording_presigned_url": "https://example.com/dupe.m4a",
+                "duration": 42,
+            },
+        }
+        client.post("/rtc/webhooks/100ms", json=payload)
+        client.post("/rtc/webhooks/100ms", json=payload)  # duplicate delivery
+
+        db.refresh(session)
+        assert len(session.track_recordings) == 1  # not duplicated
+        assert mock_persist.await_count == 1  # second delivery short-circuits before persist
+
+    @patch("app.routers.rtc.storage_service.persist_remote_media", new_callable=AsyncMock)
+    @patch("app.routers.rtc.settings")
+    def test_session_response_exposes_track_recordings(self, mock_settings, mock_persist, test_user):
+        db = test_user["db"]
+        mock_settings.HMS_WEBHOOK_SECRET = None
+        mock_persist.return_value = "/media/video/rtc_wei.mp4"
+        session = self._make_session(db, test_user["user"].id, "mt-room-expose")
+
+        client.post(
+            f"/rtc/sessions/{session.id}/participants",
+            json={"peer_id": "peer-wei", "display_name": "Wei"},
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+        client.post(
+            "/rtc/webhooks/100ms",
+            json={
+                "type": "track.recording.success",
+                "room_id": "mt-room-expose",
+                "data": {
+                    "peer_id": "peer-wei",
+                    "track_type": "video",
+                    "recording_presigned_url": "https://example.com/wei.mp4",
+                    "duration": 120,
+                },
+            },
+        )
+
+        response = client.get(
+            f"/rtc/sessions/{session.id}",
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+        assert response.status_code == 200
+        tracks = response.json()["track_recordings"]
+        assert tracks is not None
+        assert len(tracks) == 1
+        assert tracks[0]["display_name"] == "Wei"
+        assert tracks[0]["track_type"] == "video"
+        self._cleanup_participants(db, session.id)

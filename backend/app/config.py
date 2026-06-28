@@ -1,7 +1,8 @@
 """Application configuration settings."""
+import json
 import os
 from pathlib import Path
-from typing import Literal
+from typing import List, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings
@@ -50,6 +51,25 @@ class Settings(BaseSettings):
         default="http://localhost:8000",
         description="Base URL for the API (used for generating links)"
     )
+
+    # CORS — accepts a JSON array string or a comma-separated list
+    # Dev default: ["*"]   Prod: ["https://app.propod.com"]
+    CORS_ORIGINS: List[str] = Field(
+        default=["*"],
+        description='Allowed CORS origins — JSON array string, e.g. [\"https://app.propod.com\"]',
+    )
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("["):
+                return json.loads(v)
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
     
     # Media Configuration
     MEDIA_ROOT: str = Field(
