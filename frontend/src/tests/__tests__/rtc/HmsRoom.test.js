@@ -392,6 +392,10 @@ describe("HmsRoom Component", () => {
                 expect.any(Function)
             );
             expect(mockHmsInstance.addEventListener).toHaveBeenCalledWith(
+                "ON_SPEAKER",
+                expect.any(Function)
+            );
+            expect(mockHmsInstance.addEventListener).toHaveBeenCalledWith(
                 "ON_ERROR",
                 expect.any(Function)
             );
@@ -752,7 +756,7 @@ describe("HmsRoom Component", () => {
         return { onJoinCallback, mockLocalPeer };
     };
 
-    it("should register ON_RECONNECTING and ON_RECONNECTED listeners", async () => {
+    it("should register RECONNECTING and RECONNECTED listeners", async () => {
         render(
             <HmsRoom
                 token={mockToken}
@@ -766,17 +770,17 @@ describe("HmsRoom Component", () => {
 
         await waitFor(() => {
             expect(mockHmsInstance.addEventListener).toHaveBeenCalledWith(
-                "ON_RECONNECTING",
+                "RECONNECTING",
                 expect.any(Function)
             );
             expect(mockHmsInstance.addEventListener).toHaveBeenCalledWith(
-                "ON_RECONNECTED",
+                "RECONNECTED",
                 expect.any(Function)
             );
         });
     });
 
-    it("should show reconnecting banner when ON_RECONNECTING fires", async () => {
+    it("should show reconnecting banner when RECONNECTING fires", async () => {
         const { getByText, queryByText } = render(
             <HmsRoom
                 token={mockToken}
@@ -801,9 +805,9 @@ describe("HmsRoom Component", () => {
         // Initially no banner
         expect(queryByText("Reconnecting\u2026")).toBeNull();
 
-        // Fire ON_RECONNECTING
+        // Fire RECONNECTING
         const onReconnectingCallback = mockHmsInstance.addEventListener.mock.calls.find(
-            (call) => call[0] === "ON_RECONNECTING"
+            (call) => call[0] === "RECONNECTING"
         )?.[1];
         act(() => { onReconnectingCallback?.(); });
 
@@ -812,7 +816,7 @@ describe("HmsRoom Component", () => {
         });
     });
 
-    it("should hide reconnecting banner when ON_RECONNECTED fires", async () => {
+    it("should hide reconnecting banner when RECONNECTED fires", async () => {
         const { getByText, queryByText } = render(
             <HmsRoom
                 token={mockToken}
@@ -834,10 +838,10 @@ describe("HmsRoom Component", () => {
 
         // Trigger reconnecting then reconnected
         const onReconnecting = mockHmsInstance.addEventListener.mock.calls.find(
-            (call) => call[0] === "ON_RECONNECTING"
+            (call) => call[0] === "RECONNECTING"
         )?.[1];
         const onReconnected = mockHmsInstance.addEventListener.mock.calls.find(
-            (call) => call[0] === "ON_RECONNECTED"
+            (call) => call[0] === "RECONNECTED"
         )?.[1];
 
         act(() => { onReconnecting?.(); });

@@ -138,6 +138,57 @@ const buildTimeoutError = () => ({
 const getErrorTitle = (error) => (typeof error === "string" ? null : error?.title);
 const getErrorMessage = (error) => (typeof error === "string" ? error : error?.message);
 
+const formatDuration = (totalSeconds) => {
+    const safe = Math.max(0, Math.floor(totalSeconds || 0));
+    const mm = String(Math.floor(safe / 60)).padStart(2, "0");
+    const ss = String(safe % 60).padStart(2, "0");
+    return `${mm}:${ss}`;
+};
+
+// A peer counts as "speaking" once its 100ms audio level (0–100) clears this
+// floor; below it we treat the channel as silent to avoid flickering on noise.
+const SPEAKING_LEVEL_THRESHOLD = 10;
+
+const SUCCESS_COLOR = COLORS.success || "#4CAF50";
+
+// 100ms downlinkQuality: 0 (worst) → 5 (best); -1/undefined = still measuring.
+const getNetworkColor = (quality) => {
+    if (typeof quality !== "number" || quality < 0) return COLORS.text.muted;
+    if (quality <= 1) return COLORS.error;
+    if (quality <= 3) return COLORS.warning;
+    return SUCCESS_COLOR;
+};
+
+const SignalBars = ({ quality }) => {
+    const color = getNetworkColor(quality);
+    const filled = typeof quality === "number" && quality >= 0
+        ? Math.max(0, Math.ceil((quality / 5) * 3))
+        : 0;
+    return (
+        <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
+            {[0, 1, 2].map((i) => (
+                <View
+                    key={i}
+                    style={{
+                        width: 3,
+                        height: 5 + i * 3,
+                        marginLeft: i === 0 ? 0 : 2,
+                        borderRadius: 1,
+                        backgroundColor: i < filled ? color : "rgba(255,255,255,0.22)",
+                    }}
+                />
+            ))}
+        </View>
+    );
+};
+
+const getPeerAudioMuted = (peer) => {
+    const audioTrack = peer?.isLocal
+        ? getPeerTrack(peer, "localAudioTrack")
+        : getPeerTrack(peer, "audioTrack");
+    return audioTrack?.isMute?.() ?? false;
+};
+
 const HmsRoom = ({
     token,
     userName,
@@ -157,6 +208,14 @@ const HmsRoom = ({
     const [isVideoMuted, setIsVideoMuted] = useState(false);
     const [isReconnecting, setIsReconnecting] = useState(false);
     const [joinAttempt, setJoinAttempt] = useState(0);
+    const [joined, setJoined] = useState(false);
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    // peerID → audio level (0–100), only present for currently-speaking peers.
+    const [audioLevels, setAudioLevels] = useState({});
+    // peerID → 100ms downlinkQuality (0–5).
+    const [networkQualities, setNetworkQualities] = useState({});
+    // Latest live caption from ON_TRANSCRIPTS: { name, text } | null.
+    const [caption, setCaption] = useState(null);
 
     const hmsInstanceRef = useRef(null);
     const localPeerRef = useRef(null);
@@ -169,6 +228,7 @@ const HmsRoom = ({
     const onJoinRef = useRef(onJoin);
     const onLeaveRef = useRef(onLeave);
     const onErrorRef = useRef(onErrorCallback);
+    const captionTimeoutRef = useRef(null);
     const sessionRef = useRef(`rtc-${Date.now().toString(36)}`);
 
     const HmsView = hmsInstanceRef.current?.HmsView;
@@ -233,6 +293,7 @@ const HmsRoom = ({
         const localPeer = data?.room?.localPeer || data?.localPeer;
         const startedAt = Date.now();
         sessionStartRef.current = startedAt;
+        setJoined(true);
 
         Logger.info("[RTC] Join event received", {
             ...getLogContext(),
@@ -276,7 +337,7 @@ const HmsRoom = ({
             videoMuted: nextVideoMuted,
         });
 
-        onJoinRef.current && onJoinRef.current();
+        onJoinRef.current && onJoinRef.current({ peerId: localPeer?.peerID });
     }, [enableVideo, getLogContext, startAudioMuted, startVideoMuted]);
 
     const handlePeerUpdate = useCallback(({ peer, type }) => {
@@ -293,11 +354,56 @@ const HmsRoom = ({
 
         if (type === HMSPeerUpdate.PEER_LEFT) {
             setPeerNodes((prev) => removeNode(prev, peer.peerID));
+            setNetworkQualities((prev) => {
+                if (!(peer.peerID in prev)) return prev;
+                const next = { ...prev };
+                delete next[peer.peerID];
+                return next;
+            });
             return;
+        }
+
+        const downlink = peer?.networkQuality?.downlinkQuality;
+        if (typeof downlink === "number") {
+            setNetworkQualities((prev) =>
+                prev[peer.peerID] === downlink
+                    ? prev
+                    : { ...prev, [peer.peerID]: downlink }
+            );
         }
 
         setPeerNodes((prev) => upsertNode(prev, peer));
     }, [getLogContext]);
+
+    const handleSpeakerUpdate = useCallback((speakers) => {
+        const levels = {};
+        (Array.isArray(speakers) ? speakers : []).forEach((speaker) => {
+            const peerId = speaker?.peer?.peerID;
+            if (peerId) {
+                levels[peerId] = typeof speaker.level === "number" ? speaker.level : 0;
+            }
+        });
+        setAudioLevels(levels);
+    }, []);
+
+    const handleTranscripts = useCallback((data) => {
+        const items = data?.transcripts || [];
+        if (!items.length) {
+            return;
+        }
+        const latest = items[items.length - 1];
+        const text = (latest?.transcript || "").trim();
+        if (!text) {
+            return;
+        }
+        setCaption({ name: latest?.peer?.name || "Speaker", text });
+
+        // Fade the caption out after a pause in speech; live updates keep it fresh.
+        if (captionTimeoutRef.current) {
+            clearTimeout(captionTimeoutRef.current);
+        }
+        captionTimeoutRef.current = setTimeout(() => setCaption(null), 5000);
+    }, []);
 
     const handleTrackUpdate = useCallback(({ peer, track, type }) => {
         if (!peer || !track || track.type !== HMSTrackType.VIDEO) {
@@ -394,6 +500,7 @@ const HmsRoom = ({
         }
 
         hasLeftRef.current = true;
+        setJoined(false);
 
         Logger.info("[RTC] leaveRoom started", {
             ...getLogContext(),
@@ -499,6 +606,11 @@ const HmsRoom = ({
                 setError(null);
                 setIsReconnecting(false);
                 setPeerNodes([]);
+                setJoined(false);
+                setElapsedSeconds(0);
+                setAudioLevels({});
+                setNetworkQualities({});
+                setCaption(null);
                 localPeerRef.current = null;
                 sessionStartRef.current = null;
                 participantCountRef.current = 1;
@@ -577,21 +689,31 @@ const HmsRoom = ({
                     handleTrackUpdate
                 );
                 hmsInstance.addEventListener(
+                    HMSUpdateListenerActions.ON_SPEAKER,
+                    handleSpeakerUpdate
+                );
+                if (HMSUpdateListenerActions.ON_TRANSCRIPTS) {
+                    hmsInstance.addEventListener(
+                        HMSUpdateListenerActions.ON_TRANSCRIPTS,
+                        handleTranscripts
+                    );
+                }
+                hmsInstance.addEventListener(
                     HMSUpdateListenerActions.ON_ERROR,
                     handleError
                 );
-                if (!HMSUpdateListenerActions.ON_RECONNECTING || !HMSUpdateListenerActions.ON_RECONNECTED) {
+                if (!HMSUpdateListenerActions.RECONNECTING || !HMSUpdateListenerActions.RECONNECTED) {
                     Logger.warn("[RTC] HMS SDK does not expose reconnect events; reconnect banner will not appear", getLogContext());
                 }
-                if (HMSUpdateListenerActions.ON_RECONNECTING) {
+                if (HMSUpdateListenerActions.RECONNECTING) {
                     hmsInstance.addEventListener(
-                        HMSUpdateListenerActions.ON_RECONNECTING,
+                        HMSUpdateListenerActions.RECONNECTING,
                         handleReconnecting
                     );
                 }
-                if (HMSUpdateListenerActions.ON_RECONNECTED) {
+                if (HMSUpdateListenerActions.RECONNECTED) {
                     hmsInstance.addEventListener(
-                        HMSUpdateListenerActions.ON_RECONNECTED,
+                        HMSUpdateListenerActions.RECONNECTED,
                         handleReconnected
                     );
                 }
@@ -641,6 +763,10 @@ const HmsRoom = ({
 
         return () => {
             isMounted = false;
+            if (captionTimeoutRef.current) {
+                clearTimeout(captionTimeoutRef.current);
+                captionTimeoutRef.current = null;
+            }
             Logger.debug("[RTC] HmsRoom cleanup triggered", getLogContext());
             leaveRoom();
         };
@@ -652,6 +778,8 @@ const HmsRoom = ({
         handleJoinSuccess,
         handlePeerUpdate,
         handleTrackUpdate,
+        handleSpeakerUpdate,
+        handleTranscripts,
         handleError,
         handleReconnecting,
         handleReconnected,
@@ -659,6 +787,20 @@ const HmsRoom = ({
         leaveRoom,
         teardownHmsInstance,
     ]);
+
+    // Tick a session timer once joined so the live header can show elapsed
+    // recording time (recording auto-starts on room join per the 100ms template).
+    useEffect(() => {
+        if (!joined) {
+            return undefined;
+        }
+        const interval = setInterval(() => {
+            if (sessionStartRef.current) {
+                setElapsedSeconds(Math.floor((Date.now() - sessionStartRef.current) / 1000));
+            }
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [joined]);
 
     const toggleAudio = () => {
         const localAudioTrack = getPeerTrack(localPeerRef.current, "localAudioTrack");
@@ -713,41 +855,115 @@ const HmsRoom = ({
 
     const renderTile = ({ item }) => {
         const { peer, track } = item;
+        const peerId = peer?.peerID;
+        const level = audioLevels[peerId] || 0;
+        const isSpeaking = level > SPEAKING_LEVEL_THRESHOLD;
+        const audioMuted = getPeerAudioMuted(peer);
+        const quality = networkQualities[peerId];
+        const showVideo = enableVideo && HmsView && track?.trackId && !track.isMute?.();
         const initials = peer?.name
             ? peer.name
                   .split(" ")
                   .map((part) => part[0])
                   .join("")
             : "P";
+        const tileWidth = peerNodes.length > 1 ? "50%" : "100%";
 
         return (
-            <View className="bg-panel rounded-2xl p-2 mb-3">
-                <View className="overflow-hidden rounded-xl bg-black/30" style={{ aspectRatio: 9 / 16 }}>
-                    {enableVideo && HmsView && track?.trackId && !track.isMute?.() ? (
-                        <HmsView
-                            trackId={track.trackId}
-                            mirror={peer?.isLocal}
-                            style={{ width: "100%", height: "100%" }}
-                        />
-                    ) : (
-                        <View className="flex-1 items-center justify-center">
-                            <View className="w-20 h-20 rounded-full bg-primary/30 items-center justify-center">
-                                <Text className="text-text-primary text-2xl font-bold">
-                                    {initials}
-                                </Text>
+            <View style={{ width: tileWidth, padding: 4 }}>
+                <View
+                    className="bg-panel rounded-2xl p-2"
+                    style={{
+                        borderWidth: 2,
+                        borderColor: isSpeaking ? SUCCESS_COLOR : "transparent",
+                    }}
+                >
+                    <View className="overflow-hidden rounded-xl bg-black/30" style={{ aspectRatio: 3 / 4 }}>
+                        {showVideo ? (
+                            <HmsView
+                                trackId={track.trackId}
+                                mirror={peer?.isLocal}
+                                style={{ width: "100%", height: "100%" }}
+                            />
+                        ) : (
+                            <View className="flex-1 items-center justify-center">
+                                <View className="w-20 h-20 rounded-full bg-primary/30 items-center justify-center">
+                                    <Text className="text-text-primary text-2xl font-bold">
+                                        {initials}
+                                    </Text>
+                                </View>
                             </View>
+                        )}
+
+                        {/* Connection quality (top-right) */}
+                        <View
+                            style={{
+                                position: "absolute",
+                                top: 6,
+                                right: 6,
+                                backgroundColor: "rgba(0,0,0,0.45)",
+                                borderRadius: 6,
+                                paddingHorizontal: 5,
+                                paddingVertical: 4,
+                            }}
+                        >
+                            <SignalBars quality={quality} />
                         </View>
-                    )}
-                </View>
-                <View className="mt-2 flex-row items-center justify-between">
-                    <Text className="text-text-primary font-semibold">
-                        {peer?.name || "Guest"}
-                    </Text>
-                    {peer?.isLocal && (
-                        <View className="px-2 py-1 rounded-full bg-primary/20">
-                            <Text className="text-primary text-xs">You</Text>
+
+                        {/* Muted mic indicator (top-left) */}
+                        {audioMuted && (
+                            <View
+                                style={{
+                                    position: "absolute",
+                                    top: 6,
+                                    left: 6,
+                                    backgroundColor: "rgba(0,0,0,0.5)",
+                                    borderRadius: 12,
+                                    padding: 5,
+                                }}
+                            >
+                                <Ionicons name="mic-off" size={13} color={COLORS.error} />
+                            </View>
+                        )}
+
+                        {/* Live audio-level bar (bottom edge) */}
+                        <View
+                            style={{
+                                position: "absolute",
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                height: 3,
+                                backgroundColor: "rgba(255,255,255,0.08)",
+                            }}
+                        >
+                            <View
+                                style={{
+                                    height: 3,
+                                    width: `${Math.min(100, level)}%`,
+                                    backgroundColor: isSpeaking ? SUCCESS_COLOR : "transparent",
+                                }}
+                            />
                         </View>
-                    )}
+                    </View>
+
+                    <View className="mt-2 flex-row items-center justify-between">
+                        <View className="flex-row items-center flex-1 mr-2">
+                            <Ionicons
+                                name={audioMuted ? "mic-off" : "mic"}
+                                size={14}
+                                color={audioMuted ? COLORS.error : isSpeaking ? SUCCESS_COLOR : COLORS.text.muted}
+                            />
+                            <Text className="text-text-primary font-semibold ml-1.5" numberOfLines={1}>
+                                {peer?.name || "Guest"}
+                            </Text>
+                        </View>
+                        {peer?.isLocal && (
+                            <View className="px-2 py-0.5 rounded-full bg-primary/20">
+                                <Text className="text-primary text-xs">You</Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
             </View>
         );
@@ -823,17 +1039,45 @@ const HmsRoom = ({
                     </Text>
                 </View>
             )}
-            <View className="mb-4">
-                <Text className="text-text-secondary text-center">
-                    Room: {roomName || "Live session"}
-                </Text>
+            <View className="flex-row items-center justify-between mb-4 px-1">
+                <View
+                    className="flex-row items-center rounded-full px-3 py-1.5"
+                    style={{ backgroundColor: "rgba(239,68,68,0.15)" }}
+                >
+                    <View
+                        style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: 4,
+                            backgroundColor: COLORS.error,
+                            marginRight: 6,
+                        }}
+                    />
+                    <Text style={{ color: COLORS.error, fontWeight: "700", fontSize: 12, letterSpacing: 1 }}>
+                        REC
+                    </Text>
+                    <Text
+                        className="text-text-primary font-semibold ml-2"
+                        style={{ fontVariant: ["tabular-nums"] }}
+                    >
+                        {formatDuration(elapsedSeconds)}
+                    </Text>
+                </View>
+                <View className="flex-row items-center flex-1 justify-end ml-3">
+                    <Ionicons name="people" size={14} color={COLORS.text.muted} />
+                    <Text className="text-text-secondary ml-1" numberOfLines={1}>
+                        {roomName || "Live session"}
+                    </Text>
+                </View>
             </View>
 
             {peerNodes.length > 0 ? (
                 <FlatList
+                    key={`cols-${peerNodes.length > 1 ? 2 : 1}`}
                     data={peerNodes}
                     keyExtractor={(item) => item.id}
                     renderItem={renderTile}
+                    numColumns={peerNodes.length > 1 ? 2 : 1}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingBottom: 120 }}
                 />
@@ -842,6 +1086,25 @@ const HmsRoom = ({
                     <Text className="text-text-primary text-lg">You are alone here.</Text>
                     <Text className="text-text-secondary mt-2">
                         Share the room name to invite co-hosts.
+                    </Text>
+                </View>
+            )}
+
+            {caption && (
+                <View
+                    style={{
+                        backgroundColor: "rgba(0,0,0,0.7)",
+                        borderRadius: 12,
+                        paddingVertical: 8,
+                        paddingHorizontal: 12,
+                        marginBottom: 10,
+                    }}
+                >
+                    <Text style={{ color: COLORS.primary, fontSize: 11, fontWeight: "700", marginBottom: 2 }}>
+                        {caption.name}
+                    </Text>
+                    <Text style={{ color: "#fff", fontSize: 14 }} numberOfLines={2}>
+                        {caption.text}
                     </Text>
                 </View>
             )}
