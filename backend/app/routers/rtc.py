@@ -16,7 +16,7 @@ from app.config import settings
 from app.database import get_db
 from app import models, crud
 from app.services.hms_service import create_room, generate_auth_token
-from app.services.live_session_service import add_participant, end_session, generate_invite_code, get_active_participants, start_session
+from app.services.live_session_service import end_session, generate_invite_code, get_active_participants, start_session
 from app.services.storage_service import storage_service
 from app.models import User
 
@@ -143,20 +143,30 @@ async def _handle_track_recording(
         _rtc_log("webhook.track_skipped", reason="missing_peer_or_url", room_id=session.room_id)
         return {"status": "ok"}
 
-    existing = list(session.track_recordings or [])
+    locked_session = (
+        db.query(models.RTCSession)
+        .filter(models.RTCSession.id == session.id)
+        .with_for_update()
+        .first()
+    )
+    if not locked_session:
+        _rtc_log("webhook.track_skipped", reason="session_not_found", session_id=session.id)
+        return {"status": "ok"}
+
+    existing = list(locked_session.track_recordings or [])
     if any(t.get("peer_id") == peer_id and t.get("track_type") == track_type for t in existing):
-        _rtc_log("webhook.track_idempotent", session_id=session.id, peer_id=peer_id, track_type=track_type)
+        _rtc_log("webhook.track_idempotent", session_id=locked_session.id, peer_id=peer_id, track_type=track_type)
         return {"status": "ok"}
 
     media_kind = "video" if track_type == "video" else "audio"
     suffix = _get_recording_suffix(recording_url, "video" if track_type == "video" else "audio")
-    filename = f"rtc_session_{session.id}_track_{_sanitize_filename_part(peer_id)}_{track_type or 'audio'}{suffix}"
+    filename = f"rtc_session_{locked_session.id}_track_{_sanitize_filename_part(peer_id)}_{track_type or 'audio'}{suffix}"
     stable_url = await storage_service.persist_remote_media(recording_url, filename, media_kind=media_kind)
 
     participant = (
         db.query(models.RTCParticipant)
         .filter(
-            models.RTCParticipant.session_id == session.id,
+            models.RTCParticipant.session_id == locked_session.id,
             models.RTCParticipant.peer_id == peer_id,
         )
         .first()
@@ -170,12 +180,12 @@ async def _handle_track_recording(
         "display_name": participant.display_name if participant else None,
         "role": participant.role if participant else None,
     })
-    session.track_recordings = existing
+    locked_session.track_recordings = existing
     db.commit()
 
     _rtc_log(
         "webhook.track_captured",
-        session_id=session.id,
+        session_id=locked_session.id,
         peer_id=peer_id,
         track_type=track_type,
         labelled=bool(participant),
@@ -726,7 +736,7 @@ def register_session_participant(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> models.RTCParticipant:
-    """Register the calling user as a participant, mapping their 100ms peer_id.
+    """Register metadata for the calling user, mapping their 100ms peer_id.
 
     Called by the client on join so per-peer recording tracks can be labelled
     with a human-readable name. Idempotent per (session_id, peer_id): a repeat
@@ -752,18 +762,32 @@ def register_session_participant(
         .first()
     )
     if existing:
+        if existing.user_id not in (None, current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="peer_id is already registered to another user",
+            )
+
+        if existing.user_id is None:
+            existing.user_id = current_user.id
+            db.commit()
+            db.refresh(existing)
         return existing
 
     role = "host" if current_user.id == session.owner_id else "guest"
     display_name = request.display_name or current_user.name or "Guest"
-    return add_participant(
-        db,
+    participant = models.RTCParticipant(
         session_id=session_id,
+        user_id=current_user.id,
         peer_id=request.peer_id,
         display_name=display_name,
         role=role,
-        user_id=current_user.id,
+        is_active=False,
     )
+    db.add(participant)
+    db.commit()
+    db.refresh(participant)
+    return participant
 
 
 @router.get("/invite/{invite_code}", response_model=schemas_live_session.LiveSessionPreview)

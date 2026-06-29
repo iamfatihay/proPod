@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.main import _run_push_receipt_check, lifespan
+from app.main import _ensure_database_schema_current, _run_push_receipt_check, lifespan
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +114,10 @@ class TestLifespan:
             def shutdown(self, wait=True):
                 self._running = False
 
-        with patch("app.main.BackgroundScheduler", SpyScheduler):
+        with (
+            patch("app.main._ensure_database_schema_current"),
+            patch("app.main.BackgroundScheduler", SpyScheduler),
+        ):
             async with lifespan(test_app):
                 assert len(started_schedulers) == 1
                 sched = started_schedulers[0]
@@ -142,7 +145,10 @@ class TestLifespan:
             def shutdown(self, wait=True):
                 shutdown_called.append(True)
 
-        with patch("app.main.BackgroundScheduler", SpyScheduler):
+        with (
+            patch("app.main._ensure_database_schema_current"),
+            patch("app.main.BackgroundScheduler", SpyScheduler),
+        ):
             try:
                 async with lifespan(test_app):
                     raise RuntimeError("simulated app error")
@@ -157,22 +163,66 @@ class TestLifespan:
         from fastapi import FastAPI
 
         test_app = FastAPI()
-        captured_kwargs: dict = {}
+        captured_jobs: dict = {}
 
         class SpyScheduler:
             def __init__(self, daemon=False):
                 pass
             def add_job(self, func, **kwargs):
-                captured_kwargs.update(kwargs)
+                captured_jobs[kwargs.get("id")] = kwargs
             def start(self):
                 pass
             def shutdown(self, wait=True):
                 pass
 
-        with patch("app.main.BackgroundScheduler", SpyScheduler):
+        with (
+            patch("app.main._ensure_database_schema_current"),
+            patch("app.main.BackgroundScheduler", SpyScheduler),
+        ):
             async with lifespan(test_app):
                 pass
 
-        assert captured_kwargs.get("trigger") == "interval"
-        assert captured_kwargs.get("minutes") == 30
-        assert captured_kwargs.get("id") == "push_receipt_check"
+        job = captured_jobs.get("push_receipt_check", {})
+        assert job.get("trigger") == "interval"
+        assert job.get("minutes") == 30
+
+
+class TestSchemaGuard:
+    """Tests for database schema drift detection at startup."""
+
+    def test_returns_when_database_is_at_head(self):
+        mock_context = MagicMock()
+        mock_context.get_current_heads.return_value = ("head-1",)
+        mock_connection = MagicMock()
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value.__enter__.return_value = mock_connection
+
+        with (
+            patch("app.main.engine", mock_engine, create=True),
+            patch("alembic.script.ScriptDirectory.from_config") as mock_script_from_config,
+            patch("alembic.runtime.migration.MigrationContext.configure", return_value=mock_context),
+        ):
+            mock_script = MagicMock()
+            mock_script.get_heads.return_value = ["head-1"]
+            mock_script_from_config.return_value = mock_script
+
+            _ensure_database_schema_current()
+
+    def test_raises_clear_error_when_database_is_behind(self):
+        mock_context = MagicMock()
+        mock_context.get_current_heads.return_value = ("old-head",)
+        mock_connection = MagicMock()
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value.__enter__.return_value = mock_connection
+
+        with (
+            patch("app.main.engine", mock_engine, create=True),
+            patch("alembic.script.ScriptDirectory.from_config") as mock_script_from_config,
+            patch("alembic.runtime.migration.MigrationContext.configure", return_value=mock_context),
+        ):
+            mock_script = MagicMock()
+            mock_script.get_heads.return_value = ["new-head"]
+            mock_script_from_config.return_value = mock_script
+
+            with pytest.raises(RuntimeError, match="alembic upgrade head"):
+                _ensure_database_schema_current()

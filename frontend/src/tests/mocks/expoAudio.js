@@ -17,6 +17,8 @@ const AudioPlayer = jest.fn().mockImplementation(() => ({
     play: jest.fn().mockResolvedValue(undefined),
     pause: jest.fn().mockResolvedValue(undefined),
     stop: jest.fn().mockResolvedValue(undefined),
+    replace: jest.fn().mockResolvedValue(undefined),
+    seekTo: jest.fn().mockResolvedValue(undefined),
     unload: jest.fn().mockResolvedValue(undefined),
     addListener: jest.fn(),
     removeListener: jest.fn(),
@@ -30,6 +32,12 @@ const AudioPlayer = jest.fn().mockImplementation(() => ({
 const setAudioModeAsync = jest.fn().mockResolvedValue(undefined);
 const requestRecordingPermissionsAsync = jest.fn().mockResolvedValue({ status: "granted" });
 const getRecordingPermissionsAsync = jest.fn().mockResolvedValue({ status: "granted" });
+const useAudioPlayer = jest.fn().mockImplementation(() => AudioPlayer());
+const useAudioPlayerStatus = jest.fn().mockImplementation((player) => ({
+    playing: false,
+    currentTime: player?.currentTime ?? 0,
+    duration: player?.duration ?? 60,
+}));
 
 // Aliases for compatibility
 const requestPermissionsAsync = requestRecordingPermissionsAsync;
@@ -47,6 +55,8 @@ export {
     setAudioModeAsync,
     requestRecordingPermissionsAsync,
     getRecordingPermissionsAsync,
+    useAudioPlayer,
+    useAudioPlayerStatus,
     requestPermissionsAsync,
     getPermissionsAsync,
     AndroidAudioEncoder,
@@ -58,6 +68,8 @@ export {
 export default {
     AudioRecorder,
     AudioPlayer,
+    useAudioPlayer,
+    useAudioPlayerStatus,
     setAudioModeAsync,
     requestPermissionsAsync,
     getPermissionsAsync,

@@ -703,6 +703,10 @@ class TestRTCMultitrack:
         assert data["peer_id"] == "peer-host-1"
         assert data["role"] == "host"  # owner registering themselves
         assert data["display_name"] == "RTC Test User"
+        assert data["is_active"] is False
+        db.refresh(session)
+        assert session.participant_count == 0
+        assert session.viewer_count == 0
         self._cleanup_participants(db, session.id)
 
     def test_register_participant_is_idempotent(self, test_user):
@@ -733,6 +737,38 @@ class TestRTCMultitrack:
             headers={"Authorization": f"Bearer {test_user['token']}"},
         )
         assert response.status_code == 404
+
+    def test_register_participant_rejects_peer_claim_from_other_user(self, test_user):
+        db = test_user["db"]
+        session = self._make_session(db, test_user["user"].id, "mt-room-claim")
+
+        first_response = client.post(
+            f"/rtc/sessions/{session.id}/participants",
+            json={"peer_id": "peer-shared", "display_name": "Host Peer"},
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+
+        other_user_create = schemas.UserCreate(
+            email="peerclaim@test.com",
+            name="Peer Claim User",
+            password="password123",
+        )
+        other_user = crud.create_user(db, other_user_create)
+        other_token = create_access_token(data={"sub": other_user.email})
+
+        second_response = client.post(
+            f"/rtc/sessions/{session.id}/participants",
+            json={"peer_id": "peer-shared", "display_name": "Imposter"},
+            headers={"Authorization": f"Bearer {other_token}"},
+        )
+
+        assert first_response.status_code == 200
+        assert second_response.status_code == 409
+        assert second_response.json()["detail"] == "peer_id is already registered to another user"
+
+        self._cleanup_participants(db, session.id)
+        db.delete(other_user)
+        db.commit()
 
     @patch("app.routers.rtc.storage_service.persist_remote_media", new_callable=AsyncMock)
     @patch("app.routers.rtc.settings")

@@ -706,7 +706,10 @@ def purge_deleted_podcast_storage(db: Session, grace_days: int = 30) -> dict:
         .filter(
             models.Podcast.is_deleted == True,  # noqa: E712
             models.Podcast.deleted_at < cutoff,
-            models.Podcast.audio_url.isnot(None),
+            or_(
+                models.Podcast.audio_url.isnot(None),
+                models.Podcast.video_url.isnot(None),
+            ),
         )
         .all()
     )

@@ -85,6 +85,40 @@ def _run_push_receipt_check() -> None:
             db.close()
 
 
+def _ensure_database_schema_current() -> None:
+    """Fail fast when the connected database is behind Alembic head.
+
+    Without this check, schema drift can surface later as opaque 500s from ORM
+    queries when newly mapped columns are missing from the database.
+    """
+    from alembic.config import Config  # noqa: PLC0415
+    from alembic.runtime.migration import MigrationContext  # noqa: PLC0415
+    from alembic.script import ScriptDirectory  # noqa: PLC0415
+
+    from app.database import engine  # noqa: PLC0415
+
+    alembic_config = Config(str(settings.BACKEND_ROOT / "alembic.ini"))
+    script = ScriptDirectory.from_config(alembic_config)
+    expected_heads = set(script.get_heads())
+
+    with engine.connect() as connection:
+        context = MigrationContext.configure(connection)
+        current_heads = set(context.get_current_heads())
+
+    if current_heads == expected_heads:
+        return
+
+    current_display = ", ".join(sorted(current_heads)) or "unversioned"
+    expected_display = ", ".join(sorted(expected_heads)) or "unknown"
+    command = "cd backend && venv/bin/python -m alembic upgrade head"
+    raise RuntimeError(
+        "Database schema is behind the application models. "
+        f"Current revision(s): {current_display}. "
+        f"Expected head revision(s): {expected_display}. "
+        f"Run `{command}` and restart the backend."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Lifespan
 # ---------------------------------------------------------------------------
@@ -92,6 +126,8 @@ def _run_push_receipt_check() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: D401
     """Start/stop background scheduler around the application lifetime."""
+    _ensure_database_schema_current()
+
     scheduler = BackgroundScheduler(daemon=True)
     scheduler.add_job(
         _run_push_receipt_check,
