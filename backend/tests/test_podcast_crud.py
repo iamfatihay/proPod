@@ -16,6 +16,7 @@ Covers:
 - Authorization checks (401 without token, 403 for non-owner)
 """
 
+import datetime
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -167,6 +168,30 @@ class TestCreatePodcast:
             headers=_auth(test_user["token"]),
         )
         assert resp.status_code == 422
+
+
+class TestPurgeDeletedPodcastStorage:
+    def test_purges_video_only_podcasts(self, db, test_user):
+        podcast = Podcast(
+            title="Video Only Deleted",
+            owner_id=test_user["user"].id,
+            is_deleted=True,
+            deleted_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=40),
+            audio_url=None,
+            video_url="/media/video/video-only.mp4",
+        )
+        db.add(podcast)
+        db.commit()
+        db.refresh(podcast)
+
+        with patch("app.crud.storage_service.delete_managed") as mock_delete_managed:
+            result = crud.purge_deleted_podcast_storage(db, grace_days=30)
+
+        db.refresh(podcast)
+        assert result == {"purged": 1, "errors": 0}
+        assert podcast.audio_url is None
+        assert podcast.video_url is None
+        mock_delete_managed.assert_called_once_with("/media/video/video-only.mp4")
 
 
 # --------------- Get Single Podcast ---------------

@@ -1,6 +1,6 @@
 """Database models using SQLAlchemy ORM."""
 import datetime
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Index, Enum as SQLEnum, Float
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Index, Enum as SQLEnum, Float, JSON
 from sqlalchemy.orm import relationship
 from enum import Enum
 from .database import Base
@@ -166,6 +166,10 @@ class RTCSession(Base):
     duration_seconds = Column(Integer, default=0)
     podcast_id = Column(Integer, ForeignKey("podcasts.id"), nullable=True, index=True)
     last_webhook_payload = Column(Text, nullable=True)
+    # Per-peer recording tracks captured from 100ms `track.recording.success`
+    # webhooks (multitrack export). Each entry:
+    # {peer_id, track_type, url, duration, display_name, role}.
+    track_recordings = Column(JSON, nullable=True)
 
     # Phase 2-4: Live session tracking
     is_live = Column(Boolean, default=False, nullable=False)  # Currently broadcasting

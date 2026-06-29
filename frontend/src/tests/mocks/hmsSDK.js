@@ -5,9 +5,11 @@
 export const HMSSDK = {
     build: jest.fn().mockResolvedValue({
         join: jest.fn().mockResolvedValue(undefined),
+        preview: jest.fn().mockResolvedValue(undefined),
         leave: jest.fn().mockResolvedValue(undefined),
         addEventListener: jest.fn(),
         removeEventListener: jest.fn(),
+        removeAllListeners: jest.fn(),
         destroy: jest.fn(),
         setLocalVideoEnabled: jest.fn().mockResolvedValue(undefined),
         setLocalAudioEnabled: jest.fn().mockResolvedValue(undefined),
@@ -22,12 +24,16 @@ export const HMSConfig = jest.fn().mockImplementation((config) => config);
 
 export const HMSUpdateListenerActions = {
     ON_JOIN: "ON_JOIN",
+    ON_PREVIEW: "ON_PREVIEW",
     ON_PEER_UPDATE: "ON_PEER_UPDATE",
     ON_TRACK_UPDATE: "ON_TRACK_UPDATE",
+    ON_SPEAKER: "ON_SPEAKER",
+    ON_TRANSCRIPTS: "ON_TRANSCRIPTS",
     ON_ERROR: "ON_ERROR",
     ON_ROOM_UPDATE: "ON_ROOM_UPDATE",
-    ON_RECONNECTING: "ON_RECONNECTING",
-    ON_RECONNECTED: "ON_RECONNECTED",
+    // Real SDK enum keys are RECONNECTING/RECONNECTED (no ON_ prefix).
+    RECONNECTING: "RECONNECTING",
+    RECONNECTED: "RECONNECTED",
 };
 
 export const HMSTrackType = {
