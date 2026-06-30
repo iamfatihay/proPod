@@ -697,9 +697,11 @@ class ApiService {
      * @param {number} sessionId - RTC session ID
      * @returns {Promise<Object>} RTC session data
      */
-    async endRtcSession(sessionId) {
+    async endRtcSession(sessionId, durationSeconds) {
         return this.request(`/rtc/sessions/${sessionId}/end`, {
             method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ duration_seconds: durationSeconds ?? null }),
         });
     }
 

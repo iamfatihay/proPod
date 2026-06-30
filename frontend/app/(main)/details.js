@@ -40,9 +40,12 @@ import downloadService from "../../src/services/downloads/downloadService";
 
 const { width: screenWidth } = Dimensions.get("window");
 
+const toUtcString = (s) =>
+    typeof s === "string" && !/(?:[Zz]|[+-]\d{2}:?\d{2})$/.test(s) ? s + "Z" : s;
+
 const formatTimeAgo = (dateString) => {
     if (!dateString) return "";
-    const date = new Date(dateString);
+    const date = new Date(toUtcString(dateString));
     if (isNaN(date.getTime())) return "";
     const diff = Date.now() - date.getTime();
     const m = Math.floor(diff / 60000);
@@ -52,7 +55,7 @@ const formatTimeAgo = (dateString) => {
     if (h < 24) return `${h}h ago`;
     const d = Math.floor(h / 24);
     if (d < 7) return `${d}d ago`;
-    return new Date(dateString).toLocaleDateString();
+    return new Date(toUtcString(dateString)).toLocaleDateString();
 };
 
 const CommentItem = ({ comment, currentUserId, onDelete, onPressAuthor }) => {
@@ -1005,39 +1008,50 @@ const Details = () => {
                         Platform.OS === "android" ? StatusBar.currentHeight : 0,
                 })}
             >
+                {/* Video player at the top for video podcasts — visible without scrolling */}
+                {isVideoPodcast && (
+                    <PodcastVideoPlayer
+                        uri={podcast.video_url}
+                        title={podcast.title}
+                        subtitle={podcast.owner?.name || "Unknown Artist"}
+                    />
+                )}
+
                 {/* Podcast Header */}
                 <View className="px-6 py-6">
-                    {/* Podcast Artwork / Thumbnail */}
-                    <View
-                        className="rounded-2xl mb-6 items-center justify-center overflow-hidden"
-                        style={{
-                            width: screenWidth - 48,
-                            height: screenWidth - 48,
-                            maxHeight: 300,
-                            backgroundColor: COLORS.background,
-                            borderWidth: 1,
-                            borderColor: COLORS.border,
-                        }}
-                    >
-                        {podcast.thumbnail_url ? (
-                            <Image
-                                source={{ uri: podcast.thumbnail_url }}
-                                className="w-full h-full"
-                                resizeMode="cover"
-                            />
-                        ) : (
-                            <>
-                                <MaterialCommunityIcons
-                                    name="music-note"
-                                    size={74}
-                                    color={COLORS.primary}
+                    {/* Podcast Artwork / Thumbnail — audio podcasts only */}
+                    {!isVideoPodcast && (
+                        <View
+                            className="rounded-2xl mb-6 items-center justify-center overflow-hidden"
+                            style={{
+                                width: screenWidth - 48,
+                                height: screenWidth - 48,
+                                maxHeight: 300,
+                                backgroundColor: COLORS.background,
+                                borderWidth: 1,
+                                borderColor: COLORS.border,
+                            }}
+                        >
+                            {podcast.thumbnail_url ? (
+                                <Image
+                                    source={{ uri: podcast.thumbnail_url }}
+                                    className="w-full h-full"
+                                    resizeMode="cover"
                                 />
-                                <Text className="text-text-secondary mt-2">
-                                    {podcast.title}
-                                </Text>
-                            </>
-                        )}
-                    </View>
+                            ) : (
+                                <>
+                                    <MaterialCommunityIcons
+                                        name="music-note"
+                                        size={74}
+                                        color={COLORS.primary}
+                                    />
+                                    <Text className="text-text-secondary mt-2">
+                                        {podcast.title}
+                                    </Text>
+                                </>
+                            )}
+                        </View>
+                    )}
 
                     {/* Title and Info */}
                     <Text className="text-text-primary text-2xl font-bold mb-2">
@@ -1366,13 +1380,7 @@ const Details = () => {
                     </ScrollView>
                 </View>
 
-                {isVideoPodcast ? (
-                    <PodcastVideoPlayer
-                        uri={podcast.video_url}
-                        title={podcast.title}
-                        subtitle={podcast.owner?.name || "Unknown Artist"}
-                    />
-                ) : currentTrack?.id === podcast.id && podcast.audio_url ? (
+                {!isVideoPodcast && (currentTrack?.id === podcast.id && podcast.audio_url ? (
                     <View className="px-6 mb-6">
                         <ModernAudioPlayer
                             uri={podcast.audio_url}
@@ -1429,7 +1437,7 @@ const Details = () => {
                             </Text>
                         </TouchableOpacity>
                     </View>
-                )}
+                ))}
 
                 {/* Description */}
                 {podcast.description && (

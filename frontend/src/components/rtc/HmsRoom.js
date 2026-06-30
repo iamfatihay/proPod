@@ -853,117 +853,118 @@ const HmsRoom = ({
         Logger.debug("[RTC] Camera switched", getLogContext());
     };
 
+    const renderPeerOverlays = (peer, track, level, quality) => {
+        const isSpeaking = level > SPEAKING_LEVEL_THRESHOLD;
+        const audioMuted = getPeerAudioMuted(peer);
+
+        return (
+            <>
+                {/* Audio level bar — bottom edge (matches HmsPreview) */}
+                <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 3, backgroundColor: "rgba(255,255,255,0.08)" }}>
+                    <View style={{ height: 3, width: `${Math.min(100, level)}%`, backgroundColor: isSpeaking ? SUCCESS_COLOR : "transparent" }} />
+                </View>
+
+                {/* Network quality — top right */}
+                <View style={{ position: "absolute", top: 8, right: 8, backgroundColor: "rgba(0,0,0,0.45)", borderRadius: 6, paddingHorizontal: 5, paddingVertical: 4 }}>
+                    <SignalBars quality={quality} />
+                </View>
+
+                {/* Muted mic — top left */}
+                {audioMuted && (
+                    <View style={{ position: "absolute", top: 8, left: 8, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 12, padding: 5 }}>
+                        <Ionicons name="mic-off" size={13} color={COLORS.error} />
+                    </View>
+                )}
+
+                {/* Name + You badge — bottom left overlay */}
+                <View style={{ position: "absolute", bottom: 10, left: 8, flexDirection: "row", alignItems: "center" }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                        <Ionicons
+                            name={audioMuted ? "mic-off" : "mic"}
+                            size={12}
+                            color={audioMuted ? COLORS.error : isSpeaking ? SUCCESS_COLOR : "rgba(255,255,255,0.7)"}
+                        />
+                        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 13, marginLeft: 4 }} numberOfLines={1}>
+                            {peer?.name || "Guest"}
+                        </Text>
+                        {peer?.isLocal && (
+                            <Text style={{ color: COLORS.primary, fontSize: 11, marginLeft: 4 }}>· You</Text>
+                        )}
+                    </View>
+                </View>
+            </>
+        );
+    };
+
+    // Single peer: video fills the full card height (no aspect ratio, like HmsPreview but full-screen)
+    const renderSinglePeerFull = (node) => {
+        const { peer, track } = node;
+        const peerId = peer?.peerID;
+        const level = audioLevels[peerId] || 0;
+        const quality = networkQualities[peerId];
+        const showVideo = enableVideo && HmsView && track?.trackId && !track.isMute?.();
+        const initials = peer?.name ? peer.name.split(" ").map((p) => p[0]).join("") : "P";
+
+        return (
+            <View style={{ flex: 1, overflow: "hidden" }}>
+                {showVideo ? (
+                    <HmsView
+                        trackId={track.trackId}
+                        mirror={peer?.isLocal}
+                        style={{ width: "100%", height: "100%" }}
+                    />
+                ) : (
+                    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.4)" }}>
+                        <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.primary + "4D", alignItems: "center", justifyContent: "center" }}>
+                            <Text style={{ color: COLORS.text.primary, fontSize: 28, fontWeight: "bold" }}>
+                                {initials}
+                            </Text>
+                        </View>
+                    </View>
+                )}
+                {renderPeerOverlays(peer, track, level, quality)}
+            </View>
+        );
+    };
+
+    // Multi-peer grid tile (portrait 3:4, matches HmsPreview card style)
     const renderTile = ({ item }) => {
         const { peer, track } = item;
         const peerId = peer?.peerID;
         const level = audioLevels[peerId] || 0;
         const isSpeaking = level > SPEAKING_LEVEL_THRESHOLD;
-        const audioMuted = getPeerAudioMuted(peer);
         const quality = networkQualities[peerId];
         const showVideo = enableVideo && HmsView && track?.trackId && !track.isMute?.();
-        const initials = peer?.name
-            ? peer.name
-                  .split(" ")
-                  .map((part) => part[0])
-                  .join("")
-            : "P";
-        const tileWidth = peerNodes.length > 1 ? "50%" : "100%";
+        const initials = peer?.name ? peer.name.split(" ").map((part) => part[0]).join("") : "P";
 
         return (
-            <View style={{ width: tileWidth, padding: 4 }}>
+            <View style={{ width: "50%", padding: 3 }}>
                 <View
-                    className="bg-panel rounded-2xl p-2"
                     style={{
                         borderWidth: 2,
                         borderColor: isSpeaking ? SUCCESS_COLOR : "transparent",
+                        borderRadius: 16,
+                        overflow: "hidden",
+                        aspectRatio: 3 / 4,
+                        backgroundColor: "rgba(0,0,0,0.4)",
                     }}
                 >
-                    <View className="overflow-hidden rounded-xl bg-black/30" style={{ aspectRatio: 3 / 4 }}>
-                        {showVideo ? (
-                            <HmsView
-                                trackId={track.trackId}
-                                mirror={peer?.isLocal}
-                                style={{ width: "100%", height: "100%" }}
-                            />
-                        ) : (
-                            <View className="flex-1 items-center justify-center">
-                                <View className="w-20 h-20 rounded-full bg-primary/30 items-center justify-center">
-                                    <Text className="text-text-primary text-2xl font-bold">
-                                        {initials}
-                                    </Text>
-                                </View>
+                    {showVideo ? (
+                        <HmsView
+                            trackId={track.trackId}
+                            mirror={peer?.isLocal}
+                            style={{ width: "100%", height: "100%" }}
+                        />
+                    ) : (
+                        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.primary + "4D", alignItems: "center", justifyContent: "center" }}>
+                                <Text style={{ color: COLORS.text.primary, fontSize: 20, fontWeight: "bold" }}>
+                                    {initials}
+                                </Text>
                             </View>
-                        )}
-
-                        {/* Connection quality (top-right) */}
-                        <View
-                            style={{
-                                position: "absolute",
-                                top: 6,
-                                right: 6,
-                                backgroundColor: "rgba(0,0,0,0.45)",
-                                borderRadius: 6,
-                                paddingHorizontal: 5,
-                                paddingVertical: 4,
-                            }}
-                        >
-                            <SignalBars quality={quality} />
                         </View>
-
-                        {/* Muted mic indicator (top-left) */}
-                        {audioMuted && (
-                            <View
-                                style={{
-                                    position: "absolute",
-                                    top: 6,
-                                    left: 6,
-                                    backgroundColor: "rgba(0,0,0,0.5)",
-                                    borderRadius: 12,
-                                    padding: 5,
-                                }}
-                            >
-                                <Ionicons name="mic-off" size={13} color={COLORS.error} />
-                            </View>
-                        )}
-
-                        {/* Live audio-level bar (bottom edge) */}
-                        <View
-                            style={{
-                                position: "absolute",
-                                left: 0,
-                                right: 0,
-                                bottom: 0,
-                                height: 3,
-                                backgroundColor: "rgba(255,255,255,0.08)",
-                            }}
-                        >
-                            <View
-                                style={{
-                                    height: 3,
-                                    width: `${Math.min(100, level)}%`,
-                                    backgroundColor: isSpeaking ? SUCCESS_COLOR : "transparent",
-                                }}
-                            />
-                        </View>
-                    </View>
-
-                    <View className="mt-2 flex-row items-center justify-between">
-                        <View className="flex-row items-center flex-1 mr-2">
-                            <Ionicons
-                                name={audioMuted ? "mic-off" : "mic"}
-                                size={14}
-                                color={audioMuted ? COLORS.error : isSpeaking ? SUCCESS_COLOR : COLORS.text.muted}
-                            />
-                            <Text className="text-text-primary font-semibold ml-1.5" numberOfLines={1}>
-                                {peer?.name || "Guest"}
-                            </Text>
-                        </View>
-                        {peer?.isLocal && (
-                            <View className="px-2 py-0.5 rounded-full bg-primary/20">
-                                <Text className="text-primary text-xs">You</Text>
-                            </View>
-                        )}
-                    </View>
+                    )}
+                    {renderPeerOverlays(peer, track, level, quality)}
                 </View>
             </View>
         );
@@ -1020,138 +1021,117 @@ const HmsRoom = ({
         );
     }
 
+    const singlePeerLevel = peerNodes.length === 1
+        ? (audioLevels[peerNodes[0]?.id] || 0)
+        : 0;
+    const isSingleSpeaking = singlePeerLevel > SPEAKING_LEVEL_THRESHOLD;
+
     return (
-        <View className="flex-1">
+        <View style={{ flex: 1 }}>
             {isReconnecting && (
-                <View
-                    style={{
-                        backgroundColor: COLORS.warning,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        paddingVertical: 8,
-                        paddingHorizontal: 16,
-                    }}
-                >
+                <View style={{ backgroundColor: COLORS.warning, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 8, paddingHorizontal: 16 }}>
                     <ActivityIndicator size="small" color={COLORS.text.primary} />
-                    <Text style={{ color: COLORS.text.primary, fontWeight: "600", marginLeft: 8 }}>
-                        Reconnecting…
-                    </Text>
+                    <Text style={{ color: COLORS.text.primary, fontWeight: "600", marginLeft: 8 }}>Reconnecting…</Text>
                 </View>
             )}
-            <View className="flex-row items-center justify-between mb-4 px-1">
-                <View
-                    className="flex-row items-center rounded-full px-3 py-1.5"
-                    style={{ backgroundColor: "rgba(239,68,68,0.15)" }}
-                >
-                    <View
-                        style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: 4,
-                            backgroundColor: COLORS.error,
-                            marginRight: 6,
-                        }}
+
+            {/* Main video card — matches HmsPreview's bg-card rounded-2xl border aesthetic */}
+            <View
+                className="flex-1 rounded-2xl overflow-hidden"
+                style={{
+                    borderWidth: 2,
+                    borderColor: isSingleSpeaking ? SUCCESS_COLOR : COLORS.border,
+                    backgroundColor: COLORS.card,
+                }}
+            >
+                {/* Card header: REC timer + room name */}
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 8 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(239,68,68,0.15)", borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6 }}>
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.error, marginRight: 6 }} />
+                        <Text style={{ color: COLORS.error, fontWeight: "700", fontSize: 12, letterSpacing: 1 }}>REC</Text>
+                        <Text style={{ color: COLORS.text.primary, fontWeight: "600", marginLeft: 8, fontVariant: ["tabular-nums"] }}>
+                            {formatDuration(elapsedSeconds)}
+                        </Text>
+                    </View>
+                    <View style={{ flexDirection: "row", alignItems: "center", flex: 1, justifyContent: "flex-end", marginLeft: 12 }}>
+                        <Ionicons name="people" size={14} color={COLORS.text.muted} />
+                        <Text style={{ color: COLORS.text.secondary, marginLeft: 4 }} numberOfLines={1}>
+                            {roomName || "Live session"}
+                        </Text>
+                    </View>
+                </View>
+
+                {/* Video area */}
+                {peerNodes.length === 0 ? (
+                    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ color: COLORS.text.primary, fontSize: 18 }}>You are alone here.</Text>
+                        <Text style={{ color: COLORS.text.secondary, marginTop: 8 }}>Share the room name to invite co-hosts.</Text>
+                    </View>
+                ) : peerNodes.length === 1 ? (
+                    renderSinglePeerFull(peerNodes[0])
+                ) : (
+                    <FlatList
+                        key="cols-2"
+                        data={peerNodes}
+                        keyExtractor={(item) => item.id}
+                        renderItem={renderTile}
+                        numColumns={2}
+                        showsVerticalScrollIndicator={false}
+                        style={{ flex: 1 }}
+                        contentContainerStyle={{ padding: 3, paddingBottom: 8 }}
                     />
-                    <Text style={{ color: COLORS.error, fontWeight: "700", fontSize: 12, letterSpacing: 1 }}>
-                        REC
-                    </Text>
-                    <Text
-                        className="text-text-primary font-semibold ml-2"
-                        style={{ fontVariant: ["tabular-nums"] }}
-                    >
-                        {formatDuration(elapsedSeconds)}
-                    </Text>
-                </View>
-                <View className="flex-row items-center flex-1 justify-end ml-3">
-                    <Ionicons name="people" size={14} color={COLORS.text.muted} />
-                    <Text className="text-text-secondary ml-1" numberOfLines={1}>
-                        {roomName || "Live session"}
-                    </Text>
-                </View>
+                )}
+
+                {/* Live caption overlay */}
+                {caption && (
+                    <View style={{ position: "absolute", bottom: 8, left: 8, right: 8, backgroundColor: "rgba(0,0,0,0.7)", borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 }}>
+                        <Text style={{ color: COLORS.primary, fontSize: 11, fontWeight: "700", marginBottom: 2 }}>{caption.name}</Text>
+                        <Text style={{ color: "#fff", fontSize: 14 }} numberOfLines={2}>{caption.text}</Text>
+                    </View>
+                )}
             </View>
 
-            {peerNodes.length > 0 ? (
-                <FlatList
-                    key={`cols-${peerNodes.length > 1 ? 2 : 1}`}
-                    data={peerNodes}
-                    keyExtractor={(item) => item.id}
-                    renderItem={renderTile}
-                    numColumns={peerNodes.length > 1 ? 2 : 1}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ paddingBottom: 120 }}
-                />
-            ) : (
-                <View className="flex-1 items-center justify-center">
-                    <Text className="text-text-primary text-lg">You are alone here.</Text>
-                    <Text className="text-text-secondary mt-2">
-                        Share the room name to invite co-hosts.
-                    </Text>
-                </View>
-            )}
-
-            {caption && (
-                <View
-                    style={{
-                        backgroundColor: "rgba(0,0,0,0.7)",
-                        borderRadius: 12,
-                        paddingVertical: 8,
-                        paddingHorizontal: 12,
-                        marginBottom: 10,
-                    }}
-                >
-                    <Text style={{ color: COLORS.primary, fontSize: 11, fontWeight: "700", marginBottom: 2 }}>
-                        {caption.name}
-                    </Text>
-                    <Text style={{ color: "#fff", fontSize: 14 }} numberOfLines={2}>
-                        {caption.text}
-                    </Text>
-                </View>
-            )}
-
-            <View className="flex-row items-center justify-around py-4 bg-panel rounded-2xl">
+            {/* Controls — same style as HmsPreview (w-11 h-11, gap-16, bg-background) */}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 12, gap: 16 }}>
                 <TouchableOpacity
                     onPress={toggleAudio}
-                    className="w-12 h-12 items-center justify-center rounded-full bg-background"
+                    className="w-11 h-11 items-center justify-center rounded-full bg-background"
+                    accessibilityRole="button"
+                    accessibilityLabel={isAudioMuted ? "Unmute microphone" : "Mute microphone"}
                 >
-                    <Ionicons
-                        name={isAudioMuted ? "mic-off" : "mic"}
-                        size={22}
-                        color={isAudioMuted ? COLORS.error : COLORS.text.primary}
-                    />
+                    <Ionicons name={isAudioMuted ? "mic-off" : "mic"} size={20} color={isAudioMuted ? COLORS.error : COLORS.text.primary} />
                 </TouchableOpacity>
 
                 {enableVideo && (
                     <TouchableOpacity
                         onPress={toggleVideo}
-                        className="w-12 h-12 items-center justify-center rounded-full bg-background"
+                        className="w-11 h-11 items-center justify-center rounded-full bg-background"
+                        accessibilityRole="button"
+                        accessibilityLabel={isVideoMuted ? "Turn camera on" : "Turn camera off"}
                     >
-                        <Ionicons
-                            name={isVideoMuted ? "videocam-off" : "videocam"}
-                            size={22}
-                            color={isVideoMuted ? COLORS.error : COLORS.text.primary}
-                        />
+                        <Ionicons name={isVideoMuted ? "videocam-off" : "videocam"} size={20} color={isVideoMuted ? COLORS.error : COLORS.text.primary} />
                     </TouchableOpacity>
                 )}
 
                 {enableVideo && (
                     <TouchableOpacity
                         onPress={switchCamera}
-                        className="w-12 h-12 items-center justify-center rounded-full bg-background"
+                        className="w-11 h-11 items-center justify-center rounded-full bg-background"
+                        accessibilityRole="button"
+                        accessibilityLabel="Switch camera"
                     >
-                        <Ionicons
-                            name="camera-reverse"
-                            size={22}
-                            color={COLORS.text.primary}
-                        />
+                        <Ionicons name="camera-reverse" size={20} color={COLORS.text.primary} />
                     </TouchableOpacity>
                 )}
 
                 <TouchableOpacity
                     onPress={leaveRoom}
-                    className="w-12 h-12 items-center justify-center rounded-full bg-error/20"
+                    className="w-11 h-11 items-center justify-center rounded-full"
+                    style={{ backgroundColor: COLORS.error + "33" }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Leave session"
                 >
-                    <Ionicons name="log-out" size={22} color={COLORS.error} />
+                    <Ionicons name="log-out" size={20} color={COLORS.error} />
                 </TouchableOpacity>
             </View>
         </View>

@@ -71,7 +71,7 @@ def start_session(db: Session, session_id: int) -> models.RTCSession:
     return session
 
 
-def end_session(db: Session, session_id: int) -> models.RTCSession:
+def end_session(db: Session, session_id: int, duration_seconds: Optional[int] = None) -> models.RTCSession:
     """Mark session as ended (called when last peer leaves)."""
     session = db.query(models.RTCSession).filter(models.RTCSession.id == session_id).first()
     if session:
@@ -79,6 +79,8 @@ def end_session(db: Session, session_id: int) -> models.RTCSession:
         session.ended_at = datetime.datetime.now(datetime.timezone.utc)
         if session.recording_status not in {"completed", "failed"}:
             session.recording_status = "processing"
+        if duration_seconds is not None and duration_seconds > 0 and not session.duration_seconds:
+            session.duration_seconds = duration_seconds
         db.commit()
         db.refresh(session)
     return session

@@ -183,7 +183,6 @@ const Create = () => {
     const [rtcLoading, setRtcLoading] = useState(false);
     const [rtcError, setRtcError] = useState(null);
     const [userDisplayName, setUserDisplayName] = useState("Host");
-    const [rtcStatusMessage, setRtcStatusMessage] = useState(null);
     const [rtcProcessingNotifId, setRtcProcessingNotifId] = useState(null);
     const [rtcLobbyAudioMuted, setRtcLobbyAudioMuted] = useState(false);
     const [rtcLobbyVideoMuted, setRtcLobbyVideoMuted] = useState(false);
@@ -266,7 +265,6 @@ const Create = () => {
         setRtcSessionSummary(null);
         setRtcLoading(false);
         setRtcError(null);
-        setRtcStatusMessage(null);
         setRtcProcessingNotifId(null);
         setRtcLobbyAudioMuted(false);
         setRtcLobbyVideoMuted(false);
@@ -396,7 +394,6 @@ const Create = () => {
             setRtcSession(null);
             setRtcSessionState("idle");
             setRtcSessionSummary(null);
-            setRtcStatusMessage(null);
             
             // Load recording data
             setRecordedDuration(draft.total_duration || 0);
@@ -789,19 +786,23 @@ const Create = () => {
 
     const confirmDiscard = async () => {
         setDiscardConfirmVisible(false);
-        
+
         // Clear draft when discarding
         await protectionService.clearDraft();
         await backgroundService.stopRecording();
-        
+
         if (recordedUri) {
             await AudioService.deleteAudioFile(recordedUri);
+        }
+
+        // Remove the "Recording Processing" local notification if it was added
+        if (rtcProcessingNotifId) {
+            useNotificationStore.getState().removeNotification(rtcProcessingNotifId);
         }
 
         setRtcSession(null);
         setRtcSessionState("idle");
         setRtcSessionSummary(null);
-        setRtcStatusMessage(null);
         setRtcProcessingNotifId(null);
         setRtcLobbyAudioMuted(false);
         setRtcLobbyVideoMuted(false);
@@ -891,7 +892,6 @@ const Create = () => {
                 invite_code: room.invite_code,
             });
             setRtcSessionState("lobby");
-            setRtcStatusMessage("Invite guests, then go live when you're ready.");
             setRtcLiveElapsedSeconds(0);
             setRtcProcessingDelayed(false);
             rtcLiveStartedAtRef.current = null;
@@ -926,6 +926,13 @@ const Create = () => {
             });
 
             const session = await apiService.getRtcSession(rtcSession.sessionId);
+
+            // If backend still thinks session is live (end call failed earlier), retry.
+            if (session?.recording_status === "live" || session?.is_live) {
+                Logger.warn("[RTC] Session still live on backend — retrying end call", { sessionId: rtcSession.sessionId });
+                apiService.endRtcSession(rtcSession.sessionId, undefined).catch(() => {});
+            }
+
             setRtcSessionSummary((prev) => ({
                 ...prev,
                 ...session,
@@ -941,10 +948,8 @@ const Create = () => {
 
             if (session.recording_status === "completed" || session.recording_url) {
                 setRtcProcessingDelayed(false);
-                setRtcStatusMessage("Recording ready. Adding to library.");
             } else if (session.recording_status === "failed") {
                 setRtcProcessingDelayed(false);
-                setRtcStatusMessage("Recording failed. Start a new live session or review session history for details.");
             }
 
             return session;
@@ -987,7 +992,6 @@ const Create = () => {
         }
 
         setRtcError(null);
-        setRtcStatusMessage("Joining room...");
         setRtcSessionState("joining");
     }, [rtcSession?.token, showToast]);
 
@@ -1056,7 +1060,6 @@ const Create = () => {
             if (session?.recording_status === "completed" || session?.recording_url || session?.podcast_id) {
                 setRtcSessionState("ready");
                 setRtcProcessingDelayed(false);
-                setRtcStatusMessage("Recording ready");
                 // Upgrade the processing notification to "ready"
                 if (rtcProcessingNotifId) {
                     useNotificationStore.getState().updateNotification(rtcProcessingNotifId, {
@@ -1076,7 +1079,6 @@ const Create = () => {
 
             if (session?.recording_status === "failed") {
                 setRtcProcessingDelayed(false);
-                setRtcStatusMessage("Recording failed. Start a new live session or review session history for details.");
                 if (rtcProcessingNotifId) {
                     useNotificationStore.getState().updateNotification(rtcProcessingNotifId, {
                         type: "rtc_failed",
@@ -1096,7 +1098,6 @@ const Create = () => {
                 timeoutId = setTimeout(pollStatus, nextDelay);
             } else {
                 setRtcProcessingDelayed(true);
-                setRtcStatusMessage("Processing is taking longer than usual. Check Live Sessions again in a few minutes.");
             }
         };
 
@@ -1523,7 +1524,7 @@ const Create = () => {
             }
 
             return (
-                <View className="flex-1 px-6">
+                <View className="flex-1 px-4">
                     {(() => {
                         const liveStatusPanel = buildRtcLiveStatusPanel({
                             rtcSessionState,
@@ -1531,66 +1532,43 @@ const Create = () => {
                             elapsedSeconds: rtcLiveElapsedSeconds,
                         });
 
-                        if (!liveStatusPanel) {
-                            return null;
-                        }
-
                         return (
                             <View
-                                className="mt-4 mb-4 px-4 py-3 rounded-2xl border"
+                                className="mt-2 mb-2 px-3 py-2 rounded-xl border flex-row items-center justify-between"
                                 style={{
-                                    backgroundColor: liveStatusPanel.backgroundColor,
-                                    borderColor: liveStatusPanel.borderColor,
+                                    backgroundColor: liveStatusPanel
+                                        ? liveStatusPanel.backgroundColor
+                                        : "rgba(245,158,11,0.15)",
+                                    borderColor: liveStatusPanel
+                                        ? liveStatusPanel.borderColor
+                                        : "rgba(245,158,11,0.3)",
                                 }}
                             >
-                                <View className="flex-row items-center justify-between mb-2">
-                                    <View className="flex-row items-center flex-1 mr-3">
-                                        <Ionicons
-                                            name={liveStatusPanel.icon}
-                                            size={18}
-                                            color={liveStatusPanel.iconColor}
-                                        />
-                                        <Text className="text-text-primary font-semibold ml-2">
-                                            {liveStatusPanel.title}
+                                <View className="flex-row items-center flex-1 mr-2">
+                                    <Ionicons
+                                        name={liveStatusPanel ? liveStatusPanel.icon : "radio-outline"}
+                                        size={16}
+                                        color={liveStatusPanel ? liveStatusPanel.iconColor : COLORS.warning}
+                                    />
+                                    <Text className="text-text-primary font-semibold ml-1.5 text-sm" numberOfLines={1}>
+                                        {liveStatusPanel ? liveStatusPanel.title : "Joining..."}
+                                    </Text>
+                                </View>
+                                {liveStatusPanel?.badge && (
+                                    <View className="px-2 py-0.5 rounded-full bg-black/10">
+                                        <Text className="text-text-primary text-xs font-semibold">
+                                            {liveStatusPanel.badge}
                                         </Text>
                                     </View>
-
-                                    {liveStatusPanel.badge && (
-                                        <View className="px-3 py-1 rounded-full bg-black/10">
-                                            <Text className="text-text-primary text-xs font-semibold">
-                                                {liveStatusPanel.badge}
-                                            </Text>
-                                        </View>
-                                    )}
-                                </View>
-
-                                <Text className="text-text-secondary leading-5">
-                                    {liveStatusPanel.detail}
-                                </Text>
+                                )}
                             </View>
                         );
                     })()}
 
-                    <Text className="text-2xl font-bold text-text-primary text-center mt-6 mb-4">
-                        {title || "Live Session"}
-                    </Text>
-
                     {rtcError && (
-                        <View className="mb-4 p-3 rounded-lg bg-error/20">
-                            <Text className="text-error text-center">
+                        <View className="mb-2 px-3 py-1.5 rounded-lg bg-error/20">
+                            <Text className="text-error text-center text-sm">
                                 {rtcError}
-                            </Text>
-                        </View>
-                    )}
-
-                    <Text className="text-text-secondary text-center mb-3">
-                        Status: {rtcSessionState === "live" ? "Live" : "Joining"}
-                    </Text>
-
-                    {rtcStatusMessage && (
-                        <View className="mb-4 px-3 py-2 rounded-lg bg-success/15">
-                            <Text className="text-success text-center">
-                                {rtcStatusMessage}
                             </Text>
                         </View>
                     )}
@@ -1607,7 +1585,6 @@ const Create = () => {
                                 rtcLiveStartedAtRef.current = Date.now();
                                 setRtcLiveElapsedSeconds(0);
                                 setRtcSessionState("live");
-                                setRtcStatusMessage("Recording is live. Keep everyone in the room until you're ready to finish.");
                                 if (rtcSession?.sessionId) {
                                     apiService.startRtcSession(rtcSession.sessionId).catch((error) => {
                                         Logger.error("Failed to mark RTC session live:", error);
@@ -1628,7 +1605,6 @@ const Create = () => {
                                 rtcLiveStartedAtRef.current = null;
                                 setRtcLiveElapsedSeconds(0);
                                 setRtcError(null);
-                                setRtcStatusMessage(null);
                                 setRtcSessionState("lobby");
                             }}
                             onError={(errorMsg) => {
@@ -1641,7 +1617,10 @@ const Create = () => {
                                 setRtcLiveElapsedSeconds(0);
                                 setRtcProcessingDelayed(false);
                                 if (rtcSession?.sessionId) {
-                                    apiService.endRtcSession(rtcSession.sessionId).catch((error) => {
+                                    apiService.endRtcSession(
+                                        rtcSession.sessionId,
+                                        summary?.durationSeconds ?? undefined
+                                    ).catch((error) => {
                                         Logger.error("Failed to mark RTC session ended:", error);
                                     });
                                 }
@@ -1675,12 +1654,6 @@ const Create = () => {
                             </Text>
                         </View>
                     )}
-
-                    <View className="mt-4 p-3 rounded-lg bg-success/15">
-                        <Text className="text-success text-center">
-                            After you leave, the export keeps processing in the background. Live Sessions will show whether it is still processing, ready, or failed.
-                        </Text>
-                    </View>
                 </View>
             );
         }
