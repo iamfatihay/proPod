@@ -183,7 +183,6 @@ const Create = () => {
     const [rtcLoading, setRtcLoading] = useState(false);
     const [rtcError, setRtcError] = useState(null);
     const [userDisplayName, setUserDisplayName] = useState("Host");
-    const [rtcStatusMessage, setRtcStatusMessage] = useState(null);
     const [rtcProcessingNotifId, setRtcProcessingNotifId] = useState(null);
     const [rtcLobbyAudioMuted, setRtcLobbyAudioMuted] = useState(false);
     const [rtcLobbyVideoMuted, setRtcLobbyVideoMuted] = useState(false);
@@ -266,7 +265,6 @@ const Create = () => {
         setRtcSessionSummary(null);
         setRtcLoading(false);
         setRtcError(null);
-        setRtcStatusMessage(null);
         setRtcProcessingNotifId(null);
         setRtcLobbyAudioMuted(false);
         setRtcLobbyVideoMuted(false);
@@ -396,7 +394,6 @@ const Create = () => {
             setRtcSession(null);
             setRtcSessionState("idle");
             setRtcSessionSummary(null);
-            setRtcStatusMessage(null);
             
             // Load recording data
             setRecordedDuration(draft.total_duration || 0);
@@ -806,7 +803,6 @@ const Create = () => {
         setRtcSession(null);
         setRtcSessionState("idle");
         setRtcSessionSummary(null);
-        setRtcStatusMessage(null);
         setRtcProcessingNotifId(null);
         setRtcLobbyAudioMuted(false);
         setRtcLobbyVideoMuted(false);
@@ -896,7 +892,6 @@ const Create = () => {
                 invite_code: room.invite_code,
             });
             setRtcSessionState("lobby");
-            setRtcStatusMessage("Invite guests, then go live when you're ready.");
             setRtcLiveElapsedSeconds(0);
             setRtcProcessingDelayed(false);
             rtcLiveStartedAtRef.current = null;
@@ -953,10 +948,8 @@ const Create = () => {
 
             if (session.recording_status === "completed" || session.recording_url) {
                 setRtcProcessingDelayed(false);
-                setRtcStatusMessage("Recording ready. Adding to library.");
             } else if (session.recording_status === "failed") {
                 setRtcProcessingDelayed(false);
-                setRtcStatusMessage("Recording failed. Start a new live session or review session history for details.");
             }
 
             return session;
@@ -999,7 +992,6 @@ const Create = () => {
         }
 
         setRtcError(null);
-        setRtcStatusMessage("Joining room...");
         setRtcSessionState("joining");
     }, [rtcSession?.token, showToast]);
 
@@ -1068,7 +1060,6 @@ const Create = () => {
             if (session?.recording_status === "completed" || session?.recording_url || session?.podcast_id) {
                 setRtcSessionState("ready");
                 setRtcProcessingDelayed(false);
-                setRtcStatusMessage("Recording ready");
                 // Upgrade the processing notification to "ready"
                 if (rtcProcessingNotifId) {
                     useNotificationStore.getState().updateNotification(rtcProcessingNotifId, {
@@ -1088,7 +1079,6 @@ const Create = () => {
 
             if (session?.recording_status === "failed") {
                 setRtcProcessingDelayed(false);
-                setRtcStatusMessage("Recording failed. Start a new live session or review session history for details.");
                 if (rtcProcessingNotifId) {
                     useNotificationStore.getState().updateNotification(rtcProcessingNotifId, {
                         type: "rtc_failed",
@@ -1108,7 +1098,6 @@ const Create = () => {
                 timeoutId = setTimeout(pollStatus, nextDelay);
             } else {
                 setRtcProcessingDelayed(true);
-                setRtcStatusMessage("Processing is taking longer than usual. Check Live Sessions again in a few minutes.");
             }
         };
 
@@ -1596,7 +1585,6 @@ const Create = () => {
                                 rtcLiveStartedAtRef.current = Date.now();
                                 setRtcLiveElapsedSeconds(0);
                                 setRtcSessionState("live");
-                                setRtcStatusMessage("Recording is live. Keep everyone in the room until you're ready to finish.");
                                 if (rtcSession?.sessionId) {
                                     apiService.startRtcSession(rtcSession.sessionId).catch((error) => {
                                         Logger.error("Failed to mark RTC session live:", error);
@@ -1617,7 +1605,6 @@ const Create = () => {
                                 rtcLiveStartedAtRef.current = null;
                                 setRtcLiveElapsedSeconds(0);
                                 setRtcError(null);
-                                setRtcStatusMessage(null);
                                 setRtcSessionState("lobby");
                             }}
                             onError={(errorMsg) => {

@@ -9,7 +9,7 @@
  * @returns {string} e.g. "Just now", "5m ago", "3h ago", "2d ago", or localeDateString
  */
 const toUtcTimestamp = (str) => {
-    if (/[Zz]|[+-]\d{2}:?\d{2}$/.test(str)) return str;
+    if (/(?:[Zz]|[+-]\d{2}:?\d{2})$/.test(str)) return str;
     return str + "Z";
 };
 

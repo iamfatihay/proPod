@@ -29,7 +29,7 @@ const STATUS_CHECK_STORAGE_KEY_PREFIX = "@propod/rtc-history-status-check/";
 const STATUS_CHECK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const toUtcString = (s) =>
-    typeof s === "string" && !/[Zz]|[+-]\d{2}:?\d{2}$/.test(s) ? s + "Z" : s;
+    typeof s === "string" && !/(?:[Zz]|[+-]\d{2}:?\d{2})$/.test(s) ? s + "Z" : s;
 
 const getStatusCheckStorageKey = (sessionId) => `${STATUS_CHECK_STORAGE_KEY_PREFIX}${sessionId}`;
 

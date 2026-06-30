@@ -41,7 +41,7 @@ import downloadService from "../../src/services/downloads/downloadService";
 const { width: screenWidth } = Dimensions.get("window");
 
 const toUtcString = (s) =>
-    typeof s === "string" && !/[Zz]|[+-]\d{2}:?\d{2}$/.test(s) ? s + "Z" : s;
+    typeof s === "string" && !/(?:[Zz]|[+-]\d{2}:?\d{2})$/.test(s) ? s + "Z" : s;
 
 const formatTimeAgo = (dateString) => {
     if (!dateString) return "";

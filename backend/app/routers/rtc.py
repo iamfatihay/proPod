@@ -682,7 +682,7 @@ class EndSessionRequest(schemas.BaseModel):
 @router.post("/sessions/{session_id}/end", response_model=schemas.RTCSessionResponse)
 def end_rtc_session(
     session_id: int,
-    body: EndSessionRequest = None,
+    body: Optional[EndSessionRequest] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> schemas.RTCSessionResponse:
