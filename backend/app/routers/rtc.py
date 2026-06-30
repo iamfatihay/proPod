@@ -675,9 +675,14 @@ def start_rtc_session(
     return start_session(db, session_id)
 
 
+class EndSessionRequest(schemas.BaseModel):
+    duration_seconds: Optional[int] = None
+
+
 @router.post("/sessions/{session_id}/end", response_model=schemas.RTCSessionResponse)
 def end_rtc_session(
     session_id: int,
+    body: EndSessionRequest = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> schemas.RTCSessionResponse:
@@ -696,7 +701,7 @@ def end_rtc_session(
             detail="RTC session not found",
         )
 
-    return end_session(db, session_id)
+    return end_session(db, session_id, duration_seconds=body.duration_seconds if body else None)
 
 
 @router.get("/sessions/{session_id}/participants", response_model=List[schemas.RTCParticipantResponse])

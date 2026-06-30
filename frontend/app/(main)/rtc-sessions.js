@@ -28,6 +28,9 @@ const PAGE_SIZE = 25;
 const STATUS_CHECK_STORAGE_KEY_PREFIX = "@propod/rtc-history-status-check/";
 const STATUS_CHECK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
+const toUtcString = (s) =>
+    typeof s === "string" && !/[Zz]|[+-]\d{2}:?\d{2}$/.test(s) ? s + "Z" : s;
+
 const getStatusCheckStorageKey = (sessionId) => `${STATUS_CHECK_STORAGE_KEY_PREFIX}${sessionId}`;
 
 const getStatusCheckDate = (value) => {
@@ -35,7 +38,7 @@ const getStatusCheckDate = (value) => {
         return null;
     }
 
-    const date = new Date(value);
+    const date = new Date(toUtcString(value));
 
     if (Number.isNaN(date.getTime())) {
         return null;
@@ -331,7 +334,7 @@ const formatSessionTimestamp = (value) => {
         return "Unknown time";
     }
 
-    const date = new Date(value);
+    const date = new Date(toUtcString(value));
 
     if (Number.isNaN(date.getTime())) {
         return "Unknown time";
