@@ -67,3 +67,20 @@ export const HMSIOSAudioMode = {
     MUSIC: "MUSIC",
     VOICE: "VOICE",
 };
+
+export const HMSNoiseCancellationModels = {
+    SmallFullBand: "SMALL_FULL_BAND",
+};
+
+export const HMSNoiseCancellationInitialState = {
+    Enabled: "ENABLED",
+    Disabled: "DISABLED",
+};
+
+export const HMSNoiseCancellationPlugin = jest.fn().mockImplementation((config) => ({
+    ...config,
+    isNoiseCancellationAvailable: jest.fn().mockResolvedValue(false),
+    isEnabled: jest.fn().mockResolvedValue(false),
+    enable: jest.fn().mockResolvedValue(true),
+    disable: jest.fn().mockResolvedValue(true),
+}));

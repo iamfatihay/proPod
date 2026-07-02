@@ -5,7 +5,7 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     Platform,
-    ScrollView,
+    FlatList,
 } from "react-native";
 import Animated, {
     useSharedValue,
@@ -379,6 +379,11 @@ const HmsRoom = ({
     const sessionRef = useRef(`rtc-${Date.now().toString(36)}`);
     const noiseCancellationRef = useRef(null);
     const qualityWarningTimeoutRef = useRef(null);
+    // Pending emoji-reaction removal timers, cleared on leave/unmount.
+    const reactionTimeoutsRef = useRef([]);
+    // Last connection-quality severity we fired a haptic for, to avoid
+    // repeating the error buzz while quality flaps around the threshold.
+    const lastQualitySeverityRef = useRef(null);
 
     const HmsView = hmsInstanceRef.current?.HmsView;
 
@@ -677,10 +682,14 @@ const HmsRoom = ({
             // Cleanup refs
             noiseCancellationRef.current = null;
             setNoiseCancellationAvailable(false);
+            setNoiseCancellationEnabled(false);
+            lastQualitySeverityRef.current = null;
             if (qualityWarningTimeoutRef.current) {
                 clearTimeout(qualityWarningTimeoutRef.current);
                 qualityWarningTimeoutRef.current = null;
             }
+            reactionTimeoutsRef.current.forEach(clearTimeout);
+            reactionTimeoutsRef.current = [];
             setReactions([]);
 
             // Only call onLeave if session actually started
@@ -800,9 +809,19 @@ const HmsRoom = ({
                     return;
                 }
 
+                // Noise cancellation must be attached at build time to take effect.
+                // Default ON for cleaner speech in remote multi-host podcasts; it
+                // degrades to a no-op when the room template does not support it.
+                const ncPlugin = new HMSNoiseCancellationPlugin({
+                    modelName: HMSNoiseCancellationModels.SmallFullBand,
+                    initialState: HMSNoiseCancellationInitialState.Enabled,
+                });
+                noiseCancellationRef.current = ncPlugin;
+
                 const audioTrackSettings = new HMSAudioTrackSettings({
                     audioMode: Platform.OS === "ios" ? HMSIOSAudioMode.MUSIC : undefined,
                     useHardwareEchoCancellation: Platform.OS === "android" ? true : undefined,
+                    noiseCancellationPlugin: ncPlugin,
                 });
                 const trackSettings = new HMSTrackSettings({ audio: audioTrackSettings });
                 const hmsInstance = await HMSSDK.build({ trackSettings });
@@ -895,20 +914,24 @@ const HmsRoom = ({
 
                 Logger.debug("[RTC] hmsInstance.join promise resolved", getLogContext());
 
-                // Initialize noise cancellation plugin after successful join
+                // Confirm noise cancellation is available for this room (template-gated)
+                // and reflect its real state in the UI. Availability can only be
+                // checked after a successful join.
                 try {
-                    const ncPlugin = new HMSNoiseCancellationPlugin({
-                        modelName: HMSNoiseCancellationModels.SmallFullBand,
-                        initialState: HMSNoiseCancellationInitialState.Disabled,
-                    });
-                    const ncAvailable = await ncPlugin.isNoiseCancellationAvailable();
+                    const nc = noiseCancellationRef.current;
+                    const ncAvailable = nc ? await nc.isNoiseCancellationAvailable() : false;
+                    setNoiseCancellationAvailable(ncAvailable);
                     if (ncAvailable) {
-                        noiseCancellationRef.current = ncPlugin;
-                        setNoiseCancellationAvailable(true);
-                        Logger.debug("[RTC] Noise cancellation available", getLogContext());
+                        const isOn = await nc.isEnabled();
+                        setNoiseCancellationEnabled(isOn);
+                        Logger.debug("[RTC] Noise cancellation available", { ...getLogContext(), enabled: isOn });
+                    } else {
+                        noiseCancellationRef.current = null;
+                        Logger.debug("[RTC] Noise cancellation not available for room", getLogContext());
                     }
                 } catch (ncError) {
-                    Logger.debug("[RTC] Noise cancellation not available", { ...getLogContext(), reason: ncError?.message });
+                    setNoiseCancellationAvailable(false);
+                    Logger.debug("[RTC] Noise cancellation check failed", { ...getLogContext(), reason: ncError?.message });
                 }
             } catch (joinError) {
                 if (joinTimeoutRef.current) {
@@ -1118,9 +1141,11 @@ const HmsRoom = ({
         const startX = Math.random() * 60 + 20;
         setReactions((prev) => [...prev, { id, emoji, startX }]);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
             setReactions((prev) => prev.filter((r) => r.id !== id));
+            reactionTimeoutsRef.current = reactionTimeoutsRef.current.filter((t) => t !== timeoutId);
         }, 2200);
+        reactionTimeoutsRef.current.push(timeoutId);
     };
 
     // Proactive connection quality warning for local peer
@@ -1130,15 +1155,24 @@ const HmsRoom = ({
         const localQuality = networkQualities[localPeerId];
         if (typeof localQuality !== "number") return;
 
-        if (localQuality <= 1) {
+        let severity = null;
+        if (localQuality <= 1) severity = "error";
+        else if (localQuality <= 2) severity = "warning";
+
+        if (severity === "error") {
             setQualityWarning({ message: "Poor connection — audio may drop", severity: "error" });
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        } else if (localQuality <= 2) {
+            // Only buzz on the transition into "error", not on every fluctuation.
+            if (lastQualitySeverityRef.current !== "error") {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            }
+        } else if (severity === "warning") {
             setQualityWarning({ message: "Weak connection", severity: "warning" });
         } else {
             setQualityWarning(null);
+            lastQualitySeverityRef.current = null;
             return;
         }
+        lastQualitySeverityRef.current = severity;
 
         if (qualityWarningTimeoutRef.current) clearTimeout(qualityWarningTimeoutRef.current);
         qualityWarningTimeoutRef.current = setTimeout(() => setQualityWarning(null), 5000);
@@ -1158,7 +1192,7 @@ const HmsRoom = ({
             : "P";
 
         return (
-            <View style={{ width: "50%", padding: 3 }}>
+            <View style={{ width: "100%", padding: 3 }}>
                 <View
                     style={{
                         borderWidth: 2,
@@ -1289,21 +1323,24 @@ const HmsRoom = ({
                 ) : peerNodes.length === 1 ? (
                     renderSinglePeerFull(peerNodes[0])
                 ) : (
-                    <ScrollView
+                    <FlatList
+                        data={peerNodes}
+                        keyExtractor={(item) => item.id}
+                        numColumns={2}
                         showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ flexDirection: "row", flexWrap: "wrap", padding: 3, paddingBottom: 8 }}
-                    >
-                        {peerNodes.map((item) => (
+                        style={{ flex: 1 }}
+                        contentContainerStyle={{ padding: 3, paddingBottom: 8 }}
+                        renderItem={({ item }) => (
                             <Animated.View
-                                key={item.id}
                                 entering={FadeIn.duration(300)}
                                 exiting={FadeOut.duration(200)}
                                 layout={Layout.springify()}
+                                style={{ width: "50%" }}
                             >
                                 {renderTile({ item })}
                             </Animated.View>
-                        ))}
-                    </ScrollView>
+                        )}
+                    />
                 )}
 
                 {/* Live caption overlay */}
@@ -1316,7 +1353,7 @@ const HmsRoom = ({
             </View>
 
             {/* Floating emoji reactions layer */}
-            <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: 0, pointerEvents: "none" }}>
+            <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: 0 }}>
                 {reactions.map((r) => (
                     <FloatingReaction key={r.id} emoji={r.emoji} startX={r.startX} />
                 ))}
@@ -1360,6 +1397,8 @@ const HmsRoom = ({
                         key={emoji}
                         onPress={() => sendReaction(emoji)}
                         style={{ marginHorizontal: 8, padding: 4 }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Send ${emoji} reaction`}
                     >
                         <Text style={{ fontSize: 22 }}>{emoji}</Text>
                     </TouchableOpacity>
@@ -1402,11 +1441,13 @@ const HmsRoom = ({
                 {noiseCancellationAvailable && (
                     <TouchableOpacity
                         onPress={toggleNoiseCancellation}
-                        className="w-12 h-12 items-center justify-center rounded-full bg-background"
+                        className="w-11 h-11 items-center justify-center rounded-full bg-background"
+                        accessibilityRole="button"
+                        accessibilityLabel={noiseCancellationEnabled ? "Turn off noise cancellation" : "Turn on noise cancellation"}
                     >
                         <Ionicons
                             name={noiseCancellationEnabled ? "ear" : "ear-outline"}
-                            size={22}
+                            size={20}
                             color={noiseCancellationEnabled ? COLORS.primary : COLORS.text.primary}
                         />
                     </TouchableOpacity>
