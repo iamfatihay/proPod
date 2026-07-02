@@ -1,12 +1,27 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, memo } from "react";
 import {
     View,
     Text,
     TouchableOpacity,
-    FlatList,
     ActivityIndicator,
     Platform,
+    FlatList,
 } from "react-native";
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withRepeat,
+    withTiming,
+    withSequence,
+    cancelAnimation,
+    Easing,
+    FadeIn,
+    FadeOut,
+    Layout,
+} from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
+import { useKeepAwake } from "expo-keep-awake";
+import * as Haptics from "expo-haptics";
 import {
     HMSSDK,
     HMSConfig,
@@ -17,12 +32,137 @@ import {
     HMSAudioTrackSettings,
     HMSTrackSettings,
     HMSIOSAudioMode,
+    HMSNoiseCancellationPlugin,
+    HMSNoiseCancellationModels,
+    HMSNoiseCancellationInitialState,
 } from "@100mslive/react-native-hms";
 import { Ionicons } from "@expo/vector-icons";
 import { requestCameraPermissionsAsync } from "expo-image-picker";
 import { requestRecordingPermissionsAsync } from "expo-audio";
 import Logger from "../../utils/logger";
 import { COLORS } from "../../constants/theme";
+
+// Per-speaker gradient palette — deterministic by name hash
+const PEER_GRADIENT_PALETTE = [
+    ["#667eea", "#764ba2"],  // purple
+    ["#f093fb", "#f5576c"],  // pink
+    ["#4facfe", "#00f2fe"],  // blue-cyan
+    ["#43e97b", "#38f9d7"],  // green-mint
+    ["#fa709a", "#fee140"],  // coral-yellow
+    ["#30cfd0", "#330867"],  // teal-deep
+    ["#ff9a9e", "#fecfef"],  // rose
+];
+
+const getPeerColorIndex = (peerName) => {
+    let hash = 0;
+    const name = peerName || "Guest";
+    for (let i = 0; i < name.length; i++) {
+        hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+    }
+    return Math.abs(hash) % PEER_GRADIENT_PALETTE.length;
+};
+
+const getPeerGradient = (peerName) => PEER_GRADIENT_PALETTE[getPeerColorIndex(peerName)];
+const getPeerAccentColor = (peerName) => PEER_GRADIENT_PALETTE[getPeerColorIndex(peerName)][0];
+
+// Animated camera-off avatar with per-peer gradient and gentle pulse
+const CameraOffAvatar = memo(({ initials, peerName, size = "small" }) => {
+    const gradient = getPeerGradient(peerName);
+    const scale = useSharedValue(1);
+
+    useEffect(() => {
+        scale.value = withRepeat(
+            withSequence(
+                withTiming(1.05, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+                withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+            ),
+            -1,
+            false,
+        );
+        return () => {
+            cancelAnimation(scale);
+        };
+    }, [scale]);
+
+    const pulseStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+    }));
+
+    const circleSize = size === "large" ? 90 : 64;
+    const fontSize = size === "large" ? 34 : 24;
+
+    return (
+        <LinearGradient
+            colors={[gradient[0] + "1A", gradient[1] + "1A"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+        >
+            <Animated.View style={pulseStyle}>
+                <LinearGradient
+                    colors={gradient}
+                    start={{ x: 0.2, y: 0 }}
+                    end={{ x: 0.8, y: 1 }}
+                    style={{
+                        width: circleSize,
+                        height: circleSize,
+                        borderRadius: circleSize / 2,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        shadowColor: gradient[0],
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.45,
+                        shadowRadius: 12,
+                        elevation: 6,
+                    }}
+                >
+                    <Text
+                        style={{
+                            color: "#fff",
+                            fontSize,
+                            fontWeight: "700",
+                            letterSpacing: 1,
+                            textShadowColor: "rgba(0,0,0,0.3)",
+                            textShadowOffset: { width: 0, height: 1 },
+                            textShadowRadius: 3,
+                        }}
+                    >
+                        {initials}
+                    </Text>
+                </LinearGradient>
+            </Animated.View>
+            <View style={{ position: "absolute", bottom: size === "large" ? 18 : 12, opacity: 0.35 }}>
+                <Ionicons name="headset" size={size === "large" ? 20 : 16} color="#fff" />
+            </View>
+        </LinearGradient>
+    );
+});
+
+// Floating emoji reaction that animates upward and fades out
+const FloatingReaction = memo(({ emoji, startX }) => {
+    const translateY = useSharedValue(0);
+    const opacity = useSharedValue(1);
+
+    useEffect(() => {
+        translateY.value = withTiming(-200, { duration: 2000 });
+        opacity.value = withTiming(0, { duration: 2000 });
+        return () => {
+            cancelAnimation(translateY);
+            cancelAnimation(opacity);
+        };
+    }, [translateY, opacity]);
+
+    const style = useAnimatedStyle(() => ({
+        transform: [{ translateY: translateY.value }],
+        opacity: opacity.value,
+    }));
+
+    return (
+        <Animated.View style={[{ position: "absolute", bottom: 80, left: `${startX}%` }, style]}>
+            <Text style={{ fontSize: 28 }}>{emoji}</Text>
+        </Animated.View>
+    );
+});
 
 const maskToken = (token) => {
     if (!token || typeof token !== "string") {
@@ -216,6 +356,13 @@ const HmsRoom = ({
     const [networkQualities, setNetworkQualities] = useState({});
     // Latest live caption from ON_TRANSCRIPTS: { name, text } | null.
     const [caption, setCaption] = useState(null);
+    const [noiseCancellationAvailable, setNoiseCancellationAvailable] = useState(false);
+    const [noiseCancellationEnabled, setNoiseCancellationEnabled] = useState(false);
+    const [qualityWarning, setQualityWarning] = useState(null);
+    const [reactions, setReactions] = useState([]);
+
+    // Keep screen awake during live session
+    useKeepAwake();
 
     const hmsInstanceRef = useRef(null);
     const localPeerRef = useRef(null);
@@ -230,6 +377,13 @@ const HmsRoom = ({
     const onErrorRef = useRef(onErrorCallback);
     const captionTimeoutRef = useRef(null);
     const sessionRef = useRef(`rtc-${Date.now().toString(36)}`);
+    const noiseCancellationRef = useRef(null);
+    const qualityWarningTimeoutRef = useRef(null);
+    // Pending emoji-reaction removal timers, cleared on leave/unmount.
+    const reactionTimeoutsRef = useRef([]);
+    // Last connection-quality severity we fired a haptic for, to avoid
+    // repeating the error buzz while quality flaps around the threshold.
+    const lastQualitySeverityRef = useRef(null);
 
     const HmsView = hmsInstanceRef.current?.HmsView;
 
@@ -498,6 +652,7 @@ const HmsRoom = ({
             Logger.debug("[RTC] leaveRoom ignored: already left", getLogContext());
             return;
         }
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
         hasLeftRef.current = true;
         setJoined(false);
@@ -524,6 +679,19 @@ const HmsRoom = ({
         } catch (leaveError) {
             Logger.error("Leave room failed:", leaveError);
         } finally {
+            // Cleanup refs
+            noiseCancellationRef.current = null;
+            setNoiseCancellationAvailable(false);
+            setNoiseCancellationEnabled(false);
+            lastQualitySeverityRef.current = null;
+            if (qualityWarningTimeoutRef.current) {
+                clearTimeout(qualityWarningTimeoutRef.current);
+                qualityWarningTimeoutRef.current = null;
+            }
+            reactionTimeoutsRef.current.forEach(clearTimeout);
+            reactionTimeoutsRef.current = [];
+            setReactions([]);
+
             // Only call onLeave if session actually started
             if (sessionStartRef.current) {
                 const durationSeconds = Math.floor((Date.now() - sessionStartRef.current) / 1000);
@@ -641,9 +809,19 @@ const HmsRoom = ({
                     return;
                 }
 
+                // Noise cancellation must be attached at build time to take effect.
+                // Default ON for cleaner speech in remote multi-host podcasts; it
+                // degrades to a no-op when the room template does not support it.
+                const ncPlugin = new HMSNoiseCancellationPlugin({
+                    modelName: HMSNoiseCancellationModels.SmallFullBand,
+                    initialState: HMSNoiseCancellationInitialState.Enabled,
+                });
+                noiseCancellationRef.current = ncPlugin;
+
                 const audioTrackSettings = new HMSAudioTrackSettings({
                     audioMode: Platform.OS === "ios" ? HMSIOSAudioMode.MUSIC : undefined,
                     useHardwareEchoCancellation: Platform.OS === "android" ? true : undefined,
+                    noiseCancellationPlugin: ncPlugin,
                 });
                 const trackSettings = new HMSTrackSettings({ audio: audioTrackSettings });
                 const hmsInstance = await HMSSDK.build({ trackSettings });
@@ -735,6 +913,26 @@ const HmsRoom = ({
                 }
 
                 Logger.debug("[RTC] hmsInstance.join promise resolved", getLogContext());
+
+                // Confirm noise cancellation is available for this room (template-gated)
+                // and reflect its real state in the UI. Availability can only be
+                // checked after a successful join.
+                try {
+                    const nc = noiseCancellationRef.current;
+                    const ncAvailable = nc ? await nc.isNoiseCancellationAvailable() : false;
+                    setNoiseCancellationAvailable(ncAvailable);
+                    if (ncAvailable) {
+                        const isOn = await nc.isEnabled();
+                        setNoiseCancellationEnabled(isOn);
+                        Logger.debug("[RTC] Noise cancellation available", { ...getLogContext(), enabled: isOn });
+                    } else {
+                        noiseCancellationRef.current = null;
+                        Logger.debug("[RTC] Noise cancellation not available for room", getLogContext());
+                    }
+                } catch (ncError) {
+                    setNoiseCancellationAvailable(false);
+                    Logger.debug("[RTC] Noise cancellation check failed", { ...getLogContext(), reason: ncError?.message });
+                }
             } catch (joinError) {
                 if (joinTimeoutRef.current) {
                     clearTimeout(joinTimeoutRef.current);
@@ -803,6 +1001,7 @@ const HmsRoom = ({
     }, [joined]);
 
     const toggleAudio = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         const localAudioTrack = getPeerTrack(localPeerRef.current, "localAudioTrack");
         if (!localAudioTrack) {
             Logger.warn("[RTC] toggleAudio ignored: missing local audio track", getLogContext());
@@ -822,6 +1021,7 @@ const HmsRoom = ({
         if (!enableVideo) {
             return;
         }
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
         const localVideoTrack = getPeerTrack(localPeerRef.current, "localVideoTrack");
         if (!localVideoTrack) {
@@ -842,6 +1042,7 @@ const HmsRoom = ({
         if (!enableVideo) {
             return;
         }
+        Haptics.selectionAsync();
 
         const localVideoTrack = getPeerTrack(localPeerRef.current, "localVideoTrack");
         if (!localVideoTrack) {
@@ -856,12 +1057,13 @@ const HmsRoom = ({
     const renderPeerOverlays = (peer, track, level, quality) => {
         const isSpeaking = level > SPEAKING_LEVEL_THRESHOLD;
         const audioMuted = getPeerAudioMuted(peer);
+        const accentColor = getPeerAccentColor(peer?.name);
 
         return (
             <>
-                {/* Audio level bar — bottom edge (matches HmsPreview) */}
+                {/* Audio level bar — bottom edge */}
                 <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 3, backgroundColor: "rgba(255,255,255,0.08)" }}>
-                    <View style={{ height: 3, width: `${Math.min(100, level)}%`, backgroundColor: isSpeaking ? SUCCESS_COLOR : "transparent" }} />
+                    <View style={{ height: 3, width: `${Math.min(100, level)}%`, backgroundColor: isSpeaking ? accentColor : "transparent" }} />
                 </View>
 
                 {/* Network quality — top right */}
@@ -882,7 +1084,7 @@ const HmsRoom = ({
                         <Ionicons
                             name={audioMuted ? "mic-off" : "mic"}
                             size={12}
-                            color={audioMuted ? COLORS.error : isSpeaking ? SUCCESS_COLOR : "rgba(255,255,255,0.7)"}
+                            color={audioMuted ? COLORS.error : isSpeaking ? accentColor : "rgba(255,255,255,0.7)"}
                         />
                         <Text style={{ color: "#fff", fontWeight: "600", fontSize: 13, marginLeft: 4 }} numberOfLines={1}>
                             {peer?.name || "Guest"}
@@ -896,7 +1098,7 @@ const HmsRoom = ({
         );
     };
 
-    // Single peer: video fills the full card height (no aspect ratio, like HmsPreview but full-screen)
+    // Single peer: video fills the full card height
     const renderSinglePeerFull = (node) => {
         const { peer, track } = node;
         const peerId = peer?.peerID;
@@ -914,20 +1116,70 @@ const HmsRoom = ({
                         style={{ width: "100%", height: "100%" }}
                     />
                 ) : (
-                    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.4)" }}>
-                        <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.primary + "4D", alignItems: "center", justifyContent: "center" }}>
-                            <Text style={{ color: COLORS.text.primary, fontSize: 28, fontWeight: "bold" }}>
-                                {initials}
-                            </Text>
-                        </View>
-                    </View>
+                    <CameraOffAvatar initials={initials} peerName={peer?.name} size="large" />
                 )}
                 {renderPeerOverlays(peer, track, level, quality)}
             </View>
         );
     };
 
-    // Multi-peer grid tile (portrait 3:4, matches HmsPreview card style)
+    const toggleNoiseCancellation = async () => {
+        const nc = noiseCancellationRef.current;
+        if (!nc) return;
+        try {
+            const isOn = await nc.isEnabled();
+            if (isOn) { await nc.disable(); } else { await nc.enable(); }
+            setNoiseCancellationEnabled(!isOn);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        } catch (e) {
+            Logger.warn("[RTC] Noise cancellation toggle failed", { ...getLogContext(), error: e?.message });
+        }
+    };
+
+    const sendReaction = (emoji) => {
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const startX = Math.random() * 60 + 20;
+        setReactions((prev) => [...prev, { id, emoji, startX }]);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        const timeoutId = setTimeout(() => {
+            setReactions((prev) => prev.filter((r) => r.id !== id));
+            reactionTimeoutsRef.current = reactionTimeoutsRef.current.filter((t) => t !== timeoutId);
+        }, 2200);
+        reactionTimeoutsRef.current.push(timeoutId);
+    };
+
+    // Proactive connection quality warning for local peer
+    useEffect(() => {
+        const localPeerId = localPeerRef.current?.peerID;
+        if (!localPeerId) return;
+        const localQuality = networkQualities[localPeerId];
+        if (typeof localQuality !== "number") return;
+
+        let severity = null;
+        if (localQuality <= 1) severity = "error";
+        else if (localQuality <= 2) severity = "warning";
+
+        if (severity === "error") {
+            setQualityWarning({ message: "Poor connection — audio may drop", severity: "error" });
+            // Only buzz on the transition into "error", not on every fluctuation.
+            if (lastQualitySeverityRef.current !== "error") {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            }
+        } else if (severity === "warning") {
+            setQualityWarning({ message: "Weak connection", severity: "warning" });
+        } else {
+            setQualityWarning(null);
+            lastQualitySeverityRef.current = null;
+            return;
+        }
+        lastQualitySeverityRef.current = severity;
+
+        if (qualityWarningTimeoutRef.current) clearTimeout(qualityWarningTimeoutRef.current);
+        qualityWarningTimeoutRef.current = setTimeout(() => setQualityWarning(null), 5000);
+    }, [networkQualities]);
+
+    // Multi-peer grid tile (portrait 3:4)
+
     const renderTile = ({ item }) => {
         const { peer, track } = item;
         const peerId = peer?.peerID;
@@ -935,18 +1187,25 @@ const HmsRoom = ({
         const isSpeaking = level > SPEAKING_LEVEL_THRESHOLD;
         const quality = networkQualities[peerId];
         const showVideo = enableVideo && HmsView && track?.trackId && !track.isMute?.();
-        const initials = peer?.name ? peer.name.split(" ").map((part) => part[0]).join("") : "P";
+        const initials = peer?.name?.trim()
+            ? peer.name.trim().split(" ").filter(Boolean).map((part) => part[0]).join("").slice(0, 2)
+            : "P";
 
         return (
-            <View style={{ width: "50%", padding: 3 }}>
+            <View style={{ width: "100%", padding: 3 }}>
                 <View
                     style={{
                         borderWidth: 2,
-                        borderColor: isSpeaking ? SUCCESS_COLOR : "transparent",
+                        borderColor: isSpeaking ? getPeerAccentColor(peer?.name) : "transparent",
                         borderRadius: 16,
                         overflow: "hidden",
                         aspectRatio: 3 / 4,
                         backgroundColor: "rgba(0,0,0,0.4)",
+                        shadowColor: isSpeaking ? getPeerAccentColor(peer?.name) : "transparent",
+                        shadowOffset: { width: 0, height: 0 },
+                        shadowOpacity: isSpeaking ? 0.5 : 0,
+                        shadowRadius: isSpeaking ? 10 : 0,
+                        elevation: isSpeaking ? 4 : 0,
                     }}
                 >
                     {showVideo ? (
@@ -956,13 +1215,7 @@ const HmsRoom = ({
                             style={{ width: "100%", height: "100%" }}
                         />
                     ) : (
-                        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.primary + "4D", alignItems: "center", justifyContent: "center" }}>
-                                <Text style={{ color: COLORS.text.primary, fontSize: 20, fontWeight: "bold" }}>
-                                    {initials}
-                                </Text>
-                            </View>
-                        </View>
+                        <CameraOffAvatar initials={initials} peerName={peer?.name} size="small" />
                     )}
                     {renderPeerOverlays(peer, track, level, quality)}
                 </View>
@@ -1071,14 +1324,22 @@ const HmsRoom = ({
                     renderSinglePeerFull(peerNodes[0])
                 ) : (
                     <FlatList
-                        key="cols-2"
                         data={peerNodes}
                         keyExtractor={(item) => item.id}
-                        renderItem={renderTile}
                         numColumns={2}
                         showsVerticalScrollIndicator={false}
                         style={{ flex: 1 }}
                         contentContainerStyle={{ padding: 3, paddingBottom: 8 }}
+                        renderItem={({ item }) => (
+                            <Animated.View
+                                entering={FadeIn.duration(300)}
+                                exiting={FadeOut.duration(200)}
+                                layout={Layout.springify()}
+                                style={{ width: "50%" }}
+                            >
+                                {renderTile({ item })}
+                            </Animated.View>
+                        )}
                     />
                 )}
 
@@ -1089,6 +1350,59 @@ const HmsRoom = ({
                         <Text style={{ color: "#fff", fontSize: 14 }} numberOfLines={2}>{caption.text}</Text>
                     </View>
                 )}
+            </View>
+
+            {/* Floating emoji reactions layer */}
+            <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: 0 }}>
+                {reactions.map((r) => (
+                    <FloatingReaction key={r.id} emoji={r.emoji} startX={r.startX} />
+                ))}
+            </View>
+
+            {/* Connection quality warning toast */}
+            {qualityWarning && (
+                <View
+                    style={{
+                        backgroundColor: qualityWarning.severity === "error" ? "rgba(239,68,68,0.15)" : "rgba(245,158,11,0.15)",
+                        borderRadius: 10,
+                        paddingVertical: 8,
+                        paddingHorizontal: 12,
+                        marginBottom: 8,
+                        flexDirection: "row",
+                        alignItems: "center",
+                    }}
+                >
+                    <Ionicons
+                        name="warning"
+                        size={16}
+                        color={qualityWarning.severity === "error" ? COLORS.error : COLORS.warning}
+                    />
+                    <Text
+                        style={{
+                            color: qualityWarning.severity === "error" ? COLORS.error : COLORS.warning,
+                            fontSize: 13,
+                            fontWeight: "600",
+                            marginLeft: 8,
+                        }}
+                    >
+                        {qualityWarning.message}
+                    </Text>
+                </View>
+            )}
+
+            {/* Emoji reaction bar */}
+            <View style={{ flexDirection: "row", justifyContent: "center", paddingVertical: 6 }}>
+                {["\ud83d\udc4d", "\ud83d\udd25", "\u2764\ufe0f", "\ud83d\ude02", "\ud83d\udc4f"].map((emoji) => (
+                    <TouchableOpacity
+                        key={emoji}
+                        onPress={() => sendReaction(emoji)}
+                        style={{ marginHorizontal: 8, padding: 4 }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Send ${emoji} reaction`}
+                    >
+                        <Text style={{ fontSize: 22 }}>{emoji}</Text>
+                    </TouchableOpacity>
+                ))}
             </View>
 
             {/* Controls — same style as HmsPreview (w-11 h-11, gap-16, bg-background) */}
@@ -1121,6 +1435,21 @@ const HmsRoom = ({
                         accessibilityLabel="Switch camera"
                     >
                         <Ionicons name="camera-reverse" size={20} color={COLORS.text.primary} />
+                    </TouchableOpacity>
+                )}
+
+                {noiseCancellationAvailable && (
+                    <TouchableOpacity
+                        onPress={toggleNoiseCancellation}
+                        className="w-11 h-11 items-center justify-center rounded-full bg-background"
+                        accessibilityRole="button"
+                        accessibilityLabel={noiseCancellationEnabled ? "Turn off noise cancellation" : "Turn on noise cancellation"}
+                    >
+                        <Ionicons
+                            name={noiseCancellationEnabled ? "ear" : "ear-outline"}
+                            size={20}
+                            color={noiseCancellationEnabled ? COLORS.primary : COLORS.text.primary}
+                        />
                     </TouchableOpacity>
                 )}
 
